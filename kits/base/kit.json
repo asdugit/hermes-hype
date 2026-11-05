@@ -1,0 +1,15 @@
+{
+  "name": "base",
+  "version": 1,
+  "entry": "kit.js",
+  "describe": "Style-neutral DOM scenes for all 15 storyboard scene types, re-skinnable with theme tokens.",
+  "requires": [],
+  "scenes": ["HOOK", "TITLE", "PROBLEM", "PLAN", "CODE", "DIFF", "TERMINAL", "MONTAGE", "SCREEN", "STATS",
+             "BEFORE_AFTER", "CALLOUT", "END", "FEATURE", "SCROLL"],
+  "fonts": [
+    {"family": "Geist", "src": "fonts/Geist-Variable.ttf", "weight": "100 900", "style": "normal"},
+    {"family": "Geist Mono", "src": "fonts/GeistMono-Variable.ttf", "weight": "100 900", "style": "normal"},
+    {"family": "Instrument Serif", "src": "fonts/InstrumentSerif-Italic.ttf", "weight": "400", "style": "italic"}
+  ],
+  "licenses": ["fonts/OFL-Geist.txt", "fonts/OFL-GeistMono.txt", "fonts/OFL-InstrumentSerif.txt"]
+}

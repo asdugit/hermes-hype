@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Focusfox</title>
+<!-- Synthetic product pages for kit tests (fictional apps "Focusfox" and "Tally"); captured once into
+     tests/kits/fixtures/media/*.png by tests/kits/make_media.py. Not shipped. -->
+<style>
+@font-face { font-family: "Geist"; src: url("fonts/Geist-Variable.ttf"); font-weight: 100 900; }
+@font-face { font-family: "Geist Mono"; src: url("fonts/GeistMono-Variable.ttf"); font-weight: 100 900; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: Geist, sans-serif; background: #FBF7F2; color: #2B1D14; width: 1440px; }
+.dark { background: #15110E; color: #F4EBE2; }
+header { display: flex; align-items: center; gap: 14px; padding: 26px 56px; border-bottom: 1px solid rgba(43,29,20,.08); }
+.dark header { border-color: rgba(255,255,255,.08); }
+.logo { width: 38px; height: 38px; border-radius: 11px; background: #F2662B; display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 20px; }
+.brand { font-weight: 650; font-size: 22px; letter-spacing: -0.02em; }
+nav { margin-left: auto; display: flex; gap: 30px; font-size: 16px; opacity: .7; }
+.toggle { margin-left: 30px; width: 58px; height: 32px; border-radius: 99px; background: rgba(43,29,20,.12); position: relative; }
+.toggle i { position: absolute; top: 4px; left: 4px; width: 24px; height: 24px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25); }
+.dark .toggle { background: #F2662B; } .dark .toggle i { left: 30px; }
+main { display: grid; grid-template-columns: 1.25fr 1fr; gap: 40px; padding: 48px 56px; }
+.card { background: #fff; border-radius: 24px; padding: 40px; box-shadow: 0 1px 0 rgba(43,29,20,.05), 0 12px 40px rgba(43,29,20,.07); }
+.dark .card { background: #201A16; box-shadow: none; border: 1px solid rgba(255,255,255,.06); }
+.modes { display: flex; gap: 10px; }
+.mode { padding: 10px 18px; border-radius: 99px; font-size: 15px; font-weight: 550; background: rgba(43,29,20,.06); }
+.mode.on { background: #F2662B; color: #fff; }
+.dark .mode { background: rgba(255,255,255,.07); } .dark .mode.on { background: #F2662B; }
+.ring { width: 360px; height: 360px; margin: 40px auto 30px; border-radius: 50%; display: grid; place-items: center;
+  background: conic-gradient(#F2662B 0 62%, rgba(242,102,43,.14) 62% 100%); position: relative; }
+.ring::before { content: ""; position: absolute; inset: 18px; border-radius: 50%; background: #fff; }
+.dark .ring::before { background: #201A16; }
+.time { position: relative; font-family: "Geist Mono"; font-size: 84px; font-weight: 500; letter-spacing: -0.04em; }
+.sub { position: relative; font-size: 15px; opacity: .55; text-align: center; margin-top: -6px; }
+.btns { display: flex; gap: 14px; justify-content: center; }
+.btn { padding: 16px 34px; border-radius: 14px; font-weight: 600; font-size: 18px; background: #2B1D14; color: #fff; }
+.btn.ghost { background: transparent; color: inherit; box-shadow: inset 0 0 0 1.5px rgba(43,29,20,.18); }
+.dark .btn { background: #F2662B; } .dark .btn.ghost { box-shadow: inset 0 0 0 1.5px rgba(255,255,255,.2); background: transparent; }
+h3 { font-size: 20px; letter-spacing: -0.01em; margin-bottom: 18px; display: flex; justify-content: space-between; }
+h3 span { font-size: 14px; opacity: .5; font-weight: 500; }
+.task { display: flex; align-items: center; gap: 14px; padding: 16px 0; border-bottom: 1px solid rgba(43,29,20,.07); font-size: 17px; }
+.dark .task { border-color: rgba(255,255,255,.07); }
+.cb { width: 22px; height: 22px; border-radius: 7px; box-shadow: inset 0 0 0 2px rgba(43,29,20,.25); flex: none; }
+.dark .cb { box-shadow: inset 0 0 0 2px rgba(255,255,255,.25); }
+.task.done { opacity: .45; text-decoration: line-through; } .task.done .cb { background: #F2662B; box-shadow: none; }
+.pom { margin-left: auto; font-family: "Geist Mono"; font-size: 14px; opacity: .55; }
+.add { margin-top: 18px; padding: 14px 16px; border-radius: 12px; background: rgba(43,29,20,.05); font-size: 16px; opacity: .6; }
+.dark .add { background: rgba(255,255,255,.05); }
+.section { padding: 10px 56px 48px; }
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; }
+.stat b { display: block; font-size: 44px; letter-spacing: -0.03em; margin-top: 8px; }
+.stat { font-size: 15px; opacity: .8; }
+.bars { display: flex; align-items: flex-end; gap: 14px; height: 200px; margin-top: 26px; }
+.bars i { flex: 1; background: #F2662B; border-radius: 8px 8px 3px 3px; opacity: .85; }
+.settings .row { display: flex; justify-content: space-between; padding: 20px 0; border-bottom: 1px solid rgba(43,29,20,.07); font-size: 17px; }
+footer { padding: 50px 56px 70px; font-size: 15px; opacity: .5; display: flex; justify-content: space-between; }
+/* Tally report */
+.tally { background: #F7F8FA; color: #111827; width: 1280px; }
+.tally header { background: #fff; }
+.tally .logo { background: #1F6FEB; }
+.tally h1 { font-size: 34px; letter-spacing: -0.02em; padding: 36px 56px 6px; }
+.tally .lead { padding: 0 56px 26px; opacity: .6; font-size: 17px; }
+table { margin: 0 56px; width: calc(100% - 112px); border-collapse: collapse; background: #fff; border-radius: 16px; overflow: hidden; box-shadow: 0 8px 30px rgba(17,24,39,.06); }
+th, td { text-align: right; padding: 18px 26px; font-size: 18px; font-family: "Geist Mono"; }
+th { font-family: Geist; font-weight: 600; font-size: 15px; text-transform: uppercase; letter-spacing: .06em; opacity: .55; background: #FAFBFC; }
+td:first-child, th:first-child { text-align: left; }
+tr + tr td { border-top: 1px solid #EEF0F3; }
+td.tot { font-weight: 650; }
+.chart { display: flex; gap: 22px; padding: 30px 56px; }
+.chart .card { flex: 1; padding: 26px; border-radius: 16px; }
+.hbar { height: 16px; border-radius: 8px; background: #1F6FEB; margin: 10px 0 18px; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+const v = new URLSearchParams(location.search).get('v') || 'home';
+const app = document.getElementById('app');
+const focus = (dark, full) => `
+<div class="${dark ? 'dark' : ''}" style="min-height:900px">
+<header><div class="logo">F</div><div class="brand">Focusfox</div>
+<nav><span>Timer</span><span>Tasks</span><span>Stats</span><span>Settings</span></nav><div class="toggle"><i></i></div></header>
+<main>
+ <div class="card"><div class="modes"><span class="mode on">Focus 25</span><span class="mode">Break 5</span><span class="mode">Long 15</span></div>
+  <div class="ring"><div><div class="time">15:32</div><div class="sub">Session 3 of 4</div></div></div>
+  <div class="btns"><span class="btn">Pause</span><span class="btn ghost">Reset</span></div></div>
+ <div class="card"><h3>Today's tasks <span>3 of 5 done</span></h3>
+  <div class="task done"><span class="cb"></span>Write the release notes<span class="pom">2 ●</span></div>
+  <div class="task done"><span class="cb"></span>Review the landing copy<span class="pom">1 ●</span></div>
+  <div class="task done"><span class="cb"></span>Fix the chime volume<span class="pom">1 ●</span></div>
+  <div class="task"><span class="cb"></span>Record the demo video<span class="pom">0 ●</span></div>
+  <div class="task"><span class="cb"></span>Plan next sprint<span class="pom">0 ●</span></div>
+  <div class="add">+ Add a task</div></div>
+</main>
+${full ? `<div class="section"><div class="card"><h3>This week <span>focus minutes</span></h3>
+  <div class="stats"><div class="stat">Focus time<b>11 h 40</b></div><div class="stat">Sessions<b>28</b></div><div class="stat">Tasks done<b>19</b></div><div class="stat">Streak<b>6 days</b></div></div>
+  <div class="bars"><i style="height:52%"></i><i style="height:78%"></i><i style="height:64%"></i><i style="height:91%"></i><i style="height:70%"></i><i style="height:38%"></i><i style="height:22%"></i></div></div></div>
+ <div class="section"><div class="card settings"><h3>Settings <span>saved locally</span></h3>
+  <div class="row"><span>Focus length</span><span>25 min</span></div><div class="row"><span>Break length</span><span>5 min</span></div>
+  <div class="row"><span>Chime when a session ends</span><span>On</span></div><div class="row"><span>Dark mode</span><span>Follow system</span></div></div></div>
+ <footer><span>Focusfox · a minimal pomodoro timer</span><span>v1.0</span></footer>` : ''}
+</div>`;
+const tally = () => `<div class="tally" style="min-height:800px">
+<header><div class="logo">T</div><div class="brand">Tally</div><nav><span>Summary</span><span>Categories</span><span>Export</span></nav></header>
+<h1>Monthly spending</h1><div class="lead">3 statements · 412 transactions · refunds netted against purchases</div>
+<table><tr><th>Month</th><th>Groceries</th><th>Transport</th><th>Dining</th><th>Total</th></tr>
+<tr><td>2026-07</td><td>412.80</td><td>96.00</td><td>151.25</td><td class="tot">660.05</td></tr>
+<tr><td>2026-08</td><td>389.15</td><td>112.40</td><td>98.70</td><td class="tot">600.25</td></tr>
+<tr><td>2026-09</td><td>401.60</td><td>88.00</td><td>175.10</td><td class="tot">664.70</td></tr></table>
+<div class="chart"><div class="card"><b>Groceries</b><div class="hbar" style="width:92%"></div><b>Dining</b><div class="hbar" style="width:48%"></div><b>Transport</b><div class="hbar" style="width:26%"></div></div></div></div>`;
+app.innerHTML = v === 'tally' ? tally() : focus(v === 'dark', v === 'full');
+window.__sr = { ready: document.fonts.ready.then(() => document.fonts.load('500 20px Geist')), dur: 1, fps: 30, w: 0, h: 0, seek: async () => {} };
+</script>
+</body>
+</html>
