@@ -285,7 +285,7 @@ def mix(out_path: str | Path, duration: float, *, music: Path | None, voices: Se
     if mode == "gain+limiter":
         # the limiter shaves a little loudness: measure once and re-apply with the correction
         got = measure_loudness(out, exe)["lufs_i"]
-        if abs(got - s.target_lufs) > 0.25 and got > -70:
+        if abs(got - s.target_lufs) > 0.1 and got > -70:
             gain += s.target_lufs - got
             chain = re.sub(r"^volume=[^,]+", f"volume={_f(gain)}dB", chain)
             apply(chain)
