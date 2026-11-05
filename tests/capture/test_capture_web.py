@@ -155,3 +155,15 @@ def test_crops_only_plan_for_on_demand_director_requests(tmp_path, site_server):
                                  features=["Instant search", {"selector": "#pricing .plan.pro", "label": "Pro plan"}])
     assert [(e.data["kind"], e.data["label"]) for e in rep.events] == [("element", "Instant search"),
                                                                         ("element", "Pro plan")]
+
+
+def test_app_shell_inner_scroller_is_scrolled_and_flagged(tmp_path, site_server):
+    rep = capture_product_report(Product(urls=[site_server.url + "shell.html"]), [], tmp_path / "cap", budget_s=40,
+                                 web_plan=WebPlan(mobile=None, desktop=((1440, 900),)))
+    [web] = rep.web
+    assert web.meta["inner_scroller"] and any("app-shell" in w for w in web.warnings)
+    colours = []
+    for e in by_kind(rep, "interaction"):
+        with Image.open(e.data["path"]) as im:
+            colours.append(im.convert("RGB").getpixel((900, 450)))
+    assert len(colours) == 3 and len(set(colours)) == 3, colours     # 33 / 66 / 100 % show different blocks

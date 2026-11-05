@@ -115,7 +115,20 @@ const cta = () => {
   }
   return best;
 };
-window.__srcap = {vis, norm, pageRect, boxy, expand, byText, find, features, mark, toHex, cta, solid};
+const scroller = () => {
+  const d = document.scrollingElement || document.documentElement;
+  if (d.scrollHeight > innerHeight + 50) return d;
+  let best = null, area = 0, n = 0;
+  for (const el of document.querySelectorAll('body *')) {
+    if (++n > 5000) break;
+    if (el.scrollHeight <= el.clientHeight + 200) continue;
+    if (!/(auto|scroll)/.test(getComputedStyle(el).overflowY)) continue;
+    const r = el.getBoundingClientRect(), a = r.width * r.height;
+    if (a > area && a > innerWidth * innerHeight * 0.3) { best = el; area = a; }
+  }
+  return best || d;
+};
+window.__srcap = {vis, norm, pageRect, boxy, expand, byText, find, features, mark, toHex, cta, solid, scroller};
 return true;
 })()"""
 
@@ -132,7 +145,9 @@ const theme = document.querySelector('meta[name="theme-color" i]:not([media]), m
 const desc = document.querySelector('meta[name="description" i], meta[property="og:description" i]');
 const link = [...document.querySelectorAll('a[href]')].find(S.vis);
 const b = S.cta();
-const H = Math.max(document.documentElement.scrollHeight, document.body ? document.body.scrollHeight : 0);
+const sc = S.scroller();
+const inner = sc !== (document.scrollingElement || document.documentElement);
+const H = inner ? sc.scrollHeight : Math.max(document.documentElement.scrollHeight, document.body ? document.body.scrollHeight : 0);
 const bodyBg = getComputedStyle(document.body || document.documentElement).backgroundColor;
 const htmlBg = getComputedStyle(document.documentElement).backgroundColor;
 return {title: document.title || '', lang: document.documentElement.lang || '',
@@ -143,7 +158,7 @@ return {title: document.title || '', lang: document.documentElement.lang || '',
         cta_selector: b ? S.mark(b) : '',
         link_color: link ? S.toHex(getComputedStyle(link).color) : null,
         background: S.toHex(S.solid(bodyBg) ? bodyBg : htmlBg) || null,
-        scroll_height: H, width: innerWidth, height: innerHeight, url: location.href,
+        scroll_height: H, inner_scroller: inner ? S.mark(sc) : '', width: innerWidth, height: innerHeight, url: location.href,
         text_chars: (document.body && document.body.innerText || '').trim().length,
         media: [...document.querySelectorAll('img,canvas,svg,video')].filter(S.vis).length};
 })())"""
@@ -257,9 +272,9 @@ def scroll_into_view(selector: str) -> str:
 
 
 def scroll_to(y: float, fraction: bool) -> str:
-    target = (f"Math.round({y} * Math.max(0, Math.max(document.documentElement.scrollHeight,"
-              " document.body ? document.body.scrollHeight : 0) - innerHeight))") if fraction else str(int(y))
-    return f"(() => {{ window.scrollTo(0, {target}); return scrollY; }})()"
+    """Scroll the page - or its main inner scroll container (app shells) - to px ``y`` or a fraction."""
+    target = f"Math.round({float(y)} * Math.max(0, s.scrollHeight - s.clientHeight))" if fraction else str(int(y))
+    return f"({HELPERS_JS}, (() => {{ const s = window.__srcap.scroller(); s.scrollTop = {target}; return s.scrollTop; }})())"
 
 
 def type_into(selector: str, text: str) -> str:

@@ -312,6 +312,9 @@ class _WebJob:
     # ------------------------------------------------------------------ full page
     async def full(self, page: CapturePage, *, mobile: bool = False) -> None:
         cap = int(self.plan.mobile_full_screens * page.h) if mobile else self.plan.full_page_max_h
+        if self.r.meta.get("inner_scroller") and not mobile:
+            self.r.warnings.append("the page scrolls inside an app-shell container; the full-page capture shows "
+                                   "one screen (scroll stills cover the rest)")
         t0 = time.monotonic()
         dims = await page.eval(pagejs.scroll_pass(cap), timeout=max(2.0, min(30.0, self.clock.left()))) or {}
         await self.ready(page, settle_ms=400, timeout=5)
