@@ -941,12 +941,15 @@ def _directed(run: _Run) -> list[Built] | None:
     run.store.update(run.job_id, title=run.title, director={k: v for k, v in res.items() if k not in ("film", "log")})
     run.rep.stage("layout", "building the film")
     director_dir = Path(res.get("job_dir") or run.job_dir)
-    if (director_dir / "stage.html").is_file() and (director_dir / "film.json").is_file():
-        page_dir, page = director_dir, "stage.html"          # the Director already built its final page
+    built_dir = next((Path(d) for d in (res.get("page_dir"), director_dir) if d and (Path(d) / "stage.html").is_file()
+                      and (Path(d) / "film.json").is_file()), None)
+    if built_dir is not None:
+        page_dir, page = built_dir, "stage.html"          # the Director built (and dry-ran) its final page
     else:
         page_dir = run.job_dir / "page"
         page_dir.mkdir(parents=True, exist_ok=True)
-        scenes = {f"custom:{p.stem}": p for p in sorted((director_dir / "scenes").glob("*.js"))}
+        scenes = ({str(k): Path(v) for k, v in (res.get("scene_files") or {}).items()}
+                  or {f"custom:{p.stem}": p for p in sorted((director_dir / "scenes").glob("*.js"))})
         page = run.deps.build_page(film, page_dir=page_dir, job_dir=run.job_dir, assets=res.get("assets") or {},
                                    scenes=scenes)
     dur = float(film.get("dur") or run.opts.seconds)
