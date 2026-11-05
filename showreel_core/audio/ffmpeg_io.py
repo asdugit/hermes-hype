@@ -4,8 +4,6 @@ Samples are handled as interleaved ``array('f')`` (float32) buffers at 48 kHz.
 """
 from __future__ import annotations
 
-import os
-import shutil
 import struct
 import subprocess
 import sys
@@ -19,27 +17,30 @@ class AudioError(RuntimeError):
     """Raised inside the audio package; public entry points convert it into structured errors."""
 
 
-def find_ffmpeg() -> str | None:
-    """$SHOWREEL_FFMPEG / $FFMPEG_PATH -> Hermes pm-managed ffmpeg -> PATH. Never installs anything."""
-    for env in ("SHOWREEL_FFMPEG", "FFMPEG_PATH"):
-        p = os.environ.get(env)
-        if p and Path(p).is_file():
-            return p
+def _resolve() -> tuple[str | None, str]:
+    """(path, problem) from the renderer's resolver, the one ffmpeg lookup shared by every stage."""
+    from ..render.errors import RenderError
+    from ..render.ffmpeg import resolve_ffmpeg
     try:
-        import pm  # type: ignore[import-not-found]  # Hermes-only, lazy
+        return resolve_ffmpeg().path, ""
+    except RenderError as e:
+        return None, (f"{e.message}. {e.hint}" if e.hint else e.message)
 
-        inst = pm.installed_package("ffmpeg")
-        if inst and getattr(inst, "binary", None) and Path(inst.binary).is_file():
-            return str(inst.binary)
-    except Exception:  # noqa: BLE001 - Hermes absent or pm API changed: fall through to PATH
-        pass
-    return shutil.which("ffmpeg")
+
+def find_ffmpeg() -> str | None:
+    """$SHOWREEL_FFMPEG / $FFMPEG_PATH -> Hermes pm-managed ffmpeg -> PATH (``render.ffmpeg.resolve_ffmpeg``).
+
+    Never installs anything; ``None`` when nothing usable is found.
+    """
+    return _resolve()[0]
 
 
 def require_ffmpeg(ffmpeg: str | None = None) -> str:
-    exe = ffmpeg or find_ffmpeg()
+    if ffmpeg:
+        return ffmpeg
+    exe, problem = _resolve()
     if not exe:
-        raise AudioError("ffmpeg not found: run `hermes pm install ffmpeg` or set SHOWREEL_FFMPEG")
+        raise AudioError(f"ffmpeg not found: {problem or 'run `hermes pm install ffmpeg` or set SHOWREEL_FFMPEG'}")
     return exe
 
 
@@ -49,7 +50,8 @@ def run(args: list[str], *, input_bytes: bytes | None = None, timeout: float = 3
     if sys.platform == "win32":
         flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
     try:
-        cp = subprocess.run(args, input=input_bytes, capture_output=True, timeout=timeout, creationflags=flags)
+        cp = subprocess.run(args, input=input_bytes, capture_output=True, timeout=timeout, creationflags=flags,
+                            check=False)
     except (OSError, subprocess.TimeoutExpired) as e:
         raise AudioError(f"ffmpeg failed to run: {e}") from e
     if cp.returncode != 0:
