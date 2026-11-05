@@ -27,8 +27,8 @@ export function peaks(S, list, baseY, cols, o = {}) {
 
 /** Puffy cumulus cloud (union of circles, flat base, 3 tones + white top rim). */
 export function cloud(S, x, y, w, cols = { top: 'rose', mid: 'lilac', bot: 'violet' }, seed = 1) {
-  const r = rng(seed), h = 26, circ = [], n = Math.max(2, Math.round(w / 18));
-  for (let i = 0; i < n; i++) { const u = (i + 0.5) / n, rad = (7 + r() * 5) * (1.15 - Math.abs(u - 0.5) * 0.9); circ.push([u * w, h - 6 - rad * 0.5, rad]); }
+  const r = rng(seed), h = 30, circ = [], n = Math.max(3, Math.round(w / 11));
+  for (let i = 0; i < n; i++) { const u = (i + 0.5) / n, rad = (9 + r() * 7) * (1.2 - Math.abs(u - 0.5) * 1.1); circ.push([u * w + (r() - 0.5) * 6, h - 5 - rad * 0.55 - r() * 3, rad]); }
   const B = new Sprite(Math.ceil(w), h);
   for (let yy = 0; yy < h - 3; yy++) for (let xx = 0; xx < B.w; xx++) {
     if (!circ.some(([cx, cy, cr]) => (xx - cx) ** 2 + (yy - cy) ** 2 <= cr * cr)) continue;
@@ -62,15 +62,17 @@ export function moon(S, cx, cy, r) {
 const wrapX = (x, period) => ((x % period) + period) % period;
 
 /** Dusk overworld: banded sky, sun glow, clouds, two faceted ranges, rolling hills with pines. */
-export function overworld(S, t, { camX = 0, seed = 3 } = {}) {
+export function overworld(S, t, o = {}) {
+  const camX = o.camX || 0, seed = o.seed ?? 3;
   const W = S.w, H = S.h, hz = Math.round(H * 0.62);
   S.vbands(0, 0, W, hz, ['night', 'plum', 'violet', 'lilac', 'rose', 'peach'], 4);
   S.glow(W * 0.72, hz - 6, H * 0.35, REMAP.lighter, 0.9, 0.6);
   for (let i = 0; i < 4; i++) { const cw = 60 + rand(seed, i) * 50, period = W + cw + 40;
-    cloud(S, wrapX(rand(seed, i, 1) * period - camX * 0.1 - t * (3 + i), period) - cw, H * (0.1 + 0.11 * i), cw, i < 2 ? { top: 'rose', mid: 'lilac', bot: 'violet' } : { top: 'peach', mid: 'rose', bot: 'lilac' }, seed + i); }
+    cloud(S, wrapX(rand(seed, i, 1) * period - camX * 0.1 - t * (3 + i), period) - cw, H * (o.cloudY ?? 0.36) + H * 0.045 * i, cw, i < 2 ? { top: 'rose', mid: 'lilac', bot: 'violet' } : { top: 'peach', mid: 'rose', bot: 'lilac' }, seed + i); }
   const far = [], near = [];
-  for (let k = -1; k < 6; k++) { const x0 = k * 120 - wrapX(camX * 0.2, 120); far.push([x0 + 60, hz - 52 - Math.round(rand(seed, k) * 18), 0.75, 0.8]); }
-  for (let k = -1; k < 8; k++) { const x0 = k * 90 - wrapX(camX * 0.4, 90); near.push([x0 + 45, hz - 30 - Math.round(rand(seed + 5, k) * 14), 0.9, 1.0]); }
+  const kf = Math.floor(camX * 0.2 / 120), kn = Math.floor(camX * 0.4 / 90);
+  for (let k = kf - 1; k < kf + 6; k++) { const x0 = k * 120 - Math.round(camX * 0.2); far.push([x0 + 30 + Math.round(rand(seed, k, 2) * 60), hz - 34 - Math.round(rand(seed, k) * 40), 0.6 + rand(seed, k, 3) * 0.4, 0.65 + rand(seed, k, 4) * 0.4]); }
+  for (let k = kn - 1; k < kn + 8; k++) { const x0 = k * 90 - Math.round(camX * 0.4); near.push([x0 + 20 + Math.round(rand(seed + 5, k, 2) * 50), hz - 16 - Math.round(rand(seed + 5, k) * 30), 0.8 + rand(seed + 5, k, 3) * 0.5, 0.9 + rand(seed + 5, k, 4) * 0.5]); }
   peaks(S, far, hz + 4, { lit: 'lilac', dark: 'violet', rim: 'rose' }, { snow: 6, seed });
   peaks(S, near, hz + 10, { lit: 'violet', dark: 'plum', rim: 'lilac' }, { seed: seed + 1 });
   // hills

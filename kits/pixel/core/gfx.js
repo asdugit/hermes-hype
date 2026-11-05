@@ -44,6 +44,12 @@ export class Sprite {
   solid(c) { const o = this.clone(), k = ci(c); for (let i = 0; i < o.d.length; i++) if (o.d[i] !== NONE) o.d[i] = k; return o; }
   /** Integer upscale (k >= 1). */
   scaled(k) { const o = new Sprite(this.w * k, this.h * k); for (let y = 0; y < o.h; y++) for (let x = 0; x < o.w; x++) o.d[y * o.w + x] = this.d[((y / k) | 0) * this.w + ((x / k) | 0)]; return o; }
+  /** Bounding box of opaque pixels {x, y, w, h} (null when empty) — place cutouts by their real feet. */
+  bounds() {
+    let x0 = this.w, y0 = this.h, x1 = -1, y1 = -1;
+    for (let y = 0; y < this.h; y++) for (let x = 0; x < this.w; x++) if (this.d[y * this.w + x] !== NONE) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+    return x1 < 0 ? null : { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };
+  }
   /** Paste another sprite into this one at (x, y). */
   paste(s, x, y) { for (let j = 0; j < s.h; j++) for (let i = 0; i < s.w; i++) { const c = s.d[j * s.w + i]; if (c !== NONE) this.set(x + i, y + j, c); } return this; }
 }

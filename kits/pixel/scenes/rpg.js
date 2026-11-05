@@ -44,6 +44,15 @@ function shine(S, box, u) {
   }
 }
 
+/** Stepped stone podium with a gold trim; top surface at y = top, centred on cx. */
+export function podium(S, cx, top, w) {
+  const x = Math.round(cx - w / 2);
+  S.rect(x, top, w, 4, 'silver'); S.rect(x, top, w, 1, 'white'); S.rect(x, top + 4, w, 1, 'gold'); S.rect(x, top + 5, w, 1, 'amber');
+  S.rect(x + 6, top + 6, w - 12, 6, 'grey'); S.rect(x + 6, top + 6, w - 12, 1, 'silver'); S.rect(x + 6, top + 11, w - 12, 1, 'greydk');
+  S.rect(x - 4, top + 12, w + 8, 4, 'grey'); S.rect(x - 4, top + 12, w + 8, 1, 'silver'); S.rect(x - 4, top + 15, w + 8, 1, 'ink');
+  for (let k = x + 12; k < x + w - 12; k += 16) S.rect(k, top + 7, 1, 4, 'greydk');
+}
+
 // ---------------------------------------------------------------------------------------------- title-screen
 const TITLE_P = {
   title: { type: 'string', default: '', doc: 'logo text (default: film title)' },
@@ -74,18 +83,20 @@ function titleRender(ctx, t, p) {
     lines.forEach((ln, i) => { const k = Math.max(0, Math.min(ln.length, left)); left -= ln.length + 1; if (k) sy(ln, ctx.w / 2, y + i * 14, { font: 'mono', color: 'white', outline: 'ink', diag: true, align: 'center', chars: k }); });
     y += lines.length * 14 + 4;
   }
-  const art = productArt(ctx, P, V ? 200 : 168, V ? 112 : 70, tq);
-  const groundY = V ? I.B - 70 : I.B - 34;
+  const art = productArt(ctx, P, V ? 236 : 240, V ? 132 : 100, tq);
+  const groundY = V ? I.B - 70 : I.B - 46;
+  podium(S, ctx.w / 2, groundY, V ? 92 : 112);
   if (art) {
-    const ax = Math.round(ctx.w / 2 - art.w / 2), ay = Math.round(Math.max(y + 4, groundY - art.h - 6) + Math.round(Math.sin(tq * 3) * 1.5));
-    S.ellipse(ctx.w / 2, groundY - 2, art.w * 0.42, 4, 'ink', 0.6);
-    S.blit(art, ax, ay);
-    if (Math.floor(tq * 2) % 3 === 0) sparkle(S, ax + art.w * 0.8, ay + 6, 1);
+    const bb = art.bounds() || { x: 0, y: 0, w: art.w, h: art.h };
+    const ax = Math.round(ctx.w / 2 - bb.x - bb.w / 2), ay = Math.round(groundY - bb.y - bb.h + 1 - Math.max(0, Math.round(Math.sin(tq * 3) * 1.5)));
+    S.ellipse(ctx.w / 2, groundY, bb.w * 0.4, 3, 'ink', 0.7);
+    S.blit(art, ax, Math.max(y + 2 - bb.y, ay));
+    if (Math.floor(tq * 2) % 3 === 0) sparkle(S, ax + bb.x + bb.w * 0.8, ay + bb.y + 4, 1);
   } else {
     (P.party || []).slice(0, 3).forEach((id, i) => { const x = ctx.w / 2 + (i - 1) * 26; S.blit(idleCel(id, tq, i * 0.5), x - HERO_ANCHOR.x, groundY - HERO_ANCHOR.y); });
   }
-  if (P.press && tq > 1.6) pressStart(S, ctx.w / 2, groundY + (V ? 24 : 8), tq - 1.6, { text: P.press, say: sy });
-  if (P.footer) sy(fit(P.footer, I.R - I.L, 'tiny'), ctx.w / 2, I.B - 9, { font: 'tiny', color: 'silver', align: 'center', shadow: [1, 1, 'ink'] });
+  if (P.press && tq > 1.6) pressStart(S, ctx.w / 2, groundY + (V ? 30 : 20), tq - 1.6, { text: P.press, say: sy, period: 0.9 });
+  if (P.footer) sy(fit(P.footer, I.R - I.L, 'tiny'), ctx.w / 2, I.B - 11, { font: 'tiny', color: 'silver', align: 'center', shadow: [1, 1, 'ink'] });
   fade(S, 4 - Math.floor(seg(tq, 0, 0.4) * 4.999));
   present(ctx, S);
 }
