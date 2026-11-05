@@ -39,9 +39,10 @@ def make_site(dest: Path) -> Path:
 
 class FixtureServer:
     """A stand-in for the user's dev server: serves a folder at ``/``, logs every request,
-    answers POST/PUT/DELETE with 200 (so a leaked write would be visible), optional delay."""
+    answers POST/PUT/DELETE with 200 (so a leaked write would be visible), optional delay
+    (``delay_s`` for paths starting with ``delay_prefix``)."""
 
-    def __init__(self, root: Path, *, delay_s: float = 0.0, redirect_to: str = "") -> None:
+    def __init__(self, root: Path, *, delay_s: float = 0.0, delay_prefix: str = "", redirect_to: str = "") -> None:
         self.root = root
         self.log: list[tuple[str, str]] = []
         log, delay, redirect = self.log, delay_s, redirect_to
@@ -52,7 +53,7 @@ class FixtureServer:
 
             def _record(self) -> None:
                 log.append((self.command, self.path))
-                if delay:
+                if delay and self.path.startswith(delay_prefix):
                     time.sleep(delay)
 
             def do_GET(self) -> None:

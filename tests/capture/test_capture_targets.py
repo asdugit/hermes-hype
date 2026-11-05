@@ -49,7 +49,8 @@ def test_parse_url_normalises():
     q = parse_url("http://localhost:5173/#/dashboard")
     assert q and q.path == "/#/dashboard" and q.key == "http://loopback:5173/#/dashboard"
     assert parse_url("http://[::1]:8080/x?y=1").netloc == "[::1]:8080"
-    assert parse_url("https://site.example/").port == 443 and parse_url("https://site.example/").netloc == "site.example"
+    site = parse_url("https://site.example/")
+    assert site and site.port == 443 and site.netloc == "site.example"
     assert parse_url("ftp://x/") is None and parse_url("not a url") is None
     assert parse_url("http://localhost:3000/").key == parse_url("http://127.0.0.1:3000").key
 
