@@ -1,0 +1,190 @@
+{
+ "style": "cinematic",
+ "beds": [
+  {
+   "id": "cinematic_a",
+   "style": "cinematic",
+   "title": "Evidence",
+   "file": "cinematic_a.ogg",
+   "sr": 48000,
+   "bpm": 72.0,
+   "beats_per_bar": 4,
+   "bar_s": 3.333333,
+   "key": "D minor",
+   "total_bars": 19,
+   "tail_s": 7.0,
+   "duration_s": 70.333,
+   "drop_bar": 8,
+   "end_bar": 18,
+   "sections": [
+    {
+     "name": "intro",
+     "start_bar": 0,
+     "bars": 2,
+     "energy": 0.25
+    },
+    {
+     "name": "A",
+     "start_bar": 2,
+     "bars": 4,
+     "energy": 0.45
+    },
+    {
+     "name": "build",
+     "start_bar": 6,
+     "bars": 2,
+     "energy": 0.7
+    },
+    {
+     "name": "drop",
+     "start_bar": 8,
+     "bars": 4,
+     "energy": 1.0
+    },
+    {
+     "name": "B",
+     "start_bar": 12,
+     "bars": 4,
+     "energy": 0.75
+    },
+    {
+     "name": "outro",
+     "start_bar": 16,
+     "bars": 2,
+     "energy": 0.4
+    },
+    {
+     "name": "end",
+     "start_bar": 18,
+     "bars": 1,
+     "energy": 0.2
+    }
+   ],
+   "loop_unit_bars": 2,
+   "lufs": -16.0,
+   "true_peak_db": -2.92,
+   "phone_band": 0.554,
+   "lr_corr": 0.884,
+   "notes": "Dark-to-bright trailer bed: drone, bowed top line, suck-out, one impact.",
+   "decoded_samples_match": true,
+   "bytes": 941514,
+   "bands": {
+    "sub": 0.037,
+    "bass": 0.294,
+    "presence": 0.004
+   },
+   "mono_fold_db": -0.31,
+   "section_lufs": {
+    "intro": -20.0,
+    "A": -16.4,
+    "build": -18.0,
+    "drop": -13.4,
+    "B": -15.6,
+    "outro": -19.2,
+    "end": -17.4
+   },
+   "lowshelf_db": 0.0,
+   "section_lift_db": {
+    "outro": 3.93
+   },
+   "render_s": {
+    "compose": 17.37,
+    "mix_master": 12.82,
+    "encode": 0.73
+   }
+  },
+  {
+   "id": "cinematic_b",
+   "style": "cinematic",
+   "title": "Horizon",
+   "file": "cinematic_b.ogg",
+   "sr": 48000,
+   "bpm": 76.0,
+   "beats_per_bar": 4,
+   "bar_s": 3.157895,
+   "key": "E major",
+   "total_bars": 19,
+   "tail_s": 7.0,
+   "duration_s": 67.0,
+   "drop_bar": 8,
+   "end_bar": 18,
+   "sections": [
+    {
+     "name": "intro",
+     "start_bar": 0,
+     "bars": 2,
+     "energy": 0.25
+    },
+    {
+     "name": "A",
+     "start_bar": 2,
+     "bars": 4,
+     "energy": 0.45
+    },
+    {
+     "name": "build",
+     "start_bar": 6,
+     "bars": 2,
+     "energy": 0.7
+    },
+    {
+     "name": "drop",
+     "start_bar": 8,
+     "bars": 4,
+     "energy": 1.0
+    },
+    {
+     "name": "B",
+     "start_bar": 12,
+     "bars": 4,
+     "energy": 0.75
+    },
+    {
+     "name": "outro",
+     "start_bar": 16,
+     "bars": 2,
+     "energy": 0.4
+    },
+    {
+     "name": "end",
+     "start_bar": 18,
+     "bars": 1,
+     "energy": 0.2
+    }
+   ],
+   "loop_unit_bars": 2,
+   "lufs": -16.0,
+   "true_peak_db": -1.9,
+   "phone_band": 0.626,
+   "lr_corr": 0.859,
+   "notes": "Warm ambient-product bed: glassy pads, felt piano, bowed line, one impact.",
+   "decoded_samples_match": true,
+   "bytes": 890214,
+   "bands": {
+    "sub": 0.041,
+    "bass": 0.247,
+    "presence": 0.005
+   },
+   "mono_fold_db": -0.37,
+   "section_lufs": {
+    "intro": -20.1,
+    "A": -16.6,
+    "build": -17.6,
+    "drop": -13.3,
+    "B": -15.9,
+    "outro": -19.5,
+    "end": -16.5
+   },
+   "lowshelf_db": 0.0,
+   "section_lift_db": {
+    "outro": 3.38
+   },
+   "render_s": {
+    "compose": 19.36,
+    "mix_master": 13.12,
+    "encode": 0.64
+   }
+  }
+ ],
+ "generator": "tools/compose (procedural, original; regenerate with python -m tools.compose --all)"
+}

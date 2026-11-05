@@ -1,0 +1,613 @@
+{
+ "version": 1,
+ "sr": 48000,
+ "lufs_target": -18.0,
+ "classes": {
+  "hero": [
+   -6.0,
+   0.0
+  ],
+  "foley": [
+   -18.0,
+   -8.0
+  ]
+ },
+ "styles": {
+  "launch": {
+   "cut": "whoosh_short",
+   "move": "whoosh_long",
+   "click": "click",
+   "type": "key",
+   "appear": "pop",
+   "pass": "chime",
+   "fail": "error",
+   "hit": "hit",
+   "hero": "impact",
+   "build": "riser",
+   "shot": "shutter"
+  },
+  "pixel": {
+   "cut": "blip",
+   "move": "power_up",
+   "click": "blip",
+   "type": "blip",
+   "appear": "coin",
+   "pass": "level_up",
+   "fail": "error",
+   "hit": "coin",
+   "hero": "level_up",
+   "build": "power_up",
+   "shot": "coin"
+  },
+  "terminal": {
+   "cut": "glitch",
+   "move": "glitch",
+   "click": "relay",
+   "type": "key",
+   "appear": "beep",
+   "pass": "beep",
+   "fail": "error",
+   "hit": "relay",
+   "hero": "sub_drop",
+   "build": "riser",
+   "shot": "shutter"
+  },
+  "blueprint": {
+   "cut": "paper",
+   "move": "paper",
+   "click": "click",
+   "type": "plotter",
+   "appear": "stamp",
+   "pass": "chime",
+   "fail": "error",
+   "hit": "stamp",
+   "hero": "hit",
+   "build": "reverse",
+   "shot": "shutter"
+  },
+  "cinematic": {
+   "cut": "whoosh_long",
+   "move": "whoosh_long",
+   "click": "click",
+   "type": "key",
+   "appear": "reverse",
+   "pass": "chime",
+   "fail": "error",
+   "hit": "hit",
+   "hero": "impact",
+   "build": "riser",
+   "shot": "shutter"
+  }
+ },
+ "sounds": {
+  "whoosh_short": {
+   "class": "foley",
+   "gain_db": -10.0,
+   "sync": "peak",
+   "tags": [
+    "transition",
+    "camera"
+   ],
+   "variants": [
+    {
+     "file": "whoosh_short_1.ogg",
+     "dur": 0.52,
+     "onset": 0.0182,
+     "peak": 0.2757,
+     "end": 0.4965,
+     "st_lufs": -18.0
+    },
+    {
+     "file": "whoosh_short_2.ogg",
+     "dur": 0.52,
+     "onset": 0.0203,
+     "peak": 0.281,
+     "end": 0.4964,
+     "st_lufs": -18.0
+    }
+   ]
+  },
+  "whoosh_long": {
+   "class": "foley",
+   "gain_db": -9.0,
+   "sync": "peak",
+   "tags": [
+    "transition",
+    "camera"
+   ],
+   "variants": [
+    {
+     "file": "whoosh_long_1.ogg",
+     "dur": 1.17,
+     "onset": 0.0162,
+     "peak": 0.6517,
+     "end": 1.1455,
+     "st_lufs": -18.0
+    },
+    {
+     "file": "whoosh_long_2.ogg",
+     "dur": 1.17,
+     "onset": 0.0375,
+     "peak": 0.6758,
+     "end": 1.1451,
+     "st_lufs": -18.0
+    }
+   ]
+  },
+  "click": {
+   "class": "foley",
+   "gain_db": -14.0,
+   "sync": "onset",
+   "tags": [
+    "ui"
+   ],
+   "variants": [
+    {
+     "file": "click_1.ogg",
+     "dur": 0.07,
+     "onset": 0.0,
+     "peak": 0.0027,
+     "end": 0.0142,
+     "st_lufs": -18.0
+    },
+    {
+     "file": "click_2.ogg",
+     "dur": 0.07,
+     "onset": 0.0,
+     "peak": 0.0026,
+     "end": 0.0143,
+     "st_lufs": -18.0
+    },
+    {
+     "file": "click_3.ogg",
+     "dur": 0.07,
+     "onset": 0.0,
+     "peak": 0.0026,
+     "end": 0.0141,
+     "st_lufs": -18.0
+    }
+   ]
+  },
+  "key": {
+   "class": "foley",
+   "gain_db": -17.0,
+   "sync": "onset",
+   "tags": [
+    "typing"
+   ],
+   "variants": [
+    {
+     "file": "key_1.ogg",
+     "dur": 0.08,
+     "onset": 0.0,
+     "peak": 0.0029,
+     "end": 0.0261,
+     "st_lufs": -18.8
+    },
+    {
+     "file": "key_2.ogg",
+     "dur": 0.08,
+     "onset": 0.0,
+     "peak": 0.0028,
+     "end": 0.0267,
+     "st_lufs": -18.2
+    },
+    {
+     "file": "key_3.ogg",
+     "dur": 0.08,
+     "onset": 0.0,
+     "peak": 0.0027,
+     "end": 0.0264,
+     "st_lufs": -20.0
+    },
+    {
+     "file": "key_4.ogg",
+     "dur": 0.08,
+     "onset": 0.0,
+     "peak": 0.0026,
+     "end": 0.027,
+     "st_lufs": -18.0
+    }
+   ]
+  },
+  "pop": {
+   "class": "foley",
+   "gain_db": -12.0,
+   "sync": "onset",
+   "tags": [
+    "ui",
+    "appear"
+   ],
+   "variants": [
+    {
+     "file": "pop_1.ogg",
+     "dur": 0.14,
+     "onset": 0.0,
+     "peak": 0.0029,
+     "end": 0.0567,
+     "st_lufs": -18.0
+    },
+    {
+     "file": "pop_2.ogg",
+     "dur": 0.14,
+     "onset": 0.0,
+     "peak": 0.0036,
+     "end": 0.0564,
+     "st_lufs": -18.0
+    }
+   ]
+  },
+  "chime": {
+   "class": "hero",
+   "gain_db": -6.0,
+   "sync": "onset",
+   "tags": [
+    "success"
+   ],
+   "variants": [
+    {
+     "file": "chime_1.ogg",
+     "dur": 2.44,
+     "onset": 0.0,
+     "peak": 0.1155,
+     "end": 1.5187,
+     "st_lufs": -18.0
+    }
+   ]
+  },
+  "error": {
+   "class": "foley",
+   "gain_db": -14.0,
+   "sync": "onset",
+   "tags": [
+    "fail"
+   ],
+   "variants": [
+    {
+     "file": "error_1.ogg",
+     "dur": 0.38,
+     "onset": 0.0004,
+     "peak": 0.0976,
+     "end": 0.3008,
+     "st_lufs": -18.0
+    }
+   ]
+  },
+  "hit": {
+   "class": "hero",
+   "gain_db": -6.0,
+   "sync": "onset",
+   "tags": [
+    "reveal",
+    "stat"
+   ],
+   "variants": [
+    {
+     "file": "hit_1.ogg",
+     "dur": 0.82,
+     "onset": 0.0,
+     "peak": 0.0062,
+     "end": 0.4881,
+     "st_lufs": -18.0
+    },
+    {
+     "file": "hit_2.ogg",
+     "dur": 0.82,
+     "onset": 0.0,
+     "peak": 0.0062,
+     "end": 0.4881,
+     "st_lufs": -18.0
+    }
+   ]
+  },
+  "impact": {
+   "class": "hero",
+   "gain_db": -3.0,
+   "sync": "onset",
+   "tags": [
+    "hero"
+   ],
+   "variants": [
+    {
+     "file": "impact_1.ogg",
+     "dur": 2.72,
+     "onset": 0.0,
+     "peak": 0.0925,
+     "end": 2.1274,
+     "st_lufs": -19.6
+    }
+   ]
+  },
+  "riser": {
+   "class": "hero",
+   "gain_db": -6.0,
+   "sync": "end",
+   "tags": [
+    "build"
+   ],
+   "variants": [
+    {
+     "file": "riser_1.ogg",
+     "dur": 2.42,
+     "onset": 1.1286,
+     "peak": 2.3542,
+     "end": 2.4,
+     "st_lufs": -18.0
+    }
+   ]
+  },
+  "reverse": {
+   "class": "hero",
+   "gain_db": -6.0,
+   "sync": "end",
+   "tags": [
+    "build"
+   ],
+   "variants": [
+    {
+     "file": "reverse_1.ogg",
+     "dur": 1.42,
+     "onset": 0.954,
+     "peak": 1.389,
+     "end": 1.4126,
+     "st_lufs": -18.0
+    }
+   ]
+  },
+  "glitch": {
+   "class": "foley",
+   "gain_db": -12.0,
+   "sync": "onset",
+   "tags": [
+    "transition",
+    "terminal"
+   ],
+   "variants": [
+    {
+     "file": "glitch_1.ogg",
+     "dur": 0.38,
+     "onset": 0.0,
+     "peak": 0.2274,
+     "end": 0.3605,
+     "st_lufs": -18.0
+    },
+    {
+     "file": "glitch_2.ogg",
+     "dur": 0.38,
+     "onset": 0.0,
+     "peak": 0.2988,
+     "end": 0.3598,
+     "st_lufs": -18.0
+    }
+   ]
+  },
+  "blip": {
+   "class": "foley",
+   "gain_db": -14.0,
+   "sync": "onset",
+   "tags": [
+    "ui",
+    "pixel"
+   ],
+   "variants": [
+    {
+     "file": "blip_1.ogg",
+     "dur": 0.09,
+     "onset": 0.0,
+     "peak": 0.0031,
+     "end": 0.0495,
+     "st_lufs": -18.0
+    },
+    {
+     "file": "blip_2.ogg",
+     "dur": 0.09,
+     "onset": 0.0,
+     "peak": 0.0031,
+     "end": 0.0498,
+     "st_lufs": -18.0
+    }
+   ]
+  },
+  "coin": {
+   "class": "foley",
+   "gain_db": -12.0,
+   "sync": "onset",
+   "tags": [
+    "pixel",
+    "stat"
+   ],
+   "variants": [
+    {
+     "file": "coin_1.ogg",
+     "dur": 0.54,
+     "onset": 0.0,
+     "peak": 0.0126,
+     "end": 0.2934,
+     "st_lufs": -18.0
+    }
+   ]
+  },
+  "power_up": {
+   "class": "foley",
+   "gain_db": -12.0,
+   "sync": "onset",
+   "tags": [
+    "pixel"
+   ],
+   "variants": [
+    {
+     "file": "power_up_1.ogg",
+     "dur": 0.72,
+     "onset": 0.0,
+     "peak": 0.0063,
+     "end": 0.7003,
+     "st_lufs": -18.0
+    }
+   ]
+  },
+  "level_up": {
+   "class": "hero",
+   "gain_db": -6.0,
+   "sync": "onset",
+   "tags": [
+    "pixel",
+    "success"
+   ],
+   "variants": [
+    {
+     "file": "level_up_1.ogg",
+     "dur": 1.37,
+     "onset": 0.0,
+     "peak": 0.4535,
+     "end": 1.0522,
+     "st_lufs": -18.0
+    }
+   ]
+  },
+  "relay": {
+   "class": "foley",
+   "gain_db": -13.0,
+   "sync": "onset",
+   "tags": [
+    "terminal"
+   ],
+   "variants": [
+    {
+     "file": "relay_1.ogg",
+     "dur": 0.18,
+     "onset": 0.0,
+     "peak": 0.003,
+     "end": 0.0937,
+     "st_lufs": -18.2
+    }
+   ]
+  },
+  "beep": {
+   "class": "foley",
+   "gain_db": -15.0,
+   "sync": "onset",
+   "tags": [
+    "terminal"
+   ],
+   "variants": [
+    {
+     "file": "beep_1.ogg",
+     "dur": 0.15,
+     "onset": 0.0,
+     "peak": 0.0064,
+     "end": 0.1257,
+     "st_lufs": -18.0
+    },
+    {
+     "file": "beep_2.ogg",
+     "dur": 0.15,
+     "onset": 0.0,
+     "peak": 0.0064,
+     "end": 0.1257,
+     "st_lufs": -18.0
+    }
+   ]
+  },
+  "plotter": {
+   "class": "foley",
+   "gain_db": -13.0,
+   "sync": "onset",
+   "tags": [
+    "blueprint",
+    "draw"
+   ],
+   "variants": [
+    {
+     "file": "plotter_1.ogg",
+     "dur": 0.92,
+     "onset": 0.0052,
+     "peak": 0.0674,
+     "end": 0.8977,
+     "st_lufs": -18.0
+    }
+   ]
+  },
+  "paper": {
+   "class": "foley",
+   "gain_db": -12.0,
+   "sync": "peak",
+   "tags": [
+    "blueprint",
+    "transition"
+   ],
+   "variants": [
+    {
+     "file": "paper_1.ogg",
+     "dur": 0.4,
+     "onset": 0.0342,
+     "peak": 0.1925,
+     "end": 0.3735,
+     "st_lufs": -18.0
+    },
+    {
+     "file": "paper_2.ogg",
+     "dur": 0.4,
+     "onset": 0.0353,
+     "peak": 0.2041,
+     "end": 0.374,
+     "st_lufs": -18.0
+    }
+   ]
+  },
+  "stamp": {
+   "class": "foley",
+   "gain_db": -10.0,
+   "sync": "onset",
+   "tags": [
+    "blueprint",
+    "reveal"
+   ],
+   "variants": [
+    {
+     "file": "stamp_1.ogg",
+     "dur": 0.19,
+     "onset": 0.0,
+     "peak": 0.0032,
+     "end": 0.0896,
+     "st_lufs": -18.0
+    }
+   ]
+  },
+  "shutter": {
+   "class": "foley",
+   "gain_db": -12.0,
+   "sync": "onset",
+   "tags": [
+    "screenshot"
+   ],
+   "variants": [
+    {
+     "file": "shutter_1.ogg",
+     "dur": 0.24,
+     "onset": 0.0,
+     "peak": 0.0031,
+     "end": 0.0739,
+     "st_lufs": -23.6
+    }
+   ]
+  },
+  "sub_drop": {
+   "class": "hero",
+   "gain_db": -4.0,
+   "sync": "onset",
+   "tags": [
+    "hero"
+   ],
+   "variants": [
+    {
+     "file": "sub_drop_1.ogg",
+     "dur": 1.72,
+     "onset": 0.0,
+     "peak": 0.0465,
+     "end": 1.134,
+     "st_lufs": -18.0
+    }
+   ]
+  }
+ }
+}

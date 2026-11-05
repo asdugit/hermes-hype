@@ -1,0 +1,188 @@
+{
+ "style": "pixel",
+ "beds": [
+  {
+   "id": "pixel_a",
+   "style": "pixel",
+   "title": "Quest Start",
+   "file": "pixel_a.ogg",
+   "sr": 48000,
+   "bpm": 150.0,
+   "beats_per_bar": 4,
+   "bar_s": 1.6,
+   "key": "C major",
+   "total_bars": 35,
+   "tail_s": 3.0,
+   "duration_s": 59.0,
+   "drop_bar": 16,
+   "end_bar": 34,
+   "sections": [
+    {
+     "name": "intro",
+     "start_bar": 0,
+     "bars": 4,
+     "energy": 0.3
+    },
+    {
+     "name": "A",
+     "start_bar": 4,
+     "bars": 8,
+     "energy": 0.55
+    },
+    {
+     "name": "build",
+     "start_bar": 12,
+     "bars": 4,
+     "energy": 0.75
+    },
+    {
+     "name": "drop",
+     "start_bar": 16,
+     "bars": 8,
+     "energy": 1.0
+    },
+    {
+     "name": "B",
+     "start_bar": 24,
+     "bars": 8,
+     "energy": 0.8
+    },
+    {
+     "name": "outro",
+     "start_bar": 32,
+     "bars": 2,
+     "energy": 0.45
+    },
+    {
+     "name": "end",
+     "start_bar": 34,
+     "bars": 1,
+     "energy": 0.2
+    }
+   ],
+   "loop_unit_bars": 2,
+   "lufs": -16.0,
+   "true_peak_db": -3.86,
+   "phone_band": 0.534,
+   "lr_corr": 0.973,
+   "notes": "Bright overworld chiptune: lead pulse switches duty per section, 30 Hz arps, octave triangle bass.",
+   "decoded_samples_match": true,
+   "bytes": 822281,
+   "bands": {
+    "sub": 0.012,
+    "bass": 0.372,
+    "presence": 0.039
+   },
+   "mono_fold_db": -0.09,
+   "section_lufs": {
+    "intro": -20.9,
+    "A": -17.4,
+    "build": -14.9,
+    "drop": -14.2,
+    "B": -16.6,
+    "outro": -19.1,
+    "end": -20.6
+   },
+   "lowshelf_db": 0.0,
+   "section_lift_db": {
+    "intro": 1.78
+   },
+   "render_s": {
+    "compose": 0.57,
+    "mix_master": 12.87,
+    "encode": 0.61
+   }
+  },
+  {
+   "id": "pixel_b",
+   "style": "pixel",
+   "title": "Boss Rush",
+   "file": "pixel_b.ogg",
+   "sr": 48000,
+   "bpm": 144.0,
+   "beats_per_bar": 4,
+   "bar_s": 1.666667,
+   "key": "A minor",
+   "total_bars": 35,
+   "tail_s": 3.0,
+   "duration_s": 61.333,
+   "drop_bar": 16,
+   "end_bar": 34,
+   "sections": [
+    {
+     "name": "intro",
+     "start_bar": 0,
+     "bars": 4,
+     "energy": 0.3
+    },
+    {
+     "name": "A",
+     "start_bar": 4,
+     "bars": 8,
+     "energy": 0.55
+    },
+    {
+     "name": "build",
+     "start_bar": 12,
+     "bars": 4,
+     "energy": 0.75
+    },
+    {
+     "name": "drop",
+     "start_bar": 16,
+     "bars": 8,
+     "energy": 1.0
+    },
+    {
+     "name": "B",
+     "start_bar": 24,
+     "bars": 8,
+     "energy": 0.8
+    },
+    {
+     "name": "outro",
+     "start_bar": 32,
+     "bars": 2,
+     "energy": 0.45
+    },
+    {
+     "name": "end",
+     "start_bar": 34,
+     "bars": 1,
+     "energy": 0.2
+    }
+   ],
+   "loop_unit_bars": 2,
+   "lufs": -16.0,
+   "true_peak_db": -4.14,
+   "phone_band": 0.639,
+   "lr_corr": 0.982,
+   "notes": "Driving minor chiptune: syncopated noise drums, echo lead, rising arps in the build.",
+   "decoded_samples_match": true,
+   "bytes": 893152,
+   "bands": {
+    "sub": 0.031,
+    "bass": 0.244,
+    "presence": 0.034
+   },
+   "mono_fold_db": -0.07,
+   "section_lufs": {
+    "intro": -19.2,
+    "A": -16.3,
+    "build": -15.5,
+    "drop": -15.4,
+    "B": -15.6,
+    "outro": -17.6,
+    "end": -18.7
+   },
+   "lowshelf_db": 0.0,
+   "section_lift_db": {},
+   "render_s": {
+    "compose": 0.65,
+    "mix_master": 7.72,
+    "encode": 0.65
+   }
+  }
+ ],
+ "generator": "tools/compose (procedural, original; regenerate with python -m tools.compose --all)"
+}

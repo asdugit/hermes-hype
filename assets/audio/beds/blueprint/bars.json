@@ -1,0 +1,190 @@
+{
+ "style": "blueprint",
+ "beds": [
+  {
+   "id": "blueprint_a",
+   "style": "blueprint",
+   "title": "Drafting Table",
+   "file": "blueprint_a.ogg",
+   "sr": 48000,
+   "bpm": 110.0,
+   "beats_per_bar": 4,
+   "bar_s": 2.181818,
+   "key": "D major",
+   "total_bars": 35,
+   "tail_s": 4.0,
+   "duration_s": 80.364,
+   "drop_bar": 16,
+   "end_bar": 34,
+   "sections": [
+    {
+     "name": "intro",
+     "start_bar": 0,
+     "bars": 4,
+     "energy": 0.3
+    },
+    {
+     "name": "A",
+     "start_bar": 4,
+     "bars": 8,
+     "energy": 0.55
+    },
+    {
+     "name": "build",
+     "start_bar": 12,
+     "bars": 4,
+     "energy": 0.75
+    },
+    {
+     "name": "drop",
+     "start_bar": 16,
+     "bars": 8,
+     "energy": 1.0
+    },
+    {
+     "name": "B",
+     "start_bar": 24,
+     "bars": 8,
+     "energy": 0.8
+    },
+    {
+     "name": "outro",
+     "start_bar": 32,
+     "bars": 2,
+     "energy": 0.45
+    },
+    {
+     "name": "end",
+     "start_bar": 34,
+     "bars": 1,
+     "energy": 0.2
+    }
+   ],
+   "loop_unit_bars": 2,
+   "lufs": -16.0,
+   "true_peak_db": -1.9,
+   "phone_band": 0.609,
+   "lr_corr": 0.945,
+   "notes": "Explainer-tech bed: 3+3+2 marimba ostinato, clock ticks, glock hook; nothing wasted.",
+   "decoded_samples_match": true,
+   "bytes": 1277527,
+   "bands": {
+    "sub": 0.022,
+    "bass": 0.368,
+    "presence": 0.005
+   },
+   "mono_fold_db": -0.17,
+   "section_lufs": {
+    "intro": -19.6,
+    "A": -16.2,
+    "build": -15.9,
+    "drop": -14.7,
+    "B": -15.8,
+    "outro": -19.3,
+    "end": -16.4
+   },
+   "lowshelf_db": 0.0,
+   "section_lift_db": {
+    "outro": 0.65
+   },
+   "render_s": {
+    "compose": 9.71,
+    "mix_master": 12.8,
+    "encode": 0.84
+   }
+  },
+  {
+   "id": "blueprint_b",
+   "style": "blueprint",
+   "title": "Precision",
+   "file": "blueprint_b.ogg",
+   "sr": 48000,
+   "bpm": 108.0,
+   "beats_per_bar": 4,
+   "bar_s": 2.222222,
+   "key": "F lydian",
+   "total_bars": 35,
+   "tail_s": 4.0,
+   "duration_s": 81.778,
+   "drop_bar": 16,
+   "end_bar": 34,
+   "sections": [
+    {
+     "name": "intro",
+     "start_bar": 0,
+     "bars": 4,
+     "energy": 0.3
+    },
+    {
+     "name": "A",
+     "start_bar": 4,
+     "bars": 8,
+     "energy": 0.55
+    },
+    {
+     "name": "build",
+     "start_bar": 12,
+     "bars": 4,
+     "energy": 0.75
+    },
+    {
+     "name": "drop",
+     "start_bar": 16,
+     "bars": 8,
+     "energy": 1.0
+    },
+    {
+     "name": "B",
+     "start_bar": 24,
+     "bars": 8,
+     "energy": 0.8
+    },
+    {
+     "name": "outro",
+     "start_bar": 32,
+     "bars": 2,
+     "energy": 0.45
+    },
+    {
+     "name": "end",
+     "start_bar": 34,
+     "bars": 1,
+     "energy": 0.2
+    }
+   ],
+   "loop_unit_bars": 2,
+   "lufs": -16.0,
+   "true_peak_db": -1.9,
+   "phone_band": 0.595,
+   "lr_corr": 0.946,
+   "notes": "Lydian mechanical bed: phased marimba pair, ratchet build, plucked chords.",
+   "decoded_samples_match": true,
+   "bytes": 1304349,
+   "bands": {
+    "sub": 0.02,
+    "bass": 0.384,
+    "presence": 0.004
+   },
+   "mono_fold_db": -0.17,
+   "section_lufs": {
+    "intro": -19.5,
+    "A": -16.2,
+    "build": -15.9,
+    "drop": -14.6,
+    "B": -15.9,
+    "outro": -19.4,
+    "end": -16.5
+   },
+   "lowshelf_db": 0.0,
+   "section_lift_db": {
+    "outro": 0.44
+   },
+   "render_s": {
+    "compose": 11.02,
+    "mix_master": 12.83,
+    "encode": 0.88
+   }
+  }
+ ],
+ "generator": "tools/compose (procedural, original; regenerate with python -m tools.compose --all)"
+}

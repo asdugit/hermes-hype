@@ -1,0 +1,191 @@
+{
+ "style": "terminal",
+ "beds": [
+  {
+   "id": "terminal_a",
+   "style": "terminal",
+   "title": "Root Shell",
+   "file": "terminal_a.ogg",
+   "sr": 48000,
+   "bpm": 110.0,
+   "beats_per_bar": 4,
+   "bar_s": 2.181818,
+   "key": "D phrygian",
+   "total_bars": 35,
+   "tail_s": 4.0,
+   "duration_s": 80.364,
+   "drop_bar": 16,
+   "end_bar": 34,
+   "sections": [
+    {
+     "name": "intro",
+     "start_bar": 0,
+     "bars": 4,
+     "energy": 0.3
+    },
+    {
+     "name": "A",
+     "start_bar": 4,
+     "bars": 8,
+     "energy": 0.55
+    },
+    {
+     "name": "build",
+     "start_bar": 12,
+     "bars": 4,
+     "energy": 0.75
+    },
+    {
+     "name": "drop",
+     "start_bar": 16,
+     "bars": 8,
+     "energy": 1.0
+    },
+    {
+     "name": "B",
+     "start_bar": 24,
+     "bars": 8,
+     "energy": 0.8
+    },
+    {
+     "name": "outro",
+     "start_bar": 32,
+     "bars": 2,
+     "energy": 0.45
+    },
+    {
+     "name": "end",
+     "start_bar": 34,
+     "bars": 1,
+     "energy": 0.2
+    }
+   ],
+   "loop_unit_bars": 2,
+   "lufs": -16.05,
+   "true_peak_db": -1.9,
+   "phone_band": 0.561,
+   "lr_corr": 0.88,
+   "notes": "Darksynth: rolling distorted bass, gated snare, square arp, saw lead.",
+   "decoded_samples_match": true,
+   "bytes": 1043468,
+   "bands": {
+    "sub": 0.066,
+    "bass": 0.322,
+    "presence": 0.049
+   },
+   "mono_fold_db": -0.34,
+   "section_lufs": {
+    "intro": -19.7,
+    "A": -17.3,
+    "build": -16.2,
+    "drop": -14.5,
+    "B": -15.2,
+    "outro": -18.7,
+    "end": -18.3
+   },
+   "lowshelf_db": -4.0,
+   "section_lift_db": {
+    "intro": 2.25,
+    "outro": 0.23
+   },
+   "render_s": {
+    "compose": 8.49,
+    "mix_master": 15.93,
+    "encode": 0.87
+   }
+  },
+  {
+   "id": "terminal_b",
+   "style": "terminal",
+   "title": "Night Build",
+   "file": "terminal_b.ogg",
+   "sr": 48000,
+   "bpm": 114.0,
+   "beats_per_bar": 4,
+   "bar_s": 2.105263,
+   "key": "C minor",
+   "total_bars": 35,
+   "tail_s": 4.0,
+   "duration_s": 77.684,
+   "drop_bar": 16,
+   "end_bar": 34,
+   "sections": [
+    {
+     "name": "intro",
+     "start_bar": 0,
+     "bars": 4,
+     "energy": 0.3
+    },
+    {
+     "name": "A",
+     "start_bar": 4,
+     "bars": 8,
+     "energy": 0.55
+    },
+    {
+     "name": "build",
+     "start_bar": 12,
+     "bars": 4,
+     "energy": 0.75
+    },
+    {
+     "name": "drop",
+     "start_bar": 16,
+     "bars": 8,
+     "energy": 1.0
+    },
+    {
+     "name": "B",
+     "start_bar": 24,
+     "bars": 8,
+     "energy": 0.8
+    },
+    {
+     "name": "outro",
+     "start_bar": 32,
+     "bars": 2,
+     "energy": 0.45
+    },
+    {
+     "name": "end",
+     "start_bar": 34,
+     "bars": 1,
+     "energy": 0.2
+    }
+   ],
+   "loop_unit_bars": 2,
+   "lufs": -16.09,
+   "true_peak_db": -1.9,
+   "phone_band": 0.558,
+   "lr_corr": 0.898,
+   "notes": "Retro-dark synthwave: four-on-floor, octave bass, wide pad, echo lead.",
+   "decoded_samples_match": true,
+   "bytes": 990815,
+   "bands": {
+    "sub": 0.066,
+    "bass": 0.323,
+    "presence": 0.043
+   },
+   "mono_fold_db": -0.3,
+   "section_lufs": {
+    "intro": -18.7,
+    "A": -17.2,
+    "build": -16.0,
+    "drop": -14.4,
+    "B": -15.8,
+    "outro": -19.1,
+    "end": -19.4
+   },
+   "lowshelf_db": -5.0,
+   "section_lift_db": {
+    "intro": 3.47
+   },
+   "render_s": {
+    "compose": 8.38,
+    "mix_master": 14.55,
+    "encode": 0.77
+   }
+  }
+ ],
+ "generator": "tools/compose (procedural, original; regenerate with python -m tools.compose --all)"
+}

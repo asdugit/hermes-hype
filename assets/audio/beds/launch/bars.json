@@ -1,0 +1,190 @@
+{
+ "style": "launch",
+ "beds": [
+  {
+   "id": "launch_a",
+   "style": "launch",
+   "title": "Keynote",
+   "file": "launch_a.ogg",
+   "sr": 48000,
+   "bpm": 124.0,
+   "beats_per_bar": 4,
+   "bar_s": 1.935484,
+   "key": "D major",
+   "total_bars": 35,
+   "tail_s": 4.5,
+   "duration_s": 72.242,
+   "drop_bar": 16,
+   "end_bar": 34,
+   "sections": [
+    {
+     "name": "intro",
+     "start_bar": 0,
+     "bars": 4,
+     "energy": 0.3
+    },
+    {
+     "name": "A",
+     "start_bar": 4,
+     "bars": 8,
+     "energy": 0.55
+    },
+    {
+     "name": "build",
+     "start_bar": 12,
+     "bars": 4,
+     "energy": 0.75
+    },
+    {
+     "name": "drop",
+     "start_bar": 16,
+     "bars": 8,
+     "energy": 1.0
+    },
+    {
+     "name": "B",
+     "start_bar": 24,
+     "bars": 8,
+     "energy": 0.8
+    },
+    {
+     "name": "outro",
+     "start_bar": 32,
+     "bars": 2,
+     "energy": 0.45
+    },
+    {
+     "name": "end",
+     "start_bar": 34,
+     "bars": 1,
+     "energy": 0.2
+    }
+   ],
+   "loop_unit_bars": 2,
+   "lufs": -16.0,
+   "true_peak_db": -1.9,
+   "phone_band": 0.529,
+   "lr_corr": 0.923,
+   "notes": "Progressive-house launch bed: pumping pads, dotted-8th pluck arp, supersaw stabs and a pluck-lead hook in the drop.",
+   "decoded_samples_match": true,
+   "bytes": 1023458,
+   "bands": {
+    "sub": 0.059,
+    "bass": 0.386,
+    "presence": 0.02
+   },
+   "mono_fold_db": -0.24,
+   "section_lufs": {
+    "intro": -19.8,
+    "A": -17.7,
+    "build": -16.2,
+    "drop": -14.1,
+    "B": -15.2,
+    "outro": -18.7,
+    "end": -19.5
+   },
+   "lowshelf_db": 0.0,
+   "section_lift_db": {
+    "outro": 1.9
+   },
+   "render_s": {
+    "compose": 13.51,
+    "mix_master": 17.31,
+    "encode": 0.86
+   }
+  },
+  {
+   "id": "launch_b",
+   "style": "launch",
+   "title": "Release Day",
+   "file": "launch_b.ogg",
+   "sr": 48000,
+   "bpm": 120.0,
+   "beats_per_bar": 4,
+   "bar_s": 2.0,
+   "key": "E minor",
+   "total_bars": 35,
+   "tail_s": 4.5,
+   "duration_s": 74.5,
+   "drop_bar": 16,
+   "end_bar": 34,
+   "sections": [
+    {
+     "name": "intro",
+     "start_bar": 0,
+     "bars": 4,
+     "energy": 0.3
+    },
+    {
+     "name": "A",
+     "start_bar": 4,
+     "bars": 8,
+     "energy": 0.55
+    },
+    {
+     "name": "build",
+     "start_bar": 12,
+     "bars": 4,
+     "energy": 0.75
+    },
+    {
+     "name": "drop",
+     "start_bar": 16,
+     "bars": 8,
+     "energy": 1.0
+    },
+    {
+     "name": "B",
+     "start_bar": 24,
+     "bars": 8,
+     "energy": 0.8
+    },
+    {
+     "name": "outro",
+     "start_bar": 32,
+     "bars": 2,
+     "energy": 0.45
+    },
+    {
+     "name": "end",
+     "start_bar": 34,
+     "bars": 1,
+     "energy": 0.2
+    }
+   ],
+   "loop_unit_bars": 2,
+   "lufs": -16.0,
+   "true_peak_db": -1.9,
+   "phone_band": 0.529,
+   "lr_corr": 0.936,
+   "notes": "Synth-pop house bed: organ stabs, rolling bass, bell-pluck hook.",
+   "decoded_samples_match": true,
+   "bytes": 1101648,
+   "bands": {
+    "sub": 0.062,
+    "bass": 0.394,
+    "presence": 0.017
+   },
+   "mono_fold_db": -0.18,
+   "section_lufs": {
+    "intro": -21.8,
+    "A": -18.8,
+    "build": -17.3,
+    "drop": -13.9,
+    "B": -14.4,
+    "outro": -17.9,
+    "end": -19.9
+   },
+   "lowshelf_db": 0.0,
+   "section_lift_db": {
+    "outro": 3.37
+   },
+   "render_s": {
+    "compose": 12.56,
+    "mix_master": 19.03,
+    "encode": 0.81
+   }
+  }
+ ],
+ "generator": "tools/compose (procedural, original; regenerate with python -m tools.compose --all)"
+}
