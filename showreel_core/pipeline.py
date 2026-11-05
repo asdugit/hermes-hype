@@ -341,12 +341,24 @@ def _d_fit_music(bed: Any, duration: float, out_path: Path, drop_time: float | N
     return fit_bed(bed, duration, out_path, drop_time=drop_time, last_word_time=last_word_time)
 
 
+#: Cue names the story timing emits that the SFX kit has no sound for -> the style role that fits
+#: (roles resolve per style in assets/audio/sfx/sfx.json, e.g. cut -> whoosh_short in Launch).
+SFX_ALIASES = {"whoosh": "cut", "tick": "type", "split": "appear"}
+
+
 def _d_place_sfx(cues: list[Any], duration: float, style: str, fps: int) -> tuple[list[Any], list[str]]:
     from .audio.sfx import load_kit, place_cues
     kit = load_kit()
     if kit is None:
         return [], ["SFX kit missing; no sound effects"]
-    return place_cues(cues, kit, duration, style=style, fps=fps)
+    mapped = []
+    for c in cues:
+        c = dict(c) if isinstance(c, dict) else {"t": c.t, "sfx": c.sfx, "gain_db": c.gain_db, "align": c.align}
+        name = str(c.get("sfx") or "")
+        if kit.resolve(name, style) is None and name in SFX_ALIASES:
+            c["sfx"] = SFX_ALIASES[name]
+        mapped.append(c)
+    return place_cues(mapped, kit, duration, style=style, fps=fps)
 
 
 def _d_mix(out_path: Path, duration: float, *, music: Path | None, voices: list[dict[str, Any]],
