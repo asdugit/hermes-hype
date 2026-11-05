@@ -143,6 +143,10 @@ class Song:
             dry += D.convolve(D.hp(rev, 180.0), self.reverb_ir) * 0.9
         lift = self._lift_quiet_sections(dry)
         y, rep = master(dry, target_lufs, -1.5)
+        post = self._lift_quiet_sections(y)          # the phone-band shelf can re-open the gap
+        if post:
+            y, rep = master(y, target_lufs, -1.5)
+            lift = {k: round(lift.get(k, 0.0) + v, 2) for k, v in post.items()}
         rep["section_lift_db"] = lift
         edges = [(s.name, s.start_bar * self.bar, (s.start_bar + s.bars) * self.bar) for s in self.sections]
         rep.update({"mono_fold_db": mono_fold_db(y), "bands": band_shares(y), "section_lufs": section_loudness(y, edges)})

@@ -34,6 +34,7 @@ def build_bed(style: str, variant: str, out_root: Path, spectro: Path | None = N
     entry["mono_fold_db"] = rep.get("mono_fold_db")
     entry["section_lufs"] = rep.get("section_lufs")
     entry["lowshelf_db"] = rep.get("lowshelf_db")
+    entry["section_lift_db"] = rep.get("section_lift_db")
     entry["render_s"] = {"compose": round(t1 - t0, 2), "mix_master": round(t2 - t1, 2),
                          "encode": round(time.perf_counter() - t2, 2)}
     if spectro:
