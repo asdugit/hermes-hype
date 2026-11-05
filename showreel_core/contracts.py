@@ -17,7 +17,27 @@ EventKind = Literal[
     "file_write", "file_patch", "file_read",
     "terminal", "browser_nav", "screenshot", "image_generated",
     "web_search", "web_extract", "todo", "delegate", "skill", "clarify", "tool_other",
+    # product-first additions (2026-11-06):
+    "artifact",          # a deliverable the session produced: {path, kind: web|image|video|audio|pdf|doc|data|code|other, preview_path?}
+    "product_capture",   # captured by Showreel itself from the running product: {path, url, viewport:[w,h], full_page: bool, page_title}
 ]
+
+# What the film is about. "product" (default) = launch trailer for what was built,
+# the session supplies proof; "making_of" = the build story is the hero.
+FilmMode = Literal["product", "making_of"]
+
+
+@dataclass
+class Product:
+    """The thing that was built, inferred from the session (+ optional agent-supplied brief)."""
+    name: str = ""
+    one_liner: str = ""                 # what it does, <= 90 chars, from session evidence
+    kind: str = ""                      # web_app | site | cli | library | api | game | doc | media | data | other
+    urls: list[str] = field(default_factory=list)          # localhost / deployed URLs seen in the session
+    entry_files: list[str] = field(default_factory=list)   # index.html, main.py, README.md ...
+    run_commands: list[str] = field(default_factory=list)  # commands the session used to run/demo it
+    features: list[str] = field(default_factory=list)      # <= 6 short feature names grounded in the session
+    hero_event_ids: list[str] = field(default_factory=list)  # best visual evidence (captures/screenshots/artifacts)
 
 
 @dataclass
@@ -87,11 +107,13 @@ class SceneType(str, Enum):
     BEFORE_AFTER = "BEFORE_AFTER"
     CALLOUT = "CALLOUT"
     END = "END"
+    FEATURE = "FEATURE"   # product frame + highlighted region + feature name (+ cursor click)
+    SCROLL = "SCROLL"     # smooth scroll through a full-page product capture
 
 
 # (min_s, max_s, accepted ref kinds) — SPEC 3.4
 SCENE_RULES: dict[SceneType, tuple[float, float, tuple[str, ...]]] = {
-    SceneType.HOOK: (1.5, 3.0, ("screenshot", "image_generated", "file_patch", "file_write", "terminal")),
+    SceneType.HOOK: (1.5, 3.0, ("product_capture", "artifact", "screenshot", "image_generated", "file_patch", "file_write", "terminal")),
     SceneType.TITLE: (2.0, 4.0, ()),
     SceneType.PROBLEM: (3.0, 6.0, ("user_prompt",)),
     SceneType.PLAN: (3.0, 6.0, ("todo",)),
@@ -99,11 +121,13 @@ SCENE_RULES: dict[SceneType, tuple[float, float, tuple[str, ...]]] = {
     SceneType.DIFF: (3.0, 6.0, ("file_patch", "file_write")),
     SceneType.TERMINAL: (3.0, 7.0, ("terminal",)),
     SceneType.MONTAGE: (3.0, 6.0, ("*",)),
-    SceneType.SCREEN: (4.0, 7.0, ("screenshot", "image_generated")),
+    SceneType.SCREEN: (4.0, 7.0, ("product_capture", "artifact", "screenshot", "image_generated")),
     SceneType.STATS: (2.0, 4.0, ()),
-    SceneType.BEFORE_AFTER: (3.0, 6.0, ("screenshot", "image_generated", "file_patch", "terminal")),
+    SceneType.BEFORE_AFTER: (3.0, 6.0, ("product_capture", "screenshot", "image_generated", "file_patch", "terminal")),
     SceneType.CALLOUT: (2.0, 4.0, ("user_prompt", "assistant_note", "final_answer", "terminal")),
     SceneType.END: (3.0, 5.0, ()),
+    SceneType.FEATURE: (3.0, 6.0, ("product_capture", "screenshot", "image_generated", "artifact")),
+    SceneType.SCROLL: (4.0, 8.0, ("product_capture", "screenshot")),
 }
 
 STAT_KEYS = (
@@ -131,6 +155,8 @@ class Storyboard:
     url: str = ""
     accent_hint: str = ""
     source: Literal["llm", "repaired", "heuristic"] = "llm"
+    mode: FilmMode = "product"
+    product: Product | None = None
 
 
 # ------------------------------------------------------------------------- timeline
