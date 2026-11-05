@@ -50,6 +50,7 @@ class _Plan:
     pad_in: float
     priority: float
     dur: float = 0.0
+    base: float = 0.0
 
 
 def solve_timeline(storyboard: Storyboard, events: list[Event], stats: Stats | None,
@@ -75,7 +76,7 @@ def solve_timeline(storyboard: Storyboard, events: list[Event], stats: Stats | N
         if plan is not None:
             plans.append(plan)
     for p in plans:
-        p.dur = _snap(max(p.want, p.need), p.lo, p.hi, p.need, hb)
+        p.base = _snap(max(p.want, p.need), p.lo, p.hi, p.need, hb)
     plans = _fit(plans, target, hb, bar, mode)
 
     scenes: list[TimelineScene] = []
@@ -171,6 +172,21 @@ def _floor_ok(p: _Plan, hb: float) -> bool:
 
 
 def _fit(plans: list[_Plan], target: float, hb: float, bar: float, mode: str) -> list[_Plan]:
+    """Fit the total to ``target`` +/- one bar; re-fit without the weakest scene while it stays too long."""
+    plans = list(plans)
+    while True:
+        for p in plans:
+            p.dur = p.base
+        _fit_once(plans, target, hb, bar, mode)
+        if sum(p.dur for p in plans) <= target + bar + EPS:
+            return plans
+        cands = [p for p in plans if p.type not in (T.END, T.HOOK, T.TITLE)]
+        if not cands:
+            return plans
+        plans.remove(min(cands, key=lambda p: (p.priority, -p.src)))
+
+
+def _fit_once(plans: list[_Plan], target: float, hb: float, bar: float, mode: str) -> None:
     total = lambda: sum(p.dur for p in plans)  # noqa: E731
     # shrink flexible scenes
     order = SHRINK_ORDER[mode]
@@ -213,7 +229,6 @@ def _fit(plans: list[_Plan], target: float, hb: float, bar: float, mode: str) ->
     n_half = round(total() / hb)
     if n_half % 2:
         _whole_bar(plans, hb, bar, target, total())
-    return plans
 
 
 def _whole_bar(plans: list[_Plan], hb: float, bar: float, target: float, total: float) -> None:

@@ -684,7 +684,8 @@ def _best_product_ref(facts: SessionFacts, product: Product) -> str:
     return ""
 
 
-def _chrono_key(scene: StoryScene, facts: SessionFacts) -> float:
+def chrono_key(scene: StoryScene, facts: SessionFacts) -> float:
+    """Session-order position of what a scene shows (montages by their middle event)."""
     refs = [r for r in scene.refs if facts.get(r) is not None]
     if not refs:
         return float("inf")
@@ -699,7 +700,7 @@ def _check_chronology(kept: list[tuple[int, StoryScene]], ctx: _Ctx) -> list[tup
     head = [it for it in kept if it[1].type in (T.HOOK, T.TITLE)]
     tail = [it for it in kept if it[1].type == T.END]
     body = [it for it in kept if it[1].type not in (T.HOOK, T.TITLE, T.END)]
-    ordered = sorted(body, key=lambda it: (_chrono_key(it[1], ctx.facts), 0 if it[1].type != T.STATS else 1))
+    ordered = sorted(body, key=lambda it: (chrono_key(it[1], ctx.facts), 0 if it[1].type != T.STATS else 1))
     if [id(s) for _, s in ordered] != [id(s) for _, s in body]:
         ctx.issue("chronology", "$.scenes", f"{ctx.mode} films tell the session in the order it happened",
                   "warning", "reordered by event time")

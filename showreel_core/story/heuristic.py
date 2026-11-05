@@ -15,8 +15,9 @@ from __future__ import annotations
 import os
 import re
 from collections import Counter
+from typing import Iterator
 
-from ..contracts import Event, Product, SceneType, Stats, Storyboard, StoryScene
+from ..contracts import SCENE_RULES, Event, Product, SceneType, Stats, Storyboard, StoryScene
 from .facts import (SessionFacts, code_lines, data_get, diff_rows, image_of, is_demo_run, is_stub,
                     looks_like_failure, looks_like_test_pass, terminal_ok)
 from .milestones import detect_milestones
@@ -25,7 +26,7 @@ from .rules import (DROP_PRIORITY, MAX_BUILD_SHARE, NON_TOOL_KINDS, SPLITS_MAX, 
                     max_type_count, scene_count_range)
 from .schema import CTA_CHARS, LABEL_WORDS, ONE_LINER_CHARS, TAGLINE_CHARS, TITLE_CHARS
 from .text import normalize_ws, sentences, spell_number, trim_chars, trim_label, word_count
-from .validate import default_stat_keys
+from .validate import chrono_key, default_stat_keys, scene_role
 
 T = SceneType
 
@@ -38,6 +39,8 @@ _GENERIC_DIRS = {
     "samples", "data", "examples", "fixtures",
 }
 GENERIC_NAME = "Session Highlights"
+#: Share of the scenes' summed max durations the solver can rely on (half-bar snapping eats the rest).
+CAPACITY_MARGIN = 0.85
 _GENERIC_STEMS = {"index", "main", "__init__", "init", "utils", "util", "app", "mod", "lib", "setup", "conftest",
                   "readme", "config", "settings", "__main__", "helpers", "common", "types", "style", "styles"}
 _LOW_VALUE_EXT = {".md", ".txt", ".json", ".lock", ".toml", ".yaml", ".yml", ".cfg", ".ini", ".gitignore",
@@ -252,12 +255,47 @@ class _Film:
     def build(self) -> Storyboard:
         scenes = self.body()
         scenes = self._fit_count(scenes)
+        scenes = self._fill_capacity(scenes)
         cta, url = self._cta()
         return Storyboard(title=self.p.name or GENERIC_NAME, tagline=self._tagline(), scenes=scenes, cta=cta,
                           url=url, source="heuristic", mode=self.mode, product=self.p)  # type: ignore[arg-type]
 
     def body(self) -> list[StoryScene]:  # pragma: no cover - abstract
         raise NotImplementedError
+
+    def extras(self) -> Iterator[StoryScene]:  # pragma: no cover - abstract
+        """More true scenes, best first, used when the film is too thin to fill its length."""
+        raise NotImplementedError
+
+    def _fill_capacity(self, scenes: list[StoryScene]) -> list[StoryScene]:
+        """Add extra scenes until the scenes' maximum durations can cover the target length."""
+        def capacity() -> float:
+            return CAPACITY_MARGIN * sum(SCENE_RULES[s.type][1] for s in scenes)
+
+        self.max_features = self.max_screens = max_type_count(self.hi)
+        for extra in self.extras():
+            if capacity() >= self.secs or len(scenes) >= self.hi:
+                break
+            if sum(s.type == extra.type for s in scenes) + 1 > max_type_count(len(scenes) + 1):
+                continue
+            if not self._accepts(extra, scenes):
+                continue
+            self._insert(scenes, extra)
+        return scenes
+
+    def _accepts(self, extra: StoryScene, scenes: list[StoryScene]) -> bool:
+        return True
+
+    def _insert(self, scenes: list[StoryScene], extra: StoryScene) -> None:
+        """Chronological films: keep HOOK/TITLE first, STATS/END last, the rest in session order."""
+        head = [s for s in scenes if s.type in (T.HOOK, T.TITLE)]
+        tail = [s for s in scenes if s.type in (T.STATS, T.END)]
+        body = [s for s in scenes if s not in head and s not in tail] + [extra]
+        body.sort(key=lambda s: chrono_key(s, self.f))
+        scenes[:] = head + body + tail
+
+    def _unused(self, events: list[Event]) -> list[Event]:
+        return [e for e in events if e.id not in self.used]
 
     def _fit_count(self, scenes: list[StoryScene]) -> list[StoryScene]:
         prio = DROP_PRIORITY[self.mode]
@@ -516,6 +554,44 @@ class _ProductFilm(_Film):
                 beats.append(self.code_scene(ev, ""))
         return beats
 
+    def extras(self) -> Iterator[StoryScene]:
+        for ev in sorted(self._unused(self.visuals), key=lambda e: (-_visual_score(e), self.f.order[e.id])):
+            scene = self.visual_scene(ev)
+            if scene is not None:
+                yield scene
+        for ev in sorted(self._unused(self.demos), key=lambda e: -e.weight):
+            yield self.term_scene(ev, "", trim_label(str(data_get(ev, "cmd", "")), 4))
+        yield from self.callout(list(reversed([e for e in self.answers if e.kind == "final_answer"])))
+        pair = self.fix_pair()
+        if pair and not {pair[0].id, pair[1].id} & self.used:
+            self.used.update({pair[0].id, pair[1].id})
+            yield StoryScene(T.BEFORE_AFTER, [pair[0].id, pair[1].id], "", "Broken, then fixed",
+                             {"before_ref": pair[0].id, "after_ref": pair[1].id})
+        mont = self.montage("How it was built")
+        if mont:
+            yield mont
+        for ev in sorted(self._unused(self.writes), key=lambda e: -e.weight)[:2]:
+            yield self.code_scene(ev, "")
+        for ev in sorted(self._unused(self.patches), key=lambda e: -e.weight)[:2]:
+            yield self.diff_scene(ev, "")
+
+    def _accepts(self, extra: StoryScene, scenes: list[StoryScene]) -> bool:
+        if scene_role(extra, self.f, self.p) != "build":
+            return True
+        roles = [scene_role(s, self.f, self.p) for s in scenes + [extra]]
+        content = [r for r in roles if r != "frame"]
+        return content.count("build") / max(1, len(content)) <= MAX_BUILD_SHARE
+
+    def _insert(self, scenes: list[StoryScene], extra: StoryScene) -> None:
+        """Product beats go before the build beat; build scenes go just before STATS/END."""
+        start = next((k for k, s in enumerate(scenes) if s.type not in (T.HOOK, T.TITLE)), len(scenes))
+        if scene_role(extra, self.f, self.p) == "build":
+            at = next((k for k, s in enumerate(scenes) if s.type in (T.STATS, T.END)), len(scenes))
+        else:
+            at = next((k for k in range(start, len(scenes)) if scenes[k].type in (T.STATS, T.END, T.MONTAGE)
+                       or scene_role(scenes[k], self.f, self.p) == "build"), len(scenes))
+        scenes.insert(at, extra)
+
     def _build_beat(self) -> list[StoryScene]:
         out: list[StoryScene] = []
         n_product = sum(1 for s in self._beats if s.type != T.CALLOUT) + 1  # + the hook
@@ -546,6 +622,23 @@ class _ProductFilm(_Film):
 
 class _MakingOfFilm(_Film):
     mode = "making_of"
+
+    def extras(self) -> Iterator[StoryScene]:
+        for ev in sorted(self._unused(self.writes), key=lambda e: -e.weight)[:3]:
+            noun = _noun_for(str(data_get(ev, "path", "")))
+            yield self.code_scene(ev, f"Then it writes {noun}." if noun else "")
+        for ev in sorted(self._unused(self.patches), key=lambda e: -e.weight)[:3]:
+            yield self.diff_scene(ev, "")
+        for ev in self._unused(self.reds)[:2] + self._unused(self.tests_green)[-2:] + self._unused(self.demos)[:2]:
+            yield self.term_scene(ev, "", "Still red" if looks_like_failure(ev) else "")
+        for ev in self._unused(self.visuals):
+            scene = self.visual_scene(ev)
+            if scene is not None:
+                yield scene
+        plan = self.plan(earliest=True) if self.todos and not any(t.id in self.used for t in self.todos) else None
+        if plan is not None:
+            yield plan
+        yield from self.callout(list(reversed(self.answers)))
 
     def body(self) -> list[StoryScene]:
         p = self.p
@@ -588,12 +681,12 @@ class _MakingOfFilm(_Film):
             body.append(shown)
         elif self.demos and self.demos[-1].id not in self.used:
             body.append(self.term_scene(self.demos[-1], "And here is the result, working for real."))
-        body.sort(key=lambda s: self.f.order[s.refs[-1] if s.type == T.BEFORE_AFTER else s.refs[0]])
-        scenes += body
         if self.secs >= 45:
             mont = self.montage("Everything in between")
             if mont:
-                scenes.append(mont)
+                body.append(mont)
+        body.sort(key=lambda s: chrono_key(s, self.f))
+        scenes += body
         stats = self.stats("By the numbers", self.stats_vo())
         if stats:
             scenes.append(stats)
@@ -618,6 +711,22 @@ _SPLIT_VO = {
 
 class _SpeedrunFilm(_Film):
     mode = "speedrun"
+
+    def extras(self) -> Iterator[StoryScene]:
+        for _ in range(2):
+            mont = self.montage("Time-lapse", n_max=10)
+            if mont:
+                yield mont
+        for ev in self._unused(self.terms)[:4]:
+            yield self.term_scene(ev, "")
+        for ev in sorted(self._unused(self.writes), key=lambda e: -e.weight)[:2]:
+            yield self.code_scene(ev, "")
+        for ev in self._unused(self.patches)[:2]:
+            yield self.diff_scene(ev, "")
+        for ev in self._unused(self.visuals):
+            scene = self.visual_scene(ev)
+            if scene is not None:
+                yield scene
 
     def body(self) -> list[StoryScene]:
         p = self.p
