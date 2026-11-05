@@ -169,10 +169,11 @@ def fenced(code: str) -> str:
 
 
 def critique(score: float, issues: list[dict[str, Any]] | None = None, visible: bool = True,
-             cells: int = 6) -> dict[str, Any]:
+             cells: int = 6, size: float = 0.45) -> dict[str, Any]:
     return {"scores": {k: score for k in ("product_clarity", "composition", "beauty_craft", "story_clarity",
                                           "legibility", "style_coherence", "transition_quality")},
-            "frames": [{"cell": i + 1, "product_visible": visible, "note": ""} for i in range(cells)],
+            "frames": [{"cell": i + 1, "product_visible": visible, "product_size": size if visible else 0,
+                        "note": ""} for i in range(cells)],
             "requirements": [{"text": "pixel", "met": True}],
             "per_shot_issues": issues or [], "strengths": ["bold colour"],
             "verdict": "pass" if score >= 8 and not issues else "revise"}

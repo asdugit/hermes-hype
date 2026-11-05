@@ -102,6 +102,8 @@ EFFORTS: dict[str, Budget] = {
 }
 SCORE_BAR = 8.0                 # every rubric score must reach this to stop early
 PRODUCT_SHARE_BAR = 0.6         # product visible in >= 60 % of frames (critic-judged)
+PRODUCT_HERO_SIZE = 0.25        # product width / frame width that counts as a hero framing
+PRODUCT_HERO_BAR = 0.35         # share of keyframes that must frame the product as the hero
 RUBRIC_KEYS = ("product_clarity", "composition", "beauty_craft", "story_clarity", "legibility",
                "style_coherence", "transition_quality")
 
@@ -118,6 +120,7 @@ class RoundScore:
     passed: bool
     issues: int
     verdict: str = ""
+    product_hero: float | None = None     # share of keyframes where the product spans >= PRODUCT_HERO_SIZE of width
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

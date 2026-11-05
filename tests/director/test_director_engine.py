@@ -76,12 +76,27 @@ def test_full_loop_repair_critique_revise_pass(env: dict[str, Any]) -> None:
     assert "TypeError: boss is undefined" in repair["text"]
     revise_scene = llm.calls[6]
     assert "boss too small" in revise_scene["text"] and "twice as big" in revise_scene["text"]
+    # revisions look at the render and are told what to keep
+    assert revise_scene["images"] == 1 and "this scene is in cells" in revise_scene["instructions"]
+    assert "bold colour" in revise_scene["text"]
+    assert llm.calls[5]["images"] == 1 and "bold colour" in llm.calls[5]["text"]
     notes = _notes(res)
     assert "Writing treatment" in notes and "Coding scene boss-battle" in notes
     assert any(n.startswith("Repairing scene boss-battle") for n in notes)
     assert any(n.startswith("Critic round 1: 6.0 -> fixing 2 issue(s)") for n in notes)
     assert res.usage["calls"] == 8 and res.usage["input_tokens"] == 8000
     assert res.events[-1]["frac"] == 1.0
+
+
+def test_small_product_fails_the_gate_and_becomes_a_film_issue(env: dict[str, Any]) -> None:
+    # every score passes, but the critic measured the car at 10 % of the frame width everywhere
+    llm = FakeLlm({"treatment": [TREATMENT], "film": [FILM], "scene": [fenced(GOOD_CODE)],
+                   "critic": [critique(8.6, size=0.1), critique(8.6, size=0.5)], "revise-film": [revised_film()]})
+    res = _run(env, llm)
+    assert res.ok and [s.passed for s in res.scores] == [False, True] and res.version == 2
+    assert res.scores[0].product_hero == 0.0 and res.scores[1].product_hero == 1.0
+    rev = next(c for c in llm.calls if c["purpose"] == "revise-film")
+    assert "framed as the hero" in rev["text"] and "too small in: " in rev["text"]
 
 
 def test_custom_scenes_are_coded_in_parallel(env: dict[str, Any]) -> None:

@@ -47,6 +47,8 @@ from .llm import BudgetExceeded, CallLedger, Cancelled, DirectorLlm, Image, LlmR
 from .sheet import Frame, contact_sheets, plan_keyframes
 from .types import (
     EFFORTS,
+    PRODUCT_HERO_BAR,
+    PRODUCT_HERO_SIZE,
     PRODUCT_SHARE_BAR,
     RUBRIC_KEYS,
     SCORE_BAR,
@@ -83,6 +85,8 @@ class Version:
     score: RoundScore | None = None
     critique: dict[str, Any] | None = None
     changes: list[str] = field(default_factory=list)
+    sheets: list[Path] = field(default_factory=list)            # contact sheets the critic saw
+    review: dict[str, Any] = field(default_factory=dict)        # what the previous version's review showed
 
     @property
     def customs(self) -> dict[str, dict[str, Any]]:
@@ -421,12 +425,13 @@ def _film(r: _Run) -> Version | None:
 
 
 def _structured_film(r: _Run, purpose: str, instr: str, text: str, schema: dict[str, Any],
-                     schema_name: str) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]] | None:
+                     schema_name: str, images: list[Image] | None = None,
+                     ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]] | None:
     """Ask for {film, plan, ...}, validate (director checks + runtime schema) and repair."""
     extra = ""
     for attempt in range(1 + r.budget.film_repairs):
         reply = r.ask(purpose, instr, text + extra, schema=schema, schema_name=schema_name, temperature=0.6,
-                      max_tokens=16000, timeout=420.0)
+                      images=images if attempt == 0 else None, max_tokens=16000, timeout=420.0)
         obj = _json_of(reply)
         if obj is None:
             errs = [reply.error or "the reply was not valid JSON (or was cut off: keep specs tighter)"]
@@ -462,6 +467,7 @@ def _code_scene(r: _Run, v: Version, name: str, *, issues: list[dict[str, Any]] 
     prev = v.scenes.get(name, "")
     errs = list(errors or [])
     while v.tries.get(name, 0) < r.budget.scene_tries:
+        see: list[Image] = []
         v.tries[name] = v.tries.get(name, 0) + 1
         attempt = v.tries[name]
         if errs and prev:
@@ -469,11 +475,14 @@ def _code_scene(r: _Run, v: Version, name: str, *, issues: list[dict[str, Any]] 
             instr, text = prompts.scene_repair_prompt(r.brief, r.catalog, spec, prev, errs)
         elif prev and (issues or notes):
             r.emit("scenes", f"Revising scene {name}")
-            instr, text = prompts.scene_revise_prompt(r.brief, r.catalog, spec, prev, issues or [], notes)
+            cells = (v.review.get("cells") or {}).get(name) or []
+            see = list(v.review.get("images") or []) if cells else []
+            instr, text = prompts.scene_revise_prompt(r.brief, r.catalog, spec, prev, issues or [], notes,
+                                                      keep=v.review.get("keep"), cells=cells if see else None)
         else:
             r.emit("scenes", f"Coding scene {name}")
             instr, text = prompts.scene_prompt(r.brief, r.catalog, spec, shots, plan_shots)
-        reply = r.ask(f"scene:{name}", instr, text, temperature=0.5, max_tokens=16000, timeout=420.0)
+        reply = r.ask(f"scene:{name}", instr, text, images=see, temperature=0.5, max_tokens=16000, timeout=420.0)
         code = extract_js(reply.text)
         if not code:
             errs = [reply.error or "no ```js code block in the reply"]
@@ -643,6 +652,7 @@ def _critique(r: _Run, v: Version, rnd: int) -> RoundScore | None:
         p.write_bytes(img)
         f.path = str(p)
     sheets = contact_sheets(v.images, v.frames, vdir, prefix="contact")
+    v.sheets = list(sheets)
     r.emit("critic", f"Critic round {rnd}: reviewing {len(v.frames)} keyframes on {len(sheets)} sheet(s)",
            sheets=[str(s) for s in sheets])
     product = {a.name for a in r.brief.assets if a.product}
@@ -680,14 +690,18 @@ def _critique(r: _Run, v: Version, rnd: int) -> RoundScore | None:
     frames = [f for f in crit.get("frames") or [] if isinstance(f, dict)]
     vis = [bool(f.get("product_visible")) for f in frames]
     vshare = (sum(vis) / len(vis)) if vis else None
+    hero = [_num(f.get("product_size")) >= PRODUCT_HERO_SIZE for f in frames if f.get("product_visible")]
+    hshare = (sum(hero) / len(frames)) if frames else None
     sev3 = any(i["severity"] >= 3 for i in crit["per_shot_issues"])
-    passed = min(vals) >= SCORE_BAR and not sev3 and (vshare is None or not product or vshare >= PRODUCT_SHARE_BAR)
+    passed = (min(vals) >= SCORE_BAR and not sev3 and (vshare is None or not product or vshare >= PRODUCT_SHARE_BAR)
+              and (hshare is None or not product or hshare >= PRODUCT_HERO_BAR))
     v.critique = crit
     v.score = RoundScore(rnd, v.n, scores, round(sum(vals) / len(vals), 2), min(vals), vshare, passed,
-                         len(crit["per_shot_issues"]), str(crit.get("verdict", "")))
+                         len(crit["per_shot_issues"]), str(crit.get("verdict", "")), hshare)
     r.save(f"v{v.n}/critique.json", crit)
     r.emit("critic", f"Scores v{v.n}: " + ", ".join(f"{k} {scores[k]:g}" for k in RUBRIC_KEYS)
-           + (f"; product visible in {vshare:.0%} of keyframes" if vshare is not None else ""),
+           + (f"; product visible in {vshare:.0%} of keyframes" if vshare is not None else "")
+           + (f", framed as the hero in {hshare:.0%}" if hshare is not None and product else ""),
            scores=scores, product_share=vshare)
     return v.score
 
@@ -741,7 +755,19 @@ def _revise_version(r: _Run, v: Version) -> Version | None:
         extras.append({"shot": "film", "target": "film", "severity": 3,
                        "issue": f"the product is visible in only {v.score.product_share:.0%} of keyframes",
                        "fix": "put the product on screen (large, lit) in more shots or shorten shots without it"})
+    small = _small_product_shots(v)
+    if small and v.score and v.score.product_hero is not None and v.score.product_hero < PRODUCT_HERO_BAR:
+        extras.append({"shot": "film", "target": "film", "severity": 3,
+                       "issue": f"the product is framed as the hero (>= {PRODUCT_HERO_SIZE:.0%} of the frame width) in "
+                                f"only {v.score.product_hero:.0%} of keyframes; too small in: "
+                                + ", ".join(f"{s} ({w:.0%})" for s, w in small),
+                       "fix": "scale the product up (scene params / camera / framing) so it reads as the hero; "
+                              "aim for >= 35 % of the width in most shots"})
     film_issues += extras
+    keep = [str(x) for x in crit.get("strengths") or []][:6]
+    cells = _cells_by_scene(v)
+    images = [Image(p.read_bytes(), "image/jpeg", str(p), f"contact sheet {i + 1} (current render)")
+              for i, p in enumerate(v.sheets) if p.is_file()]
     nv = Version(v.n + 1, copy.deepcopy(v.film), copy.deepcopy(v.plan), dict(v.scenes), dict(v.fallbacks),
                  stable=dict(v.scenes))
     notes: dict[str, str] = {}
@@ -749,8 +775,9 @@ def _revise_version(r: _Run, v: Version) -> Version | None:
     if film_issues:
         r.emit("revise", f"Revising the film script ({len(film_issues)} film-level issue(s))")
         instr, text = prompts.revise_film_prompt(r.brief, r.catalog, r.treatment, v.film, v.plan, issues + extras, "",
-                                                 max_custom=r.budget.max_custom)
-        res = _structured_film(r, "revise-film", instr, text, prompts.REVISE_FILM_SCHEMA, "showreel.revision")
+                                                 max_custom=r.budget.max_custom, keep=keep, seen=bool(images))
+        res = _structured_film(r, "revise-film", instr, text, prompts.REVISE_FILM_SCHEMA, "showreel.revision",
+                               images=images)
         if res is not None:
             film, plan, obj = res
             nv.film, nv.plan = film, plan
@@ -778,9 +805,41 @@ def _revise_version(r: _Run, v: Version) -> Version | None:
         r.warn("revise", "Nothing actionable in the critique")
         return None
     nv.tries = {}
+    nv.review = {"keep": keep, "cells": cells, "images": images}
     if not _realise(r, nv, code=recode, issues=scene_issues, notes=notes):
         return None
     return nv
+
+
+def _num(x: Any) -> float:
+    try:
+        return float(x)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _small_product_shots(v: Version) -> list[tuple[str, float]]:
+    """(shot, largest product width seen) for shots whose keyframes never frame the product as the hero."""
+    by_cell = {f.cell: f.shot for f in v.frames}
+    best: dict[str, float] = {}
+    for f in (v.critique or {}).get("frames") or []:
+        if not isinstance(f, dict):
+            continue
+        shot = by_cell.get(int(_num(f.get("cell"))))
+        if shot:
+            best[shot] = max(best.get(shot, 0.0), _num(f.get("product_size")) if f.get("product_visible") else 0.0)
+    return [(s, w) for s, w in best.items() if w < PRODUCT_HERO_SIZE]
+
+
+def _cells_by_scene(v: Version) -> dict[str, list[str]]:
+    """custom scene name -> contact-sheet cell labels showing it (for revisions that look at the render)."""
+    scene_of = {s["id"]: s["scene"] for s in v.film["shots"]}
+    out: dict[str, list[str]] = {}
+    for f in v.frames:
+        sc = scene_of.get(f.shot, "")
+        if sc.startswith("custom:"):
+            out.setdefault(sc.split(":", 1)[1], []).append(f"{f.cell} ({f.shot} {f.t:.1f}s)")
+    return out
 
 
 def _qa_by_scene(v: Version, per_scene: int = 5) -> dict[str, list[dict[str, Any]]]:

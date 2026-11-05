@@ -96,7 +96,8 @@ REVISE_FILM_SCHEMA = _obj({"film": FILM_DOC_SCHEMA, "plan": PLAN_SCHEMA, "change
                           ["film", "plan", "changes"])
 CRITIC_SCHEMA = _obj({
     "scores": _obj({k: _N for k in RUBRIC_KEYS}, list(RUBRIC_KEYS)),
-    "frames": _arr(_obj({"cell": _N, "product_visible": _B, "note": _S}, ["cell", "product_visible"])),
+    "frames": _arr(_obj({"cell": _N, "product_visible": _B, "product_size": _N, "note": _S},
+                        ["cell", "product_visible", "product_size"])),
     "requirements": _arr(_obj({"text": _S, "met": _B, "note": _S}, ["text", "met"])),
     "per_shot_issues": _arr(_obj({"shot": _S, "target": _S, "severity": _N, "issue": _S, "fix": _S},
                                  ["shot", "target", "severity", "issue", "fix"])),
@@ -308,13 +309,18 @@ Reply with the complete corrected JavaScript file in ONE ```js fenced block and 
 
 
 def scene_revise_prompt(brief: Brief, catalog: Catalog, spec: dict[str, Any], code: str,
-                        issues: list[dict[str, Any]], notes: str = "") -> tuple[str, str]:
+                        issues: list[dict[str, Any]], notes: str = "", *, keep: list[str] | None = None,
+                        cells: list[str] | None = None) -> tuple[str, str]:
     """Apply the critic's visual fixes to one scene, surgically."""
     sid = f"custom:{spec.get('name')}"
+    seen = ("" if not cells else
+            "\nThe attached contact sheet(s) show what your current code renders; this scene is in cells "
+            + ", ".join(cells) + ". Look at them before changing anything.")
     instructions = f"""\
 You are a senior creative coder revising a Showreel scene module (`{sid}`) after a creative director reviewed
-rendered keyframes. Apply each fix below precisely and visibly; keep everything the review did not criticise.
-Improve craft where the fix asks for it (depth, light, motion, composition, legibility); do not add clutter.
+rendered keyframes.{seen} Apply each fix below precisely and visibly; keep everything the review did not criticise
+(do not rewrite working parts: regressions are worse than an unfixed polish issue). Improve craft where the fix
+asks for it (depth, light, motion, composition, legibility); do not add clutter.
 
 {catalog.craft}
 
@@ -322,6 +328,8 @@ Improve craft where the fix asks for it (depth, light, motion, composition, legi
 
 Reply with the complete revised JavaScript file in ONE ```js fenced block and nothing else."""
     parts = ["## Review: issues and fixes for this scene\n" + _json(issues)]
+    if keep:
+        parts.append("## What already works (keep it)\n" + "\n".join(f"- {k}" for k in keep))
     if notes.strip():
         parts.append("## Director's notes for this scene\n" + notes.strip())
     parts += ["## Current code\n```js\n" + code + "\n```", "## Scene spec\n" + _json(spec), catalog.assets_text(),
@@ -358,7 +366,8 @@ design you know. Be specific, be harsh where it is deserved, and never praise to
 {RUBRIC_TEXT}
 
 ALSO
-- frames: for every cell say whether the product (the real product media, recognisable) is visible.
+- frames: for every cell say whether the product (the real product media, recognisable) is visible, and
+  `product_size`: the share of the frame WIDTH it spans (0.0-1.0; 0 when not visible). Measure, do not guess.
 - requirements: check every requirement of the user's direction (listed below) against the frames.
 - per_shot_issues: at most 8, most important first. Each names the shot id, a `target` ("scene" if fixing it needs
   the custom scene's drawing code changed, "film" if it is timing, params, captions, overlays, transitions, music or
@@ -392,13 +401,14 @@ Reply with one JSON object matching the schema."""
 
 def revise_film_prompt(brief: Brief, catalog: Catalog, treatment: dict[str, Any], film: dict[str, Any],
                        plan: dict[str, Any], issues: list[dict[str, Any]], notes: str, *,
-                       max_custom: int) -> tuple[str, str]:
+                       max_custom: int, keep: list[str] | None = None, seen: bool = False) -> tuple[str, str]:
     """Apply review fixes to the film script surgically (scene code is revised separately)."""
     instructions = f"""\
 You are the Director of Showreel Studio revising your film script after review. Apply every fix below that can be
 made in film.json or the plan (timing, params, scene choice, transitions, music, cues, captions, overlays). Change
 ONLY what the fixes require: keep shot ids, keep shots and settings nobody criticised, keep the custom scenes'
-names. Fixes that need a custom scene's drawing code changed are applied by an animator: pass them on, sharpened,
+names.{" The attached contact sheet(s) show the current render (cells are listed in the review)." if seen else ""}
+Fixes that need a custom scene's drawing code changed are applied by an animator: pass them on, sharpened,
 in `scene_notes` (by custom scene name) and update that scene's `spec` if the plan changes. You may replace a
 weak custom scene with a kit scene, or add one custom scene (max {max_custom} in total) only when an issue demands it.
 
@@ -411,6 +421,8 @@ Reply with one JSON object: {{"film": {{...}}, "plan": {{...}}, "changes": [...]
     parts = [_direction_block(brief)]
     if issues:
         parts.append("## Review issues and fixes\n" + _json(issues))
+    if keep:
+        parts.append("## What already works (keep it)\n" + "\n".join(f"- {k}" for k in keep))
     if notes.strip():
         parts.append("## The user's revision notes (highest priority, verbatim)\n" + notes.strip())
     parts += ["## Current film.json\n" + _json(film), "## Current plan\n" + _json(plan),
