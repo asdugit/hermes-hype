@@ -169,7 +169,7 @@ void main(){
   if (mode != 2) {
     // rim light on silhouette edges that face the sun
     vec2 off = rimDir * texel * (5.0 + blurPx);
-    float ao = sampleBlur(m - off).a;
+    float ao = sampleBlur(m + off).a;
     float rimD = clamp(a - ao, 0.0, 1.0);
     col += rimCol * rimD * 2.4 * rimI;
   }
@@ -292,7 +292,7 @@ export function makeFlyers(THREE, opts) {
         // media frame
         const ct = (t - f.s.t0) * f.s.clipRate + f.s.clipOffset;
         let img = f.src.frame ? f.src.frame(ct, { loop: true }) : f.src.image;
-        if (img !== f.lastImg) {
+        if (img && img !== f.lastImg) {
           f.lastImg = img;
           if (f.scaler) { const g = f.scaler.getContext('2d'); g.clearRect(0, 0, f.scaler.width, f.scaler.height); g.drawImage(img, 0, 0, f.scaler.width, f.scaler.height); img = f.scaler; }
           f.tex.image = img; f.tex.needsUpdate = true;
