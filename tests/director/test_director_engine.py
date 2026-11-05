@@ -84,6 +84,21 @@ def test_full_loop_repair_critique_revise_pass(env: dict[str, Any]) -> None:
     assert res.events[-1]["frac"] == 1.0
 
 
+def test_custom_scenes_are_coded_in_parallel(env: dict[str, Any]) -> None:
+    film = json.loads(json.dumps(FILM))
+    film["film"]["shots"][2].update(scene="custom:meadow", params={"car": "car"})
+    film["plan"]["custom_scenes"].append({"name": "meadow", "layer": "2d", "describe": "cars over a meadow",
+                                          "spec": "x" * 300, "params": {"car": {"type": "asset"}}, "kits": []})
+    llm = FakeLlm({"treatment": [TREATMENT], "film": [film], "scene": [fenced(GOOD_CODE)],
+                   "critic": [critique(9.0)]})
+    res = _run(env, llm)
+    assert res.ok and res.scenes == {"boss-battle": "ok", "meadow": "ok"}
+    prompts = sorted(p.name for p in (Path(res.job_dir) / "director" / "calls").glob("*.prompt.md"))
+    assert len(prompts) == 5 and len({p[:2] for p in prompts}) == 5          # unique call numbers
+    assert (Path(res.job_dir) / "page" / "scenes" / "meadow.js").read_text(encoding="utf-8").count(
+        "custom:meadow") == 1
+
+
 def test_film_is_normalised(env: dict[str, Any]) -> None:
     llm = FakeLlm({"treatment": [TREATMENT], "film": [FILM], "scene": [fenced(GOOD_CODE)],
                    "critic": [critique(9.0)]})

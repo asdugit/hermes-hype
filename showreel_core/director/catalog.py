@@ -246,7 +246,7 @@ def load_kits(kits_dir: Path) -> list[KitInfo]:
 
 def parse_kit(d: Path) -> KitInfo:
     """One kit directory -> :class:`KitInfo` (ids from ``defineScene``/``defineTransition`` and KIT.md)."""
-    doc = _read(d / "KIT.md")
+    doc = _read(d / "KIT.md") or _blocks_doc(d)
     info = KitInfo(name=d.name, path=str(d), doc=doc, summary=_summary(doc))
     scenes: dict[str, SceneInfo] = {}
     transitions: list[str] = []
@@ -472,6 +472,29 @@ def top_level_keys(obj_src: str) -> list[str]:
             quote = c
         i += 1
     return keys
+
+
+def _blocks_doc(d: Path, limit: int = 3000) -> str:
+    """Stand-in catalog text for a kit without KIT.md: the object passed to ``sr.defineKit`` (names + comments)."""
+    src = _read(d / "kit.js")
+    m = re.search(r"""defineKit\(\s*['"`]([\w-]+)['"`]\s*,\s*""", src)
+    if not m:
+        return ""
+    rest = src[m.end():]
+    if rest.startswith("{"):
+        literal, start = _object_after(rest, 0, limit * 2), m.end()
+    else:
+        ident = re.match(r"[A-Za-z_$][\w$]*", rest)
+        decl = re.search(rf"\b(?:const|let|var)\s+{re.escape(ident.group(0))}\s*=\s*\{{", src) if ident else None
+        if not decl:
+            return ""
+        literal, start = _object_after(src, decl.end() - 1, limit * 2), decl.start()
+    head = src[max(0, start - 600):start]
+    comment = re.findall(r"/\*\*?(.*?)\*/", head, re.DOTALL)
+    note = " ".join(comment[-1].replace("*", " ").split()) if comment else ""
+    text = literal if len(literal) <= limit else literal[:limit] + "\n  // ... truncated"
+    return (f"(no KIT.md yet; generated from kit.js) Building blocks: `ctx.kit('{m.group(1)}')` returns\n"
+            f"{note + chr(10) if note else ''}```js\n{text}\n```")
 
 
 def _param_block(obj_src: str, file_src: str = "") -> str:

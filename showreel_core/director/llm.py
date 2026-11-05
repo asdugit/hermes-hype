@@ -252,21 +252,25 @@ class CallLedger:
         self.max_calls = max_calls
         self.cancel = cancel
         self.records: list[CallRecord] = []
+        self._lock = threading.Lock()
+        self._next = 1
         if calls_dir:
             calls_dir.mkdir(parents=True, exist_ok=True)
 
     @property
     def remaining(self) -> int:
-        return self.max_calls - len(self.records)
+        return self.max_calls - (self._next - 1)
 
     def __call__(self, *, purpose: str, instructions: str, text: str, images: Sequence[Image] = (),
                  json_schema: dict[str, Any] | None = None, schema_name: str | None = None,
                  temperature: float = 0.7, max_tokens: int = 6000, timeout: float = 240.0) -> LlmReply:
         if is_cancelled(self.cancel):
             raise Cancelled("cancelled")
-        if len(self.records) >= self.max_calls:
-            raise BudgetExceeded(f"model call budget of {self.max_calls} reached")
-        n = len(self.records) + 1
+        with self._lock:
+            if self._next > self.max_calls:
+                raise BudgetExceeded(f"model call budget of {self.max_calls} reached")
+            n = self._next
+            self._next += 1
         stem = f"{n:02d}-{_slug(purpose)}"
         if self.calls_dir:
             listing = "".join(f"\n[image {i + 1}] {im.label or im.path or im.mime_type}" for i, im in enumerate(images))

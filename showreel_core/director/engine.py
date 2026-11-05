@@ -18,8 +18,10 @@ import copy
 import json
 import logging
 import re
+import threading
 import time
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -59,6 +61,7 @@ from .types import (
 log = logging.getLogger(__name__)
 
 QUICK_STYLES = ("launch", "pixel", "terminal", "blueprint", "cinematic", "comic", "ink", "newspaper")
+SCENE_PARALLEL = 3              # custom scenes coded concurrently (independent model calls)
 ProgressFn = Callable[..., Any]
 
 
@@ -110,18 +113,20 @@ class _Run:
         self.versions: list[Version] = []
         self.treatment: dict[str, Any] = {}
         self.built_n = 0                                     # version currently built into page_dir
+        self._lock = threading.Lock()                        # log/progress from parallel scene coding
 
     # -------------------------------------------------------------- events
     def emit(self, step: str, msg: str, frac: float | None = None, level: str = "info", **extra: Any) -> None:
         if frac is not None:
             self.frac = max(self.frac, min(1.0, frac))
         entry = {"t": round(time.monotonic() - self.t0, 2), "step": step, "msg": msg, "level": level, **extra}
-        self.log.append(entry)
-        try:
-            with (self.ddir / "log.jsonl").open("a", encoding="utf-8") as f:
-                f.write(json.dumps(entry, ensure_ascii=False, default=str) + "\n")
-        except OSError:
-            pass
+        with self._lock:
+            self.log.append(entry)
+            try:
+                with (self.ddir / "log.jsonl").open("a", encoding="utf-8") as f:
+                    f.write(json.dumps(entry, ensure_ascii=False, default=str) + "\n")
+            except OSError:
+                pass
         if self.progress_cb is not None:
             try:
                 self.progress_cb(stage=step, frac=self.frac, note=msg, level=level, **extra)
@@ -517,15 +522,23 @@ def _fallback(r: _Run, v: Version, name: str, why: str) -> bool:
 
 def _realise(r: _Run, v: Version, *, code: list[str], issues: dict[str, list[dict[str, Any]]] | None = None,
              notes: dict[str, str] | None = None) -> bool:
-    """Code the listed custom scenes, then build + dry-run with repairs/fallbacks; captures keyframes."""
+    """Code the listed custom scenes (in parallel), then build + dry-run with repairs/fallbacks; captures keyframes."""
     issues, notes = issues or {}, notes or {}
-    total = max(1, len(code))
-    for i, name in enumerate(code):
-        if name not in v.customs:
-            continue
-        r.frac = max(r.frac, 0.18 + 0.22 * i / total)
-        if not _code_scene(r, v, name, issues=issues.get(name), notes=notes.get(name, "")) and                 not _fallback(r, v, name, "code did not pass lint"):
-            return False
+    names = [n for n in code if n in v.customs]
+    if names:
+        r.frac = max(r.frac, 0.2)
+
+        def one(name: str) -> bool:
+            return _code_scene(r, v, name, issues=issues.get(name), notes=notes.get(name, ""))
+        workers = max(1, min(len(names), SCENE_PARALLEL))
+        if workers > 1:
+            with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="showreel-scene") as pool:
+                results = dict(zip(names, pool.map(one, names), strict=True))
+        else:
+            results = {n: one(n) for n in names}
+        for name in names:
+            if not results[name] and not _fallback(r, v, name, "code did not pass lint"):
+                return False
     return _dry_run(r, v)
 
 
