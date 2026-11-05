@@ -1,0 +1,2 @@
+// panels.js — placeholder
+export {};
