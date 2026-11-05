@@ -373,7 +373,7 @@ def test_catalog_reads_kit_md_scene_tables(tmp_path: Path) -> None:
                                 encoding="utf-8")
     (kit / "KIT.md").write_text(
         "# Demo kit\nA demo.\n\n## Scenes\n| id | what it shows | params (default) |\n|---|---|---|\n"
-        "| `kit:demo/HOOK` | Opening hook \| bold.\| bold. | `title` \"\" — headline · `accent` — colour |\n"
+        r"| `kit:demo/HOOK` | Opening hook \| bold. | `title` "" — headline · `accent` — colour |" "\n"
         "| `kit:demo/walk` | duplicate of the JS one | `x` |\n\n## Types\n"
         "| `kit:demo/CODE` | `{path, lines}` — code card |\n\n## Transitions\n"
         "| `kit:demo/swirl` | battle swirl | `dur` |\n| `kit:other/NOPE` | not ours | |\n", encoding="utf-8")
