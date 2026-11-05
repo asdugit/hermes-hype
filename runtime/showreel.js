@@ -28,9 +28,16 @@ export const sr = {
   ease, bezier, ...motion, makeRng, mixSeed, mulberry32, makeNoise,
 };
 
-/** Boot the page: load film.json + manifest, import kit/scene modules, fonts, assets, set up shots. */
+/** Boot the page: load film.json + manifest, import kit/scene modules, fonts, assets, set up shots.
+ * stage.html?player adds an interactive control bar; stage.html?t=3.2 shows one frame (dev viewing only). */
 export function boot(opts) {
   runtime.boot(opts);
+  const q = new URLSearchParams(typeof location !== 'undefined' ? location.search : '');
+  if (q.has('player')) {
+    runtime.ready.then(() => import('./player.js')).then((m) => m.attachPlayer(runtime.api)).catch(() => {});
+  } else if (q.has('t')) {
+    runtime.ready.then(() => runtime.seek(Number(q.get('t')) || 0)).catch(() => {});
+  }
   return runtime.ready;
 }
 

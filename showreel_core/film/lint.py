@@ -38,9 +38,9 @@ WARN_IDENTS = {
 }
 DOC_OK = frozenset({"createElement", "createElementNS", "createTextNode", "createDocumentFragment", "createRange",
                     "fonts"})   # building offscreen nodes/canvases and reading font status touch nothing on the page
-URL_RE = re.compile(r"\b(?:https?|wss?|ftp)://[^\s'\"`)]+|(?<![:\w])//(?:cdn|unpkg|fonts\.|ajax)\S*", re.I)
-URL_OK = re.compile(r"^https?://www\.w3\.org/", re.I)
-CSS_ANIM_RE = re.compile(r"(?<![\w-])(transition|animation(?:-name)?)\s*:\s*(?!\s*(?:none|unset|initial)\b)[^;'\"`]+|@keyframes\b", re.I)
+URL_RE = re.compile(r"\b(?:https?|wss?|ftp)://[^\s'\"`)]+|(?<![:\w])//(?:cdn|unpkg|fonts\.|ajax)\S*", re.IGNORECASE)
+URL_OK = re.compile(r"^https?://www\.w3\.org/", re.IGNORECASE)
+CSS_ANIM_RE = re.compile(r"(?<![\w-])(transition|animation(?:-name)?)\s*:\s*(?!\s*(?:none|unset|initial)\b)[^;'\"`]+|@keyframes\b", re.IGNORECASE)
 
 
 @dataclass(frozen=True)
@@ -264,7 +264,7 @@ def lint_source(src: str, *, filename: str = "<scene>", kind: str = "scene") -> 
             spec = toks[k + 1].value
             if t.value == "import" and k > 0 and toks[k - 1].kind == "punct" and toks[k - 1].value == ".":
                 continue
-            if not (spec.startswith(("./", "../")) or spec == "three" or spec.startswith("three/addons/")):
+            if not (spec.startswith(("./", "../", "three/addons/")) or spec == "three"):
                 add("external-import", "error", toks[k + 1], f"import {spec!r}: only relative paths, 'three' and 'three/addons/...'")
     # text content: URLs and wall-clock CSS
     for t in toks:

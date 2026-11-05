@@ -8,7 +8,6 @@ errors and give identical pixels for the same t regardless of seek order and ins
 from __future__ import annotations
 
 import argparse
-import asyncio
 import hashlib
 import json
 import re
@@ -19,7 +18,6 @@ from dataclasses import asdict, dataclass, field
 from io import BytesIO
 from pathlib import Path
 from typing import Any
-
 
 ERR_OWNER_RE = re.compile(r"^(shot|overlay) ([^\s:]+)")
 

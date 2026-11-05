@@ -6,7 +6,12 @@ from typing import Any
 
 import pytest
 
-from showreel_core.film.schema import errors_of, normalize_film, scene_ids, validate_film
+from showreel_core.film.schema import (
+    errors_of,
+    normalize_film,
+    scene_ids,
+    validate_film,
+)
 
 BASE: dict[str, Any] = {
     "version": 1, "fps": 30, "size": [1920, 1080], "dur": 10.0, "seed": 3,

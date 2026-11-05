@@ -94,6 +94,7 @@ export class Runtime {
     this.ready.catch(() => {});
     this.txPool = [];
     this.txCache = new Map();
+    this.stats = new Map();      // item key -> {setupMs, setups, renders, totalMs, maxMs} (survives eviction)
     for (const [name, def] of Object.entries(BUILTIN_TRANSITIONS)) this.transitions.set(name, def);
   }
 
@@ -273,7 +274,9 @@ export class Runtime {
     fit();
     window.addEventListener('resize', fit);
     this.captions = new Captions(this.captionLayer, F, kitFonts);
-    this.finish = new Finish(this.finishLayer, F);
+    // ?finish=post|none: the renderer applies grain/vignette/bloom in ffmpeg instead (much cheaper per frame)
+    const fq = new URLSearchParams(location.search).get('finish');
+    this.finish = new Finish(this.finishLayer, fq === 'post' || fq === 'none' ? { ...F, finish: {} } : F);
   }
 
   // -------------------------------------------------------------------------------- instances
@@ -308,7 +311,8 @@ export class Runtime {
     const F = this.film;
     const where = `${item.kind} '${item.id}' (${item.scene})`;
     let def = this.scenes.get(item.scene);
-    const inst = { item, def, surf: null, ctx: null, p: null, boxes: [], cues: [], broken: null, used: this._tick(), stats: { setupMs: 0, renders: 0, totalMs: 0, maxMs: 0 } };
+    if (!this.stats.has(item.key)) this.stats.set(item.key, { setupMs: 0, setups: 0, renders: 0, totalMs: 0, maxMs: 0 });
+    const inst = { item, def, surf: null, ctx: null, p: null, boxes: [], cues: [], broken: null, used: this._tick(), stats: this.stats.get(item.key) };
     const fail = (e, label = '') => {
       if (!this.lenient && booting) throw new Error(`${where}: ${label}${errText(e)}`);
       inst.broken = errText(e);
@@ -351,7 +355,8 @@ export class Runtime {
     } finally {
       leaveScene();
       inst.ctx._phase = 'render';
-      inst.stats.setupMs = realNow() - t0;
+      inst.stats.setupMs = Math.max(inst.stats.setupMs, realNow() - t0);
+      inst.stats.setups += 1;
     }
     return inst;
   }
@@ -647,11 +652,11 @@ export class Runtime {
     if (!F) return [];
     return [...F.shots, ...F.overlays].map((it) => {
       const inst = this.instances.get(it.key);
-      const st = inst ? inst.stats : null;
+      const st = this.stats.get(it.key) || null;
       return {
         id: it.id, kind: it.kind, scene: it.scene, layer: inst ? inst.def.layer : (this.scenes.get(it.scene) || {}).layer || null,
         t0: it.t0, t1: it.t1, res: it.res, z: it.z, cached: !!inst, broken: inst ? inst.broken : null,
-        setup_ms: st ? +st.setupMs.toFixed(2) : null, renders: st ? st.renders : 0,
+        setup_ms: st ? +st.setupMs.toFixed(2) : null, setups: st ? st.setups : 0, renders: st ? st.renders : 0,
         render_ms_avg: st && st.renders ? +(st.totalMs / st.renders).toFixed(2) : null,
         render_ms_max: st ? +st.maxMs.toFixed(2) : null,
       };

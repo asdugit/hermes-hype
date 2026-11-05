@@ -204,11 +204,14 @@ def preview(film_path: Path, out_dir: Path, *, keyframes: Sequence[float] | None
                 res.contact_sheet = str(contact_sheet(stills, out_dir / "contact.png"))
                 res.errors, res.cues, res.page_errors = info["errors"], info["cues"], info["page_errors"]
             if video:
-                from ..render.workers import RenderSpec, render_video
+                from ..render.workers import render_video
+                from .render import render_spec
 
                 t0 = time.perf_counter()
-                rv = render_video(RenderSpec(page_dir=job, page=page, out_path=out_dir / "preview.mp4", w=w, h=h,
-                                             fps=float(film.get("fps", 30)), gpu=gpu, seed=int(film.get("seed", 0))))
+                spec = render_spec(job, out_dir / "preview.mp4", size=(w, h), gpu=gpu, finish="post")
+                if lenient:
+                    spec.page += "&lenient=1"
+                rv = render_video(spec)
                 res.timings["video_s"] = round(time.perf_counter() - t0, 3)
                 if not rv.ok:
                     res.error = rv.error

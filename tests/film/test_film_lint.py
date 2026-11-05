@@ -38,7 +38,7 @@ def test_clean_scene_has_no_errors():
 
 
 def test_forbidden_apis_with_lines():
-    src = "\n".join([
+    src = "\n".join([  # noqa: FLY002
         "sr.defineScene('custom:x', { render(ctx, t) {",
         "  const a = Math.random();",                    # 2
         "  const b = Date.now(); const c = new Date();",  # 3 (twice)

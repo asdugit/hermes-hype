@@ -26,6 +26,7 @@ CUE_ALIGN = ("auto", "onset", "peak", "end")
 TOP_KEYS = frozenset({
     "version", "fps", "size", "dur", "seed", "title", "background", "fonts", "assets", "shots", "transitions",
     "overlays", "finish", "cues", "music", "captions", "caption_style", "safe", "kits", "qa", "meta",
+    "render", "narration",   # pipeline extras: {post, post_params}; [{path, start, duration}] (not read by the page)
 })
 ITEM_KEYS = frozenset({"id", "t0", "t1", "scene", "res", "params", "z", "upscale", "note"})
 MIN_CAPTION_PX = 42

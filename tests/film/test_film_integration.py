@@ -16,7 +16,7 @@ pytestmark = pytest.mark.slow
 
 
 def _job(tmp_path: Path, demo, shots, **extra) -> Path:
-    film, assets, kits = demo
+    _, assets, kits = demo
     f = {"version": 1, "fps": 30, "size": [1280, 720], "dur": shots[-1]["t1"], "seed": 5, "shots": shots, **extra}
     return build_job(f, tmp_path / "job", kits_root=kits, assets=assets if extra.get("assets") else None)
 
