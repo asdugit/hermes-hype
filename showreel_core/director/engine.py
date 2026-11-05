@@ -32,6 +32,7 @@ from . import prompts
 from .backend import Preview, Renderer, RuntimeRenderer, ShotError
 from .catalog import Catalog, build_catalog
 from .checks import (
+    MAX_SCENE_BYTES,
     check_film,
     check_treatment,
     extract_js,
@@ -64,6 +65,9 @@ log = logging.getLogger(__name__)
 
 QUICK_STYLES = ("launch", "pixel", "terminal", "blueprint", "cinematic", "comic", "ink", "newspaper")
 SCENE_PARALLEL = 3              # custom scenes coded concurrently (independent model calls)
+# Output budgets measured on real runs: scene modules 16-39 KB (5-12k tokens), film/revision JSON up to 40 KB.
+SCENE_MAX_TOKENS = 32000
+FILM_MAX_TOKENS = 32000
 ProgressFn = Callable[..., Any]
 
 
@@ -388,7 +392,7 @@ def _treatment(r: _Run) -> dict[str, Any]:
     extra, last_usable = "", None
     for attempt in range(1 + r.budget.film_repairs):
         reply = r.ask("treatment", instr, text + extra, schema=prompts.TREATMENT_SCHEMA,
-                      schema_name="showreel.treatment", images=images, temperature=0.8, max_tokens=6000)
+                      schema_name="showreel.treatment", images=images, temperature=0.8, max_tokens=12000)
         obj = _json_of(reply)
         if obj is None:
             errs = [reply.error or "the reply was not valid JSON"]
@@ -431,7 +435,7 @@ def _structured_film(r: _Run, purpose: str, instr: str, text: str, schema: dict[
     extra = ""
     for attempt in range(1 + r.budget.film_repairs):
         reply = r.ask(purpose, instr, text + extra, schema=schema, schema_name=schema_name, temperature=0.6,
-                      images=images if attempt == 0 else None, max_tokens=16000, timeout=420.0)
+                      images=images if attempt == 0 else None, max_tokens=FILM_MAX_TOKENS, timeout=600.0)
         obj = _json_of(reply)
         if obj is None:
             errs = [reply.error or "the reply was not valid JSON (or was cut off: keep specs tighter)"]
@@ -482,11 +486,16 @@ def _code_scene(r: _Run, v: Version, name: str, *, issues: list[dict[str, Any]] 
         else:
             r.emit("scenes", f"Coding scene {name}")
             instr, text = prompts.scene_prompt(r.brief, r.catalog, spec, shots, plan_shots)
-        reply = r.ask(f"scene:{name}", instr, text, images=see, temperature=0.5, max_tokens=16000, timeout=420.0)
+        reply = r.ask(f"scene:{name}", instr, text, images=see, temperature=0.5, max_tokens=SCENE_MAX_TOKENS,
+                      timeout=600.0)
         code = extract_js(reply.text)
-        if not code:
-            errs = [reply.error or "no ```js code block in the reply"]
+        if not code or reply.text.count("```") % 2:
+            errs = [reply.error or ("the reply was cut off before the end of the ```js block: the module is too long; "
+                                    f"rewrite it more compactly (under {MAX_SCENE_BYTES // 1000} KB)" if code else
+                                    "no ```js code block in the reply")]
             r.warn("scenes", f"Scene {name} try {attempt}: {errs[0][:160]}")
+            if not prev:
+                prev = code
             continue
         code = normalize_scene_code(code, sid)
         found, warns = lint_scene(code, sid)
@@ -678,7 +687,7 @@ def _critique(r: _Run, v: Version, rnd: int) -> RoundScore | None:
     crit = None
     for attempt in range(2):
         reply = r.ask(f"critic:r{rnd}", instr, text, schema=prompts.CRITIC_SCHEMA, schema_name="showreel.critique",
-                      images=images, temperature=0.2, max_tokens=5000)
+                      images=images, temperature=0.2, max_tokens=10000)
         crit = _normalise_critique(_json_of(reply), v)
         if crit is not None:
             break

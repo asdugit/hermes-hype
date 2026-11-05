@@ -88,6 +88,16 @@ def test_full_loop_repair_critique_revise_pass(env: dict[str, Any]) -> None:
     assert res.events[-1]["frac"] == 1.0
 
 
+def test_cut_off_scene_reply_is_repaired(env: dict[str, Any]) -> None:
+    cut = "Here.\n```js\n" + GOOD_CODE[: len(GOOD_CODE) // 2]          # no closing fence: max_tokens hit
+    llm = FakeLlm({"treatment": [TREATMENT], "film": [FILM], "scene": [cut, fenced(GOOD_CODE)],
+                   "critic": [critique(9.0)]})
+    res = _run(env, llm)
+    assert res.ok and res.scenes == {"boss-battle": "ok"}
+    second = [c for c in llm.calls if c["purpose"] == "scene:boss-battle"][1]
+    assert "cut off" in second["text"]
+
+
 def test_small_product_fails_the_gate_and_becomes_a_film_issue(env: dict[str, Any]) -> None:
     # every score passes, but the critic measured the car at 10 % of the frame width everywhere
     llm = FakeLlm({"treatment": [TREATMENT], "film": [FILM], "scene": [fenced(GOOD_CODE)],
