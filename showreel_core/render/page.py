@@ -146,11 +146,11 @@ class RenderPage:
             raise RenderError("page_contract", f"page script failed: {text[:400]}", expression=expression[:120])
         return res.get("result", {}).get("value")
 
-    async def seek(self, t: float) -> None:
+    async def seek(self, t: float, *, timeout: float | None = None) -> None:
         """``await __sr.seek(t)``; ``repr(float)`` round-trips exactly into a JS double."""
-        await self.evaluate(f"window.__sr.seek({float(t)!r}).then(() => 0)")
+        await self.evaluate(f"window.__sr.seek({float(t)!r}).then(() => 0)", timeout=timeout)
 
-    async def capture(self, fmt: str = "jpeg", quality: int = 92) -> bytes:
+    async def capture(self, fmt: str = "jpeg", quality: int = 92, *, timeout: float | None = None) -> bytes:
         """Screenshot of exactly the w x h canvas (JPEG with ``optimizeForSpeed``, or PNG)."""
         css_w, css_h = self.css_size
         params: dict[str, Any] = {"format": fmt, "optimizeForSpeed": True, "captureBeyondViewport": False,
@@ -158,7 +158,7 @@ class RenderPage:
                                   "clip": {"x": 0, "y": 0, "width": css_w, "height": css_h, "scale": 1}}
         if fmt == "jpeg":
             params["quality"] = int(quality)
-        res = await self.session.send("Page.captureScreenshot", params)
+        res = await self.session.send("Page.captureScreenshot", params, timeout=timeout)
         return base64.b64decode(res["data"])
 
     async def close(self) -> None:

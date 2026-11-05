@@ -38,6 +38,7 @@ GiB = 1024 ** 3
 WORKER_RAM = 0.7 * GiB
 RAM_HEADROOM = 1.0 * GiB
 MAX_CHUNK_ATTEMPTS = 3
+WARMUP_TIMEOUT_S = 8.0
 NON_RETRYABLE = frozenset({"page_contract", "post", "no_encoder", "no_ffmpeg", "no_browser", "bad_env_browser"})
 BROWSER_FAULTS = frozenset({"cdp", "cdp_timeout", "cdp_closed", "page_load", "browser_launch"})
 
@@ -76,7 +77,8 @@ class RenderSpec:
     work_dir: Path | None = None            # chunk dir; default <out_dir>/<stem>.chunks
     keep_chunks: bool = False
     fingerprint: str | None = None          # resume key; default = content hash of page_dir
-    timeout_s: float = 60.0
+    timeout_s: float = 60.0                 # CDP calls, page load, __sr.ready
+    frame_timeout_s: float = 20.0           # one seek or one capture; a hang costs at most this
     browser: BrowserCandidate | None = None
     ffmpeg: str | None = None
     profile_root: Path | None = None
@@ -238,6 +240,11 @@ class _Worker:
         self.page = await RenderPage.open(self.conn, w=spec.w, h=spec.h, dpr=spec.dpr, allow_prefixes=ctx.allow)
         await self.page.goto(ctx.url, timeout=spec.timeout_s)
         self.info = await self.page.wait_contract(timeout=spec.timeout_s)
+        # Warm-up frame with a short timeout: on this PC Chromium 145 in software mode occasionally
+        # never answers one of the first captureScreenshot calls after load (not reproducible on
+        # demand; see research/wp-a-renderer.md). Failing fast here restarts the browser cheaply.
+        await self.page.seek(0.0, timeout=spec.frame_timeout_s)
+        await self.page.capture(spec.capture_format, spec.jpeg_quality, timeout=WARMUP_TIMEOUT_S)
         self.browser.remember_children()
 
     async def stop(self, graceful: bool = True) -> None:
@@ -316,8 +323,8 @@ class _Worker:
             for i in range(chunk.f0, chunk.f1):
                 if ctx.cancel.is_set():
                     raise _Cancelled()
-                await self.page.seek(i / spec.fps)
-                data = await self.page.capture(spec.capture_format, spec.jpeg_quality)
+                await self.page.seek(i / spec.fps, timeout=spec.frame_timeout_s)
+                data = await self.page.capture(spec.capture_format, spec.jpeg_quality, timeout=spec.frame_timeout_s)
                 if ctx.capture_t0 is None:
                     ctx.capture_t0 = time.monotonic()
                 if drain is not None:
@@ -465,7 +472,16 @@ async def render_video_async(spec: RenderSpec, *, progress: ProgressCB | None = 
         if duration is None:
             first = _Worker(0, ctx)
             ctx.live_workers += 1
-            await first.start()
+            for attempt in range(1, MAX_CHUNK_ATTEMPTS + 1):
+                try:
+                    await first.start()
+                    break
+                except RenderError as e:
+                    await first.stop(graceful=False)
+                    if e.code not in BROWSER_FAULTS or attempt == MAX_CHUNK_ATTEMPTS:
+                        raise
+                    ctx.warn(f"worker 0: start attempt {attempt} failed: [{e.code}] {e.message}")
+                    res.restarts += 1
             assert first.info is not None
             duration = first.info.dur
         total = frames_for(duration, spec.fps)

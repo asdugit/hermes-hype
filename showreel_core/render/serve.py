@@ -69,6 +69,11 @@ class _Server(ThreadingHTTPServer):
         socketserver.TCPServer.server_bind(self)
         self.server_name, self.server_port = "127.0.0.1", self.server_address[1]
 
+    def handle_error(self, request: Any, client_address: Any) -> None:
+        # Keep-alive connections are aborted whenever we kill a browser; the default handler
+        # prints a traceback to stderr for each one.
+        pass
+
 
 class PageServer:
     """Serve ``root`` at ``http://127.0.0.1:<port>/<token>/``. Use as a context manager."""
