@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+.venv/
+node_modules/
+/out/
+/renders/
+*.mp4
+!docs/**/*.mp4
+.DS_Store
