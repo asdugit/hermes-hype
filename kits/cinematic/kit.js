@@ -16,6 +16,7 @@ const COMMON = {
   quality: { type: 'enum', values: ['auto', 'high', 'low'], default: 'auto', doc: 'auto = low on software GL (half-res plate, 12-tap DOF)' },
   rail: { type: 'object', default: null, doc: '{from, to (0..1 session progress over the shot), ticks:[0..1], label} — session-clock rail in the bottom bar' },
   register: { type: 'bool', default: true, doc: 'show the "● CAPTURED · session" tag on verbatim captures' },
+  _captions: { type: 'bool', default: false, doc: 'captions are up (Quick mode): lower thirds lift clear of the caption band' },
 };
 const IMAGE_DOC = { type: 'image', default: null, doc: 'screenshot/product image ({asset, url, ...} or asset name)' };
 
@@ -96,7 +97,7 @@ defineCine('kit:cinematic/HOOK', 'Black → the hero capture already lit and clo
       items, register: true, motes: 8,
       cam: (t) => rig([[0, { pos: [0.12, 0.05, logDolly(D * 1.3, D, inOut(t / dur))], look: [0, 0, 0], fov: 30 }]], t),
       focus: (t) => lerp(0.9, logDolly(D * 1.3, D, inOut(t / dur)), outCubic((t - 0.15) / 0.9)),   // pull from a mote to the card
-      overlay: (g, t, F) => { if (p.label) type.italic(g, F, p.label, t, { y: F.h - F.barH - 70 * F.scale, size: 56, t0: 0.5 }); },
+      overlay: (g, t, F) => { if (p.label) type.italic(g, F, p.label, t, { y: F.h - F.barH - (p._captions ? 210 : 70) * F.scale, size: 56, t0: 0.5 }); },
       overlayKey: until(2.5),
     };
   });
@@ -276,7 +277,7 @@ function screenScene(ctx, p, r, seed, o = {}) {
     focus: (t) => lerp(D * 1.05, D / 1.15, inOut(t / dur)),
     overlay: (g, t, F) => {
       const s = F.scale, x = F.portrait ? F.w / 2 : 120 * s, align = F.portrait ? 'center' : 'left';
-      const yb = F.portrait ? F.h * 0.72 : F.h - F.barH - 96 * s;
+      const yb = (F.portrait ? F.h * 0.72 : F.h - F.barH - 96 * s) - (p._captions ? 140 * s : 0);   // clear the caption band
       if (o.kicker !== false) type.label(g, F, o.kicker || 'Captured · screen', t, { x, y: yb - 64 * s, align, t0: 0.5 });
       if (caption) type.italic(g, F, caption, t, { x, y: yb, align, size: 52, t0: 0.7, maxW: F.w * 0.5 });
       if (url) type.label(g, F, url.replace(/^[a-z]+:\/\//i, ''), t, { x, y: yb + 52 * s, align, size: 13, color: type.INK.ash, t0: 0.9 });

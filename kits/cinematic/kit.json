@@ -3,17 +3,75 @@
   "version": 1,
   "entry": "kit.js",
   "describe": "Cinematic 3D: the session's real captures are emissive glass cards floating at depth in a dark room; heavy camera, per-object depth of field, dust bokeh, bloom, 2.39 letterbox, Cormorant titles, one amber accent, session-clock rail.",
-  "requires": ["three", "base"],
-  "theme": "cinematic",
-  "scenes": ["HOOK", "TITLE", "PROBLEM", "PLAN", "CODE", "DIFF", "TERMINAL", "MONTAGE", "SCREEN", "STATS",
-             "BEFORE_AFTER", "CALLOUT", "END", "FEATURE", "SCROLL", "card-field", "screen-push"],
-  "fonts": [
-    {"family": "Cormorant Garamond", "src": "fonts/CormorantGaramond-Variable.ttf", "weight": "300 700", "style": "normal"},
-    {"family": "Cormorant Garamond", "src": "fonts/CormorantGaramond-Italic-Variable.ttf", "weight": "300 700", "style": "italic"},
-    {"family": "Plex Fallback", "src": "fonts/IBMPlexMono-Regular.ttf", "weight": "400", "style": "normal"}
+  "requires": [
+    "three",
+    "base"
   ],
-  "licenses": ["fonts/OFL-CormorantGaramond.txt", "fonts/OFL-IBMPlexMono.txt"],
-  "finish": {"grain": 0.0, "vignette": 0.0},
-  "transitions": {"cut": null, "match": ["dip-black", 0.5], "push": ["crossfade", 0.6], "wipe": ["dip-black", 0.5]},
-  "background": "#000000"
+  "theme": "cinematic",
+  "scenes": [
+    "HOOK",
+    "TITLE",
+    "PROBLEM",
+    "PLAN",
+    "CODE",
+    "DIFF",
+    "TERMINAL",
+    "MONTAGE",
+    "SCREEN",
+    "STATS",
+    "BEFORE_AFTER",
+    "CALLOUT",
+    "END",
+    "FEATURE",
+    "SCROLL",
+    "card-field",
+    "screen-push"
+  ],
+  "fonts": [
+    {
+      "family": "Cormorant Garamond",
+      "src": "fonts/CormorantGaramond-Variable.ttf",
+      "weight": "300 700",
+      "style": "normal"
+    },
+    {
+      "family": "Cormorant Garamond",
+      "src": "fonts/CormorantGaramond-Italic-Variable.ttf",
+      "weight": "300 700",
+      "style": "italic"
+    },
+    {
+      "family": "Plex Fallback",
+      "src": "fonts/IBMPlexMono-Regular.ttf",
+      "weight": "400",
+      "style": "normal"
+    }
+  ],
+  "licenses": [
+    "fonts/OFL-CormorantGaramond.txt",
+    "fonts/OFL-IBMPlexMono.txt"
+  ],
+  "finish": {
+    "grain": 0.0,
+    "vignette": 0.0
+  },
+  "transitions": {
+    "cut": null,
+    "match": [
+      "dip-black",
+      0.5
+    ],
+    "push": [
+      "crossfade",
+      0.6
+    ],
+    "wipe": [
+      "dip-black",
+      0.5
+    ]
+  },
+  "background": "#000000",
+  "quick": {
+    "claims": false
+  }
 }
