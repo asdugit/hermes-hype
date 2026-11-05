@@ -31,7 +31,8 @@ _LOCKS_GUARD = threading.Lock()
 def data_root() -> Path:
     """``<HERMES_HOME>/plugin-data/showreel`` (profile-following); ``$SHOWREEL_DATA_DIR`` overrides it.
 
-    Outside Hermes (tests, dev harness) it falls back to ``~/.hermes/plugin-data/showreel``.
+    Outside Hermes (tests, dev tools) it falls back to ``<temp>/showreel-data`` so nothing is
+    written into a Hermes home that is not there.
     """
     env = os.environ.get("SHOWREEL_DATA_DIR", "").strip()
     if env:
@@ -47,7 +48,8 @@ def data_root() -> Path:
                 from hermes_constants import get_hermes_home
                 root = Path(get_hermes_home()) / "plugin-data" / PLUGIN
             except Exception:  # noqa: BLE001
-                root = Path.home() / ".hermes" / "plugin-data" / PLUGIN
+                import tempfile
+                root = Path(tempfile.gettempdir()) / "showreel-data"
     root.mkdir(parents=True, exist_ok=True)
     return root
 

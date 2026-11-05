@@ -41,7 +41,7 @@ from .config import (
     PREVIEW_SIZES,
     Options,
 )
-from .jobs import TERMINAL, JobStore, data_root
+from .jobs import TERMINAL, JobStore
 from .llm import Host
 
 log = logging.getLogger(__name__)
@@ -1032,7 +1032,7 @@ def _render_spec(run: _Run, b: Built, *, gpu: str, workers: int | None) -> Any:
     return RenderSpec(page_dir=b.page_dir, out_path=run.job_dir / f"video_{tag}.mp4", w=w, h=h, fps=float(b.fps),
                       page=b.page, duration_s=b.dur, out_size=b.out_size, post=b.post, post_params=b.post_params,
                       seed=run.seed, workers=workers, gpu=gpu, work_dir=run.job_dir / f"chunks_{tag}",
-                      gpu_cache=data_root() / "gpu_probe.json")
+                      gpu_cache=run.store.root / "gpu_probe.json")
 
 
 def _render_all(run: _Run) -> dict[str, Path]:

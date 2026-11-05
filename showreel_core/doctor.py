@@ -5,7 +5,6 @@ import os
 import platform
 import sys
 import tempfile
-from pathlib import Path
 from typing import Any
 
 from . import __version__
@@ -26,7 +25,8 @@ def _ffmpeg() -> list[dict[str, Any]]:
     out = [_check("ffmpeg", True, f"{info.path} ({info.source})")]
     try:
         caps = capabilities(info.path)
-        out.append(_check("video encoder", True, f"{pick_encoder(caps)} (ffmpeg {caps.version})"))
+        version = str(caps.version).split(" version ")[-1].split(" ")[0]
+        out.append(_check("video encoder", True, f"{pick_encoder(caps)} (ffmpeg {version})"))
     except Exception as exc:  # noqa: BLE001
         out.append(_check("video encoder", False, f"{type(exc).__name__}: {exc}",
                           "Reinstall ffmpeg: hermes pm install ffmpeg"))
@@ -126,4 +126,3 @@ def format_report(rep: dict[str, Any]) -> str:
 
 
 __all__ = ["doctor_report", "format_report"]
-_ = Path  # (kept for type readers)
