@@ -1,0 +1,299 @@
+"""Persisted job state (SPEC 3.8): ``<plugin data>/jobs/<id>/job.json`` plus a ``cancel`` flag file.
+
+Stdlib only and free of package-relative imports, so ``dashboard/plugin_api.py`` (imported
+standalone by Hermes) and the plugin's own threads share one implementation. One process runs a
+job and is the only writer of its ``job.json``; other contexts (the pane, another surface) talk to
+it through side files: ``cancel`` (flag) and ``storyboard.edit.json`` (pane edits). Writes are
+atomic (temp file + ``os.replace``, retried on Windows sharing errors).
+"""
+from __future__ import annotations
+
+import contextlib
+import json
+import os
+import re
+import secrets
+import shutil
+import threading
+import time
+from pathlib import Path
+from typing import Any
+
+PLUGIN = "showreel"
+STAGES = ("queued", "reading", "storyboard", "voice", "layout", "render", "mix", "qa", "done")
+TERMINAL = frozenset({"done", "failed", "cancelled"})
+LOG_CAP = 400
+_ID_RE = re.compile(r"^[0-9]{8}-[0-9]{6}-[0-9a-f]{4}$")
+_LOCKS: dict[str, threading.Lock] = {}
+_LOCKS_GUARD = threading.Lock()
+
+
+def data_root() -> Path:
+    """``<HERMES_HOME>/plugin-data/showreel`` (profile-following); ``$SHOWREEL_DATA_DIR`` overrides it.
+
+    Outside Hermes (tests, dev harness) it falls back to ``~/.hermes/plugin-data/showreel``.
+    """
+    env = os.environ.get("SHOWREEL_DATA_DIR", "").strip()
+    if env:
+        root = Path(env)
+    else:
+        try:
+            from plugins.plugin_storage import (
+                plugin_data_dir,  # Hermes public module, lazy
+            )
+            return Path(plugin_data_dir(PLUGIN))
+        except Exception:  # noqa: BLE001 - not inside Hermes
+            try:
+                from hermes_constants import get_hermes_home
+                root = Path(get_hermes_home()) / "plugin-data" / PLUGIN
+            except Exception:  # noqa: BLE001
+                root = Path.home() / ".hermes" / "plugin-data" / PLUGIN
+    root.mkdir(parents=True, exist_ok=True)
+    return root
+
+
+def new_job_id(now: float | None = None) -> str:
+    """Sortable, path-safe id: ``YYYYMMDD-HHMMSS-xxxx`` (UTC)."""
+    stamp = time.strftime("%Y%m%d-%H%M%S", time.gmtime(time.time() if now is None else now))
+    return f"{stamp}-{secrets.token_hex(2)}"
+
+
+def valid_id(job_id: Any) -> bool:
+    return isinstance(job_id, str) and bool(_ID_RE.match(job_id))
+
+
+def _lock(job_id: str) -> threading.Lock:
+    with _LOCKS_GUARD:
+        return _LOCKS.setdefault(job_id, threading.Lock())
+
+
+def write_json_atomic(path: Path, data: Any, retries: int = 8) -> None:
+    """Write JSON so readers see the old or the new file, never half of one."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(f".{path.name}.{os.getpid()}.{threading.get_ident()}.tmp")
+    tmp.write_text(json.dumps(data, ensure_ascii=False, indent=1, default=str), encoding="utf-8")
+    for attempt in range(retries):
+        try:
+            os.replace(tmp, path)
+            return
+        except PermissionError:          # Windows: a reader holds the file open for a moment
+            time.sleep(0.02 * (attempt + 1))
+    with contextlib.suppress(OSError):
+        tmp.unlink()
+    raise PermissionError(f"could not replace {path}")
+
+
+def read_json(path: Path, retries: int = 4) -> Any:
+    """Read JSON, tolerating a concurrent atomic replace (``None`` if missing/unreadable)."""
+    for attempt in range(retries):
+        try:
+            return json.loads(path.read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            return None
+        except (PermissionError, ValueError):
+            time.sleep(0.02 * (attempt + 1))
+        except OSError:
+            return None
+    return None
+
+
+def _pid_alive(pid: Any) -> bool:
+    try:
+        pid = int(pid)
+    except (TypeError, ValueError):
+        return False
+    if pid == os.getpid():
+        return True
+    try:
+        import psutil  # Hermes core dependency
+        return psutil.pid_exists(pid)
+    except Exception:  # noqa: BLE001
+        return False
+
+
+class JobStore:
+    """Job records under ``<root>/jobs``. Thread-safe within a process; see the module docstring."""
+
+    def __init__(self, root: Path | str | None = None) -> None:
+        self.root = Path(root) if root is not None else data_root()
+        self.jobs_dir = self.root / "jobs"
+
+    # -- paths -----------------------------------------------------------------
+    def job_dir(self, job_id: str) -> Path:
+        if not valid_id(job_id):
+            raise ValueError(f"invalid job id: {job_id!r}")
+        return self.jobs_dir / job_id
+
+    def _file(self, job_id: str) -> Path:
+        return self.job_dir(job_id) / "job.json"
+
+    # -- create / read / write ----------------------------------------------------
+    def create(self, session_id: str, options: dict[str, Any], *, kind: str = "quick", surface: str = "",
+               parent: str = "", title: str = "") -> dict[str, Any]:
+        """New job record in stage ``queued`` (its directory is created)."""
+        now = time.time()
+        job_id = new_job_id(now)
+        while self._file(job_id).exists():
+            job_id = new_job_id(now)
+        job = {
+            "id": job_id, "session_id": session_id or "", "created": now, "updated": now, "finished": None,
+            "kind": kind, "surface": surface, "parent": parent, "title": title, "pid": os.getpid(),
+            "options": dict(options), "stage": "queued", "stage_pct": 0.0, "pct": 0.0, "eta_s": None,
+            "note": "", "error": None, "warnings": [], "storyboard": None, "storyboard_source": "",
+            "timeline_paths": {}, "outputs": {}, "delivered": {}, "contact_sheet": "", "thumbs": [],
+            "duration_s": None, "stages": {}, "qa": {}, "log": [],
+        }
+        self.job_dir(job_id).mkdir(parents=True, exist_ok=True)
+        self.save(job)
+        return job
+
+    def load(self, job_id: str) -> dict[str, Any] | None:
+        if not valid_id(job_id):
+            return None
+        data = read_json(self._file(job_id))
+        return data if isinstance(data, dict) else None
+
+    def save(self, job: dict[str, Any]) -> None:
+        job["updated"] = time.time()
+        with _lock(job["id"]):
+            write_json_atomic(self._file(job["id"]), job)
+
+    def update(self, job_id: str, **fields: Any) -> dict[str, Any] | None:
+        """Merge ``fields`` into the record (read-modify-write under the per-job lock)."""
+        with _lock(job_id):
+            job = self.load(job_id)
+            if job is None:
+                return None
+            job.update(fields)
+            job["updated"] = time.time()
+            write_json_atomic(self._file(job_id), job)
+            return job
+
+    def log(self, job_id: str, msg: str, level: str = "info", **extra: Any) -> None:
+        """Append a log line (``level``: info | warn | error); warnings also land in ``job.warnings``."""
+        with _lock(job_id):
+            job = self.load(job_id)
+            if job is None:
+                return
+            entry = {"t": round(time.time(), 3), "level": level, "msg": str(msg)[:2000], **extra}
+            job["log"] = (job.get("log") or [])[-(LOG_CAP - 1):] + [entry]
+            if level == "warn":
+                job["warnings"] = (job.get("warnings") or [])[-49:] + [str(msg)[:500]]
+            job["updated"] = time.time()
+            write_json_atomic(self._file(job_id), job)
+
+    # -- queries --------------------------------------------------------------------
+    def list(self, session_id: str | None = None, limit: int = 50) -> list[dict[str, Any]]:
+        """Jobs newest first (optionally only one session's)."""
+        if not self.jobs_dir.is_dir():
+            return []
+        out: list[dict[str, Any]] = []
+        for d in sorted(self.jobs_dir.iterdir(), key=lambda p: p.name, reverse=True):
+            if not valid_id(d.name):
+                continue
+            job = self.load(d.name)
+            if job is None or (session_id and job.get("session_id") != session_id):
+                continue
+            out.append(job)
+            if len(out) >= limit:
+                break
+        return out
+
+    def latest(self, session_id: str | None = None) -> dict[str, Any] | None:
+        jobs = self.list(session_id, limit=1)
+        return jobs[0] if jobs else None
+
+    def find(self, ref: str, session_id: str | None = None) -> dict[str, Any] | None:
+        """Job by full id, unique id prefix/suffix, or ``""``/``latest`` (the session's newest)."""
+        ref = (ref or "").strip()
+        if not ref or ref == "latest":
+            return self.latest(session_id) or (self.latest() if session_id is None else None)
+        if valid_id(ref):
+            return self.load(ref)
+        hits = [j for j in self.list(session_id, limit=500) if j["id"].startswith(ref) or j["id"].endswith(ref)]
+        return hits[0] if len(hits) == 1 else None
+
+    def running(self, session_id: str | None = None) -> list[dict[str, Any]]:
+        return [j for j in self.list(session_id, limit=100) if j.get("stage") not in TERMINAL]
+
+    # -- cancel / storyboard edits ---------------------------------------------------
+    def request_cancel(self, job_id: str) -> bool:
+        """Raise the cancel flag (picked up by the runner within about a second)."""
+        job = self.load(job_id)
+        if job is None or job.get("stage") in TERMINAL:
+            return False
+        (self.job_dir(job_id) / "cancel").write_text(str(time.time()), encoding="utf-8")
+        return True
+
+    def cancel_requested(self, job_id: str) -> bool:
+        return valid_id(job_id) and (self.job_dir(job_id) / "cancel").exists()
+
+    def save_storyboard_edit(self, job_id: str, storyboard: dict[str, Any]) -> Path:
+        """Store pane edits (narration/labels/drops/order) for the next re-render of this job."""
+        path = self.job_dir(job_id) / "storyboard.edit.json"
+        write_json_atomic(path, storyboard)
+        return path
+
+    def storyboard_edit(self, job_id: str) -> dict[str, Any] | None:
+        data = read_json(self.job_dir(job_id) / "storyboard.edit.json") if valid_id(job_id) else None
+        return data if isinstance(data, dict) else None
+
+    # -- housekeeping ------------------------------------------------------------------
+    def mark_stale(self, max_idle_s: float = 900.0, now: float | None = None,
+                   active_ids: set[str] | list[str] | None = None) -> list[str]:
+        """Fail jobs whose runner is gone. Returns the ids marked ``failed``.
+
+        A job is stale when its owning process is dead, when it belongs to this process but is not in
+        ``active_ids`` (the plugin was reloaded), or when it has been silent for ``4 * max_idle_s``.
+        Jobs younger than 30 s are left alone (they may be between ``create`` and their thread start).
+        """
+        now = time.time() if now is None else now
+        marked = []
+        for job in self.running():
+            idle = now - float(job.get("updated") or 0)
+            if idle < 30.0:
+                continue
+            pid = job.get("pid")
+            mine = pid == os.getpid()
+            orphan = mine and active_ids is not None and job["id"] not in set(active_ids)
+            dead = not mine and not _pid_alive(pid)
+            if not (orphan or dead or idle >= 4 * max_idle_s):
+                continue
+            self.update(job["id"], stage="failed", finished=now, error={"code": "interrupted",
+                        "message": "The render stopped unexpectedly (Hermes restarted or the plugin unloaded)."})
+            marked.append(job["id"])
+        return marked
+
+    def prune(self, keep: int = 20, max_age_days: float = 14.0, now: float | None = None) -> list[str]:
+        """Delete finished jobs beyond the newest ``keep`` or older than ``max_age_days``.
+
+        Running jobs are never touched. Delivered copies in ``cache/generated/videos`` are not ours
+        to prune (Hermes keeps them); only the job directory goes.
+        """
+        now = time.time() if now is None else now
+        removed: list[str] = []
+        finished = [j for j in self.list(limit=10_000) if j.get("stage") in TERMINAL]
+        for k, job in enumerate(finished):
+            old = now - float(job.get("created") or now) > max_age_days * 86400
+            if k >= keep or old:
+                shutil.rmtree(self.job_dir(job["id"]), ignore_errors=True)
+                removed.append(job["id"])
+        return removed
+
+    def prune_work(self, job_id: str) -> None:
+        """Drop bulky intermediates of a finished job (render chunks, extracted frames, stems)."""
+        d = self.job_dir(job_id)
+        for pattern in ("chunks_*", "*.chunks", "frames_*"):
+            for p in d.glob(pattern):
+                shutil.rmtree(p, ignore_errors=True)
+        for pattern in ("mix_stem_*.wav", "mix_premix.wav", "*.tts.mp3"):
+            for p in d.rglob(pattern):
+                with contextlib.suppress(OSError):
+                    p.unlink()
+
+
+def public_view(job: dict[str, Any], log_tail: int = 30) -> dict[str, Any]:
+    """The job as shown to the pane/tools: everything but the long log (its tail only)."""
+    view = {k: v for k, v in job.items() if k != "log"}
+    view["log"] = (job.get("log") or [])[-log_tail:]
+    return view
