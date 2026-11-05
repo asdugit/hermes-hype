@@ -288,14 +288,20 @@ class _Film:
             return CAPACITY_MARGIN * sum(SCENE_RULES[s.type][1] for s in scenes)
 
         self.max_features = self.max_screens = max_type_count(self.hi)
-        for extra in self.extras():
-            if capacity() >= self.secs or len(scenes) >= self.hi:
-                break
-            if sum(s.type == extra.type for s in scenes) + 1 > max_type_count(len(scenes) + 1):
-                continue
-            if not self._accepts(extra, scenes):
-                continue
-            self._insert(scenes, extra)
+        pending = list(self.extras())  # materialised once: building a candidate marks its events used
+        added = True
+        while pending and added:  # several passes: the per-type cap grows as the film grows
+            added = False
+            for extra in list(pending):
+                if capacity() >= self.secs or len(scenes) >= self.hi:
+                    return scenes
+                if sum(s.type == extra.type for s in scenes) + 1 > max_type_count(len(scenes) + 1):
+                    continue
+                if not self._accepts(extra, scenes):
+                    continue
+                self._insert(scenes, extra)
+                pending.remove(extra)
+                added = True
         return scenes
 
     def _accepts(self, extra: StoryScene, scenes: list[StoryScene]) -> bool:

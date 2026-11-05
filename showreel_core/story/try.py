@@ -25,15 +25,16 @@ from pathlib import Path
 from typing import Any
 
 from ..contracts import Event, Product, Stats, Storyboard, Timeline
-from .generate import generate_storyboard_report, hermes_llm
+from .generate import GenerationResult, generate_storyboard_report, hermes_llm
 from .options import KNOWN_STYLES, StoryOptions
 from .prompt import build_input, build_instructions
 from .facts import SessionFacts
 from .heuristic import infer_product
-from .rules import TTS_WORDS_PER_SECOND
-from .schema import storyboard_to_json
+from .rules import TTS_WORDS_PER_SECOND, film_mode
+from .schema import storyboard_from_json, storyboard_to_json
 from .text import word_count
 from .timing import solve_timeline
+from .validate import validate_storyboard
 
 DEFAULT_BPM = 120.0
 SIZES = {"16:9": (1920, 1080), "9:16": (1080, 1920), "1:1": (1080, 1080)}
@@ -186,6 +187,8 @@ def main(argv: list[str] | None = None) -> int:
     src = ap.add_mutually_exclusive_group(required=True)
     src.add_argument("--fixture", help="events/stats JSON file")
     src.add_argument("--session", help="Hermes session id, prefix or 'latest' (needs the session stage)")
+    ap.add_argument("--storyboard", help="re-validate and re-solve a saved storyboard JSON (from --json) instead "
+                                         "of generating one")
     ap.add_argument("--seconds", type=float, default=60.0)
     ap.add_argument("--style", default="launch", choices=sorted(KNOWN_STYLES))
     ap.add_argument("--mode", default="product", help="product | making_of (lore, bts, process) | speedrun")
@@ -214,7 +217,15 @@ def main(argv: list[str] | None = None) -> int:
     llm = (hermes_adapter(args.hermes_root) if args.llm == "hermes"
            else hermes_cli_adapter() if args.llm == "hermes-cli" else None)
     t0 = time.perf_counter()
-    report = generate_storyboard_report(llm, digest, events, stats, opts, product)
+    if args.storyboard:
+        saved = json.loads(Path(args.storyboard).read_text(encoding="utf-8"))
+        sb_json = saved.get("storyboard", saved)
+        facts = SessionFacts(events, stats, digest, timestamps=(film_mode(opts.mode) == "speedrun"))
+        res = validate_storyboard(storyboard_from_json(sb_json, source=str(saved.get("source", "llm")),
+                                                       mode=opts.mode), facts, opts.clamped_seconds(), opts.mode)
+        report = GenerationResult(res.storyboard, [], res.fixes, [str(i) for i in res.issues])
+    else:
+        report = generate_storyboard_report(llm, digest, events, stats, opts, product)
     gen_s = time.perf_counter() - t0
     sb = report.storyboard
     for a in report.attempts:

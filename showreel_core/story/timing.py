@@ -22,6 +22,7 @@ from .facts import (STAT_LABELS, SessionFacts, code_lines, data_get, diff_rows, 
 from .rules import (CAPTION_PHRASE_PAD, CAPTION_WORDS_PER_SECOND, DROP_PRIORITY, GROW_ORDER, SHRINK_ORDER,
                     SPLIT_CHARS, film_mode)
 from .text import phrases, syllables, word_count
+from .validate import scene_role
 
 T = SceneType
 EPS = 1e-6
@@ -32,6 +33,8 @@ PROBLEM_WORDS = 60
 PLAN_ITEMS = 6
 CREDIT = "made with Hermes \u00b7 Showreel"
 PAD_IN, PAD_OUT, HOOK_PAD_IN = 0.3, 0.4, 0.15
+#: Drop-priority bonuses when a film is too long (see rules.DROP_PRIORITY for the base order).
+PRODUCT_BEAT_BONUS, NARRATED_BONUS = 2.5, 1.0
 #: A film with too few scenes may hold its end card this many bars past END's max.
 END_HOLD_BARS = 2
 #: ...and before that, let these hold-friendly scenes run up to STRETCH x their max (a longer push-in,
@@ -130,6 +133,10 @@ def _plan_scene(i: int, scene: StoryScene, sb: Storyboard, facts: SessionFacts, 
         reading *= 0.8  # time-lapse pacing
     want = min(max(lo, reading), hi)
     prio = DROP_PRIORITY[mode][st] + (10 if scene.extra.get("split") else 0)
+    if mode == "product" and scene_role(scene, facts, sb.product) == "product":
+        prio += PRODUCT_BEAT_BONUS  # a CLI's demo run outranks the build story in a product film
+    if scene.vo.strip():
+        prio += NARRATED_BONUS  # dropping a narrated scene loses a line of the script
     if scene.refs:
         ev = facts.get(scene.refs[0])
         prio += ev.weight * 0.5 if ev is not None else 0.0

@@ -180,6 +180,20 @@ def test_too_many_scenes_drops_the_weakest(coding):
     assert abs(tl.dur - 30) <= 2 + EPS
 
 
+def test_product_beats_outlive_build_scenes_when_cutting(coding):
+    """A CLI's demo run is a product beat: the build story goes first when a product film is too long."""
+    events, stats = coding
+    sb = build_heuristic_storyboard(events, stats, StoryOptions(seconds=30))
+    sb.scenes.insert(2, StoryScene(T.TERMINAL, ["e14"], "Point it at a folder and every month comes back sorted.",
+                                   "Every month at a glance"))
+    sb.scenes.insert(3, StoryScene(T.DIFF, ["e9"], "", "Refunds net out"))
+    sb.scenes.insert(4, StoryScene(T.CODE, ["e6"], "", "The categorizer"))
+    tl = solve_timeline(sb, events, stats, voice_for(sb), 110, 30, "16:9", 30, 1920, 1080, 1)
+    shown = [sb.scenes[sc.data["story_index"]] for sc in tl.scenes]
+    assert any(s.type == T.TERMINAL and s.refs == ["e14"] for s in shown)
+    assert len(shown) < len(sb.scenes) and not any(s.type == T.CODE for s in shown)
+
+
 def test_captions_only_and_determinism(coding):
     _, a, _ = solve("coding", 60, voice=False, seed=9)
     _, b, _ = solve("coding", 60, voice=False, seed=9)

@@ -49,12 +49,21 @@ def normalize_ws(text: str) -> str:
     return re.sub(r"\s+", " ", text or "").strip()
 
 
-def trim_words(text: str, max_words: int) -> str:
-    """Trim ``text`` to at most ``max_words`` words, preferring whole sentences.
+#: Words a trimmed phrase must not end on (it would read as cut off: "...and fixes it in a.").
+DANGLING = frozenset("""a an the and or but nor so yet to of in on at for with by from into onto than as
+    because while which that who whose whom where when then if its it's your their our his her my is are was
+    were be been being has have had do does did will would can could should very just also not""".split())
+_CLAUSE_WORDS = frozenset("and but so because while which then where when as that who with for to into from by"
+                          .split())
 
-    Keeps as many complete sentences as fit; if even the first sentence is too long it
-    is cut at the last comma/semicolon that fits, else at the word limit, and closed
-    with a period so TTS ends the phrase cleanly.
+
+def trim_words(text: str, max_words: int) -> str:
+    """Trim ``text`` to at most ``max_words`` words without leaving a broken sentence.
+
+    Keeps as many complete sentences as fit. If even the first sentence is too long it is cut
+    at the last clause boundary that fits (a comma, semicolon, colon or before a conjunction),
+    dangling function words are stripped, and the phrase is closed with a period so TTS ends
+    it cleanly. Returns "" when no clean phrase of at least three words fits.
     """
     text = normalize_ws(text)
     if max_words <= 0:
@@ -76,11 +85,17 @@ def trim_words(text: str, max_words: int) -> str:
     for tok in tokens:
         if word_count(" ".join(acc + [tok])) > max_words:
             break
+        if acc and tok.lower().strip(",;:") in _CLAUSE_WORDS:
+            best_clause = " ".join(acc)
         acc.append(tok)
         if tok.endswith((",", ";", ":")):
             best_clause = " ".join(acc)
     cut = best_clause if best_clause and word_count(best_clause) >= max(3, max_words // 2) else " ".join(acc)
-    return cut.rstrip(",;:—- ") + "."
+    words = cut.rstrip(",;:—- ").split(" ")
+    while words and words[-1].lower().strip(",;:—-") in DANGLING:
+        words.pop()
+    cut = " ".join(words).rstrip(",;:—- ")
+    return cut + "." if word_count(cut) >= 3 else ""
 
 
 def trim_chars(text: str, max_chars: int) -> str:

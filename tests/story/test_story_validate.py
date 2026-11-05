@@ -60,8 +60,8 @@ def test_ellipsis_markup_and_word_caps(coding_facts):
     scenes[1].vo = "Meet **Tally**... the budget tool that sorts every purchase you ever made into neat little piles."
     res = validate_storyboard(board(scenes), coding_facts, 30)
     vo = res.storyboard.scenes[1].vo
-    assert "..." not in vo and "*" not in vo
-    assert word_count(vo) <= 8
+    assert "..." not in vo and "*" not in vo and " ," not in vo
+    assert vo == "Meet Tally, the budget tool."  # cut at a clause boundary, never mid-phrase
     assert {"ellipsis", "markup", "vo_long"} <= codes(res)
 
 

@@ -519,6 +519,7 @@ def _check_vo(scene: StoryScene, path: str, ctx: _Ctx) -> None:
         ctx.issue("ellipsis", f"{path}.vo", "ellipses break TTS phrasing", "warning", "replaced with commas")
     if _MARKUP_RE.search(vo):
         vo = normalize_ws(_MARKUP_RE.sub(" ", vo))
+        vo = re.sub(r"\s+([,.;:!?])", r"\1", vo)
         ctx.issue("markup", f"{path}.vo", "narration contains markup characters", "warning", "stripped")
     kept: list[str] = []
     for sent in sentences(vo):
@@ -534,7 +535,8 @@ def _check_vo(scene: StoryScene, path: str, ctx: _Ctx) -> None:
         ctx.issue("digits", f"{path}.vo", "numbers must be spelled as spoken", "warning", "spelled out")
         vo = spelled
     cap = VO_WORD_CAPS[st]
-    if word_count(vo) > cap:
+    soft = cap + max(2, cap // 5)  # a slightly long line is better than a cut one; the scene just runs longer
+    if word_count(vo) > (soft if cap else 0):
         if cap == 0:
             ctx.issue("vo_not_allowed", f"{path}.vo", f"{st.value} is music-only (no narration)", "warning",
                       "removed")
@@ -542,7 +544,7 @@ def _check_vo(scene: StoryScene, path: str, ctx: _Ctx) -> None:
         else:
             ctx.issue("vo_long", f"{path}.vo", f"{word_count(vo)} words; {st.value} allows {cap}", "warning",
                       "trimmed")
-            vo = trim_words(vo, cap)
+            vo = trim_words(vo, soft)
     if vo and vo[-1] not in ".!?":
         vo += "."
     scene.vo = vo
@@ -619,8 +621,14 @@ def scene_role(scene: StoryScene, facts: SessionFacts, product: Product | None) 
     st = SceneType(scene.type)
     if st in (T.TITLE, T.END, T.CALLOUT):
         return "frame"
-    if st in (T.HOOK, T.FEATURE, T.SCROLL, T.SCREEN, T.BEFORE_AFTER):
+    if st in (T.HOOK, T.FEATURE, T.SCROLL, T.SCREEN):
         return "product"
+    no_product_shots = not facts.visuals() and not any(is_demo_run(e) for e in facts.events)
+    if st == T.BEFORE_AFTER:
+        # two product states (images), or a bug fix whose fix is the deliverable; a red-then-green test run
+        # next to a real product is build proof
+        shots = any(e is not None and image_of(e) is not None for e in (facts.get(r) for r in scene.refs))
+        return "product" if shots or no_product_shots else "build"
     ev = facts.get(scene.refs[0]) if scene.refs else None
     if st == T.TERMINAL and ev is not None:
         cmd = str((ev.data or {}).get("cmd") or "")
@@ -633,7 +641,7 @@ def scene_role(scene: StoryScene, facts: SessionFacts, product: Product | None) 
         if any(path.endswith(f) or f.endswith(path) for f in product.entry_files) or "example" in path.lower() \
                 or path.lower().endswith("readme.md"):
             return "product"
-    if st == T.DIFF and not facts.visuals() and not any(is_demo_run(e) for e in facts.events):
+    if st == T.DIFF and no_product_shots:
         return "product"  # a bug fix: the change itself is the deliverable
     return "build" if st in BUILD_TYPES or st in (T.TERMINAL, T.CODE) else "frame"
 
@@ -770,20 +778,24 @@ def _assign_splits(kept: list[tuple[int, StoryScene]], ctx: _Ctx) -> None:
 
 
 def _check_budget(sb: Storyboard, ctx: _Ctx, target_seconds: float) -> None:
+    """Over budget by more than a quarter: drop whole trailing sentences from the longest multi-sentence
+    lines, then silence the least important narrated scenes. Never cuts a sentence mid-way."""
     budget = narration_budget(target_seconds, ctx.mode)
     total = sum(word_count(s.vo) for s in sb.scenes)
-    if total <= int(budget * 1.1):
+    if total <= int(budget * 1.25):
         return
     ctx.issue("vo_budget", "$.scenes", f"narration is {total} words; budget for {target_seconds:g} s is {budget}",
-              "warning", "trimmed the longest narration lines")
+              "warning", "dropped trailing sentences / silenced minor scenes")
     while total > budget:
-        longest = max(sb.scenes, key=lambda s: word_count(s.vo))
-        sents = sentences(longest.vo)
-        if len(sents) > 1:
-            longest.vo = " ".join(sents[:-1])
+        multi = [s for s in sb.scenes if len(sentences(s.vo)) > 1]
+        if multi:
+            longest = max(multi, key=lambda s: word_count(s.vo))
+            longest.vo = " ".join(sentences(longest.vo)[:-1])
         else:
-            longest.vo = trim_words(longest.vo, max(0, word_count(longest.vo) - (total - budget)))
-        new_total = sum(word_count(s.vo) for s in sb.scenes)
-        if new_total >= total:
-            break
-        total = new_total
+            prio = DROP_PRIORITY[ctx.mode]
+            voiced = [(prio[s.type], -i, s) for i, s in enumerate(sb.scenes)
+                      if s.vo and s.type not in (T.TITLE, T.END, T.HOOK)]
+            if not voiced:
+                break
+            min(voiced, key=lambda x: (x[0], x[1]))[2].vo = ""
+        total = sum(word_count(s.vo) for s in sb.scenes)
