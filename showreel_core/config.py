@@ -174,6 +174,24 @@ def load_settings(get_config: Callable[[str, Any], Any] | None = None) -> Settin
     return s
 
 
+def settings_from_hermes_config() -> Settings:
+    """Settings without a plugin ``ctx`` (dashboard API): ``plugins.entries.showreel.settings`` in config.yaml.
+
+    Read-only; defaults when not inside Hermes or the file cannot be read.
+    """
+    try:
+        import yaml  # Hermes core dependency
+        from hermes_constants import get_hermes_home  # public, lazy
+        raw = yaml.safe_load((Path(get_hermes_home()) / "config.yaml").read_text(encoding="utf-8")) or {}
+        entry = ((raw.get("plugins") or {}).get("entries") or {}).get("showreel") or {}
+        values = entry.get("settings") or entry.get("config") or {}
+    except Exception:  # noqa: BLE001
+        return Settings()
+    if not isinstance(values, dict):
+        return Settings()
+    return load_settings(lambda key, default: values.get(key, default))
+
+
 # --------------------------------------------------------------------------- styles
 
 @dataclass

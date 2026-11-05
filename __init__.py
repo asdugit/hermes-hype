@@ -17,7 +17,7 @@ TOOLS = ("showreel_render", "showreel_status")
 HOOKS: tuple[str, ...] = ()
 
 
-def register(ctx, **_kwargs):  # noqa: ANN001, ANN201 - Hermes plugin entry point
+def register(ctx, **_kwargs):  # Hermes plugin entry point (ctx: hermes_cli.plugins.PluginContext)
     """Register the aux LLM task, ``/showreel``, the agent tools, the CLI, the bundled skill and unload."""
     from .showreel_core import handlers as h
 

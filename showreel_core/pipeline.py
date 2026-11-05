@@ -266,29 +266,37 @@ def _d_solve(sb: Any, bundle: Any, voice_durations: dict[int, float], bpm: float
 
 def _d_quick_film(timeline: Any, *, job_dir: Path, page_dir: Path, style: str, aspect: str, preview: bool,
                   storyboard: Any, bundle: Any) -> dict[str, Any]:
-    """Timeline -> film.json via ``film/quick.py`` (WP-D's Quick-mode adapter)."""
+    """Timeline -> ``{"film": film.json, "assets": {...}, "scenes": {...}}`` via ``film/quick.py`` (WP-D).
+
+    A bare film dict is accepted too (no extra assets or scenes).
+    """
     try:
         from .film import quick
     except ImportError as exc:
-        raise StageError("film_runtime_missing", f"the film runtime is not in this build ({exc})") from exc
-    return _call_flexible(quick, ("film_from_timeline", "timeline_to_film", "quick_film", "build_film"),
-                          timeline=timeline, style=style, aspect=aspect, preview=preview, job_dir=job_dir,
-                          page_dir=page_dir, storyboard=storyboard, events=bundle.events, stats=bundle.stats,
-                          product=getattr(storyboard, "product", None))
+        raise StageError("film_runtime_missing", f"the Quick film adapter is not in this build ({exc})") from exc
+    res = _call_flexible(quick, ("film_from_timeline", "timeline_to_film", "quick_film", "build_film"),
+                         timeline=timeline, style=style, aspect=aspect, preview=preview, job_dir=job_dir,
+                         page_dir=page_dir, storyboard=storyboard, events=bundle.events, stats=bundle.stats,
+                         product=getattr(storyboard, "product", None))
+    if hasattr(res, "to_dict") and not isinstance(res, dict):
+        res = res.to_dict()
+    if isinstance(res, dict) and "film" in res and "shots" not in res:
+        return {"film": dict(res["film"]), "assets": dict(res.get("assets") or {}),
+                "scenes": dict(res.get("scenes") or {})}
+    return {"film": dict(res), "assets": {}, "scenes": {}}
 
 
-def _d_build_page(film: dict[str, Any], *, page_dir: Path, job_dir: Path) -> str:
-    """film.json -> a servable page directory via ``film/page.py``; returns the entry page name."""
+def _d_build_page(film: dict[str, Any], *, page_dir: Path, job_dir: Path, assets: dict[str, Any] | None = None,
+                  scenes: dict[str, Any] | None = None) -> str:
+    """film.json -> a servable job dir via ``film.page.build_job``; returns the entry page name."""
     try:
-        from .film import page
+        from .film.page import JobError, build_job
     except ImportError as exc:
         raise StageError("film_runtime_missing", f"the film page builder is not in this build ({exc})") from exc
-    res = _call_flexible(page, ("build_job", "build_page", "build"), film=film, job_dir=page_dir,
-                         page_dir=page_dir, out_dir=page_dir, work_dir=job_dir)
-    if isinstance(res, dict):
-        return str(res.get("page") or "stage.html")
-    if isinstance(res, (str, Path)) and str(res):
-        return Path(res).name if Path(res).is_absolute() else str(res)
+    try:
+        build_job(film, page_dir, assets=assets or {}, scenes=scenes or {})
+    except JobError as exc:
+        raise StageError("film_invalid", f"the film could not be built: {exc}") from exc
     return "stage.html"
 
 
@@ -559,9 +567,54 @@ def _run(run: _Run) -> None:
     _back_half(run)
 
 
+@dataclass
+class SavedSession:
+    """A session bundle restored from a job's ``session.json`` (re-renders reuse the parent's evidence)."""
+    session_id: str = ""
+    events: list[Any] = field(default_factory=list)
+    stats: Any = None
+    digest: str = ""
+    product: Any = None
+    product_detected: bool = False
+    warnings: list[str] = field(default_factory=list)
+
+
+def save_session(bundle: Any, path: Path) -> None:
+    """Persist the evidence a re-render needs (already redacted; stays in the local job dir)."""
+    from dataclasses import asdict
+    data = {"session_id": getattr(bundle, "session_id", ""), "digest": getattr(bundle, "digest", ""),
+            "events": [e.to_dict() if hasattr(e, "to_dict") else asdict(e) for e in bundle.events],
+            "stats": bundle.stats.to_dict() if hasattr(bundle.stats, "to_dict") else {},
+            "product": _product_dict(getattr(bundle, "product", None)),
+            "product_detected": bool(getattr(bundle, "product_detected", False))}
+    path.write_text(json.dumps(data, ensure_ascii=False, default=str), encoding="utf-8")
+
+
+def load_session(path: Path) -> SavedSession | None:
+    """Inverse of :func:`save_session` (``None`` if missing or unreadable)."""
+    from .contracts import Event, Product, Stats
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+        events = [Event(**{k: v for k, v in e.items() if k in Event.__dataclass_fields__}) for e in raw["events"]]
+        stats = Stats(**{k: v for k, v in (raw.get("stats") or {}).items() if k in Stats.__dataclass_fields__})
+        prod = Product(**{k: v for k, v in (raw.get("product") or {}).items() if k in Product.__dataclass_fields__})
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+    return SavedSession(str(raw.get("session_id") or ""), events, stats, str(raw.get("digest") or ""), prod,
+                        bool(raw.get("product_detected")))
+
+
 def _read(run: _Run) -> None:
     sid = run.job.get("session_id") or ""
-    bundle = run.deps.read_session(sid, assets_dir=run.job_dir / "assets", redact=run.opts.redact)
+    bundle = None
+    parent = str(run.job.get("parent") or "")
+    if parent and run.job.get("reuse_storyboard"):
+        with contextlib.suppress(ValueError):
+            bundle = load_session(run.store.job_dir(parent) / "session.json")
+        if bundle is not None:
+            run.info(f"re-render: reusing the evidence of job {parent}")
+    if bundle is None:
+        bundle = run.deps.read_session(sid, assets_dir=run.job_dir / "assets", redact=run.opts.redact)
     for w in (getattr(bundle, "warnings", None) or [])[:8]:
         run.info(f"session: {w}")
     brief = run.opts.brief
@@ -571,6 +624,8 @@ def _read(run: _Run) -> None:
     if brief:
         _merge_brief(bundle, brief)
     run.bundle = bundle
+    with contextlib.suppress(Exception):
+        save_session(bundle, run.job_dir / "session.json")
     run.store.update(run.job_id, session_id=getattr(bundle, "session_id", sid) or sid,
                      product=_product_dict(getattr(bundle, "product", None)))
     run.rep.progress(1.0, f"{len(bundle.events)} events")
@@ -631,7 +686,15 @@ def _storyboard(run: _Run) -> Any:
     source = "llm"
     if isinstance(reuse, dict) and reuse.get("scenes"):
         try:
+            from .story import validate_storyboard
+            from .story.facts import SessionFacts
             sb = storyboard_from_json(reuse, source="llm", mode=run.opts.mode)
+            facts = SessionFacts(run.bundle.events, run.bundle.stats, run.bundle.digest,
+                                 timestamps=(run.opts.mode == "speedrun"))
+            checked = validate_storyboard(sb, facts, run.opts.seconds, run.opts.mode)
+            sb = checked.storyboard
+            for fix in checked.fixes[:12]:
+                run.info(f"edited storyboard fix: {fix}")
             run.info("storyboard reused (no model call)")
             source = "reused"
         except Exception as exc:  # noqa: BLE001 - a broken edit falls back to a fresh storyboard
@@ -803,9 +866,11 @@ def _build_aspect(run: _Run, aspect: str, style: str) -> Built:
     if page_dir.exists():
         shutil.rmtree(page_dir, ignore_errors=True)
     page_dir.mkdir(parents=True, exist_ok=True)
-    film = run.deps.quick_film(tl, job_dir=run.job_dir, page_dir=page_dir, style=style, aspect=aspect,
+    made = run.deps.quick_film(tl, job_dir=run.job_dir, page_dir=page_dir, style=style, aspect=aspect,
                                preview=run.opts.preview, storyboard=run.storyboard, bundle=run.bundle)
-    page = run.deps.build_page(film, page_dir=page_dir, job_dir=run.job_dir)
+    film = made["film"]
+    page = run.deps.build_page(film, page_dir=page_dir, job_dir=run.job_dir, assets=made.get("assets"),
+                               scenes=made.get("scenes"))
     voices = [{"path": str(run.clips[int(sc.data["story_index"])].path), "start": float(sc.vo_t0),
                "duration": float(run.clips[int(sc.data["story_index"])].duration)}
               for sc in tl.scenes if int(sc.data.get("story_index", -1)) in run.clips]
@@ -875,9 +940,15 @@ def _directed(run: _Run) -> list[Built] | None:
     run.title = str(film.get("title") or "Showreel")
     run.store.update(run.job_id, title=run.title, director={k: v for k, v in res.items() if k not in ("film", "log")})
     run.rep.stage("layout", "building the film")
-    page_dir = Path(res.get("job_dir") or run.job_dir) / "page"
-    page_dir.mkdir(parents=True, exist_ok=True)
-    page = run.deps.build_page(film, page_dir=page_dir, job_dir=run.job_dir)
+    director_dir = Path(res.get("job_dir") or run.job_dir)
+    if (director_dir / "stage.html").is_file() and (director_dir / "film.json").is_file():
+        page_dir, page = director_dir, "stage.html"          # the Director already built its final page
+    else:
+        page_dir = run.job_dir / "page"
+        page_dir.mkdir(parents=True, exist_ok=True)
+        scenes = {f"custom:{p.stem}": p for p in sorted((director_dir / "scenes").glob("*.js"))}
+        page = run.deps.build_page(film, page_dir=page_dir, job_dir=run.job_dir, assets=res.get("assets") or {},
+                                   scenes=scenes)
     dur = float(film.get("dur") or run.opts.seconds)
     shots = film.get("shots") or []
     cues = [c for c in film.get("cues") or [] if isinstance(c, dict)]
