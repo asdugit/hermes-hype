@@ -23,7 +23,7 @@ KITS_ROOT = REPO_ROOT / "kits"
 VENDOR_THREE = REPO_ROOT / "vendor" / "three"
 
 KIT_REF_RE = re.compile(r"""\b(?:ctx|sr)\.kit\(\s*['"]([a-z0-9_-]+)['"]""")
-KIT_IMPORT_RE = re.compile(r"""(?:from|import)\s*['"](?:\.\./)+kits/([a-z0-9_-]+)/|(?:from|import)\s*['"]\.\./([a-z0-9_-]+)/""")
+KIT_IMPORT_RE = re.compile(r"""(?:from|import)\s*['"](?:\.\./)+kits/([a-z0-9_-]+)/""")
 THREE_RE = re.compile(r"""layer\s*:\s*['"]three['"]|from\s+['"]three(?:/addons/[^'"]*)?['"]|\bctx\.THREE\b|\bimport\(\s*['"]three""")
 KIT_COPY_IGNORE = shutil.ignore_patterns("__pycache__", "*.pyc", "*.py", "tests", "demo_out", ".git*", "*.blend", "*.psd")
 
@@ -64,11 +64,10 @@ def scene_filename(scene_id: str) -> str:
 
 
 def kits_referenced(js: str) -> set[str]:
-    """Kit names a JS source refers to (ctx.kit('x'), sr.kit('x'), imports of ../kits/x/ or ../x/)."""
-    out = set(KIT_REF_RE.findall(js))
-    for a, b in KIT_IMPORT_RE.findall(js):
-        out.add(a or b)
-    return {k for k in out if k}
+    """Kit names a JS source refers to: ctx.kit('x'), sr.kit('x'), imports of '../kits/x/...'.
+
+    Kit-to-kit imports ('../x/...' from kits/<k>/) are declared in kits/<k>/kit.json "requires" instead."""
+    return set(KIT_REF_RE.findall(js)) | set(KIT_IMPORT_RE.findall(js))
 
 
 def film_kits(film: Mapping[str, Any]) -> set[str]:

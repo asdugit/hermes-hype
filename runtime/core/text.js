@@ -13,6 +13,29 @@ export function cssFont(o) {
   return `${o.style || 'normal'} ${o.weight || 400} ${o.size || 32}px ${fam}`;
 }
 
+const GENERIC_FAMILIES = new Set(['serif', 'sans-serif', 'monospace', 'system-ui', 'cursive', 'fantasy', 'math',
+  'emoji', 'ui-sans-serif', 'ui-serif', 'ui-monospace']);
+const FONT_OK = new Map();
+
+/**
+ * True when the first family of a CSS font string is a loaded FontFace (or a generic family).
+ * document.fonts.check() is not enough: it answers true for families that have no FontFace at all.
+ */
+export function fontAvailable(font) {
+  if (typeof document === 'undefined' || !document.fonts) return true;
+  if (FONT_OK.has(font)) return FONT_OK.get(font);
+  const m = /\d+(?:\.\d+)?px(?:\s*\/\s*\S+)?\s+(.+)$/.exec(font);
+  const fam = (m ? m[1] : font).split(',')[0].trim().replace(/^["']|["']$/g, '');
+  let ok = GENERIC_FAMILIES.has(fam.toLowerCase());
+  if (!ok) {
+    for (const f of document.fonts) {
+      if (f.status === 'loaded' && f.family.replace(/^["']|["']$/g, '').toLowerCase() === fam.toLowerCase()) { ok = true; break; }
+    }
+  }
+  if (ok) FONT_OK.set(font, ok);
+  return ok;
+}
+
 /** Font size in px parsed back out of a CSS font string. */
 export function fontPx(font) {
   const m = /(\d+(?:\.\d+)?)px/.exec(font);
@@ -199,7 +222,7 @@ export function drawText(g, str, o = {}, sink = null) {
     const top = by - (m.actualBoundingBoxAscent || asc), bot = by + (m.actualBoundingBoxDescent || 0);
     if (line.trim()) ink = ink ? [Math.min(ink[0], l), Math.min(ink[1], top), Math.max(ink[2], r), Math.max(ink[3], bot)] : [l, top, r, bot];
   });
-  const fontOk = typeof document === 'undefined' || !document.fonts || document.fonts.check(font, text || 'A');
+  const fontOk = fontAvailable(font);
   if (sink && o.qa !== false && ink && g.globalAlpha > 0.05) {
     const M = g.getTransform();
     const pts = [[ink[0], ink[1]], [ink[2], ink[1]], [ink[0], ink[3]], [ink[2], ink[3]]]

@@ -309,8 +309,8 @@ export class Runtime {
     const where = `${item.kind} '${item.id}' (${item.scene})`;
     let def = this.scenes.get(item.scene);
     const inst = { item, def, surf: null, ctx: null, p: null, boxes: [], cues: [], broken: null, used: this._tick(), stats: { setupMs: 0, renders: 0, totalMs: 0, maxMs: 0 } };
-    const fail = (e) => {
-      if (!this.lenient && booting) throw new Error(`${where}: ${errText(e)}`);
+    const fail = (e, label = '') => {
+      if (!this.lenient && booting) throw new Error(`${where}: ${label}${errText(e)}`);
       inst.broken = errText(e);
       this.recordError(`${item.kind} ${item.id}: setup()`, null, e, item.id);
     };
@@ -347,7 +347,7 @@ export class Runtime {
         for (const c of list) inst.cues.push(this._cue(c.t, c.sfx, c, item));
       }
     } catch (e) {
-      fail(e);
+      fail(e, 'setup() threw: ');
     } finally {
       leaveScene();
       inst.ctx._phase = 'render';
@@ -376,6 +376,11 @@ export class Runtime {
       });
     };
     const text = (g, str, o = {}) => drawText(g, str, o, g && g.canvas === s.canvas ? sink : null);
+    /** Register a text box drawn by other means (bitmap fonts, sprites): {x, y, w, h, text, size|glyph_px} in surface px. */
+    const qaText = (b) => {
+      if (!b || !Number.isFinite(b.w) || !Number.isFinite(b.h)) return;
+      sink({ rect: [b.x || 0, b.y || 0, b.w, b.h], size: Number(b.size || b.glyph_px || b.h), text: String(b.text || ''), overflow: !!b.overflow, fontOk: true, font: b.font || '' });
+    };
     const ctx = {
       w, h, dur: item.dur, id: item.id, seed, layer: def.layer, params: item.params,
       film: { w: F.w, h: F.h, fps: F.fps, dur: F.dur, aspect: F.aspect, title: F.title, seed: F.seed },
@@ -387,6 +392,8 @@ export class Runtime {
       shake: (t, o = {}) => shake(t, { seed, ...o }),
       asset: (name) => rt.assets.handle(name),
       text,
+      qaText,
+      registerText: qaText,
       measure: (g, str, o) => measureText(g, str, o),
       kit: (name) => rt.kit(name),
       url: (p) => rt.sceneUrl(item.scene, p),

@@ -152,3 +152,76 @@ sr.defineScene('kit:demo/badge', {
     ctx.kit('demo').pill(ctx, ctx.g, p.text, ctx.safe.l, ctx.safe.t, { size: 30 });
   },
 });
+
+// ------------------------------------------------------------------ deliberately broken scenes (tests only)
+sr.defineScene('kit:demo/qa-bad', {
+  layer: '2d',
+  describe: 'Text that breaks every layout rule (QA tests).',
+  render(ctx) {
+    const { g, w, h } = ctx;
+    g.fillStyle = '#123';
+    g.fillRect(0, 0, w, h);
+    ctx.text(g, 'tiny footnote', { x: w / 2, y: h / 2, size: 12, font: 'Demo Sans', align: 'center' });
+    ctx.text(g, 'EDGE', { x: 8, y: 8, size: 48, font: 'Demo Sans', baseline: 'top' });
+    ctx.text(g, 'Off the frame', { x: w - 60, y: h * 0.3, size: 64, font: 'Demo Sans' });
+    ctx.text(g, 'Overlap one', { x: w * 0.3, y: h * 0.7, size: 56, font: 'Demo Sans' });
+    ctx.text(g, 'Overlap two', { x: w * 0.3 + 20, y: h * 0.7 + 10, size: 56, font: 'Demo Sans' });
+    ctx.text(g, 'missing font', { x: w * 0.3, y: h * 0.45, size: 40, font: 'No Such Font' });
+  },
+});
+
+sr.defineScene('kit:demo/qa-dom', {
+  layer: 'dom',
+  describe: 'DOM text that overflows its box and is too small (QA tests).',
+  setup(ctx) {
+    ctx.css(`.box { position: absolute; left: 400px; top: 400px; width: 300px; height: 64px; overflow: hidden;
+               white-space: nowrap; font: 48px "Demo Sans"; color: #fff; }
+             .small { position: absolute; left: 400px; top: 600px; font: 14px "Demo Sans"; color: #fff; }`);
+    ctx.root.append(ctx.h('div', { class: 'box', text: 'This line is far too long for its box' }),
+      ctx.h('div', { class: 'small', text: 'tiny dom text' }));
+  },
+  render() {},
+});
+
+sr.defineScene('kit:demo/throws', {
+  layer: '2d',
+  render(ctx, t) {
+    ctx.g.fillStyle = '#222';
+    ctx.g.fillRect(0, 0, ctx.w, ctx.h);
+    if (t > 0.5) throw new Error(`boom at ${t.toFixed(2)}`);
+  },
+});
+
+sr.defineScene('kit:demo/setup-throws', {
+  layer: '2d',
+  setup() { throw new Error('setup exploded'); },
+  render() {},
+});
+
+sr.defineScene('kit:demo/impure', {
+  layer: '2d',
+  setup(ctx) { ctx.state.n = 0; },
+  render(ctx) {
+    ctx.state.n += 1;
+    const { g } = ctx;
+    g.fillStyle = '#000';
+    g.fillRect(0, 0, ctx.w, ctx.h);
+    g.fillStyle = '#fff';
+    g.fillRect((ctx.state.n * 97) % (ctx.w - 200), 100, 200, 200);
+  },
+});
+
+sr.defineScene('kit:demo/sloppy', {
+  layer: '2d',
+  describe: 'Uses Math.random and Date.now; the runtime safety net must keep it deterministic.',
+  render(ctx) {
+    const { g } = ctx;
+    g.fillStyle = '#000';
+    g.fillRect(0, 0, ctx.w, ctx.h);
+    for (let i = 0; i < 40; i++) {
+      g.fillStyle = `hsl(${Math.floor(Math.random() * 360)} 80% 60%)`;
+      g.fillRect(Math.random() * ctx.w, Math.random() * ctx.h, 40, 40);
+    }
+    g.fillRect((Date.now() / 10) % ctx.w, 10, 20, 20);
+  },
+});

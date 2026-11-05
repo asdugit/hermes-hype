@@ -198,6 +198,17 @@ def prepare_asset(name: str, spec: Mapping[str, Any], job_dir: Path, *, fps: flo
     return entry
 
 
+def frame_count_ok(job_dir: Path, entry: Mapping[str, Any]) -> bool:
+    """True when every frame 1..count of a frames entry exists inside ``job_dir`` (images: the one file)."""
+    job = Path(job_dir)
+    if entry.get("type") == "image":
+        return (job / str(entry.get("path", ""))).is_file()
+    pattern, count = str(entry.get("pattern", "")), int(entry.get("count", 0))
+    if "%06d" not in pattern or count <= 0:
+        return False
+    return all((job / pattern.replace("%06d", f"{i:06d}")).is_file() for i in range(1, count + 1))
+
+
 def prepare_assets(specs: Mapping[str, Mapping[str, Any]], job_dir: Path, *, fps: float = 30.0,
                    ffmpeg: str | None = None) -> dict[str, Any]:
     """Prepare several assets; returns the manifest dict. Raises :class:`AssetError` on the first failure."""
