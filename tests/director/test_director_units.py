@@ -224,7 +224,7 @@ def test_keyframe_plan() -> None:
     frames = plan_keyframes(film, 3)
     assert len(frames) == 3 * 3 + 1                      # 3 per shot + transition midpoint (1.2 s covers the hook)
     assert [f.cell for f in frames] == list(range(1, len(frames) + 1))
-    assert any(f.transition == "boss->field" for f in frames)
+    assert any(f.transition == "boss->field kit:fake/petal-bloom" for f in frames)
     assert all(frames[i].t <= frames[i + 1].t for i in range(len(frames) - 1))
     assert len(plan_keyframes(film, 5, max_frames=8)) <= 8
 

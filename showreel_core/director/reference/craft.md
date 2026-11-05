@@ -16,7 +16,9 @@
   UI, framed with breathing room, moving with intent. Draw the product media with `ctx.asset(name).frame(t)`; use the
   `cutout` when you need it without background. Never draw a fake substitute for the product.
 - Text: few words, large, high contrast, inside `ctx.safe`, through `ctx.text`. Pixel text: integer sizes of the bitmap
-  font, 1 px dark outline or shadow. HD text: >= 42 px at 1080p for anything the viewer must read.
+  font, 1 px dark outline or shadow. HD text: >= 42 px at 1080p for anything the viewer must read. For a drop shadow
+  or outline use `ctx.text`'s `shadow` / `stroke` options: drawing the same string twice registers two overlapping
+  text boxes and fails layout QA.
 - Colour: one clear palette per world (5-8 colours + 1 accent). Accent = the product's colour. Avoid pure #000/#fff
   except for flashes.
 - Deterministic randomness: `const r = ctx.rng(17)` in setup to precompute tables; in render use those tables.

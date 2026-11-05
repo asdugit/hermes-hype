@@ -40,8 +40,9 @@ def plan_keyframes(film: dict[str, Any], per_shot: int, *, max_frames: int = 30)
         t0, t1 = float(s["t0"]), float(s["t1"])
         for f in _FRACTIONS[k]:
             raw.append((round(t0 + f * (t1 - t0), 3), s["id"], ""))
-    for tr in trans:
-        raw.append((round(float(tr["t"]) + float(tr["dur"]) / 2, 3), str(tr["to"]), f"{tr['from']}->{tr['to']}"))
+    for tr in trans:   # 35 % into the window: mid-blend for wipes/fades, not the blank peak of a dip
+        raw.append((round(float(tr["t"]) + 0.35 * float(tr["dur"]), 3), str(tr["to"]),
+                    f"{tr['from']}->{tr['to']} {tr.get('type', '')}".strip()))
     if not any(abs(t - 1.0) < 0.35 for t, _, _ in raw):
         first = shots[0]
         raw.append((min(1.0, float(first["t1"]) - 0.05), first["id"], ""))

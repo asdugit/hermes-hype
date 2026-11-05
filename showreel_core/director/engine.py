@@ -732,6 +732,9 @@ def _revise_version(r: _Run, v: Version) -> Version | None:
             scene_issues.setdefault(scene.split(":", 1)[1], []).append(it)
         else:
             film_issues.append(it)
+    for name, qa_items in _qa_by_scene(v).items():
+        if name in scene_issues:                 # only scenes that are being revised anyway
+            scene_issues[name] += qa_items
     extras = [{"shot": "film", "target": "film", "severity": 3, "issue": f"requirement not met: {q.get('text')}",
                "fix": str(q.get("note") or "make it visibly happen")} for q in unmet]
     if v.score and v.score.product_share is not None and v.score.product_share < PRODUCT_SHARE_BAR:
@@ -778,6 +781,30 @@ def _revise_version(r: _Run, v: Version) -> Version | None:
     if not _realise(r, nv, code=recode, issues=scene_issues, notes=notes):
         return None
     return nv
+
+
+def _qa_by_scene(v: Version, per_scene: int = 5) -> dict[str, list[dict[str, Any]]]:
+    """Runtime layout-QA findings (clipped/overlapping/unsafe/small text) grouped by custom scene, deduplicated."""
+    scene_of = {s["id"]: s["scene"] for s in v.film["shots"]}
+    out: dict[str, list[dict[str, Any]]] = {}
+    seen: set[tuple[str, str]] = set()
+    for q in (v.preview.qa if v.preview else []):
+        scene = scene_of.get(str(q.get("shot", "")), "")
+        if not scene.startswith("custom:"):
+            continue
+        name = scene.split(":", 1)[1]
+        key = (name, f"{q.get('kind')}:{q.get('msg')}")
+        if key in seen or len(out.get(name, [])) >= per_scene:
+            continue
+        seen.add(key)
+        fix = {"overlap": "draw a drop shadow with ctx.text's `shadow` option instead of drawing the text twice; "
+                          "otherwise move one of the texts",
+               "safe": "keep readable text inside ctx.safe", "clip": "keep the text box inside the surface",
+               "small_text": "make the text larger (>= 22 px at 1080p; pixel fonts at integer scales)"}
+        out.setdefault(name, []).append({"shot": q.get("shot"), "target": "scene", "severity": 1,
+                                         "issue": f"layout QA at {q.get('t')}s: {q.get('msg')}",
+                                         "fix": fix.get(str(q.get("kind")), "fix the text layout")})
+    return out
 
 
 def _apply_notes(r: _Run, base: Version) -> Version | None:
