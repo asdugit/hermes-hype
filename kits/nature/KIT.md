@@ -60,13 +60,13 @@ Video media loop (`frame(t, {loop: true})`); each flyer gets its own clip offset
 | `quality` | `(ctx, 'auto'|tier)` | tier table (`tiers`) |
 | `presets`, `paths`, `tiers`, `flyerPose`, `resolveFlyer`, `cameraPose`, `slope` | data/functions | pure, also usable from custom scenes |
 
-## Performance (this PC, 1080p output, measured)
+## Performance (i5-14490F + RX 6800 XT, 1080p output, measured)
 | | GPU RX 6800 XT (tier high) | CPU SwiftShader `--disable-gpu` (tier low: 960×540 internal) |
 |---|---|---|
-| world only (no flyers), ms/frame in-page | 2.7 | 247 (measured before the low-tier trim: 5.2k→3.6k field sprites, single-tap blur rows) |
-| flower-field + 4 car flyers, ms/frame in-page | 40 (dev shim; mostly per-frame PNG decode + upload of 4 cut-out frames) | 222 (after the trim) |
-| 15 s flower-field video, real runtime (450 frames) | **29.4 s** render (46 s incl. 12.5 s asset prep) | **132.7 s** render (149 s total) |
-Tier `high` on SwiftShader would be ~1.8 s/frame — always let `quality: auto` pick.
+| world only (no flyers), ms/frame in-page (dev harness) | 5.0 (15.1k sprites, 900 petals) | 183 (960×540 plate, 3.7k sprites, 340 petals) |
+| flower-field + 4 car flyers (cut-outs), ms/frame in-page (dev harness) | 25.2 | 216 |
+| 15 s flower-field video, real runtime (450 frames) | **25.5 s** render (37.6 s total incl. 8.7 s asset prep) | **111.6 s** render (122 s total) |
+Tier `high` forced on SwiftShader measured 1952 ms/frame — always let `quality: auto` pick.
 
 ## Director tips
 - Hero scenario (after a pixel boss battle): `sky-reveal` 6–8 s (or straight into) `flower-field` 15–25 s with

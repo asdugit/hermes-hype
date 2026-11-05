@@ -37,8 +37,8 @@ Common params: `label`, `quality` (`auto` = half-res plate + 12-tap DOF on Swift
 mediaCard`), `makeCine(ctx, {items, cam(t), focus(t), overlay(g,t,F), overlayKey(t), flare(t), ...})` (the world),
 `rig(keys, t)` (keyed camera with breathing), `type` (`title, italic, label, register, rail, stats, cta`).
 
-## Performance (this PC, 1080p, real runtime, 8 s CODE+SCREEN clip = 240 frames)
-GPU: 14.4 s render (incl. browser launch); SwiftShader (`--disable-gpu`, auto low tier): 34.4 s.
+## Performance (i5-14490F + RX 6800 XT, 1080p, real runtime, 8 s CODE+SCREEN clip = 240 frames)
+GPU: 14.7 s video render (17.0 s total); SwiftShader (`--disable-gpu`, auto low tier, 0.67 plate): 38.7 s (40.7 s total).
 
 ## Notes
 - Type is painted into an overlay texture (not registered with the runtime's text QA); sizes follow the style
