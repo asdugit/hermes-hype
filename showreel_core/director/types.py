@@ -130,6 +130,8 @@ class DirectorResult:
     job_dir: str
     film: dict[str, Any] | None = None
     film_path: str = ""
+    page_dir: str = ""                            # built + dry-run-verified page (render this)
+    scene_files: dict[str, str] = field(default_factory=dict)   # custom scene id -> final JS file
     treatment: dict[str, Any] | None = None
     version: int = 0                              # the version that became film.json
     scores: list[RoundScore] = field(default_factory=list)

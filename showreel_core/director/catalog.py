@@ -102,7 +102,11 @@ class Catalog:
 
     def transitions(self) -> set[str]:
         """Built-in transition names plus every kit transition id."""
-        out: set[str] = set(BUILTIN_TRANSITIONS)
+        try:
+            from ..film.schema import BUILTIN_TRANSITIONS as runtime_builtins
+            out: set[str] = set(runtime_builtins)
+        except ImportError:
+            out = set(BUILTIN_TRANSITIONS)
         for k in self.kits:
             out.update(k.transitions)
         return out
@@ -266,14 +270,17 @@ def parse_kit(d: Path) -> KitInfo:
                 continue
             scenes[sid] = SceneInfo(sid, d.name, desc.group(2) if desc else "", layer.group(1) if layer else "",
                                     top_level_keys(psrc) if psrc else [], psrc)
-    # ids that only appear in KIT.md (scenes documented but registered elsewhere / generated)
-    for m in _ID_RE.finditer(doc):
-        sid = m.group(0)
-        if m.group(1) == "transitions":
-            if sid not in transitions:
-                transitions.append(sid)
-        elif m.group(1) == d.name and sid not in scenes:
-            scenes[sid] = SceneInfo(sid, d.name, _describe_from_doc(doc, sid))
+    # no registrations found in JS (generated kit?): fall back to the ids KIT.md documents for this kit
+    if not scenes and not transitions:
+        for m in _ID_RE.finditer(doc):
+            sid = m.group(0)
+            if m.group(1) != d.name:
+                continue
+            if d.name == "transitions":
+                if sid not in transitions:
+                    transitions.append(sid)
+            elif sid not in scenes:
+                scenes[sid] = SceneInfo(sid, d.name, _describe_from_doc(doc, sid))
     for s in scenes.values():
         if not s.describe:
             s.describe = _describe_from_doc(doc, s.id)

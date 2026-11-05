@@ -830,8 +830,9 @@ def _finish(r: _Run, best: Version | None, save_library: bool, t0: float) -> Dir
     msg = (f"Final: v{best.n}" + (f", score {best.score.mean:.1f} (min {best.score.min:g})" if best.score else
                                   ", not critiqued") + (" - passes the bar" if passed else ""))
     r.emit("done", msg, 1.0)
+    files = {f"custom:{n}": str(r.ddir / f"v{best.n}" / "scenes" / f"{n}.js") for n in best.scenes}
     res = DirectorResult(True, "done", str(r.job_dir), film=best.film, film_path=str(film_path),
-                         treatment=r.treatment, version=best.n, scores=scores, passed_bar=passed, scenes=scenes,
+                         page_dir=str(r.page_dir), scene_files=files, treatment=r.treatment, version=best.n, scores=scores, passed_bar=passed, scenes=scenes,
                          library_saved=saved, usage=r.ledger.totals(), seconds=round(time.monotonic() - t0, 1),
                          log=r.log)
     r.save("result.json", {k: v for k, v in res.to_dict().items() if k != "log"})

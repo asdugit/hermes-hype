@@ -23,7 +23,7 @@ Pixel and nature scenes for tests, plus a title card.
 - `kit:fake/walk` - a party walks a dungeon corridor toward a boss door.
 - `kit:fake/field` - anime flower field at sunset with flying product media.
 - `kit:fake/title` - big title card with product name and CTA.
-- `kit:transitions/petal-bloom` - pixels burst into petals.
+- `kit:fake/petal-bloom` - pixels burst into petals.
 """
 
 KIT_JS = """
@@ -38,7 +38,7 @@ export const field = { id: 'kit:fake/field', def: { layer: '2d',
 const FIELD = { flyers: { type: 'list', default: [] }, time: { type: 'string', default: 'sunset' } };
 sr.defineScene('kit:fake/title', { layer: 'dom', describe: 'Title card.', params: { text: { type: 'string' },
   sub: { type: 'string', default: '' } }, render() {} });
-sr.defineTransition('kit:transitions/petal-bloom', { kind: 'canvas', render() {} });
+sr.defineTransition('kit:fake/petal-bloom', { kind: 'canvas', render() {} });
 """
 
 
@@ -126,7 +126,7 @@ FILM = {"film": {
          "params": {"boss_media": "car", "pick": "BUY"}},
         {"id": "field", "t0": 20, "t1": 45, "scene": "kit:fake/field", "res": None,
          "params": {"flyers": [{"media": "car", "path": "descend"}], "time": "sunset"}}],
-    "transitions": [{"from": "boss", "to": "field", "type": "kit:transitions/petal-bloom", "t": 19.4, "dur": 1.2}],
+    "transitions": [{"from": "boss", "to": "field", "type": "kit:fake/petal-bloom", "t": 19.4, "dur": 1.2}],
     "overlays": [{"id": "title", "t0": 41, "t1": 45, "scene": "kit:fake/title", "params": {"text": "RED CAR"}}],
     "music": [{"bed": "pixel_a", "t0": 0, "t1": 20}, {"sting": "riser", "t": 18.5},
               {"bed": "cinematic_a", "t0": 20, "t1": 45}],

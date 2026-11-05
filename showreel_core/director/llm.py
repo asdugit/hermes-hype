@@ -17,7 +17,7 @@ import subprocess
 import tempfile
 import threading
 import time
-from collections.abc import Callable, Sequence
+from collections.abc import Sequence
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Protocol
@@ -62,7 +62,7 @@ class Cancelled(RuntimeError):
     """The user cancelled the run."""
 
 
-CancelLike = Callable[[], bool] | threading.Event | None
+CancelLike = Any   # None | threading.Event | object with is_set() | () -> bool
 
 
 def is_cancelled(cancel: CancelLike) -> bool:

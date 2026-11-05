@@ -71,16 +71,25 @@ def write_scenes(page_dir: Path, scenes: dict[str, str]) -> None:
 
 
 def attribute(msg: str, shots: list[dict[str, Any]]) -> tuple[str, float | None]:
-    """Best guess of (shot id, time) mentioned in a runtime error message."""
+    """Best guess of (shot id, time) named in a runtime error message.
+
+    Runtime messages look like ``shot boss: render t=3.200: TypeError ...`` or
+    ``module scenes/boss-battle.js failed to load: SyntaxError ...``.
+    """
     sid = ""
-    for s in sorted(shots, key=lambda s: -len(str(s.get("id", "")))):
-        if re.search(rf"(?<![\w-]){re.escape(str(s.get('id')))}(?![\w-])", msg):
-            sid = str(s["id"])
-            break
+    m = re.search(r"\b(?:shot|overlay)\s+([A-Za-z0-9][\w-]*)", msg)
+    if m and any(str(s.get("id")) == m.group(1) for s in shots):
+        sid = m.group(1)
     if not sid:
         for s in shots:
             scene = str(s.get("scene", ""))
-            if scene and scene in msg:
+            name = scene.split(":", 1)[1] if ":" in scene else ""
+            if scene and (scene in msg or (scene.startswith("custom:") and f"scenes/{name}.js" in msg)):
+                sid = str(s["id"])
+                break
+    if not sid:
+        for s in sorted(shots, key=lambda s: -len(str(s.get("id", "")))):
+            if re.search(rf"(?<![\w-]){re.escape(str(s.get('id')))}(?![\w-])", msg):
                 sid = str(s["id"])
                 break
     m = re.search(r"\bt\s*[=:]\s*(\d+(?:\.\d+)?)", msg)
@@ -95,9 +104,10 @@ class RuntimeRenderer:
     """
 
     def __init__(self, *, lock: Callable[[], contextlib.AbstractContextManager[Any]] | None = None,
-                 timeout_s: float = 90.0) -> None:
+                 timeout_s: float = 90.0, kits_root: Path | None = None) -> None:
         self.lock = lock
         self.timeout_s = timeout_s
+        self.build_kwargs: dict[str, Any] = {"kits_root": kits_root} if kits_root else {}
 
     # ------------------------------------------------------------------ film layer (optional modules)
     def validate_film(self, film: dict[str, Any]) -> list[str]:
@@ -125,18 +135,21 @@ class RuntimeRenderer:
     def build(self, film: dict[str, Any], page_dir: Path, *, scenes: dict[str, str], assets: list[MediaAsset],
               library_dir: Path | None) -> list[str]:
         page_dir.mkdir(parents=True, exist_ok=True)
-        write_scenes(page_dir, scenes)
-        (page_dir / "film.json").write_text(json.dumps(film, indent=1, ensure_ascii=False), encoding="utf-8")
         mod = _film_module("page")
-        fn = _first(mod, ("build_job", "build_page", "build"))
+        fn = getattr(mod, "build_job", None) if mod is not None else None
         if fn is None:
             return ["the film page builder (showreel_core.film.page) is not in this build"]
-        media = {a.name: a.path for a in assets}
+        sources: dict[str, Any] = {f"custom:{k}": v for k, v in scenes.items()}
+        for sid in _lib_ids(film):
+            src = Path(library_dir or "") / sid.split(":", 1)[1] / "scene.js"
+            if library_dir and src.is_file():
+                sources[sid] = src
         try:
-            _call_kw(fn, film, job_dir=page_dir, page_dir=page_dir, out_dir=page_dir, media=media,
-                     asset_paths=media, assets=media, scenes_dir=page_dir / "scenes", library_dir=library_dir,
-                     scenes={f"custom:{k}": v for k, v in scenes.items()})
+            fn(film, page_dir, scenes=sources, assets=_asset_specs(film, page_dir, assets), **self.build_kwargs)
         except Exception as exc:  # noqa: BLE001 - build problems go back to the engine as errors
+            issues = getattr(exc, "issues", None)
+            if issues:
+                return [str(i) for i in issues]
             return [f"page build failed: {type(exc).__name__}: {exc}"]
         return []
 
@@ -152,7 +165,7 @@ class RuntimeRenderer:
 
         async def go() -> Preview:
             out = Preview(ok=True)
-            async with page_session(page_dir, "stage.html", w=size[0], h=size[1], dpr=dpr,
+            async with page_session(page_dir, "stage.html?lenient=1", w=size[0], h=size[1], dpr=dpr,
                                     timeout_s=self.timeout_s) as p:
                 seen = 0
 
@@ -238,6 +251,30 @@ def render_slot(root: Path, who: str = "wp-l-director", wait_s: float = 900.0) -
 
 
 # ------------------------------------------------------------------------- helpers
+
+def _lib_ids(film: dict[str, Any]) -> set[str]:
+    items = [*(film.get("shots") or []), *(film.get("overlays") or [])]
+    return {str(i.get("scene")) for i in items if str(i.get("scene", "")).startswith("lib:")}
+
+
+def _asset_specs(film: dict[str, Any], page_dir: Path, assets: list[MediaAsset]) -> dict[str, Any]:
+    """Asset specs for build_job: reuse entries already prepared in this page dir, else prepare from source."""
+    try:
+        manifest = json.loads((page_dir / "assets" / "manifest.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        manifest = {}
+    by_name = {a.name: a for a in assets}
+    out: dict[str, Any] = {}
+    for name in film.get("assets") or {}:
+        entry = manifest.get(name)
+        rel = (entry or {}).get("path") or (entry or {}).get("pattern")
+        first = rel.replace("%06d", "000001") if isinstance(rel, str) else None
+        if entry and first and (page_dir / first).is_file():
+            out[name] = entry
+        elif name in by_name:
+            out[name] = {"src": by_name[name].path, "poster": True}
+    return out
+
 
 def _film_module(name: str) -> Any:
     try:
