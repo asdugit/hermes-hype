@@ -1,0 +1,596 @@
+{
+ "synthetic": true,
+ "events": [
+  {
+   "id": "e0",
+   "t": 0,
+   "kind": "user_prompt",
+   "tool": "",
+   "title": "user",
+   "summary": "Build me a small Python CLI called tally that reads my bank's CSV exports and shows monthly spending by category. Refunds should net out against purch",
+   "data": {
+    "text": "Build me a small Python CLI called tally that reads my bank's CSV exports and shows monthly spending by category. Refunds should net out against purchases. Add tests and an HTML report I can open in the browser."
+   },
+   "ok": true,
+   "weight": 0.5
+  },
+  {
+   "id": "e1",
+   "t": 6,
+   "kind": "assistant_note",
+   "tool": "",
+   "title": "assistant",
+   "summary": "Plan first, then parser, categorizer, report, tests.",
+   "data": {
+    "text": "I'll plan the work first, then build the parser, the categorizer and the report, with tests along the way."
+   },
+   "ok": true,
+   "weight": 0.1
+  },
+  {
+   "id": "e2",
+   "t": 10,
+   "kind": "todo",
+   "tool": "todo",
+   "title": "todo",
+   "summary": "5 items",
+   "data": {
+    "items": [
+     {
+      "text": "Parse bank CSV exports",
+      "status": "in_progress"
+     },
+     {
+      "text": "Categorize transactions",
+      "status": "pending"
+     },
+     {
+      "text": "Monthly summary table",
+      "status": "pending"
+     },
+     {
+      "text": "HTML report",
+      "status": "pending"
+     },
+     {
+      "text": "Tests",
+      "status": "pending"
+     }
+    ]
+   },
+   "ok": true,
+   "weight": 0.3
+  },
+  {
+   "id": "e3",
+   "t": 20,
+   "kind": "terminal",
+   "tool": "terminal",
+   "title": "ls samples",
+   "summary": "ls samples",
+   "data": {
+    "cmd": "ls samples",
+    "output_lines": [
+     "checking-2026-07.csv",
+     "checking-2026-08.csv",
+     "checking-2026-09.csv"
+    ],
+    "exit_code": 0,
+    "elapsed_s": 0.1
+   },
+   "ok": true,
+   "weight": 0.05
+  },
+  {
+   "id": "e4",
+   "t": 25,
+   "kind": "file_read",
+   "tool": "read_file",
+   "title": "samples/checking-2026-09.csv",
+   "summary": "read samples/checking-2026-09.csv",
+   "data": {
+    "path": "samples/checking-2026-09.csv"
+   },
+   "ok": true,
+   "weight": 0.02
+  },
+  {
+   "id": "e5",
+   "t": 60,
+   "kind": "file_write",
+   "tool": "write_file",
+   "title": "tally/parser.py",
+   "summary": "+39 in tally/parser.py",
+   "data": {
+    "path": "tally/parser.py",
+    "lang": "python",
+    "lines": [
+     "\"\"\"Parse bank CSV exports into transactions.\"\"\"",
+     "from __future__ import annotations",
+     "",
+     "import csv",
+     "from dataclasses import dataclass",
+     "from datetime import date",
+     "from decimal import Decimal",
+     "from pathlib import Path",
+     "",
+     "",
+     "@dataclass(frozen=True)",
+     "class Transaction:",
+     "    day: date",
+     "    description: str",
+     "    amount: Decimal",
+     "    category: str = \"uncategorized\"",
+     "",
+     "",
+     "def parse_amount(raw: str) -> Decimal:",
+     "    \"\"\"Turn '1,234.50' or '(12.50)' into a signed Decimal.\"\"\"",
+     "    text = raw.strip().replace(\",\", \"\")",
+     "    if text.startswith(\"(\") and text.endswith(\")\"):",
+     "        return -Decimal(text[1:-1])",
+     "    return Decimal(text)",
+     "",
+     "",
+     "def parse_file(path: Path) -> list[Transaction]:",
+     "    \"\"\"Read one export; skips blank rows and the bank's footer.\"\"\"",
+     "    rows: list[Transaction] = []",
+     "    with path.open(encoding=\"utf-8-sig\", newline=\"\") as fh:",
+     "        for row in csv.DictReader(fh):",
+     "            if not row.get(\"Date\"):",
+     "                continue",
+     "            rows.append(Transaction(",
+     "                day=date.fromisoformat(row[\"Date\"]),",
+     "                description=row[\"Description\"].strip(),",
+     "                amount=parse_amount(row[\"Amount\"]),",
+     "            ))",
+     "    return rows"
+    ],
+    "new_file": true
+   },
+   "ok": true,
+   "weight": 0.6
+  },
+  {
+   "id": "e6",
+   "t": 120,
+   "kind": "file_write",
+   "tool": "write_file",
+   "title": "tally/categorize.py",
+   "summary": "+19 in tally/categorize.py",
+   "data": {
+    "path": "tally/categorize.py",
+    "lang": "python",
+    "lines": [
+     "\"\"\"Map transactions to spending categories.\"\"\"",
+     "from __future__ import annotations",
+     "",
+     "from .parser import Transaction",
+     "",
+     "RULES = {",
+     "    \"groceries\": (\"market\", \"grocer\", \"bakery\"),",
+     "    \"transport\": (\"metro\", \"fuel\", \"taxi\"),",
+     "    \"dining\": (\"cafe\", \"pizza\", \"restaurant\"),",
+     "}",
+     "",
+     "",
+     "def categorize(tx: Transaction) -> Transaction:",
+     "    \"\"\"Return a copy of ``tx`` with its category filled in.\"\"\"",
+     "    text = tx.description.lower()",
+     "    for category, words in RULES.items():",
+     "        if any(w in text for w in words):",
+     "            return Transaction(tx.day, tx.description, tx.amount, category)",
+     "    return tx"
+    ],
+    "new_file": true
+   },
+   "ok": true,
+   "weight": 0.45
+  },
+  {
+   "id": "e7",
+   "t": 170,
+   "kind": "file_write",
+   "tool": "write_file",
+   "title": "tests/test_parser.py",
+   "summary": "+15 in tests/test_parser.py",
+   "data": {
+    "path": "tests/test_parser.py",
+    "lang": "python",
+    "lines": [
+     "from decimal import Decimal",
+     "",
+     "from tally.parser import parse_amount",
+     "",
+     "",
+     "def test_plain_amount():",
+     "    assert parse_amount(\"12.50\") == Decimal(\"12.50\")",
+     "",
+     "",
+     "def test_thousands_separator():",
+     "    assert parse_amount(\"1,234.50\") == Decimal(\"1234.50\")",
+     "",
+     "",
+     "def test_refund_nets_out():",
+     "    assert parse_amount(\"(12.50)\") + Decimal(\"12.50\") == 0"
+    ],
+    "new_file": true
+   },
+   "ok": true,
+   "weight": 0.35
+  },
+  {
+   "id": "e8",
+   "t": 200,
+   "kind": "terminal",
+   "tool": "terminal",
+   "title": "python -m pytest -q",
+   "summary": "1 failed, 13 passed",
+   "data": {
+    "cmd": "python -m pytest -q",
+    "output_lines": [
+     "....F.........",
+     "FAILED tests/test_parser.py::test_refund_nets_out - assert Decimal('-25.00') == 0",
+     "1 failed, 13 passed in 0.38s"
+    ],
+    "exit_code": 1,
+    "elapsed_s": 1.2
+   },
+   "ok": false,
+   "weight": 0.5
+  },
+  {
+   "id": "e9",
+   "t": 240,
+   "kind": "file_patch",
+   "tool": "patch",
+   "title": "tally/parser.py",
+   "summary": "+3 -1 in tally/parser.py",
+   "data": {
+    "path": "tally/parser.py",
+    "lang": "python",
+    "adds": 3,
+    "dels": 1,
+    "hunks": [
+     {
+      "header": "@@ -22,6 +22,8 @@ def parse_amount(raw: str) -> Decimal:",
+      "lines": [
+       [
+        " ",
+        "    text = raw.strip().replace(\",\", \"\")"
+       ],
+       [
+        "-",
+        "    if text.startswith(\"(\") and text.endswith(\")\"):"
+       ],
+       [
+        "+",
+        "    negative = text.startswith(\"(\") and text.endswith(\")\")"
+       ],
+       [
+        "+",
+        "    if negative:"
+       ],
+       [
+        "+",
+        "        text = text[1:-1]"
+       ],
+       [
+        " ",
+        "        return -Decimal(text[1:-1])"
+       ],
+       [
+        " ",
+        "    return Decimal(text)"
+       ]
+      ]
+     }
+    ]
+   },
+   "ok": true,
+   "weight": 0.55
+  },
+  {
+   "id": "e10",
+   "t": 255,
+   "kind": "terminal",
+   "tool": "terminal",
+   "title": "python -m pytest -q",
+   "summary": "14 passed",
+   "data": {
+    "cmd": "python -m pytest -q",
+    "output_lines": [
+     "..............",
+     "14 passed in 0.41s"
+    ],
+    "exit_code": 0,
+    "elapsed_s": 1.1
+   },
+   "ok": true,
+   "weight": 0.8
+  },
+  {
+   "id": "e11",
+   "t": 260,
+   "kind": "todo",
+   "tool": "todo",
+   "title": "todo",
+   "summary": "5 items, 3 done",
+   "data": {
+    "items": [
+     {
+      "text": "Parse bank CSV exports",
+      "status": "completed"
+     },
+     {
+      "text": "Categorize transactions",
+      "status": "completed"
+     },
+     {
+      "text": "Monthly summary table",
+      "status": "in_progress"
+     },
+     {
+      "text": "HTML report",
+      "status": "pending"
+     },
+     {
+      "text": "Tests",
+      "status": "completed"
+     }
+    ]
+   },
+   "ok": true,
+   "weight": 0.2
+  },
+  {
+   "id": "e12",
+   "t": 320,
+   "kind": "file_write",
+   "tool": "write_file",
+   "title": "tally/report.py",
+   "summary": "+15 in tally/report.py",
+   "data": {
+    "path": "tally/report.py",
+    "lang": "python",
+    "lines": [
+     "\"\"\"Render the monthly summary as a self-contained HTML page.\"\"\"",
+     "from __future__ import annotations",
+     "",
+     "from html import escape",
+     "",
+     "from .summary import MonthRow",
+     "",
+     "",
+     "def render(rows: list[MonthRow]) -> str:",
+     "    \"\"\"One table row per month, one column per category.\"\"\"",
+     "    head = \"\".join(f\"<th>{escape(c)}</th>\" for c in rows[0].columns)",
+     "    body = \"\".join(",
+     "        \"<tr>\" + \"\".join(f\"<td>{v}</td>\" for v in row.cells) + \"</tr>\" for row in rows",
+     "    )",
+     "    return f\"<table><tr>{head}</tr>{body}</table>\""
+    ],
+    "new_file": true
+   },
+   "ok": true,
+   "weight": 0.4
+  },
+  {
+   "id": "e13",
+   "t": 380,
+   "kind": "file_write",
+   "tool": "write_file",
+   "title": "tally/cli.py",
+   "summary": "+22 in tally/cli.py",
+   "data": {
+    "path": "tally/cli.py",
+    "lang": "python",
+    "lines": [
+     "\"\"\"tally command line.\"\"\"",
+     "import argparse",
+     "",
+     "from . import report, summary",
+     "",
+     "",
+     "def main(argv=None) -> int:",
+     "    ap = argparse.ArgumentParser(prog=\"tally\")",
+     "    sub = ap.add_subparsers(dest=\"cmd\", required=True)",
+     "    s = sub.add_parser(\"summary\")",
+     "    s.add_argument(\"folder\")",
+     "    r = sub.add_parser(\"report\")",
+     "    r.add_argument(\"folder\")",
+     "    r.add_argument(\"-o\", \"--out\", default=\"report.html\")",
+     "    args = ap.parse_args(argv)",
+     "    rows = summary.monthly(args.folder)",
+     "    if args.cmd == \"summary\":",
+     "        print(summary.table(rows))",
+     "    else:",
+     "        Path(args.out).write_text(report.render(rows), encoding=\"utf-8\")",
+     "        print(f\"Wrote {args.out}\")",
+     "    return 0"
+    ],
+    "new_file": true
+   },
+   "ok": true,
+   "weight": 0.35
+  },
+  {
+   "id": "e14",
+   "t": 400,
+   "kind": "terminal",
+   "tool": "terminal",
+   "title": "python -m tally summary samples/",
+   "summary": "monthly table",
+   "data": {
+    "cmd": "python -m tally summary samples/",
+    "output_lines": [
+     "Month     Groceries  Transport  Dining   Total",
+     "2026-07      412.80      96.00  151.25  660.05",
+     "2026-08      389.15     112.40   98.70  600.25",
+     "2026-09      401.60      88.00  175.10  664.70"
+    ],
+    "exit_code": 0,
+    "elapsed_s": 0.3
+   },
+   "ok": true,
+   "weight": 0.6
+  },
+  {
+   "id": "e15",
+   "t": 420,
+   "kind": "terminal",
+   "tool": "terminal",
+   "title": "python -m tally report samples/ -o report.html",
+   "summary": "wrote report.html",
+   "data": {
+    "cmd": "python -m tally report samples/ -o report.html",
+    "output_lines": [
+     "Wrote report.html"
+    ],
+    "exit_code": 0,
+    "elapsed_s": 0.4
+   },
+   "ok": true,
+   "weight": 0.3
+  },
+  {
+   "id": "e16",
+   "t": 430,
+   "kind": "browser_nav",
+   "tool": "browser_navigate",
+   "title": "report.html",
+   "summary": "opened report.html",
+   "data": {
+    "url": "file:///~/projects/tally/report.html"
+   },
+   "ok": true,
+   "weight": 0.1
+  },
+  {
+   "id": "e17",
+   "t": 435,
+   "kind": "screenshot",
+   "tool": "browser_screenshot",
+   "title": "Tally report",
+   "summary": "Tally report: monthly spending by category",
+   "data": {
+    "path": "assets/shot_017.png",
+    "w": 1280,
+    "h": 800,
+    "url": "file:///~/projects/tally/report.html"
+   },
+   "ok": true,
+   "weight": 0.85
+  },
+  {
+   "id": "e18",
+   "t": 440,
+   "kind": "todo",
+   "tool": "todo",
+   "title": "todo",
+   "summary": "5 items, all done",
+   "data": {
+    "items": [
+     {
+      "text": "Parse bank CSV exports",
+      "status": "completed"
+     },
+     {
+      "text": "Categorize transactions",
+      "status": "completed"
+     },
+     {
+      "text": "Monthly summary table",
+      "status": "completed"
+     },
+     {
+      "text": "HTML report",
+      "status": "completed"
+     },
+     {
+      "text": "Tests",
+      "status": "completed"
+     }
+    ]
+   },
+   "ok": true,
+   "weight": 0.25
+  },
+  {
+   "id": "e19",
+   "t": 450,
+   "kind": "final_answer",
+   "tool": "",
+   "title": "assistant",
+   "summary": "Tally is ready.",
+   "data": {
+    "text": "Tally is ready. Run python -m tally summary <folder> for the table, or python -m tally report <folder> -o report.html for the HTML report. Refunds now net out against purchases. All 14 tests pass."
+   },
+   "ok": true,
+   "weight": 0.4
+  },
+  {
+   "id": "e20",
+   "t": 452,
+   "kind": "product_capture",
+   "tool": "",
+   "title": "Tally report",
+   "summary": "Showreel capture of report.html (full page)",
+   "data": {
+    "path": "assets/capture_report_full.png",
+    "url": "file:///~/projects/tally/report.html",
+    "viewport": [
+     1280,
+     800
+    ],
+    "full_page": true,
+    "page_title": "Tally - Monthly spending"
+   },
+   "ok": true,
+   "weight": 0.8
+  },
+  {
+   "id": "e21",
+   "t": 453,
+   "kind": "product_capture",
+   "tool": "",
+   "title": "Tally report",
+   "summary": "Showreel capture of report.html",
+   "data": {
+    "path": "assets/capture_report.png",
+    "url": "file:///~/projects/tally/report.html",
+    "viewport": [
+     1280,
+     800
+    ],
+    "full_page": false,
+    "page_title": "Tally - Monthly spending"
+   },
+   "ok": true,
+   "weight": 0.9
+  }
+ ],
+ "stats": {
+  "duration_s": 452,
+  "turns": 1,
+  "tool_calls": 17,
+  "tool_kinds": {
+   "terminal": 5,
+   "write_file": 5,
+   "patch": 1,
+   "todo": 3,
+   "read_file": 1,
+   "browser_navigate": 1,
+   "browser_screenshot": 1
+  },
+  "files_created": 5,
+  "files_modified": 1,
+  "lines_added": 113,
+  "lines_removed": 1,
+  "commands_run": 5,
+  "commands_failed_then_fixed": 1,
+  "tests_passed": 14,
+  "screenshots": 1,
+  "subagents": 0,
+  "model": "synthetic-model"
+ }
+}

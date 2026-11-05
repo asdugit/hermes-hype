@@ -12,6 +12,7 @@ the plugin wraps ``ctx.llm`` with :func:`hermes_llm`. The flow never raises:
 from __future__ import annotations
 
 import logging
+import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Protocol
 
@@ -53,6 +54,7 @@ class Attempt:
     problems: list[str] = field(default_factory=list)
     model: str = ""
     usage: dict[str, Any] = field(default_factory=dict)
+    seconds: float = 0.0
 
 
 @dataclass
@@ -156,12 +158,14 @@ def _llm_storyboard(llm: Callable[..., LlmReply], digest: str, facts: SessionFac
 def _attempt(llm: Callable[..., LlmReply], kind: str, instructions: str, input_text: str, facts: SessionFacts,
              options: StoryOptions, attempts: list[Attempt]) -> _Candidate:
     """Run one call, validate it, record the attempt."""
+    started = time.monotonic()
     try:
         reply = llm(instructions=instructions, input_text=input_text, json_schema=transport_schema(),
                     schema_name=SCHEMA_NAME, temperature=options.temperature, max_tokens=options.max_tokens,
                     timeout=options.timeout)
     except Exception as exc:  # a misbehaving adapter is just a failed attempt
         reply = LlmReply(error=f"{type(exc).__name__}: {exc}")
+    elapsed = time.monotonic() - started
     if not isinstance(reply, LlmReply):
         reply = LlmReply(error=f"adapter returned {type(reply).__name__}, expected LlmReply")
     obj: Any = reply.parsed
@@ -184,7 +188,7 @@ def _attempt(llm: Callable[..., LlmReply], kind: str, instructions: str, input_t
             if not result.viable:
                 problems.append("$.scenes: after removing invalid scenes the film has too little left")
     accepted = result is not None and result.viable and not result.errors
-    attempts.append(Attempt(kind, accepted, problems, reply.model, reply.usage))
+    attempts.append(Attempt(kind, accepted, problems, reply.model, reply.usage, round(elapsed, 2)))
     return _Candidate(kind, obj if obj is not None else reply.text, problems, result)
 
 

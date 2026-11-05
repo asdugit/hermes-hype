@@ -1,0 +1,199 @@
+{
+ "synthetic": true,
+ "events": [
+  {
+   "id": "e0",
+   "t": 0,
+   "kind": "user_prompt",
+   "tool": "",
+   "title": "user",
+   "summary": "Which open-source TTS models allow commercial use?",
+   "data": {
+    "text": "Find out which open-source text-to-speech models allow commercial use, and summarize their licences for me."
+   },
+   "ok": true,
+   "weight": 0.5
+  },
+  {
+   "id": "e1",
+   "t": 5,
+   "kind": "web_search",
+   "tool": "web_search",
+   "title": "open source TTS commercial license",
+   "summary": "search",
+   "data": {
+    "query": "open source TTS model commercial license",
+    "titles": [
+     "Kokoro-82M model card",
+     "Piper TTS",
+     "Coqui XTTS licence FAQ"
+    ]
+   },
+   "ok": true,
+   "weight": 0.2
+  },
+  {
+   "id": "e2",
+   "t": 15,
+   "kind": "browser_nav",
+   "tool": "browser_navigate",
+   "title": "example.org/models/kokoro",
+   "summary": "opened model card",
+   "data": {
+    "url": "https://example.org/models/kokoro"
+   },
+   "ok": true,
+   "weight": 0.15
+  },
+  {
+   "id": "e3",
+   "t": 18,
+   "kind": "screenshot",
+   "tool": "browser_screenshot",
+   "title": "Kokoro model card",
+   "summary": "Model card showing the Apache-2.0 licence",
+   "data": {
+    "path": "assets/shot_003.png",
+    "w": 1366,
+    "h": 768,
+    "url": "https://example.org/models/kokoro"
+   },
+   "ok": true,
+   "weight": 0.6
+  },
+  {
+   "id": "e4",
+   "t": 30,
+   "kind": "web_extract",
+   "tool": "web_extract",
+   "title": "example.org/piper",
+   "summary": "Piper licence page",
+   "data": {
+    "url": "https://example.org/piper"
+   },
+   "ok": true,
+   "weight": 0.2
+  },
+  {
+   "id": "e5",
+   "t": 40,
+   "kind": "browser_nav",
+   "tool": "browser_navigate",
+   "title": "example.org/piper",
+   "summary": "opened Piper",
+   "data": {
+    "url": "https://example.org/piper"
+   },
+   "ok": true,
+   "weight": 0.1
+  },
+  {
+   "id": "e6",
+   "t": 44,
+   "kind": "screenshot",
+   "tool": "browser_screenshot",
+   "title": "Piper voices",
+   "summary": "Piper voice list with licence column",
+   "data": {
+    "path": "assets/shot_006.png",
+    "w": 1366,
+    "h": 768,
+    "url": "https://example.org/piper"
+   },
+   "ok": true,
+   "weight": 0.55
+  },
+  {
+   "id": "e7",
+   "t": 60,
+   "kind": "web_search",
+   "tool": "web_search",
+   "title": "XTTS licence non-commercial",
+   "summary": "search",
+   "data": {
+    "query": "XTTS licence non-commercial",
+    "titles": [
+     "Coqui Public Model License"
+    ]
+   },
+   "ok": true,
+   "weight": 0.15
+  },
+  {
+   "id": "e8",
+   "t": 70,
+   "kind": "web_extract",
+   "tool": "web_extract",
+   "title": "example.org/xtts-license",
+   "summary": "XTTS licence text",
+   "data": {
+    "url": "https://example.org/xtts-license"
+   },
+   "ok": true,
+   "weight": 0.2
+  },
+  {
+   "id": "e9",
+   "t": 80,
+   "kind": "browser_nav",
+   "tool": "browser_navigate",
+   "title": "example.org/compare",
+   "summary": "comparison table",
+   "data": {
+    "url": "https://example.org/compare"
+   },
+   "ok": true,
+   "weight": 0.1
+  },
+  {
+   "id": "e10",
+   "t": 84,
+   "kind": "screenshot",
+   "tool": "browser_screenshot",
+   "title": "Licence comparison",
+   "summary": "Comparison table of TTS licences",
+   "data": {
+    "path": "assets/shot_010.png",
+    "w": 1366,
+    "h": 768,
+    "url": "https://example.org/compare"
+   },
+   "ok": true,
+   "weight": 0.7
+  },
+  {
+   "id": "e11",
+   "t": 100,
+   "kind": "final_answer",
+   "tool": "",
+   "title": "assistant",
+   "summary": "Kokoro and Piper allow commercial use; XTTS does not.",
+   "data": {
+    "text": "Kokoro and Piper both allow commercial use under permissive licences. XTTS uses a non-commercial licence, so avoid it for paid products. Check each voice's own licence before you ship."
+   },
+   "ok": true,
+   "weight": 0.5
+  }
+ ],
+ "stats": {
+  "duration_s": 105,
+  "turns": 1,
+  "tool_calls": 10,
+  "tool_kinds": {
+   "web_search": 2,
+   "web_extract": 2,
+   "browser_navigate": 3,
+   "browser_screenshot": 3
+  },
+  "files_created": 0,
+  "files_modified": 0,
+  "lines_added": 0,
+  "lines_removed": 0,
+  "commands_run": 0,
+  "commands_failed_then_fixed": 0,
+  "tests_passed": null,
+  "screenshots": 3,
+  "subagents": 0,
+  "model": "synthetic-model"
+ }
+}

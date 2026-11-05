@@ -1,0 +1,47 @@
+{
+ "synthetic": true,
+ "events": [
+  {
+   "id": "e0",
+   "t": 0,
+   "kind": "user_prompt",
+   "tool": "",
+   "title": "user",
+   "summary": "What's the difference between a list and a tuple in Python?",
+   "data": {
+    "text": "What's the difference between a list and a tuple in Python?"
+   },
+   "ok": true,
+   "weight": 0.4
+  },
+  {
+   "id": "e1",
+   "t": 9,
+   "kind": "final_answer",
+   "tool": "",
+   "title": "assistant",
+   "summary": "Lists are mutable, so you can add, remove or change items after you create them. Tuples are immutable, which makes them hashable and safe to use as di",
+   "data": {
+    "text": "Lists are mutable, so you can add, remove or change items after you create them. Tuples are immutable, which makes them hashable and safe to use as dictionary keys. Use a list for a collection that changes and a tuple for a fixed record."
+   },
+   "ok": true,
+   "weight": 0.5
+  }
+ ],
+ "stats": {
+  "duration_s": 12,
+  "turns": 1,
+  "tool_calls": 0,
+  "tool_kinds": {},
+  "files_created": 0,
+  "files_modified": 0,
+  "lines_added": 0,
+  "lines_removed": 0,
+  "commands_run": 0,
+  "commands_failed_then_fixed": 0,
+  "tests_passed": null,
+  "screenshots": 0,
+  "subagents": 0,
+  "model": "synthetic-model"
+ }
+}
