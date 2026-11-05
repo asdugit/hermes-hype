@@ -259,7 +259,7 @@ defineDomScene('kit:type/kinetic', {
 // ------------------------------------------------------------------------------------- speedrun timer
 defineDomScene('kit:type/speedrun-timer', {
   kind: 'type-timer',
-  describe: 'Speedrun HUD: a live session clock (time-lapse of the real session) with split rows that tick in at their film time.',
+  describe: 'Speedrun HUD (compact corner plate): live session clock (time-lapse of the real session) and the latest split, which swaps in at its film time.',
   params: {
     ...THEME,
     splits: { type: 'array', default: [], doc: '[{label, session_t, film_t}] film_t relative to this overlay' },
@@ -272,20 +272,22 @@ defineDomScene('kit:type/speedrun-timer', {
     const splits = (p.splits || []).slice(0, 7);
     const hud = h('div', 'srb-abs');
     hud.style.cssText = L ? `left:${F.safe.l}px;top:${F.safe.t}px;` : `right:${F.safe.r}px;top:${F.safe.t}px;`;
-    hud.style.cssText += 'padding:28px 34px;border-radius:20px;background:rgba(10,11,13,.86);box-shadow:0 0 0 1px rgba(255,255,255,.1),0 30px 80px rgba(0,0,0,.5);min-width:440px;';
+    hud.style.cssText += 'padding:20px 26px 18px;border-radius:18px;background:rgba(10,11,13,.86);box-shadow:0 0 0 1px rgba(255,255,255,.1),0 24px 60px rgba(0,0,0,.5);min-width:340px;';
     const name = h('div', 'srb-eyebrow', null, [h('i'), String(p.title || 'Any%')]);
     name.style.fontSize = '24px';
     const timer = h('div', 'srb-timer', { text: '0:00' });
-    timer.style.cssText = 'font-size:76px;font-weight:600;margin:16px 0 12px;letter-spacing:-0.02em;';
-    hud.append(name, timer);
+    timer.style.cssText = 'font-size:64px;font-weight:600;margin:10px 0 6px;letter-spacing:-0.02em;';
+    const slot = h('div', '');
+    slot.style.cssText = `position:relative;height:${splits.length ? 42 : 0}px;overflow:hidden;`;
+    hud.append(name, timer, slot);
     const rows = splits.map((s) => {
       const r = h('div', '');
-      r.style.cssText = 'display:flex;justify-content:space-between;gap:36px;font:500 28px/1.6 var(--sr-f-mono);color:#C9CDD3;';
+      r.style.cssText = 'position:absolute;left:0;right:0;top:0;display:flex;justify-content:space-between;gap:28px;font:500 27px/1.5 var(--sr-f-mono);color:#C9CDD3;white-space:nowrap;';
       const a = h('span', '', { text: String(s.label || '') });
       const b = h('span', '', { text: clock(s.session_t) });
       b.style.color = 'var(--sr-accent)';
       r.append(a, b);
-      hud.appendChild(r);
+      slot.appendChild(r);
       return { r, s };
     });
     F.ov.appendChild(hud);
@@ -306,10 +308,13 @@ defineDomScene('kit:type/speedrun-timer', {
         const s = Math.max(0, sessionAt(t));
         const txt = clock(Math.floor(s));
         if (timer.__t !== txt) { timer.__t = txt; timer.textContent = txt; }
-        for (const { r, s: sp } of rows) {
+        // only the latest reached split shows; it rises in, the previous one leaves upward
+        rows.forEach(({ r, s: sp }, i) => {
           const ft = Number(sp.film_t) || 0;
-          css(r, { opacity: t >= ft ? '1' : '0', transform: `translate3d(0,${((1 - seg(t, ft, ft + 0.3, ease.outQuint)) * 10).toFixed(2)}px,0)` });
-        }
+          const nx = i + 1 < rows.length ? Number(rows[i + 1].s.film_t) || 0 : Infinity;
+          const u = seg(t, ft, ft + 0.35, ease.outQuint), v = seg(t, nx, nx + 0.3, ease.outCubic);
+          css(r, { opacity: (t >= ft ? 1 - v : 0).toFixed(3), transform: `translate3d(0,${((1 - u) * 42 - v * 42).toFixed(2)}px,0)` });
+        });
       },
     };
   },
