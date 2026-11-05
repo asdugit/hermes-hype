@@ -13,7 +13,7 @@ export function titleSize(text, maxW, max = 220, min = 96) {
 }
 
 // ------------------------------------------------------------------------------------- TITLE
-defineDomScene('kit:base/TITLE', {
+export const TITLE_DEF = {
   describe: 'Name + thesis: eyebrow, huge kinetic title, tagline with one emphasis word; optional product hero beside it.',
   params: {
     ...COMMON,
@@ -26,7 +26,8 @@ defineDomScene('kit:base/TITLE', {
     const L = F.portrait;
     const title = String(p.title || p.product || '').trim();
     const tagline = String(p.tagline || '').trim();
-    const hasHero = !!(p.hero && (p.hero.asset || p.hero.kind));
+    const heroElsewhere = !!p._hero_elsewhere;
+    const hasHero = heroElsewhere || !!(p.hero && (p.hero.asset || p.hero.kind));
     const centered = L || !hasHero;
     const maxW = L ? 860 : hasHero ? 860 : 1500;
     const ts = titleSize(title, maxW, L ? 200 : 220, L ? 90 : 110);
@@ -44,14 +45,14 @@ defineDomScene('kit:base/TITLE', {
     if (tg) box.appendChild(tg.el);
     box.appendChild(rule);
     if (centered) {
-      box.style.cssText = `left:0;right:0;text-align:center;display:flex;flex-direction:column;align-items:center;top:${L ? (hasHero ? 330 : 640) : 330}px;`;
+      box.style.cssText = `left:0;right:0;text-align:center;display:flex;flex-direction:column;align-items:center;top:${L ? (hasHero ? 330 : 700) : 330}px;`;
       if (tg) tg.el.style.textAlign = 'center';
     } else {
       box.style.cssText = `left:${F.safe.l + 20}px;top:${F.H / 2 - ts * 0.9 - 60}px;width:${maxW}px;`;
     }
     F.cam.appendChild(box);
     let hero = null;
-    if (hasHero) {
+    if (hasHero && !heroElsewhere) {
       const hw = L ? 900 : 900;
       hero = contentBlock(ctx, p.hero, { width: hw, maxH: L ? 760 : 700, fast: true, t0: 0 });
       const hx = L ? (F.W - hw) / 2 : F.W - F.safe.r - hw + 40;
@@ -77,10 +78,11 @@ defineDomScene('kit:base/TITLE', {
       },
     };
   },
-});
+};
+defineDomScene('kit:base/TITLE', TITLE_DEF);
 
 // ------------------------------------------------------------------------------------- STATS
-defineDomScene('kit:base/STATS', {
+export const STATS_DEF = {
   describe: 'Real session numbers only: 1-3 big numerals count up on the drop, mono labels, accent rule under the hero number.',
   params: {
     ...COMMON,
@@ -109,10 +111,11 @@ defineDomScene('kit:base/STATS', {
       },
     };
   },
-});
+};
+defineDomScene('kit:base/STATS', STATS_DEF);
 
 // ------------------------------------------------------------------------------------- CALLOUT
-defineDomScene('kit:base/CALLOUT', {
+export const CALLOUT_DEF = {
   describe: 'One quotable line, verbatim: emphasis-font quote words rise, accent rule, mono attribution; near-still camera.',
   params: {
     ...COMMON,
@@ -149,10 +152,11 @@ defineDomScene('kit:base/CALLOUT', {
       },
     };
   },
-});
+};
+defineDomScene('kit:base/CALLOUT', CALLOUT_DEF);
 
 // ------------------------------------------------------------------------------------- END
-defineDomScene('kit:base/END', {
+export const END_DEF = {
   describe: 'End card (thumbnail frame): title lockup, CTA command pill, URL and the "made with Hermes · Showreel" credit; speedrun adds the PB time.',
   params: {
     ...COMMON,
@@ -215,6 +219,7 @@ defineDomScene('kit:base/END', {
       },
     };
   },
-});
+};
+defineDomScene('kit:base/END', END_DEF);
 
 export { panelIn };

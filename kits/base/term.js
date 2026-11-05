@@ -125,6 +125,12 @@ export function termFont(c, portrait, base = 26) {
   let fs = rows <= 3 ? 38 : rows <= 5 ? 34 : rows <= 8 ? 30 : base;
   const maxW = portrait ? 940 : 1560;
   if (!portrait) fs = Math.min(fs, Math.max(base, Math.floor((maxW - 70) / (longest * 0.6))));
+  else {
+    // keep tabular output on one line when it can stay >= 22 px; otherwise wrap at 24 px
+    const longestOut = Math.max(20, ...(c.output || []).map((s) => String(s).length));
+    const fit = Math.floor((maxW - 60) / (longestOut * 0.6));
+    fs = fit >= 22 ? Math.min(fs, fit) : Math.min(fs, 24);
+  }
   return fs;
 }
 

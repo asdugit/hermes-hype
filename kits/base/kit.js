@@ -23,7 +23,7 @@ export const SCENE_TYPES = ['HOOK', 'TITLE', 'PROBLEM', 'PLAN', 'CODE', 'DIFF', 
   'STATS', 'BEFORE_AFTER', 'CALLOUT', 'END', 'FEATURE', 'SCROLL'];
 
 export const blocks = { ...code, ...term, ...media, ...cards, ...type, contentBlock, panelIn, titleSize };
-export { motion, dom, scene, BASE_CSS, COMMON };
+export { motion, dom, scene, BASE_CSS, COMMON, sr };
 export const registerTheme = dom.registerTheme;
 
 // Expose the building blocks through ctx.kit('base') when the runtime supports kit registration.

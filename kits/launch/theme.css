@@ -1,0 +1,77 @@
+/* Showreel style "launch": paper UI on a lit graphite table, one lime accent, Geist + one serif-italic
+   emphasis word. Tokens re-skin every kit:base scene; .slw-* classes style the 3D table world used by
+   the kit:launch/* scenes. Only --sr-accent should change per project (auto-picked, luminance-checked). */
+
+.sr-theme-launch {
+  --sr-stage: #0A0B0D;
+  --sr-stage-bg: radial-gradient(115% 90% at 50% 46%, #1C1E23 0%, #131418 38%, #0B0C0E 72%, #08090A 100%);
+  --sr-grid: rgba(255,255,255,.075);
+  --sr-grid-size: 40px;
+  --sr-table: #101114;
+  --sr-table-lit: #25272D;
+  --sr-fg: #F4F3EF;
+  --sr-fg-2: #A6A9B1;
+  --sr-fg-3: #6C6F78;
+  --sr-accent: #C9F25C;
+  --sr-accent-ink: #11160A;
+  --sr-accent-hl: #E4F7B0;
+  --sr-accent-glow: rgba(201,242,92,.34);
+  --sr-paper: #F6F5F1;
+  --sr-paper-2: #EDEBE5;
+  --sr-rule: #E2DFD7;
+  --sr-ink: #141519;
+  --sr-ink-2: #4A4D56;
+  --sr-ink-3: #8E9098;
+  --sr-tone: #7A6A4C;
+  --sr-term: #16171B;
+  --sr-term-2: #1D1E23;
+  --sr-term-rule: rgba(255,255,255,.10);
+  --sr-term-ink: #ECEBE6;
+  --sr-term-dim: #8B8E97;
+  --sr-del-hl: #E9E6DF;
+  --sr-fail: #E0E0DA;          /* one accent: failures are neutral + a cross, never a 2nd hue */
+  --sr-plate: rgba(11,12,15,.88);
+  --sr-f-sans: "Geist", sans-serif;
+  --sr-f-mono: "Geist Mono", monospace;
+  --sr-f-display: "Geist", sans-serif;
+  --sr-f-em: "Instrument Serif", serif;
+  --sr-w-display: 600;
+  --sr-track-display: -0.058em;
+  --sr-lead-display: .88;
+  --sr-w-h1: 500;
+  --sr-track-h1: -0.035em;
+  --sr-em-style: italic;
+  --sr-em-scale: 1.14;
+  --sr-em-color: var(--sr-accent);
+  --sr-r-panel: 18px;
+  --sr-panel-edge: 0 0 0 1px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.9), inset 0 0 0 1px rgba(255,255,255,.35);
+  --sr-panel-shadow: 0 44px 90px -20px rgba(0,0,0,.6), 0 14px 30px -8px rgba(0,0,0,.4);
+  --sr-sheen: linear-gradient(112deg, rgba(255,255,255,0) 30%, rgba(255,255,255,.22) 48%, rgba(255,255,255,0) 62%);
+  --sr-vignette: radial-gradient(ellipse 80% 76% at 50% 46%, transparent 62%, rgba(0,0,0,.38) 100%);
+}
+.sr-theme-launch .srb-bar { height: 66px; font-size: 28px; }
+.sr-theme-launch .srb-bar svg { width: 26px; height: 26px; }
+.sr-theme-launch .srb-urlbar { height: 66px; font-size: 28px; }
+.sr-theme-launch .srb-url { height: 44px; }
+.sr-theme-launch .srb-card-h { font-size: 27px; }
+.sr-theme-launch .srb-tag { position: absolute; transform-origin: 0 50%; }
+.sr-theme-launch .slw-scrim { position: absolute; pointer-events: none; }
+.sr-theme-launch .srb-badge.fail { color: var(--sr-term-ink); box-shadow: inset 0 0 0 2px rgba(255,255,255,.28); }
+.sr-theme-launch .srb-term .srb-line.err { color: var(--sr-term-ink); text-decoration: underline 2px rgba(255,255,255,.28); text-underline-offset: 6px; }
+
+/* ── 3D table world (kit:launch scenes) ─────────────────────────────── */
+.sr-theme-launch .slw-table { position: absolute; left: -4000px; top: -4000px; width: 8000px; height: 8000px;
+  background: radial-gradient(var(--lrx, 1500px) var(--lry, 1100px) at var(--lx, 4000px) var(--ly, 4000px), var(--sr-table-lit), rgba(30,32,37,0) 100%), var(--sr-table); }
+.sr-theme-launch .slw-table::before { content: ""; position: absolute; inset: 0;
+  background-image: radial-gradient(circle, var(--sr-grid) 1.8px, transparent 2.4px); background-size: 40px 40px; background-position: 20px 20px;
+  -webkit-mask-image: radial-gradient(calc(var(--lrx, 1500px) * 1.3) calc(var(--lry, 1100px) * 1.3) at var(--lx, 4000px) var(--ly, 4000px), #000 0%, rgba(0,0,0,.55) 50%, transparent 100%); }
+.sr-theme-launch .slw-shadow { position: absolute; left: 0; top: 0; border-radius: 34px; background: rgba(0,0,0,.92); transform-origin: 0 0; }
+.sr-theme-launch .slw-contact { position: absolute; left: 0; top: 0; height: 14px; border-radius: 50%; background: rgba(0,0,0,.9); filter: blur(5px); transform-origin: 0 50%; }
+.sr-theme-launch .slw-glow { fill: none; stroke: var(--sr-accent); stroke-width: 18; stroke-opacity: .16; filter: blur(7px); stroke-linecap: round; }
+.sr-theme-launch .slw-core { fill: none; stroke: var(--sr-accent); stroke-width: 3.5; stroke-opacity: .6; stroke-linecap: round; }
+.sr-theme-launch .slw-pulse { fill: none; stroke: #F8FFE6; stroke-width: 6; stroke-linecap: round; }
+.sr-theme-launch .slw-pulse-glow { fill: none; stroke: var(--sr-accent); stroke-width: 28; stroke-linecap: round; stroke-opacity: .55; filter: blur(9px); }
+.sr-theme-launch .slw-port { fill: var(--sr-table); stroke: var(--sr-accent); stroke-width: 3.5; }
+.sr-theme-launch .slw-node { backface-visibility: hidden; }
+.sr-theme-launch .slw-vignette { position: absolute; inset: 0; pointer-events: none; background: var(--sr-vignette); }
+.sr-theme-launch .slw-stage { position: absolute; inset: 0; background: var(--sr-stage); }
