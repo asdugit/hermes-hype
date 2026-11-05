@@ -1,0 +1,9 @@
+{
+  "name": "type",
+  "version": 1,
+  "entry": "kit.js",
+  "describe": "Overlay scenes (transparent, screen-space type above shots): title, lower-third, cta, end-lockup, kinetic, speedrun-timer.",
+  "requires": ["base"],
+  "scenes": ["title", "lower-third", "cta", "end-lockup", "kinetic", "speedrun-timer"],
+  "fonts": []
+}

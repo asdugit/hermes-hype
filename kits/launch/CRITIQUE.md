@@ -47,3 +47,17 @@ Everything renders, no page errors, CSS module scripts load fine over the loopba
      Add a stage-coloured scrim under the headline (left gradient / bottom gradient on 9:16).
   6. QA small_text on panel chrome in establishing shots (18-21 px) -> launch chrome at 28 px.
 - Earlier fix (round 0): vignette on bright paper read as a grey haze -> lighter vignette (0.38 at the rim).
+
+## Launch, 9:16 round 1
+- Re-layout reads native (panels stacked / standing, headline bands at the bottom of the centre band).
+- Fixed after the look: portrait terminals wrapped tabular output -> font fits the longest output line
+  (>= 22 px) else wraps at 24; TITLE without hero sat high -> centred lower (top 700); PLAN card filled
+  only 80 % of the width -> 94 %.
+- FEATURE 9:16: headline band + scrim readable over the bright UI; END/STATS/CALLOUT centred and strong.
+
+## Type kit, round 1 -> 2 (overlays over a bright product screen, 16:9 + 9:16)
+- Round 1: white type straight over light UI was unreadable (title, kinetic); HUD timer too small.
+- Round 2: per-overlay `scrim` (radial / left / bottom gradient of the stage colour, animated with the
+  type, default 0.62) -> all lines legible in both aspects; timer HUD 76 px on a dark plate; lower third
+  on a bottom gradient. Accent falls back to the base blue when the style kit isn't loaded (in Quick films
+  the style kit is always present, so overlays pick up the style accent).
