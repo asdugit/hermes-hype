@@ -18,7 +18,7 @@ export const PRESETS = {
     light: '#FFD7A6', ambient: '#AE9CC8', exposure: 1.0, backlight: 1.0,
     flowers: { white: 3, yellow: 4, pink: 3, peach: 2, lilac: 3, lupine: 2 },
     petals: ['pink', 'yellow', 'peach', 'white', 'pink'],
-    bloom: 0.85, rays: 0.55, mist: 0.10, fireflies: 0, stars: 0,
+    bloom: 0.85, rays: 0.55, mist: 0.08, fireflies: 0, stars: 0,
   },
   golden: {
     sky: [[0, '#FFF0CC'], [4, '#FFDFA6'], [10, '#F7D7AE'], [20, '#D6D8DE'], [34, '#A9C4E2'], [55, '#86AEDC'], [80, '#6A97D0']],
@@ -78,7 +78,7 @@ export const PRESETS = {
     light: '#AFC0FF', ambient: '#3A4282', exposure: 1.0, backlight: 0.5,
     flowers: { white: 4, lilac: 3, blue: 2, cream: 1 },
     petals: ['white', 'lilac'],
-    bloom: 1.0, rays: 0.0, mist: 0.14, fireflies: 140, stars: 1,
+    bloom: 1.0, rays: 0.0, mist: 0.14, fireflies: 140, stars: 1, productExposure: 0.5,
   },
 };
 PRESETS['golden-hour'] = PRESETS.golden;

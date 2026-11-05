@@ -76,3 +76,9 @@ the corners. Runtime seed gives a lupine/yellow meadow variant — also lovely.
 Fixes: no product in frame 0 (descend starts too high → y0 1.5 → 1.15 so it is in by ~0.5 s); bare near ground
 with dark lupine dabs visible at bottom-centre at t≈0.5 (field started at 6.5 m, ground enters frame at 5.6 m)
 → field from 5 m and terrain dabs fade out within 9 m.
+
+## v9 (all six presets + 9:16)
+sunset / golden / dawn / pastel / dream / night all read as their mood; night: cars glowed bright red (pasted) →
+per-preset `productExposure` (night 0.5). A light outline around cars against bright sky came from the pro-mist
+pass (¼-res blur too tight → an edge, not a glow) → wider mist blur, sunset mist 0.10 → 0.08. 9:16 composition works
+(cars in the sky band, sun + meadow below) but the field is defocused heavily at the bottom — acceptable for vertical.

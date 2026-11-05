@@ -63,8 +63,8 @@ Video media loop (`frame(t, {loop: true})`); each flyer gets its own clip offset
 ## Performance (this PC, 1080p output, measured)
 | | GPU RX 6800 XT (tier high) | CPU SwiftShader `--disable-gpu` (tier low: 960×540 internal) |
 |---|---|---|
-| world only (no flyers), ms/frame in-page | 2.7 | 247 (before tuning) → ~190 |
-| flower-field + 4 car flyers, ms/frame in-page | ~40 (mostly per-frame PNG decode + upload of 4 cut-out frames in the dev shim) | 222 |
+| world only (no flyers), ms/frame in-page | 2.7 | 247 (measured before the low-tier trim: 5.2k→3.6k field sprites, single-tap blur rows) |
+| flower-field + 4 car flyers, ms/frame in-page | 40 (dev shim; mostly per-frame PNG decode + upload of 4 cut-out frames) | 222 (after the trim) |
 | 15 s flower-field video, real runtime (450 frames) | **29.4 s** render (46 s incl. 12.5 s asset prep) | **132.7 s** render (149 s total) |
 Tier `high` on SwiftShader would be ~1.8 s/frame — always let `quality: auto` pick.
 

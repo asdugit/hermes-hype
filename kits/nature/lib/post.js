@@ -115,7 +115,7 @@ export function makePost(THREE, renderer, opts) {
         raysM.uniforms.onScreen.value = 1 - Math.min(1, Math.max(0, Math.max(Math.abs(sunNDC[0]), Math.abs(sunNDC[1])) - 1.0) * 2.0);
         pass(raysM, r4);
       }
-      blur2(a4, b4, q4[0], q4[1], 1.0);
+      blur2(a4, b4, q4[0], q4[1], 1.0); blur2(a4, b4, q4[0], q4[1], 2.2);   // wide: a soft glow, never an outline
       // bloom chain (⅛, thresholded)
       down.uniforms.src.value = a4.texture; down.uniforms.texel.value.set(1 / q4[0], 1 / q4[1]); down.uniforms.threshold.value = 0.85; pass(down, a8);
       blur2(a8, b8, q8[0], q8[1], 1.0); blur2(a8, b8, q8[0], q8[1], 2.0);

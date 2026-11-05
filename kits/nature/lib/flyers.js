@@ -121,7 +121,7 @@ uniform vec3 keyCol; uniform float keyTol;
 uniform vec4 crop;        // u0, v0, u1, v1 of the media inside the card (card = crop + padding)
 uniform float flip, blurPx, opacity, rimI, hazeAmt, cardR, aspect;
 uniform vec2 rimDir, texel;
-uniform vec3 lightCol, ambCol, haze, rimCol;
+uniform vec3 lightCol, ambCol, haze, rimCol; uniform float prodExp;
 vec4 tap(vec2 uv){
   vec4 c = texture2D(map, uv);
   if (mode == 1) {
@@ -173,7 +173,7 @@ void main(){
     float rimD = clamp(a - ao, 0.0, 1.0);
     col += rimCol * rimD * 2.4 * rimI;
   }
-  col = mix(col, haze, hazeAmt);
+  col = mix(col * prodExp, haze, hazeAmt);
   gl_FragColor = vec4(col, a * opacity);
 }`;
 
@@ -248,6 +248,7 @@ export function makeFlyers(THREE, opts) {
       cardR: { value: 0.06 }, aspect: { value: aspect }, rimDir: { value: new THREE.Vector2(0, 1) },
       texel: { value: new THREE.Vector2(1 / Math.min(asset.w || 1280, maxW), 1 / Math.min(asset.h || 720, maxW / aspect)) },
       lightCol: { value: c3(P.light) }, ambCol: { value: c3(P.ambient) }, haze: { value: c3(P.haze) }, rimCol: { value: c3(P.sun.glow) },
+      prodExp: { value: P.productExposure ?? 1 },
     };
     const mat = new THREE.ShaderMaterial({ vertexShader: VS, fragmentShader: FS, uniforms, transparent: true, depthWrite: true, side: THREE.DoubleSide });
     const geo = new THREE.PlaneGeometry(1, 1);
