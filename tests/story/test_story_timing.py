@@ -10,7 +10,7 @@ from showreel_core.story.heuristic import build_heuristic_storyboard
 from showreel_core.story.options import StoryOptions
 from showreel_core.story.rules import TTS_WORDS_PER_SECOND
 from showreel_core.story.text import word_count
-from showreel_core.story.timing import END_HOLD_BARS, solve_timeline
+from showreel_core.story.timing import END_HOLD_BARS, STRETCH, STRETCH_TYPES, solve_timeline
 
 from story_synth import SESSIONS
 
@@ -51,22 +51,30 @@ def test_grid_ranges_and_fit(name, mode, seconds, bpm):
         lo, hi, _ = SCENE_RULES[sc.type]
         dur = sc.t1 - sc.t0
         voiced = sc.captions[-1].t1 + 0.4 if sc.captions else 0
-        allowed_hi = hi + (END_HOLD_BARS * bar if sc.type == T.END else 0)
-        if dur > hi + EPS:  # only narration (never cut) or the end-card hold may exceed the max
-            assert voiced > hi - EPS or (sc.type == T.END and dur <= allowed_hi + hb + EPS), (sc.type, dur)
+        if dur > hi + EPS and voiced <= hi - EPS:
+            # beyond the max only for narration (never cut), or when the film would otherwise stop short:
+            # stretched holds and the end-card hold
+            assert tl.dur <= seconds + hb + EPS, (sc.type, dur, tl.dur)
+            assert dur <= _cap(sc.type, hi, bar) + hb + EPS, (sc.type, dur)
         assert dur >= min(lo, hb) - EPS
     assert on_grid(tl.dur, bar)
     assert abs(tl.dur - tl.scenes[-1].t1) < EPS
     assert tl.dur <= seconds + bar + EPS, (tl.dur, seconds)
     if tl.dur < seconds - bar - EPS:
         # Too little material for the target: allowed only when every scene is already at its
-        # (grid-snapped) maximum and the end card holds as long as it may. Never padded with filler.
+        # (grid-snapped) stretch cap and the end card holds as long as it may. Never padded with filler.
         for sc in tl.scenes[1:]:
             lo, hi, _ = SCENE_RULES[sc.type]
-            cap = hi + (END_HOLD_BARS * bar if sc.type == T.END else 0)
+            cap = _cap(sc.type, hi, bar)
             assert sc.t1 - sc.t0 >= math.floor(cap / hb + EPS) * hb - EPS, (name, sc.type, sc.t1 - sc.t0)
-    if name in RICH and seconds <= 60 and mode != "product":
+    if name in RICH and seconds <= 60:
         assert abs(tl.dur - seconds) <= bar + EPS, (tl.dur, seconds)
+
+
+def _cap(st, hi, bar):
+    if st == T.END:
+        return hi + END_HOLD_BARS * bar
+    return hi * STRETCH if st in STRETCH_TYPES else hi
 
 
 @pytest.mark.parametrize("name", RICH)

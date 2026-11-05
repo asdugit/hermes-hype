@@ -118,10 +118,11 @@ def narration_budget(seconds: float, mode: str = "product") -> int:
 
 
 def scene_count_range(seconds: float, mode: str = "product") -> tuple[int, int]:
-    """Sensible scene count for a film length (average 4-6 s per scene; speedruns cut faster)."""
+    """Scene count for a film length: about 3.8-5.2 s per scene, so the scenes' maximum durations can
+    actually fill the target (speedruns cut faster)."""
     per = 0.85 if film_mode(mode) == "speedrun" else 1.0
-    lo = max(4, int(round(seconds / (6.0 * per))))
-    hi = max(lo + 1, int(round(seconds / (4.2 * per))))
+    lo = max(4, int(round(seconds / (5.2 * per))))
+    hi = max(lo + 1, int(round(seconds / (3.8 * per))))
     return lo, min(hi, 22)
 
 

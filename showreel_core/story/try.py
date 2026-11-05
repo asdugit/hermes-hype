@@ -92,6 +92,45 @@ def hermes_adapter(root: str | None) -> Any:
     return hermes_llm(plugin_llm, task=None)
 
 
+def hermes_cli_adapter(max_turns: int = 1) -> Any:
+    """One-shot ``hermes chat --query-file`` call with the user's default model (dev only).
+
+    The full agent answers, so the instructions, input and transport schema are sent as one query and
+    the reply text is parsed (and validated) by the normal generate flow. No config is changed.
+    """
+    import shutil
+    import subprocess
+    import tempfile
+
+    from .generate import LlmReply
+
+    exe = shutil.which("hermes")
+    if not exe:
+        raise SystemExit("--llm hermes-cli needs the `hermes` command on PATH")
+
+    def call(*, instructions: str, input_text: str, json_schema: dict[str, Any], schema_name: str,
+             temperature: float, max_tokens: int, timeout: float) -> LlmReply:
+        query = (f"{instructions}\n\n{input_text}\n\n# JSON schema ({schema_name})\n"
+                 f"{json.dumps(json_schema, separators=(',', ':'))}\n\n"
+                 "Answer directly: do not call any tools. Reply with the JSON object only.")
+        with tempfile.TemporaryDirectory(prefix="showreel-story-") as tmp:
+            qf = Path(tmp) / "query.txt"
+            qf.write_text(query, encoding="utf-8")
+            try:
+                proc = subprocess.run([exe, "chat", "--query-file", str(qf), "-Q", "--max-turns", str(max_turns)],
+                                      capture_output=True, text=True, encoding="utf-8", errors="replace",
+                                      timeout=max(60.0, timeout * 3))
+            except subprocess.TimeoutExpired:
+                return LlmReply(error="hermes chat timed out")
+        lines = [ln for ln in proc.stdout.splitlines() if not ln.startswith("session_id:")]
+        text = "\n".join(lines).strip()
+        if proc.returncode != 0 or not text:
+            return LlmReply(text=text, error=f"hermes chat exit {proc.returncode}: {proc.stderr.strip()[-300:]}")
+        return LlmReply(text=text, model="hermes chat (default model)")
+
+    return call
+
+
 # ------------------------------------------------------------------------- printing
 
 def print_storyboard(sb: Storyboard) -> None:
@@ -152,7 +191,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--mode", default="product", help="product | making_of (lore, bts, process) | speedrun")
     ap.add_argument("--aspect", default="16:9", choices=sorted(SIZES))
     ap.add_argument("--bpm", type=float, help="music tempo (default: the style's bed, else 120)")
-    ap.add_argument("--llm", default="none", choices=("none", "hermes"))
+    ap.add_argument("--llm", default="none", choices=("none", "hermes", "hermes-cli"),
+                    help="hermes: plugin LLM facade (run under the Hermes venv); hermes-cli: `hermes chat` one-shot")
     ap.add_argument("--hermes-root", help="hermes-agent checkout (default: %%LOCALAPPDATA%%/hermes/hermes-agent)")
     ap.add_argument("--no-voice", action="store_true", help="captions only")
     ap.add_argument("--seed", type=int, default=1)
@@ -171,7 +211,8 @@ def main(argv: list[str] | None = None) -> int:
         _out(build_input(digest, facts, opts, product or infer_product(facts)))
         return 0
 
-    llm = hermes_adapter(args.hermes_root) if args.llm == "hermes" else None
+    llm = (hermes_adapter(args.hermes_root) if args.llm == "hermes"
+           else hermes_cli_adapter() if args.llm == "hermes-cli" else None)
     t0 = time.perf_counter()
     report = generate_storyboard_report(llm, digest, events, stats, opts, product)
     gen_s = time.perf_counter() - t0

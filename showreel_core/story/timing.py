@@ -34,6 +34,10 @@ CREDIT = "made with Hermes \u00b7 Showreel"
 PAD_IN, PAD_OUT, HOOK_PAD_IN = 0.3, 0.4, 0.15
 #: A film with too few scenes may hold its end card this many bars past END's max.
 END_HOLD_BARS = 2
+#: ...and before that, let these hold-friendly scenes run up to STRETCH x their max (a longer push-in,
+#: scroll or montage reads better than a film that stops short).
+STRETCH = 1.3
+STRETCH_TYPES = (T.MONTAGE, T.SCROLL, T.SCREEN, T.FEATURE, T.BEFORE_AFTER)
 
 
 @dataclass
@@ -219,7 +223,19 @@ def _fit_once(plans: list[_Plan], target: float, hb: float, bar: float, mode: st
                 if p.dur + hb <= p.hi + EPS:
                     p.dur += hb
                     changed = True
-    # still short (too few scenes for the target): hold the end card, up to END_HOLD_BARS extra bars
+    # still short (too few scenes for the target): stretch the holds, then hold the end card
+    changed = True
+    while total() < target - bar + EPS and changed:
+        changed = False
+        for st in order:
+            if st not in STRETCH_TYPES:
+                continue
+            for p in [q for q in plans if q.type == st]:
+                if total() >= target - hb / 2 - EPS:
+                    break
+                if p.dur + hb <= p.hi * STRETCH + EPS:
+                    p.dur += hb
+                    changed = True
     ends = [p for p in plans if p.type == T.END]
     if ends:
         cap = ends[-1].hi + END_HOLD_BARS * bar
