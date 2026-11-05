@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#7c3aed">
+<meta name="description" content="Orbit Notes keeps your ideas in orbit: fast offline notes with sync.">
+<title>Orbit Notes</title>
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="stylesheet" href="/assets/site.css">
+<!-- external resources: must be blocked by the capture browser -->
+<link rel="stylesheet" href="https://fonts.example-cdn.test/css2?family=Inter">
+<script src="https://cdn.example-cdn.test/analytics.js"></script>
+</head>
+<body>
+<header class="top"><span class="brand">Orbit Notes</span><nav><a href="#features">Features</a><a href="#pricing">Pricing</a></nav></header>
+<section class="hero">
+  <h1>Your ideas, in orbit.</h1>
+  <p class="lede">Fast offline notes that sync everywhere.</p>
+  <a class="btn primary" id="cta" href="#pricing">Start free</a>
+</section>
+<section id="features" class="features">
+  <h2 class="section-title">Features</h2>
+  <div class="grid">
+    <article class="card reveal"><h3>Offline first</h3><p>Write anywhere; everything syncs when you are back online.</p></article>
+    <article class="card reveal"><h3>Dark mode</h3><p>Easy on the eyes at night, automatic with your system.</p></article>
+    <article class="card reveal"><h3>Instant search</h3><p>Find any note in milliseconds with fuzzy matching.</p></article>
+  </div>
+</section>
+<section class="gallery">
+  <h2 class="section-title">See it</h2>
+  <img class="shot" loading="lazy" src="/assets/shot.png" alt="app screenshot" width="640" height="360">
+</section>
+<section id="pricing" class="pricing">
+  <h2 class="section-title">Pricing</h2>
+  <div class="plans">
+    <div class="plan"><h3>Free</h3><p class="price">$0</p></div>
+    <div class="plan pro"><h3>Pro</h3><p class="price">$4/mo</p><button id="upgrade" class="btn">Upgrade</button></div>
+    <div class="plan"><h3>Team</h3><p class="price">$9/mo</p><button id="delete-all" class="btn danger">Delete all notes</button></div>
+  </div>
+</section>
+<footer class="foot">Made with care · <span id="status">ready</span></footer>
+<div id="cookie-banner" class="cookie">
+  <p>We use cookies to improve your experience. See our privacy settings.</p>
+  <button id="cookie-accept">Accept all</button>
+</div>
+<div id="modal" class="modal" hidden><div class="modal-card"><h3>Welcome to Pro</h3><p>Thanks for upgrading!</p></div></div>
+<script src="/assets/app.js"></script>
+</body>
+</html>
