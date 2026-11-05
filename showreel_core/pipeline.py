@@ -233,8 +233,8 @@ class Built:
 
 def _d_read_session(session_id: str, *, assets_dir: Path, redact: bool) -> Any:
     from .session import analyze_session, resolve_session_ref
-    sid = resolve_session_ref(session_id) if session_id in ("", "latest") else session_id
-    return analyze_session(sid or session_id, assets_dir=assets_dir, redact=redact)
+    sid = resolve_session_ref(session_id or "latest") or session_id      # full id, unique prefix or "latest"
+    return analyze_session(sid, assets_dir=assets_dir, redact=redact)
 
 
 def _d_storyboard(llm_call: Any, bundle: Any, story_opts: Any, product: Any) -> Any:
