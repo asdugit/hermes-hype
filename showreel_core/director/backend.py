@@ -177,6 +177,8 @@ class RuntimeRenderer:
                         out.errors.append(ShotError(sid or _shot_at(shots, t), et if et is not None else t, str(e)))
                     seen = len(errs)
                     for e in p.errors:
+                        if "[showreel]" in e:          # console echo of an error already in __sr.errors
+                            continue
                         sid, et = attribute(e, shots)
                         out.errors.append(ShotError(sid or _shot_at(shots, t), t, e))
                     p.errors.clear()
@@ -189,7 +191,7 @@ class RuntimeRenderer:
                         continue
                     await harvest(t)
                     qa = await p.evaluate(f"(window.__sr.qa ? window.__sr.qa({float(t)!r}) : [])") or []
-                    out.qa += [dict(q, t=t) for q in qa if isinstance(q, dict)]
+                    out.qa += [dict(q, t=t) for q in qa if isinstance(q, dict) and q.get("kind") != "error"]
                 for t in determinism_times:
                     await p.seek(t)
                     a = hashlib.sha1(await p.capture("png")).hexdigest()
@@ -272,7 +274,8 @@ def _asset_specs(film: dict[str, Any], page_dir: Path, assets: list[MediaAsset])
         if entry and first and (page_dir / first).is_file():
             out[name] = entry
         elif name in by_name:
-            out[name] = {"src": by_name[name].path, "poster": True}
+            a = by_name[name]
+            out[name] = {"src": a.path, "poster": True, **({"cutout": a.cutout} if a.cutout else {})}
     return out
 
 

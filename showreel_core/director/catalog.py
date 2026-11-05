@@ -22,10 +22,11 @@ BUILTIN_TRANSITIONS = ("cut", "crossfade", "dip-black", "dip-white", "push-left"
                        "zoom-through", "iris", "wipe", "glitch", "pixelate", "film-burn", "ink-bleed", "page-turn")
 
 _ID_RE = re.compile(r"\bkit:([a-z0-9][a-z0-9_-]*)/([a-z0-9][a-z0-9_.-]*[a-z0-9])")
-_DEFINE_RE = re.compile(r"""define(Scene|Transition)\(\s*['"`]([^'"`]+)['"`]\s*,""")
-_ID_FIELD_RE = re.compile(r"""\bid\s*:\s*['"`](kit:[a-z0-9_-]+/[a-z0-9_.-]+)['"`]""")
+_DEFINE_RE = re.compile(r"""\bdefine\w*?(Scene|Transition)\(\s*['"`]([^'"`]+)['"`]\s*,""")
+_ID_FIELD_RE = re.compile(r"""\bid\s*:\s*['"`](kit:[a-z0-9_-]+/[A-Za-z0-9_.-]+)['"`]""")
 _DESCRIBE_RE = re.compile(r"""describe\s*:\s*(['"`])((?:\\.|(?!\1).)*)\1""", re.DOTALL)
 _LAYER_RE = re.compile(r"""layer\s*:\s*['"`](2d|three|webgl|dom)['"`]""")
+_KIND_RE = re.compile(r"""\bkind\s*:\s*['"`](canvas|css)['"`]""")
 
 
 @dataclass
@@ -190,7 +191,8 @@ class Catalog:
         for a in self.assets:
             dims = f"{a.w}x{a.h}" if a.w else "?"
             dur = f", {a.dur:.1f}s @ {a.fps:g} fps" if a.type == "video" and a.dur else ""
-            lines.append(f"- `{a.name}`: {a.type} {dims}{dur}{' (product)' if a.product else ''}"
+            cut = " + alpha cutout (`ctx.asset(name).cutout`: the product without background)" if a.cutout else ""
+            lines.append(f"- `{a.name}`: {a.type} {dims}{dur}{' (product)' if a.product else ''}{cut}"
                          f"{': ' + a.description if a.description else ''}")
         if not self.assets:
             lines.append("(no product media: the product must be shown with type, UI or drawn elements)")
@@ -254,8 +256,11 @@ def parse_kit(d: Path) -> KitInfo:
         src = _read(js)
         found = [(m.group(1), m.group(2), m.end()) for m in _DEFINE_RE.finditer(src)]
         # kit-style registration objects: export const x = { id: 'kit:pixel/dungeon-walk', def: { ... } }
-        found += [("Transition" if m.group(1).startswith("kit:transitions/") else "Scene", m.group(1), m.end())
-                  for m in _ID_FIELD_RE.finditer(src)]
+        in_tr_dir = "transitions" in js.relative_to(d).parts
+        for m in _ID_FIELD_RE.finditer(src):
+            is_tr = in_tr_dir or m.group(1).startswith("kit:transitions/") or bool(
+                _KIND_RE.search(_object_after(src, m.end())))
+            found.append(("Transition" if is_tr else "Scene", m.group(1), m.end()))
         for kind, sid, end in found:
             if kind == "Transition":
                 if sid not in transitions:

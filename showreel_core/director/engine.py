@@ -310,10 +310,18 @@ def _setup(brief: Brief, llm: Any, renderer: Renderer | None, effort: str, progr
 
 # ------------------------------------------------------------------------------------ the loop
 
-def _produce(r: _Run, start: Version | None = None) -> Version | None:
-    """Treatment -> film -> realise -> critique/revise rounds. Returns the best version (or None)."""
+def _produce(r: _Run, start: Version | None = None, first: Version | None = None) -> Version | None:
+    """Treatment -> film -> realise -> critique/revise rounds. Returns the best version (or None).
+
+    ``start`` = a finished version to revise with the user's notes; ``first`` = an already scripted v1
+    (dev resume: skips the treatment and film calls).
+    """
     try:
-        if start is None:
+        if first is not None:
+            v = first
+            if not _realise(r, v, code=list(v.customs)):
+                return None
+        elif start is None:
             r.emit("treatment", "Writing treatment", 0.03)
             r.treatment = _treatment(r)
             if not r.treatment:

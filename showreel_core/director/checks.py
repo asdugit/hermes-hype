@@ -224,7 +224,7 @@ def _check_shots(film: dict[str, Any], dur: float, errors: list[str], warnings: 
             sid += "-b"
         seen.add(sid)
         scene = str(s.get("scene") or "").strip()
-        if not re.match(r"^(kit:[a-z0-9_-]+/[a-z0-9_.-]+|lib:[a-z0-9_.-]+|custom:[a-z0-9_.-]+)$", scene):
+        if not re.match(r"^(kit:[a-z0-9_-]+/[a-z0-9_.-]+|lib:[a-z0-9_.-]+|custom:[a-z0-9_.-]+)$", scene, re.IGNORECASE):
             errors.append(f"shot `{sid}` has an invalid scene id `{scene}`")
         res = s.get("res")
         if isinstance(res, list) and len(res) == 2 and all(_num(v) for v in res):
@@ -498,7 +498,7 @@ def snap_cuts_to_beats(film: dict[str, Any], catalog: Catalog, *, tol: float = 0
         beat = 60.0 / info.bpm
         snapped = round(bed["t0"] + round((cut - bed["t0"]) / beat) * beat, 3)
         delta = snapped - cut
-        if 1e-3 < abs(delta) <= tol and snapped - a["t0"] >= 0.5 and b["t1"] - snapped >= 0.5:
+        if 0.02 < abs(delta) <= tol and snapped - a["t0"] >= 0.5 and b["t1"] - snapped >= 0.5:
             a["t1"] = b["t0"] = snapped
             for tr in film.get("transitions") or []:
                 if tr["from"] == a["id"] and tr["to"] == b["id"]:

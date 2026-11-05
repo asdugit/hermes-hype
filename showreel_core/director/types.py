@@ -20,6 +20,7 @@ class MediaAsset:
     thumbnail: str = ""          # poster frame (png/jpg) shown to the model
     description: str = ""        # "a glossy red sports car driving left to right"
     product: bool = True         # product media (counts toward product visibility)
+    cutout: str = ""             # same media with alpha (video, image or PNG-sequence dir), if available
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
