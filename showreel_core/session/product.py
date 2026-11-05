@@ -297,22 +297,27 @@ def _infer(events: list[Event], meta: dict[str, Any]) -> ProductReport:
                            d["content_lines"], ev.id, read=True)
         elif ev.kind == "terminal":
             cmd = str(d.get("cmd") or "")
-            for m in _RUN_CMD_RE.finditer(cmd if d.get("shell") != "python" else ""):
+            run_hits = list(_RUN_CMD_RE.finditer(cmd if d.get("shell") != "python" else ""))
+            for m in run_hits:
                 c = clip(m.group(1).strip(), 120)
                 slot = ev_.run_cmds.setdefault(c, {"cmd": c, "ids": [], "ok": False})
                 slot["ids"].append(ev.id)
                 slot["ok"] = slot["ok"] or ev.ok
             out = "\n".join(d.get("output_lines") or [])
+            # a URL counts as the product's when a server/deploy announced it, or a run command printed it
+            announced = set(d.get("server_urls") or [])
             for u in d.get("urls") or []:
-                if _LOCAL_URL_RE.fullmatch(u.rstrip("/")) or _LOCAL_URL_RE.match(u):
-                    ev_.url(u, "terminal output", ev.id, 0.6)
+                if not (u in announced or run_hits):
+                    continue
+                if _LOCAL_URL_RE.match(u):
+                    ev_.url(u, "server output", ev.id, 0.6)
                 elif _DEPLOY_URL_RE.match(u):
                     ev_.url(u, "deploy output", ev.id, 0.9)
             for m in _PORT_RE.finditer(out):
                 ev_.ports[int(m.group(1))] += 1
-            for m in _REMOTE_RE.finditer(cmd + "\n" + out):
-                if "git" in cmd or "gh " in cmd:
-                    ev_.name(0.5, m.group(2), "git remote", ev.id)
+            if re.search(r"git\s+remote\s+add|gh\s+repo\s+create|git\s+push", cmd):
+                for m in _REMOTE_RE.finditer(cmd + "\n" + out):
+                    ev_.name(0.55, m.group(2), "own git remote", ev.id)
             for p in d.get("saved_paths") or []:
                 if is_local_path(p) or "/" in p or "\\" in p:
                     candidate(p, ev, "saved by command")
@@ -344,9 +349,18 @@ def _infer(events: list[Event], meta: dict[str, Any]) -> ProductReport:
     if meta.get("title"):
         ev_.name(0.25, meta["title"], "session title", "")
 
-    # ---- artifacts: rank, cap, emit
-    ranked = sorted(cands.values(), key=lambda c: (not c["delivered"], c["kind"] in ("code", "doc", "data"),
-                                                   -c["t"]))
+    # ---- artifacts: existence check, rank, cap, emit
+    for c in cands.values():
+        p = resolve_local(c["path"])
+        c["exists"], c["bytes"] = False, None
+        try:
+            if p is not None and p.is_file():
+                c["exists"], c["bytes"] = True, p.stat().st_size
+        except OSError:
+            pass
+    # "saved by <command>" mentions are only trusted when the file is really there
+    real = [c for c in cands.values() if c["exists"] or c["source"] != "saved by command"]
+    ranked = sorted(real, key=lambda c: (not c["delivered"], c["kind"] in ("code", "doc", "data"), -c["t"]))
     per_kind: Counter[str] = Counter()
     chosen: list[dict[str, Any]] = []
     for c in ranked:
@@ -358,16 +372,10 @@ def _infer(events: list[Event], meta: dict[str, Any]) -> ProductReport:
             continue
         per_kind[c["kind"]] += 1
         chosen.append(c)
-    counts = Counter(c["kind"] for c in cands.values())
+    counts = Counter(c["kind"] for c in real)
     new_events: list[tuple[Event, Event]] = []
     for c in chosen:
-        p = resolve_local(c["path"])
-        exists, size = False, None
-        try:
-            if p is not None and p.is_file():
-                exists, size = True, p.stat().st_size
-        except OSError:
-            pass
+        exists, size = c["exists"], c["bytes"]
         label = short_path(c["path"], 2)
         data = {"path": c["path"], "kind": c["kind"], "preview_path": "", "src": c["path"],
                 "src_key": norm_path(c["path"]), "exists": exists, "bytes": size, "source": c["source"],
@@ -414,7 +422,7 @@ def _infer(events: list[Event], meta: dict[str, Any]) -> ProductReport:
     ones = sorted(ev_.one_liners, key=lambda x: -x[0])
     urls = sorted(ev_.urls.values(), key=lambda u: -u["score"])
     entry = []
-    for c in cands.values():
+    for c in real:
         if basename(c["path"]).lower() in ENTRY_NAMES and c["path"] not in entry:
             entry.append(c["path"])
     run_cmds = [r for r in ev_.run_cmds.values()]
@@ -430,14 +438,18 @@ def _infer(events: list[Event], meta: dict[str, Any]) -> ProductReport:
         run_commands=[r["cmd"] for r in run_cmds[:5]],
         features=feats,
     )
-    deliverable_kinds = {k for k in counts if k not in ("code", "doc")}
-    detected = bool(product.urls or deliverable_kinds or (product.name and (entry or product.run_commands)))
+    has_artifact = any(e.kind == "artifact" and e.data.get("exists") for e in events)
+    visual = any(e.kind == "artifact" and e.data.get("exists") and e.data.get("kind") in ("web", "image", "video", "audio", "pdf")
+                 for e in events)
+    strong_name = bool(name_list) and name_list[0]["score"] >= 0.5
     conf = 0.0
-    conf += 0.3 if name_list and name_list[0]["score"] >= 0.5 else (0.1 if name_list else 0.0)
+    conf += 0.3 if strong_name else (0.1 if name_list else 0.0)
     conf += 0.25 if product.urls else 0.0
-    conf += 0.2 if any(e.kind == "artifact" and e.data.get("exists") for e in events) else 0.0
+    conf += 0.2 if has_artifact else 0.0
     conf += 0.15 if product.run_commands else 0.0
     conf += 0.1 if product.one_liner or feats else 0.0
+    # "detected" = there is something to SHOW: a URL, a visual deliverable, or a named project the session ran
+    detected = bool(product.urls or visual or (strong_name and (product.run_commands or (entry and has_artifact))))
     evidence = {
         "names": name_list[:6],
         "one_liners": [{"text": t, "source": s, "id": i} for _, t, s, i in ones[:3]],

@@ -209,14 +209,22 @@ KEY_FILE_NAMES = {"package.json", "pyproject.toml", "cargo.toml", "setup.py", "s
                   "readme.rst", "readme.txt", "readme", "plugin.yaml", "index.html", "manifest.json", "app.json"}
 
 
+_SERVER_LINE_RE = re.compile(r"(?i)\b(?:local|network|listening|running|serving|server|available|ready|started|"
+                             r"open|visit|preview|deployed|production|live|url)\b")
+
+
 def output_refs(text: str) -> dict[str, list[str]]:
-    """URLs and 'saved file' paths mentioned anywhere in a (full, untruncated) tool output."""
+    """URLs, server-announcement URLs and 'saved file' paths in a (full, untruncated) tool output."""
     urls = list(dict.fromkeys(u.rstrip(".,;:'\")]") for u in _URL_RE.findall(text or "")))[:12]
     saved: list[str] = []
+    server: list[str] = []
     for line in (text or "").replace("\\\\", "\\").splitlines():
-        if len(saved) >= 10:
-            break
-        if not _SAVE_LINE_RE.search(line):
+        if len(server) < 6 and _SERVER_LINE_RE.search(line):
+            for u in _URL_RE.findall(line):
+                u = u.rstrip(".,;:'\")]")
+                if u not in server:
+                    server.append(u)
+        if len(saved) >= 10 or not _SAVE_LINE_RE.search(line):
             continue
         for m in _DELIVERABLE_PATH_RE.finditer(line):
             path = m.group(0).strip().strip("'\"`")
@@ -224,7 +232,7 @@ def output_refs(text: str) -> dict[str, list[str]]:
                 continue
             if path not in saved:
                 saved.append(path)
-    return {"urls": urls, "saved_paths": saved}
+    return {"urls": urls, "server_urls": server, "saved_paths": saved}
 
 
 def _media_refs(text: str) -> list[str]:

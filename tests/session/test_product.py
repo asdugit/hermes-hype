@@ -73,14 +73,18 @@ def test_media_deliverables_from_final_answer_and_saved_output(tmp_path):
     vid = tmp_path / "out" / "trailer.mp4"
     vid.parent.mkdir()
     vid.write_bytes(b"\x00\x00\x00\x18ftypmp42")
+    still = tmp_path / "out" / "still.png"
+    still.write_bytes(b"\x89PNG\r\n\x1a\n" + b"\x00" * 16)
     t = Transcript().user("render the trailer")
-    t.call("terminal", {"command": "ffmpeg -i in.mov out/poster.png"}, {"output": "Saved poster to out/poster.png\n", "exit_code": 0})
+    t.call("terminal", {"command": "ffmpeg -i in.mov out/poster.png"},
+           {"output": f"Saved poster to out/poster.png\nwrote {still}\n", "exit_code": 0})
     t.say(f"Here you go:\nMEDIA:{vid}")
     events = extract_events(t.rows).events
     rep = infer_product(events)
     arts = {e.data["kind"]: e for e in events if e.kind == "artifact"}
     assert arts["video"].data["delivered"] and arts["video"].data["exists"]
-    assert arts["image"].data["source"] == "saved by command" and not arts["image"].data["exists"]
+    assert arts["image"].data["source"] == "saved by command" and arts["image"].data["exists"]
+    assert not any(a.data["path"].endswith("poster.png") for a in arts.values())   # unverifiable mention dropped
     assert rep.product.kind == "media" and rep.detected
 
 
