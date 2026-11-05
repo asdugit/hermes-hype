@@ -121,7 +121,7 @@ export function makeMeadow(THREE, opts) {
   }
 
   // a) field: screen-uniform rows from 6.5 m to 240 m
-  const dMin = 6.5, dMax = 240;
+  const dMin = 5.0, dMax = 240;
   for (let i = 0; i < (opts.counts.field || 0); i++) {
     const u = rnd();
     const d = 1 / (1 / dMin + Math.pow(u, 0.72) * (1 / dMax - 1 / dMin));

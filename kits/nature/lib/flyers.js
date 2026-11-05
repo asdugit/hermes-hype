@@ -15,7 +15,7 @@ const HOLD = new Set(['descend', 'float', 'hero', 'drive-slope', 'orbit']);
  * Never a formation: different depths, sides, start times and speeds.
  */
 const SLOTS = {
-  descend: { d: 20, x0: -0.62, x1: -0.40, y0: 1.5, y1: 0.24, t0: 0.0, t1: 0.6, size: 5.4 },
+  descend: { d: 20, x0: -0.62, x1: -0.40, y0: 1.15, y1: 0.24, t0: 0.0, t1: 0.6, size: 5.4 },
   rise: { d: 70, x0: 0.16, x1: 0.02, y0: -0.3, y1: 1.5, t0: 0.30, t1: 1.0, size: 6.0 },
   'drive-slope': { t0: 0.04, t1: 0.96, size: 5.2 },
   float: { d: 36, x0: 0.40, x1: 0.50, y0: 0.30, y1: 0.36, t0: 0.12, t1: 1.0, size: 6.0 },

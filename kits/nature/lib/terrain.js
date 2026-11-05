@@ -54,7 +54,7 @@ void main(){
   float d2 = dots(xz + 7.3, 0.9, 0.22, dc2, 5.0);
   float lod1 = 1.0 - smoothstep(0.06, 0.22, foot);
   float lod2 = 1.0 - smoothstep(0.2, 0.7, foot);
-  float mask = smoothstep(0.22, 0.52, fbm(xz * 0.07 + 3.0, 3)) * flowerAmt;
+  float mask = smoothstep(0.22, 0.52, fbm(xz * 0.07 + 3.0, 3)) * flowerAmt * smoothstep(5.0, 10.0, dist);
   vec3 avg = mix(dc1, dc2, 0.5);
   vec3 col = g;
   col = mix(col, avg * mix(ambCol, lightCol, lam) * 1.05, mask * (1.0 - lod2) * 0.28);

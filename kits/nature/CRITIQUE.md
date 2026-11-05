@@ -68,3 +68,11 @@ hero car gets cropped by the end of the drift → lateral drift 4.5 → 3 m.
 - sky-reveal: the plane-projected cloud field degenerates overhead (empty lavender, then swirls/mirrored blobs when
   hacked) → cross-fade to an angular-space cloud field above ~20°. Overhead clouds now soft cumulus with some
   ring-shaped holes (acceptable; could be improved with a dedicated high-altitude layer).
+
+## v8 (real runtime, 15 s 1080p video, frames 0.5/5/10/14.7)
+Shot progresses well: cars enter at different times on different paths (hero descends top-left, float drifts in,
+rise passes the sun, slope car drives down into the meadow), camera drift gives parallax, framing blossoms hold
+the corners. Runtime seed gives a lupine/yellow meadow variant — also lovely.
+Fixes: no product in frame 0 (descend starts too high → y0 1.5 → 1.15 so it is in by ~0.5 s); bare near ground
+with dark lupine dabs visible at bottom-centre at t≈0.5 (field started at 6.5 m, ground enters frame at 5.6 m)
+→ field from 5 m and terrain dabs fade out within 9 m.
