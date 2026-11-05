@@ -364,3 +364,23 @@ def test_ledger_and_cancel_tokens(tmp_path: Path) -> None:
         def is_set(self) -> bool:
             return True
     assert is_cancelled(Token()) and is_cancelled(lambda: True) and not is_cancelled(None)
+
+
+def test_catalog_reads_kit_md_scene_tables(tmp_path: Path) -> None:
+    kit = tmp_path / "kits" / "demo"
+    kit.mkdir(parents=True)
+    (kit / "kit.js").write_text("export const x = { id: 'kit:demo/walk', def: { describe: 'walk' } };\n",
+                                encoding="utf-8")
+    (kit / "KIT.md").write_text(
+        "# Demo kit\nA demo.\n\n## Scenes\n| id | what it shows | params (default) |\n|---|---|---|\n"
+        "| `kit:demo/HOOK` | Opening hook \| bold.\| bold. | `title` \"\" — headline · `accent` — colour |\n"
+        "| `kit:demo/walk` | duplicate of the JS one | `x` |\n\n## Types\n"
+        "| `kit:demo/CODE` | `{path, lines}` — code card |\n\n## Transitions\n"
+        "| `kit:demo/swirl` | battle swirl | `dur` |\n| `kit:other/NOPE` | not ours | |\n", encoding="utf-8")
+    cat = build_catalog(kits_dir=tmp_path / "kits", library_dir=tmp_path / "lib", audio_dir=tmp_path / "audio")
+    scenes = cat.scenes()
+    assert {"kit:demo/HOOK", "kit:demo/walk", "kit:demo/CODE"} <= set(scenes) and "kit:other/NOPE" not in scenes
+    assert scenes["kit:demo/HOOK"].params == ["title", "accent"] and "bold" in scenes["kit:demo/HOOK"].describe
+    assert scenes["kit:demo/walk"].describe == "walk"                       # JS registration wins
+    assert "{path, lines}" in scenes["kit:demo/CODE"].params_src
+    assert cat.kits[0].transitions == ["kit:demo/swirl"]

@@ -275,6 +275,13 @@ def parse_kit(d: Path) -> KitInfo:
                 continue
             scenes[sid] = SceneInfo(sid, d.name, desc.group(2) if desc else "", layer.group(1) if layer else "",
                                     top_level_keys(psrc) if psrc else [], psrc)
+    # scenes a kit documents in its KIT.md tables but registers indirectly (overrides, generated ids)
+    for sid, what, params_txt, is_tr in _doc_table_rows(doc, d.name):
+        if is_tr:
+            if sid not in transitions:
+                transitions.append(sid)
+        elif sid not in scenes:
+            scenes[sid] = SceneInfo(sid, d.name, what, "", _doc_param_names(params_txt), params_txt)
     # no registrations found in JS (generated kit?): fall back to the ids KIT.md documents for this kit
     if not scenes and not transitions:
         for m in _ID_RE.finditer(doc):
@@ -472,6 +479,35 @@ def top_level_keys(obj_src: str) -> list[str]:
             quote = c
         i += 1
     return keys
+
+
+_ROW_ID_RE = re.compile(r"^`(kit:([a-z0-9_-]+)/[A-Za-z0-9_.-]+)`$")
+
+
+def _doc_table_rows(doc: str, kit: str) -> list[tuple[str, str, str, bool]]:
+    """(id, what it shows, params text, is transition) from KIT.md table rows like ``| `kit:x/ID` | ... | ... |``."""
+    out: list[tuple[str, str, str, bool]] = []
+    heading = ""
+    for line in doc.splitlines():
+        if line.startswith("#"):
+            heading = line.lower()
+            continue
+        line = line.strip()
+        if not line.startswith("|"):
+            continue
+        cells = [c.strip().replace("\\|", "|") for c in re.split(r"(?<!\\)\|", line)[1:-1]]
+        m = _ROW_ID_RE.match(cells[0]) if cells else None
+        if not m or m.group(2) != kit:
+            continue
+        what = cells[1] if len(cells) > 1 else ""
+        params = cells[2] if len(cells) > 2 else what
+        out.append((m.group(1), what, params, "transition" in heading))
+    return out
+
+
+def _doc_param_names(text: str) -> list[str]:
+    """Param names from a KIT.md params cell: ``name`` default — doc · ``name2`` ..."""
+    return [m.group(1) for m in re.finditer(r"`([A-Za-z_][\w]*)`", text)]
 
 
 def _blocks_doc(d: Path, limit: int = 3000) -> str:
