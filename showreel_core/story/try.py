@@ -1,3 +1,4 @@
+# ruff: noqa: N999 - the module name is the documented command (python -m showreel_core.story.try)
 """Dev harness: ``python -m showreel_core.story.try --fixture FILE [--seconds 60] [--style launch]
 [--mode product|lore|speedrun] [--llm none|hermes]``.
 
@@ -25,11 +26,11 @@ from pathlib import Path
 from typing import Any
 
 from ..contracts import Event, Product, Stats, Storyboard, Timeline
+from .facts import SessionFacts
 from .generate import GenerationResult, generate_storyboard_report, hermes_llm
+from .heuristic import infer_product
 from .options import KNOWN_STYLES, StoryOptions
 from .prompt import build_input, build_instructions
-from .facts import SessionFacts
-from .heuristic import infer_product
 from .rules import TTS_WORDS_PER_SECOND, film_mode
 from .schema import storyboard_from_json, storyboard_to_json
 from .text import word_count
@@ -60,7 +61,10 @@ def load_fixture(path: str | Path) -> tuple[list[Event], Stats, Product | None, 
 
 
 def load_session(ref: str) -> tuple[list[Event], Stats, Product | None, str]:
-    from ..session import analyze_session, resolve_session_ref  # optional: the session stage
+    from ..session import (  # optional: the session stage
+        analyze_session,
+        resolve_session_ref,
+    )
     sid = resolve_session_ref(ref)
     if not sid:
         raise SystemExit(f"no session matches {ref!r}")
@@ -70,11 +74,13 @@ def load_session(ref: str) -> tuple[list[Event], Stats, Product | None, str]:
 
 def style_bpm(style: str) -> float:
     try:
-        from ..audio.music import load_beds  # optional: the audio stage's beds carry the real tempo
+        from ..audio.music import (
+            load_beds,  # optional: the audio stage's beds carry the real tempo
+        )
         beds = load_beds(style)
         if beds:
             return beds[0].bpm
-    except Exception:  # noqa: BLE001 - dev harness: any failure means "use the default tempo"
+    except Exception:  # noqa: BLE001, S110 - dev harness: any failure means "use the default tempo"
         pass
     return DEFAULT_BPM
 
@@ -119,7 +125,7 @@ def hermes_cli_adapter(max_turns: int = 1) -> Any:
             qf.write_text(query, encoding="utf-8")
             try:
                 proc = subprocess.run([exe, "chat", "--query-file", str(qf), "-Q", "--max-turns", str(max_turns)],
-                                      capture_output=True, text=True, encoding="utf-8", errors="replace",
+                                      capture_output=True, text=True, encoding="utf-8", errors="replace", check=False,
                                       timeout=max(60.0, timeout * 3))
             except subprocess.TimeoutExpired:
                 return LlmReply(error="hermes chat timed out")

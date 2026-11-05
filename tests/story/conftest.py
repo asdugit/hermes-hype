@@ -10,9 +10,9 @@ HERE = Path(__file__).resolve().parent
 if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
 
-from story_synth import SESSIONS  # noqa: E402
+from story_synth import SESSIONS
 
-from showreel_core.story.facts import SessionFacts  # noqa: E402
+from showreel_core.story.facts import SessionFacts
 
 
 @pytest.fixture(params=sorted(SESSIONS))

@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from showreel_core.contracts import Event, Stats  # noqa: E402
+from showreel_core.contracts import Event, Stats
 
 PARSER_PY = '''"""Parse bank CSV exports into transactions."""
 from __future__ import annotations

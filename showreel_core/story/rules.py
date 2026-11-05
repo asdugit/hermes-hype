@@ -44,8 +44,8 @@ MAX_TYPE_SHARE = 0.35
 
 
 def _cap(scene: SceneType) -> int:
-    lo, hi, _ = SCENE_RULES[scene]
-    return int(math.floor((hi - 0.8) * 2.5))
+    _, hi, _ = SCENE_RULES[scene]
+    return math.floor((hi - 0.8) * 2.5)
 
 
 #: Narration word cap per scene type, so a clip fits inside the scene's max duration.
@@ -114,18 +114,18 @@ def narration_budget(seconds: float, mode: str = "product") -> int:
     words = WORDS_PER_SECOND * max(0.0, seconds - montage - holds)
     if film_mode(mode) == "speedrun":
         words *= 0.75
-    return max(20, int(round(words)))
+    return max(20, round(words))
 
 
 def scene_count_range(seconds: float, mode: str = "product") -> tuple[int, int]:
     """Scene count for a film length: about 3.8-5.2 s per scene, so the scenes' maximum durations can
     actually fill the target (speedruns cut faster)."""
     per = 0.85 if film_mode(mode) == "speedrun" else 1.0
-    lo = max(4, int(round(seconds / (5.2 * per))))
-    hi = max(lo + 1, int(round(seconds / (3.8 * per))))
+    lo = max(4, round(seconds / (5.2 * per)))
+    hi = max(lo + 1, round(seconds / (3.8 * per)))
     return lo, min(hi, 22)
 
 
 def max_type_count(n_scenes: int) -> int:
     """Max scenes of one type so no type exceeds 35 % of the film (at least 1)."""
-    return max(1, int(math.floor(MAX_TYPE_SHARE * n_scenes)))
+    return max(1, math.floor(MAX_TYPE_SHARE * n_scenes))

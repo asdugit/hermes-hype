@@ -12,8 +12,18 @@ import json
 import re
 
 from ..contracts import SCENE_RULES, STAT_KEYS, Event, Product, SceneType
-from .facts import (STAT_LABELS, SessionFacts, code_lines, data_get, diff_rows, duration_minutes, first_line,
-                    image_of, is_stub, terminal_ok)
+from .facts import (
+    STAT_LABELS,
+    SessionFacts,
+    code_lines,
+    data_get,
+    diff_rows,
+    duration_minutes,
+    first_line,
+    image_of,
+    is_stub,
+    terminal_ok,
+)
 from .options import StoryOptions
 from .rules import VO_WORD_CAPS, film_mode, narration_budget, scene_count_range
 from .text import normalize_ws, spell_number
@@ -136,16 +146,16 @@ BAD_EXAMPLES = """Bad, and why:
 - Label "Code Changes" or "Step 3" -> generic; say what it does or what changed."""
 
 _CATALOGUE_ROWS: list[tuple[SceneType, str, str, str]] = [
-    (T.HOOK, "the hero asset with the label", "product_capture, artifact, screenshot, image_generated, file_patch, "
-     "file_write or terminal", "-"),
+    (T.HOOK, "the hero asset with the label",
+     "product_capture, artifact, screenshot, image_generated, file_patch, file_write or terminal", "-"),
     (T.TITLE, "title and tagline", "no refs needed", "-"),
     (T.FEATURE, "a product frame with one feature highlighted (and a cursor click)",
      "product_capture, screenshot, image_generated or artifact",
      "feature: one of product.features; bbox [x, y, w, h] and click [x, y] in 0..1, optional"),
     (T.SCROLL, "a smooth scroll through a full-page capture", "product_capture or screenshot",
      "scroll [from, to] in 0..1, optional"),
-    (T.SCREEN, "a capture, screenshot or image with a push-in", "product_capture, artifact, screenshot or "
-     "image_generated", "bbox [x, y, w, h] in 0..1, optional"),
+    (T.SCREEN, "a capture, screenshot or image with a push-in",
+     "product_capture, artifact, screenshot or image_generated", "bbox [x, y, w, h] in 0..1, optional"),
     (T.PROBLEM, "the user's request in their own words", "user_prompt", "-"),
     (T.PLAN, "the todo list ticking off", "todo", "-"),
     (T.CODE, "an 18-line window of a written file", "file_write",
@@ -157,8 +167,8 @@ _CATALOGUE_ROWS: list[tuple[SceneType, str, str, str]] = [
      "montage_refs: 6-16 ids in time order"),
     (T.STATS, "1-3 numbers computed by Showreel", "no refs needed", "stat_keys: 1-3 keys listed under STATS"),
     (T.BEFORE_AFTER, "two states, wiped from before to after",
-     "two images (captures/screenshots), or two text events (file_patch/terminal) such as the failing run then "
-     "the passing run", "before_ref, after_ref"),
+     ("two images (captures/screenshots), or two text events (file_patch/terminal) such as the failing run "
+      "then the passing run"), "before_ref, after_ref"),
     (T.CALLOUT, "one line quoted from the session", "user_prompt, assistant_note, final_answer or terminal",
      "quote_ref + quote: copy 4-12 words exactly from that event"),
     (T.END, "title, cta, url and \"made with Hermes - Showreel\" (speedrun: the PB card)", "no refs needed", "-"),
@@ -267,7 +277,7 @@ def _clip(text: str, limit: int) -> str:
 
 
 def _mmss(t: float) -> str:
-    t = max(0, int(round(t)))
+    t = max(0, round(t))
     return f"{t // 60}:{t % 60:02d}"
 
 

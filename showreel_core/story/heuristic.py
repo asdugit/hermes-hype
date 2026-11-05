@@ -15,17 +15,52 @@ from __future__ import annotations
 import os
 import re
 from collections import Counter
-from typing import Iterator
+from collections.abc import Iterator
 
-from ..contracts import SCENE_RULES, Event, Product, SceneType, Stats, Storyboard, StoryScene
-from .facts import (SessionFacts, code_lines, data_get, diff_rows, image_of, is_demo_run, is_server_cmd, is_stub,
-                    looks_like_failure, looks_like_test_pass, terminal_ok)
+from ..contracts import (
+    SCENE_RULES,
+    Event,
+    Product,
+    SceneType,
+    Stats,
+    Storyboard,
+    StoryScene,
+)
+from .facts import (
+    SessionFacts,
+    code_lines,
+    data_get,
+    diff_rows,
+    image_of,
+    is_demo_run,
+    is_server_cmd,
+    is_stub,
+    looks_like_failure,
+    looks_like_test_pass,
+    terminal_ok,
+)
 from .milestones import detect_milestones
 from .options import StoryOptions
-from .rules import (DROP_PRIORITY, MAX_BUILD_SHARE, NON_TOOL_KINDS, SPLITS_MAX, SPLITS_MIN, VO_WORD_CAPS, film_mode,
-                    max_type_count, scene_count_range)
+from .rules import (
+    DROP_PRIORITY,
+    MAX_BUILD_SHARE,
+    NON_TOOL_KINDS,
+    SPLITS_MAX,
+    SPLITS_MIN,
+    VO_WORD_CAPS,
+    film_mode,
+    max_type_count,
+    scene_count_range,
+)
 from .schema import CTA_CHARS, LABEL_WORDS, ONE_LINER_CHARS, TAGLINE_CHARS, TITLE_CHARS
-from .text import normalize_ws, sentences, spell_number, trim_chars, trim_label, word_count
+from .text import (
+    normalize_ws,
+    sentences,
+    spell_number,
+    trim_chars,
+    trim_label,
+    word_count,
+)
 from .validate import chrono_key, default_stat_keys, scene_role
 
 T = SceneType
@@ -51,12 +86,12 @@ _INSTALL_RE = re.compile(r"((?:pip|pipx|uv pip|uv tool) install [\w.\-\[\]=<>]+|
                          r"|git clone \S+|cargo install [\w\-]+|brew install [\w\-/]+"
                          r"|hermes plugins install [\w/.\-]+)")
 _GITHUB_RE = re.compile(r"https://github\.com/[\w.\-]+/[\w.\-]+")
-_LOCAL_RE = re.compile(r"^(?:https?://(?:localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])|file:)", re.I)
+_LOCAL_RE = re.compile(r"^(?:https?://(?:localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])|file:)", re.IGNORECASE)
 _CLI_HINT_RE = re.compile(r"\b(argparse|click|typer|clap|commander|yargs|cobra|sys\.argv|process\.argv)\b")
-_ASK_CLAUSE_RE = re.compile(r"\b(?:that|which)\s+((?:[a-z]+s)\b[^.?!]*)", re.I)
-_MAKE_ME_RE = re.compile(r"\b(?:make|build|create|write|code)\s+(?:me\s+|us\s+)?(an?\s+[^.?!]*)", re.I)
+_ASK_CLAUSE_RE = re.compile(r"\b(?:that|which)\s+((?:[a-z]+s)\b[^.?!]*)", re.IGNORECASE)
+_MAKE_ME_RE = re.compile(r"\b(?:make|build|create|write|code)\s+(?:me\s+|us\s+)?(an?\s+[^.?!]*)", re.IGNORECASE)
 _TODO_SKIP_RE = re.compile(r"\b(tests?|testing|setup|set up|install|scaffold|refactor|lint|commit|readme|docs?|"
-                           r"deploy|cleanup|clean up|investigate|research|plan)\b", re.I)
+                           r"deploy|cleanup|clean up|investigate|research|plan)\b", re.IGNORECASE)
 
 
 def build_heuristic_storyboard(events: list[Event], stats: Stats | None, options: StoryOptions | None = None,
@@ -830,7 +865,7 @@ class _SpeedrunFilm(_Film):
         return None
 
     def _final_time_vo(self) -> str:
-        total = int(round(self.f.stats.duration_s or 0))
+        total = round(self.f.stats.duration_s or 0)
         if total <= 0:
             return "And that is the run."
         m, s = divmod(total, 60)

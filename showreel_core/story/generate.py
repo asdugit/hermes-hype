@@ -13,8 +13,9 @@ from __future__ import annotations
 
 import logging
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Protocol
+from typing import Any, Protocol
 
 from ..contracts import Event, Product, SceneType, Stats, Storyboard, StoryScene
 from .facts import SessionFacts
@@ -22,7 +23,13 @@ from .heuristic import GENERIC_NAME, build_heuristic_storyboard, infer_product
 from .options import StoryOptions
 from .prompt import build_input, build_instructions, build_repair_input
 from .rules import film_mode
-from .schema import SCHEMA_NAME, parse_json_text, storyboard_from_json, transport_schema, validate_schema
+from .schema import (
+    SCHEMA_NAME,
+    parse_json_text,
+    storyboard_from_json,
+    transport_schema,
+    validate_schema,
+)
 from .validate import ValidationResult, validate_storyboard
 
 log = logging.getLogger(__name__)
@@ -82,13 +89,13 @@ def hermes_llm(ctx_llm: Any, task: str | None = "showreel") -> LlmCall:
     """
     def call(*, instructions: str, input_text: str, json_schema: dict[str, Any], schema_name: str,
              temperature: float, max_tokens: int, timeout: float) -> LlmReply:
-        kwargs = dict(instructions=instructions, input=[{"type": "text", "text": input_text}],
+        kwargs = dict(instructions=instructions, input=[{"type": "text", "text": input_text}],  # noqa: C408
                       json_schema=json_schema, schema_name=schema_name, temperature=temperature,
                       max_tokens=max_tokens, timeout=timeout, purpose="showreel.storyboard")
         for slot in ([task, None] if task else [None]):
             try:
                 res = ctx_llm.complete_structured(**kwargs, task=slot)
-            except Exception as exc:  # provider errors, timeouts, host-side schema mismatch
+            except Exception as exc:  # noqa: BLE001 - provider errors, timeouts, host-side schema mismatch
                 if slot and type(exc).__name__ == "PluginLlmTrustError":
                     continue
                 return LlmReply(error=f"{type(exc).__name__}: {exc}")
@@ -163,7 +170,7 @@ def _attempt(llm: Callable[..., LlmReply], kind: str, instructions: str, input_t
         reply = llm(instructions=instructions, input_text=input_text, json_schema=transport_schema(),
                     schema_name=SCHEMA_NAME, temperature=options.temperature, max_tokens=options.max_tokens,
                     timeout=options.timeout)
-    except Exception as exc:  # a misbehaving adapter is just a failed attempt
+    except Exception as exc:  # noqa: BLE001 - a misbehaving adapter is just a failed attempt
         reply = LlmReply(error=f"{type(exc).__name__}: {exc}")
     elapsed = time.monotonic() - started
     if not isinstance(reply, LlmReply):

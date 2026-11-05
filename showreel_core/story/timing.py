@@ -15,12 +15,39 @@ import math
 from dataclasses import dataclass
 from typing import Any
 
-from ..contracts import (SCENE_RULES, Caption, Cue, Event, SceneType, Split, Stats, Storyboard, StoryScene,
-                         Timeline, TimelineScene)
-from .facts import (STAT_LABELS, SessionFacts, code_lines, data_get, diff_rows, image_of, is_stub,
-                    looks_like_test_pass, terminal_ok)
-from .rules import (CAPTION_PHRASE_PAD, CAPTION_WORDS_PER_SECOND, DROP_PRIORITY, GROW_ORDER, SHRINK_ORDER,
-                    SPLIT_CHARS, film_mode)
+from ..contracts import (
+    SCENE_RULES,
+    Caption,
+    Cue,
+    Event,
+    SceneType,
+    Split,
+    Stats,
+    Storyboard,
+    StoryScene,
+    Timeline,
+    TimelineScene,
+)
+from .facts import (
+    STAT_LABELS,
+    SessionFacts,
+    code_lines,
+    data_get,
+    diff_rows,
+    image_of,
+    is_stub,
+    looks_like_test_pass,
+    terminal_ok,
+)
+from .rules import (
+    CAPTION_PHRASE_PAD,
+    CAPTION_WORDS_PER_SECOND,
+    DROP_PRIORITY,
+    GROW_ORDER,
+    SHRINK_ORDER,
+    SPLIT_CHARS,
+    film_mode,
+)
 from .text import phrases, syllables, word_count
 from .validate import scene_role
 
@@ -198,7 +225,7 @@ def _fit(plans: list[_Plan], target: float, hb: float, bar: float, mode: str) ->
 
 
 def _fit_once(plans: list[_Plan], target: float, hb: float, bar: float, mode: str) -> None:
-    total = lambda: sum(p.dur for p in plans)  # noqa: E731
+    total = lambda: sum(p.dur for p in plans)
     # shrink flexible scenes
     order = SHRINK_ORDER[mode]
     changed = True
@@ -432,7 +459,7 @@ def _diff_window(ev: Event, focus: Any, size: int) -> dict[str, Any] | None:
         start = max(0, min(a - 1 - size // 4, n - size))
     except (TypeError, ValueError, IndexError):
         best, start = -1, 0
-        for s in range(0, max(1, n - size + 1)):
+        for s in range(max(1, n - size + 1)):
             changed = sum(1 for _, op, _ in rows[s:s + size] if op in "+-")
             if changed > best:
                 best, start = changed, s
@@ -501,7 +528,7 @@ def _verbatim_arg(ev: Event, limit: int = 40) -> tuple[str, bool]:
 
 
 def _clock(seconds: float) -> str:
-    s = int(round(seconds))
+    s = round(seconds)
     h, rem = divmod(s, 3600)
     m, sec = divmod(rem, 60)
     return f"{h}:{m:02d}:{sec:02d}" if h else f"{m}:{sec:02d}"
@@ -534,7 +561,7 @@ def auto_bbox(path: str) -> list[float]:
                 if s > best:
                     best, bx, by = s, x, y
         return [round(bx / W, 4), round(by / H, 4), 0.6, 0.6]
-    except Exception:  # missing file, unreadable image, no Pillow: keep a safe default
+    except Exception:  # noqa: BLE001 - missing file, unreadable image, no Pillow: keep a safe default
         return default
 
 
@@ -550,9 +577,7 @@ def _transitions(scenes: list[TimelineScene], plans: list[_Plan]) -> None:
         asked = p.scene.extra.get("transition")
         if asked in ("cut", "match", "push", "wipe"):
             choice = asked
-        elif prev.type == T.HOOK and sc.type == T.TITLE:
-            choice = "push"
-        elif sc.type == T.END or prev.type == T.MONTAGE:
+        elif prev.type == T.HOOK and sc.type == T.TITLE or sc.type == T.END or prev.type == T.MONTAGE:
             choice = "push"
         elif sc.type == T.BEFORE_AFTER:
             choice = "wipe"

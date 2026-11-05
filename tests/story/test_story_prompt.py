@@ -1,13 +1,17 @@
 """Prompt construction: modes, budgets, catalogue, bounded input."""
 import pytest
+from story_synth import SESSIONS
 
 from showreel_core.contracts import Product, SceneType
 from showreel_core.story.facts import SessionFacts
 from showreel_core.story.options import StoryOptions
-from showreel_core.story.prompt import (INDEX_MAX_CHARS, build_input, build_instructions, build_repair_input)
+from showreel_core.story.prompt import (
+    INDEX_MAX_CHARS,
+    build_input,
+    build_instructions,
+    build_repair_input,
+)
 from showreel_core.story.rules import narration_budget
-
-from story_synth import SESSIONS
 
 
 @pytest.mark.parametrize("mode,marker", [("product", "launch trailer"), ("making_of", "making-of (lore)"),

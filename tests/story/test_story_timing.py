@@ -1,8 +1,10 @@
 """Timing solver properties: beat grid, target fit, scene ranges, verbatim data, cues, splits."""
+import itertools
 import json
 import math
 
 import pytest
+from story_synth import SESSIONS
 
 from showreel_core.contracts import SCENE_RULES, SceneType, StoryScene
 from showreel_core.story.facts import SessionFacts, code_lines, diff_rows
@@ -10,9 +12,12 @@ from showreel_core.story.heuristic import build_heuristic_storyboard
 from showreel_core.story.options import StoryOptions
 from showreel_core.story.rules import TTS_WORDS_PER_SECOND
 from showreel_core.story.text import word_count
-from showreel_core.story.timing import END_HOLD_BARS, STRETCH, STRETCH_TYPES, solve_timeline
-
-from story_synth import SESSIONS
+from showreel_core.story.timing import (
+    END_HOLD_BARS,
+    STRETCH,
+    STRETCH_TYPES,
+    solve_timeline,
+)
 
 T = SceneType
 EPS = 1e-6
@@ -39,7 +44,7 @@ def on_grid(t, step):
 @pytest.mark.parametrize("mode", ("product", "making_of", "speedrun"))
 @pytest.mark.parametrize("seconds,bpm", [(30, 120), (60, 128), (90, 100), (60, 150), (45, 72)])
 def test_grid_ranges_and_fit(name, mode, seconds, bpm):
-    sb, tl, _ = solve(name, seconds, mode, bpm)
+    _sb, tl, _ = solve(name, seconds, mode, bpm)
     beat = 60 / bpm
     hb, bar = 2 * beat, 4 * beat
     assert tl.mode == mode and tl.bpm == bpm
@@ -95,7 +100,7 @@ def test_narration_captions_and_cues_fit(name, mode):
         assert 0 <= cue.t < tl.dur and on_grid(cue.t, beat / 2), cue
     assert sum(c.sfx == "hit" for c in tl.cues) <= 1  # one hero impact per film
     push = [sc.i for sc in tl.scenes if sc.transition_in == "push"]
-    assert all(b - a > 1 for a, b in zip(push, push[1:]))  # never two whooshes in a row
+    assert all(b - a > 1 for a, b in itertools.pairwise(push))  # never two whooshes in a row
 
 
 def _strings(node):
@@ -146,7 +151,7 @@ def test_resolved_content_is_verbatim(name, mode):
 
 @pytest.mark.parametrize("name", ("coding", "webapp", "huge", "bugfix"))
 def test_speedrun_splits(name):
-    sb, tl, _ = solve(name, 60, "speedrun")
+    _sb, tl, _ = solve(name, 60, "speedrun")
     beat = 60 / tl.bpm
     assert tl.splits
     for a, b in zip(tl.splits, tl.splits[1:]):
@@ -211,7 +216,7 @@ def test_unresolvable_scenes_are_skipped(coding):
 
 
 def test_stats_and_images_resolve(coding):
-    sb, tl, _ = solve("coding", 60)
+    _sb, tl, _ = solve("coding", 60)
     stats = next(sc for sc in tl.scenes if sc.type == T.STATS)
     assert all(row["value"] > 0 and row["display"] for row in stats.data["stats"])
     feature = next((sc for sc in tl.scenes if sc.type == T.FEATURE), None)

@@ -6,7 +6,12 @@ from types import SimpleNamespace
 import pytest
 
 from showreel_core.contracts import SceneType
-from showreel_core.story.generate import (LlmReply, generate_storyboard, generate_storyboard_report, hermes_llm)
+from showreel_core.story.generate import (
+    LlmReply,
+    generate_storyboard,
+    generate_storyboard_report,
+    hermes_llm,
+)
 from showreel_core.story.heuristic import build_heuristic_storyboard
 from showreel_core.story.options import StoryOptions
 from showreel_core.story.schema import storyboard_to_json

@@ -2,6 +2,7 @@
 import time
 
 import pytest
+from story_synth import SESSIONS
 
 from showreel_core.contracts import Product, SceneType
 from showreel_core.story.facts import SessionFacts, image_of
@@ -11,8 +12,6 @@ from showreel_core.story.rules import MAX_BUILD_SHARE
 from showreel_core.story.schema import storyboard_to_json, validate_schema
 from showreel_core.story.validate import scene_role, validate_storyboard
 
-from story_synth import SESSIONS
-
 T = SceneType
 MODES = ("product", "making_of", "speedrun")
 
@@ -20,7 +19,7 @@ MODES = ("product", "making_of", "speedrun")
 @pytest.mark.parametrize("mode", MODES)
 @pytest.mark.parametrize("seconds", (30, 60, 90))
 def test_every_session_yields_a_clean_storyboard(session, mode, seconds):
-    name, events, stats = session
+    _name, events, stats = session
     sb = build_heuristic_storyboard(events, stats, StoryOptions(seconds=seconds, mode=mode))
     assert sb.source == "heuristic" and sb.mode == mode
     assert validate_schema(storyboard_to_json(sb)) == []

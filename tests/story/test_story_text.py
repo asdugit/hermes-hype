@@ -1,7 +1,14 @@
 """Text helpers: spoken numbers, trimming, phrases, verbatim spans."""
 from showreel_core.story.facts import find_span
-from showreel_core.story.text import (extract_numbers, phrases, spell_digits, spell_number, trim_label, trim_words,
-                                      word_count)
+from showreel_core.story.text import (
+    extract_numbers,
+    phrases,
+    spell_digits,
+    spell_number,
+    trim_label,
+    trim_words,
+    word_count,
+)
 
 
 def values(text):
@@ -36,6 +43,20 @@ def test_trim_words_prefers_whole_sentences():
         "This is the first sentence."
     out = trim_words("One very long sentence, with a clause, that keeps going and going forever", 8)
     assert word_count(out) <= 8 and out.endswith(".")
+
+
+def test_trim_words_never_leaves_a_broken_phrase():
+    """Real model lines that the validator had to shorten (seen in live runs)."""
+    assert trim_words("Ledger exports your records to CSV, even when a row comes back empty.", 10) == \
+        "Ledger exports your records to CSV."
+    assert trim_words("Hermes traces the fault to the amount parser and fixes it in a three line patch.", 13) == \
+        "Hermes traces the fault to the amount parser."
+    assert trim_words("Tally is ready, so point it at your exports and see where your money goes.", 9) == \
+        "Tally is ready, so point it at your exports."
+    assert trim_words("Go to the", 2) == ""
+    for cap in range(3, 14):
+        out = trim_words("Switch to dark mode for late nights, and the toggle remembers the choice you made.", cap)
+        assert out == "" or out.split()[-1].rstrip(".").lower() not in {"the", "and", "for", "to", "a", "you"}
 
 
 def test_trim_label():

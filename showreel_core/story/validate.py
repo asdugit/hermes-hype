@@ -17,13 +17,52 @@ import re
 from dataclasses import dataclass, field
 
 from ..contracts import Product, SceneType, Storyboard, StoryScene
-from .facts import SessionFacts, code_lines, diff_rows, image_of, is_demo_run, is_stub, is_test_cmd
+from .facts import (
+    SessionFacts,
+    code_lines,
+    diff_rows,
+    image_of,
+    is_demo_run,
+    is_stub,
+    is_test_cmd,
+)
 from .milestones import split_label
-from .rules import (BUILD_TYPES, MAX_BUILD_SHARE, NON_TOOL_KINDS, PRODUCT_KINDS, REFLESS, SINGLETONS, SPLIT_CHARS,
-                    SPLITS_MAX, SPLITS_MIN, VO_WORD_CAPS, DROP_PRIORITY, accepted_kinds, film_mode, max_type_count,
-                    narration_budget)
-from .schema import CTA_CHARS, LABEL_WORDS, ONE_LINER_CHARS, QUOTE_WORDS, TAGLINE_CHARS, TITLE_CHARS, TRANSITIONS
-from .text import extract_numbers, normalize_ws, sentences, spell_digits, trim_chars, trim_label, trim_words, word_count
+from .rules import (
+    BUILD_TYPES,
+    DROP_PRIORITY,
+    MAX_BUILD_SHARE,
+    NON_TOOL_KINDS,
+    PRODUCT_KINDS,
+    REFLESS,
+    SINGLETONS,
+    SPLIT_CHARS,
+    SPLITS_MAX,
+    SPLITS_MIN,
+    VO_WORD_CAPS,
+    accepted_kinds,
+    film_mode,
+    max_type_count,
+    narration_budget,
+)
+from .schema import (
+    CTA_CHARS,
+    LABEL_WORDS,
+    ONE_LINER_CHARS,
+    QUOTE_WORDS,
+    TAGLINE_CHARS,
+    TITLE_CHARS,
+    TRANSITIONS,
+)
+from .text import (
+    extract_numbers,
+    normalize_ws,
+    sentences,
+    spell_digits,
+    trim_chars,
+    trim_label,
+    trim_words,
+    word_count,
+)
 
 T = SceneType
 _HEX_RE = re.compile(r"^#[0-9A-Fa-f]{6}$")

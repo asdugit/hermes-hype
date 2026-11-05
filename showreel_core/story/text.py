@@ -50,15 +50,12 @@ def normalize_ws(text: str) -> str:
 
 
 #: Words a trimmed phrase must not end on (it would read as cut off: "...and fixes it in a.").
-DANGLING = frozenset("""a an the and or but nor so yet to of in on at for with by from into onto than as
-    because while which that who whose whom where when then if its it's your their our his her my is are was
-    were be been being has have had do does did will would can could should very just also not""".split())
-_CLAUSE_WORDS = frozenset("and but so because while which then where when as that who with for to into from by"
-                          .split())
+DANGLING = frozenset(["a", "an", "the", "and", "or", "but", "nor", "so", "yet", "to", "of", "in", "on", "at", "for", "with", "by", "from", "into", "onto", "than", "as", "because", "while", "which", "that", "who", "whose", "whom", "where", "when", "then", "if", "its", "it's", "your", "their", "our", "his", "her", "my", "is", "are", "was", "were", "be", "been", "being", "has", "have", "had", "do", "does", "did", "will", "would", "can", "could", "should", "very", "just", "also", "not", "even", "only", "both", "each", "every", "some", "any", "no", "more", "most", "such"])
+_CLAUSE_WORDS = frozenset(["and", "but", "so", "because", "while", "which", "then", "where", "when", "as", "that", "who", "with", "for", "to", "into", "from", "by"])
 
 
 def trim_words(text: str, max_words: int) -> str:
-    """Trim ``text`` to at most ``max_words`` words without leaving a broken sentence.
+    """Trim ``text`` to at most ``max_words`` words without leaving a broken sentence (or return "").
 
     Keeps as many complete sentences as fit. If even the first sentence is too long it is cut
     at the last clause boundary that fits (a comma, semicolon, colon or before a conjunction),
@@ -81,16 +78,19 @@ def trim_words(text: str, max_words: int) -> str:
     first = sentences(text)[0] if sentences(text) else text
     tokens = first.split(" ")
     acc: list[str] = []
-    best_clause = ""
+    punct_cut = clause_cut = ""
     for tok in tokens:
+        if acc and tok.lower().strip(",;:") in _CLAUSE_WORDS:
+            clause_cut = " ".join(acc)  # a clean cut even when this word itself no longer fits
         if word_count(" ".join(acc + [tok])) > max_words:
             break
-        if acc and tok.lower().strip(",;:") in _CLAUSE_WORDS:
-            best_clause = " ".join(acc)
         acc.append(tok)
         if tok.endswith((",", ";", ":")):
-            best_clause = " ".join(acc)
-    cut = best_clause if best_clause and word_count(best_clause) >= max(3, max_words // 2) else " ".join(acc)
+            punct_cut = " ".join(acc)
+    floor = max(3, max_words // 2)
+    # punctuation is the most natural pause; a cut before a conjunction comes next. With neither, say
+    # nothing: a silent scene (its label and captions still work) beats a phrase cut off mid-thought.
+    cut = next((c for c in (punct_cut, clause_cut) if c and word_count(c) >= floor), "")
     words = cut.rstrip(",;:—- ").split(" ")
     while words and words[-1].lower().strip(",;:—-") in DANGLING:
         words.pop()
@@ -203,7 +203,7 @@ def extract_numbers(text: str) -> list[NumberMention]:
     toks = [(m.start(), m.end(), m.group(0)) for m in token_re.finditer(text)]
     i = 0
     while i < len(toks):
-        s, e, w = toks[i]
+        s, _e, w = toks[i]
         lw = w.lower()
         is_num = lw in _NUMBER_WORDS or all(p in _UNITS or p in _TENS for p in lw.split("-"))
         if not is_num:

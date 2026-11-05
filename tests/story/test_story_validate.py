@@ -3,7 +3,6 @@ import copy
 
 from showreel_core.contracts import Product, SceneType, Storyboard, StoryScene
 from showreel_core.story.facts import SessionFacts
-from showreel_core.story.text import word_count
 from showreel_core.story.validate import validate_storyboard
 
 T = SceneType

@@ -4,7 +4,14 @@ from __future__ import annotations
 import os
 
 from ..contracts import Event
-from .facts import SessionFacts, image_of, is_setup_cmd, is_stub, looks_like_failure, looks_like_test_pass
+from .facts import (
+    SessionFacts,
+    image_of,
+    is_setup_cmd,
+    is_stub,
+    looks_like_failure,
+    looks_like_test_pass,
+)
 from .rules import SPLIT_CHARS, SPLITS_MAX
 
 

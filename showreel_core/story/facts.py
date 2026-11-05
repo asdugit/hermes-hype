@@ -11,8 +11,9 @@ from __future__ import annotations
 import math
 import os
 import re
+from collections.abc import Iterable
 from functools import cached_property
-from typing import Any, Iterable
+from typing import Any
 
 from ..contracts import STAT_KEYS, Event, Stats
 from .text import extract_numbers, normalize_ws, sentences, word_count
@@ -43,7 +44,7 @@ _FAIL_COUNT_RE = re.compile(r"\b([1-9]\d*)\s+(failed|failing|errors?)\b", re.IGN
 
 def duration_minutes(seconds: float) -> int:
     """Whole minutes shown/spoken for a session duration (at least 1)."""
-    return max(1, int(round(seconds / 60.0)))
+    return max(1, round(seconds / 60.0))
 
 
 class SessionFacts:
@@ -221,7 +222,7 @@ class SessionFacts:
         if dur > 0:
             mins = dur / 60.0
             allowed.update({float(duration_minutes(dur)), float(math.floor(mins)), float(math.ceil(mins)),
-                            float(round(dur)), float(int(round(dur)) % 60)})
+                            float(round(dur)), float(round(dur) % 60)})
             if dur >= 3600:
                 allowed.update({float(round(dur / 3600.0)), float(int(dur) // 3600), float((int(dur) % 3600) // 60)})
         allowed.add(float(self.stats.files_created + self.stats.files_modified))
@@ -331,7 +332,7 @@ def is_test_cmd(cmd: str) -> bool:
 _SERVER_CMD_RE = re.compile(
     r"\b(npx (?:-y )?(?:serve|http-server|live-server|vite)|python3? -m http\.server|(?:npm|pnpm|yarn) (?:run )?"
     r"(?:dev|start|serve|preview)\b|vite(?: dev| preview)?$|next (?:dev|start)|flask run|uvicorn|gunicorn|"
-    r"rails s(?:erver)?|php -S|hugo server|jekyll serve)", re.I)
+    r"rails s(?:erver)?|php -S|hugo server|jekyll serve)", re.IGNORECASE)
 
 
 def is_server_cmd(cmd: str) -> bool:

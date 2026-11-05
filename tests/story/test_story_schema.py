@@ -7,8 +7,14 @@ import pytest
 from showreel_core.contracts import SceneType
 from showreel_core.story.heuristic import build_heuristic_storyboard
 from showreel_core.story.options import StoryOptions
-from showreel_core.story.schema import (STORYBOARD_SCHEMA, parse_json_text, storyboard_from_json, storyboard_to_json,
-                                        transport_schema, validate_schema)
+from showreel_core.story.schema import (
+    STORYBOARD_SCHEMA,
+    parse_json_text,
+    storyboard_from_json,
+    storyboard_to_json,
+    transport_schema,
+    validate_schema,
+)
 
 
 @pytest.fixture
