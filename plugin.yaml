@@ -1,0 +1,60 @@
+manifest_version: 2
+name: showreel
+version: "0.1.0"
+description: >-
+  Turns what you built in a Hermes session into a narrated launch trailer: the product in motion, its
+  features and real output, plus a short "built with Hermes" proof beat made from the session's real diffs,
+  terminal output, tests and numbers. Pick a style (launch, pixel, terminal, blueprint, cinematic), a length
+  and 16:9 or 9:16, or just describe the film you want. /showreel, the showreel_render tool, the Desktop pane
+  or hermes showreel render. Renders locally with headless Chromium and ffmpeg.
+author: asdugit
+license: AGPL-3.0-or-later
+homepage: https://github.com/asdugit/hermes-showreel
+tags: [video, desktop, tts, ffmpeg, chromium, trailer, demo]
+requires_hermes: ">=0.22.5"
+provides_tools: [showreel_render, showreel_status]
+provides_hooks: []
+config_schema:
+  default_style:
+    type: str
+    choices: [launch, pixel, terminal, blueprint, cinematic]
+    default: launch
+    label: Default style
+    description: Look used when /showreel names no style.
+  default_seconds:
+    type: int
+    default: 60
+    label: Default length (seconds)
+    description: 15 to 180; 30, 60 and 90 work best.
+  aspect:
+    type: str
+    choices: ["16:9", "9:16", both, "1:1"]
+    default: "16:9"
+    label: Aspect ratio
+  narration:
+    type: bool
+    default: true
+    label: Narrate with Hermes TTS
+    description: Off = captions only (no text is sent to your TTS provider).
+  narration_speed:
+    type: float
+    label: Narration speed (optional)
+    description: >-
+      TTS speed for every style (0.25-4.0). Empty uses each style's own pace (cinematic 1.13, others 1.0).
+      Passed to text_to_speech as speed; audio is never time-stretched.
+  redact:
+    type: bool
+    default: true
+    label: Redact secrets, emails and home paths
+    description: Applied before anything goes to the model and before rendering.
+  effort:
+    type: str
+    choices: [quick, standard, max]
+    default: standard
+    label: Directed-film effort
+    description: How many critique and revision rounds a free-text (Directed) film gets.
+  max_parallel_workers:
+    type: int
+    default: 0
+    label: Max render workers
+    description: 0 = automatic from free RAM (each worker is one headless Chromium, about 0.5-0.7 GB).
