@@ -1,0 +1,16 @@
+/* Selftest page: resolution independent (vh/vw units). Font face is injected by sr.mjs. */
+html, body { margin: 0; width: 100vw; height: 100vh; overflow: hidden; background: #0b0c0e; }
+#bg { position: absolute; inset: 0; }
+#title { position: absolute; left: 0; right: 0; top: 7vh; text-align: center; color: #f7f6f2;
+  font: 400 10vh/1 'SRTest', sans-serif; letter-spacing: -0.02em; white-space: nowrap; }
+#title span { display: inline-block; }
+#hud { position: absolute; left: 4vw; bottom: 4vh; font: 500 3.4vh/1 monospace; color: #c9f25c; }
+#cam { position: absolute; inset: 0; perspective: 140vh; }
+#panel { position: absolute; left: 0; top: 28vh; width: 44vw; height: 46vh; border-radius: 2vh;
+  background: #f7f6f2; box-shadow: 0 4vh 10vh rgba(0, 0, 0, .55); overflow: hidden; }
+#panel .code { position: absolute; left: 3vh; top: 3vh; font: 500 2.7vh/1.55 monospace; color: #14151a; white-space: pre; }
+#panel img { position: absolute; right: 2.5vh; bottom: 2.5vh; width: 16vh; height: 16vh; image-rendering: pixelated; }
+#noise { position: absolute; right: 4vw; top: 27vh; width: 34vw; height: 19.125vw; border-radius: 1vh; }
+#gl { position: absolute; right: 4vw; bottom: 9vh; width: 22vw; height: 12.375vw; border-radius: 1vh; }
+#pulse { position: absolute; left: 50vw; top: 52vh; width: 30vh; height: 30vh; margin: -15vh 0 0 -15vh; border-radius: 50%;
+  background: radial-gradient(circle, rgba(201, 242, 92, .9), rgba(201, 242, 92, 0) 70%); filter: blur(1vh); }
