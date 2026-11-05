@@ -54,7 +54,7 @@ The product is the hero. Spend about 70 % of the film on the product itself (the
 3. Two to four product beats, one feature each: FEATURE (a capture or screenshot plus the feature name in extra.feature, optional bbox and click), SCROLL (a full-page capture) or SCREEN. No visual product? A CLI or API is demoed with TERMINAL scenes that run its real commands; a library with CODE of its usage or entry file plus a TERMINAL demo; a document or research result with SCROLL or SCREEN of its pages and a CALLOUT of its key line; a bug fix with BEFORE_AFTER (failing, then passing) and its DIFF.
 4. Built with Hermes, about 30 % of the film: one or two of MONTAGE, DIFF or a passing TERMINAL test run, then STATS (for example tests_passed, files_created, duration_s). Name Hermes here, once or twice.
 5. END: the product's call to action, its URL or install/run command from the session.
-Voice: a launch film. Say what the product does for its user and show it ("Drop in your bank exports and Tally sorts every purchase"). Second person is welcome.""",
+Voice: a launch film. Say what the product does for its user and show it ("Type in what is in your fridge and Pantry plans the week"). Second person is welcome.""",
     "making_of": """# This film: the making-of (lore)
 The build story is the hero, told honestly and in the order it happened: problem, then plan, then the struggle (real failures from the session, shown as they happened), then the breakthrough (the fix that worked), then the result (the product working), then the stats. After HOOK and TITLE, scenes follow session time.
 Voice: a candid documentary narrator. Hermes is the protagonist; say plainly what went wrong and what fixed it. No invented drama: every setback must be a real failing event.""",
@@ -95,30 +95,33 @@ TEMPLATES: dict[str, dict[int, str]] = {
 }
 
 EXAMPLES: dict[str, str] = {
-    "product": """Good (60 s product trailer for Tally, a budgeting CLI; STATS listed tests_passed 14 and files_created 9):
-HOOK      refs [the report screenshot]  label "Your spending, sorted"  vo ""
-TITLE     vo "Meet Tally, a small command-line tool that turns bank exports into a monthly budget."
-TERMINAL  refs [the summary command]  label "Every month at a glance"  vo "Point it at a folder of statements and every month comes back split by category."
-FEATURE   extra.feature "Refunds net out"  vo "Refunds cancel the purchase they belong to, so the totals stay honest."
-SCROLL    vo "One more command turns it all into a report you can open in any browser."
-TERMINAL  refs [the passing test run]  label "Built with Hermes"  vo "Hermes built it in a single session, with tests that all pass."
+    "product": """Good (60 s product trailer for Pantry, a meal-planning web app; STATS listed tests_passed and \
+files_created; the session had product captures and a passing test run):
+HOOK      refs [the week-plan capture]  label "Dinner, planned"  vo ""
+TITLE     vo "Meet Pantry, the meal planner that starts with what is already in your fridge."
+FEATURE   extra.feature "Plans from your fridge"  label "Plans from your fridge"  vo "Type in what you have, and Pantry turns it into a week of dinners."
+FEATURE   extra.feature "Shopping list"  label "Only what is missing"  vo "The shopping list only holds what you still need, sorted by aisle."
+SCROLL    refs [the full-page recipe capture]  label "Every recipe, step by step"  vo "Every recipe opens on one clean page, from prep to plate."
+TERMINAL  refs [the passing test run]  label "Built with Hermes"  vo "Hermes built it in a single session, with every test passing."
 STATS     stat_keys [tests_passed, files_created, duration_s]  vo ""
-END       cta "python -m tally summary"  vo "Tally is ready for your own statements today." """,
-    "making_of": """Good (making-of lines, in session order):
-PROBLEM   vo "It started with one request: read my bank's CSV files and show me where the money goes."
-PLAN      vo "Hermes breaks the job into five steps and starts with the parser."
-TERMINAL  refs [the failing run]  label "One test fails"  vo "The first test run fails, because refunds come out with the wrong sign."
-DIFF      vo "Hermes traces it to the bracket handling and rewrites three lines."
-TERMINAL  refs [the passing run]  label "Fourteen for fourteen"  vo "On the next run, all fourteen tests pass."
-SCREEN    vo "And there it is: a report with every month and category laid out." """,
-    "speedrun": """Good (speedrun lines, in session order):
-TITLE     vo "This is Tally, any percent, starting from an empty folder."
-CODE      extra.split "First file"  vo "The parser lands in the first minute, and the run is on."
-TERMINAL  extra.split "First red"  vo "The first test run catches a refund bug, which costs a little time."
-DIFF      vo "A three line patch fixes the sign handling."
+END       cta "npm run dev"  vo "Pantry is ready for tonight's dinner."
+For a CLI the product beats are TERMINAL scenes of its real commands instead, each with a line about what that \
+output gives the user.""",
+    "making_of": """Good (making-of lines, in session order, for a different session):
+PROBLEM   vo "It started with one request: plan my dinners from whatever is in the fridge."
+PLAN      vo "Hermes breaks the job into five steps and starts with the recipe search."
+TERMINAL  refs [the failing run]  label "The build breaks"  vo "The first build fails, because the date picker is imported from the wrong package."
+DIFF      vo "Hermes finds the bad import and fixes it in two lines."
+TERMINAL  refs [the passing run]  label "Green across the board"  vo "On the next run, every test passes."
+SCREEN    vo "And there it is: a full week of dinners, planned from one fridge." """,
+    "speedrun": """Good (speedrun lines, in session order, for a different session):
+TITLE     vo "This is Pantry, any percent, starting from an empty folder."
+CODE      extra.split "First file"  vo "The recipe search lands in the first minute, and the run is on."
+TERMINAL  extra.split "First red"  vo "The first build breaks on a bad import, which costs a little time."
+DIFF      vo "A two line patch, and the build is back."
 TERMINAL  extra.split "Tests green"  vo "Green on the second try, and the pace is back."
-SCREEN    extra.split "Shipped"  vo "The report opens in the browser, and that is the run."
-END       vo "Final time, seven minutes and thirty-two seconds." """,
+SCREEN    extra.split "Shipped"  vo "The week plan renders in the browser, and that is the run."
+END       vo "Final time, <the exact session time from STATS, spelled out>." """,
 }
 
 BAD_EXAMPLES = """Bad, and why:
@@ -126,7 +129,7 @@ BAD_EXAMPLES = """Bad, and why:
 - "Hermes thinks... and then... it builds." -> ellipses.
 - "A revolutionary tool that seamlessly transforms your finances!" -> hype, and nothing on screen proves it.
 - "In just 47 seconds it wrote 2,000 lines of code." -> invented numbers, written as digits.
-- "Hermes calls write_file on src/tally/parser.py." -> narrates tool calls and file paths.
+- "Hermes calls write_file on src/pantry/search.py." -> narrates tool calls and file paths.
 - "The music swells as hope returns." -> stage directions and mood words.
 - A FEATURE named "AI-powered insights" when the session shows nothing like it -> ungrounded feature.
 - A scene whose narration describes something its own refs do not show.
@@ -196,7 +199,7 @@ Make the strongest honest film this session allows, one the user is proud to pos
 - Length {secs:g} s, {ASPECT_NOTES[aspect]}
 - Style "{style}": {STYLE_TONES[style]}
 - Aim for {lo}-{hi} scenes. Showreel times every scene to the music within the ranges below.
-- Narration budget: about {budget} words in total. The voice speaks about 2.4 words per second, and the montage and end-card hold are music-only. Shorter beats crammed.{voice_note}
+- Narration budget: about {budget} words in total. The voice speaks about 2.4 words per second, and the montage and end-card hold are music-only. Leave room to breathe; shorter is better than crammed.{voice_note}
 
 {MODE_BRIEFS[mode]}
 
