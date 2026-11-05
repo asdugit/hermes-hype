@@ -328,6 +328,17 @@ def is_test_cmd(cmd: str) -> bool:
     return bool(_TEST_CMD_RE.search(cmd or ""))
 
 
+_SERVER_CMD_RE = re.compile(
+    r"\b(npx (?:-y )?(?:serve|http-server|live-server|vite)|python3? -m http\.server|(?:npm|pnpm|yarn) (?:run )?"
+    r"(?:dev|start|serve|preview)\b|vite(?: dev| preview)?$|next (?:dev|start)|flask run|uvicorn|gunicorn|"
+    r"rails s(?:erver)?|php -S|hugo server|jekyll serve)", re.I)
+
+
+def is_server_cmd(cmd: str) -> bool:
+    """True for commands that only start a dev/static server (they belong in the CTA, not in a demo)."""
+    return bool(_SERVER_CMD_RE.search(cmd or ""))
+
+
 def is_setup_cmd(cmd: str) -> bool:
     """True for install/housekeeping commands that demo nothing (pip install, git, ls, ...)."""
     return bool(_SETUP_CMD_RE.search(cmd or ""))
@@ -355,7 +366,7 @@ def is_demo_run(ev: Event) -> bool:
     cmd = str((ev.data or {}).get("cmd") or "")
     out = [x for x in (ev.data or {}).get("output_lines") or [] if str(x).strip()]
     return (ev.kind == "terminal" and terminal_ok(ev) and bool(out) and not is_test_cmd(cmd)
-            and not is_setup_cmd(cmd))
+            and not is_setup_cmd(cmd) and not is_server_cmd(cmd))
 
 
 def find_span(source: str, needle: str) -> str | None:

@@ -18,7 +18,7 @@ from collections import Counter
 from typing import Iterator
 
 from ..contracts import SCENE_RULES, Event, Product, SceneType, Stats, Storyboard, StoryScene
-from .facts import (SessionFacts, code_lines, data_get, diff_rows, image_of, is_demo_run, is_stub,
+from .facts import (SessionFacts, code_lines, data_get, diff_rows, image_of, is_demo_run, is_server_cmd, is_stub,
                     looks_like_failure, looks_like_test_pass, terminal_ok)
 from .milestones import detect_milestones
 from .options import StoryOptions
@@ -54,6 +54,7 @@ _GITHUB_RE = re.compile(r"https://github\.com/[\w.\-]+/[\w.\-]+")
 _LOCAL_RE = re.compile(r"^(?:https?://(?:localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])|file:)", re.I)
 _CLI_HINT_RE = re.compile(r"\b(argparse|click|typer|clap|commander|yargs|cobra|sys\.argv|process\.argv)\b")
 _ASK_CLAUSE_RE = re.compile(r"\b(?:that|which)\s+((?:[a-z]+s)\b[^.?!]*)", re.I)
+_MAKE_ME_RE = re.compile(r"\b(?:make|build|create|write|code)\s+(?:me\s+|us\s+)?(an?\s+[^.?!]*)", re.I)
 _TODO_SKIP_RE = re.compile(r"\b(tests?|testing|setup|set up|install|scaffold|refactor|lint|commit|readme|docs?|"
                            r"deploy|cleanup|clean up|investigate|research|plan)\b", re.I)
 
@@ -137,6 +138,15 @@ def _one_liner(facts: SessionFacts) -> str:
         if m:
             clause = _second_person(m.group(1).strip().rstrip(",;"))
             return trim_chars(clause[0].upper() + clause[1:], ONE_LINER_CHARS)
+    for ev in facts.of_kind("user_prompt"):
+        m = _MAKE_ME_RE.search(str(data_get(ev, "text", "")))
+        if m:
+            desc = _second_person(re.sub(r"\s+(?:called|named)\s+[\"']?[\w.-]+[\"']?", "", m.group(1)).strip())
+            if len(desc) > ONE_LINER_CHARS:
+                cut = desc.rfind(", ", 0, ONE_LINER_CHARS)
+                desc = desc[:cut] if cut > 20 else trim_chars(desc, ONE_LINER_CHARS)
+            if word_count(desc) >= 3:
+                return desc[0].upper() + desc[1:].rstrip(",;: ")
     return ""
 
 
@@ -147,12 +157,16 @@ def _second_person(text: str) -> str:
 
 def _product_kind(facts: SessionFacts) -> str:
     exts = Counter(os.path.splitext(p)[1].lower() for p in facts.paths)
-    if any(e.kind == "product_capture" for e in facts.events) or exts[".html"] + exts[".tsx"] + exts[".jsx"] \
-            + exts[".vue"] + exts[".svelte"] > 0:
+    names = {os.path.basename(p).lower() for p in facts.paths}
+    web_entry = (exts[".tsx"] + exts[".jsx"] + exts[".vue"] + exts[".svelte"] > 0 or "index.html" in names
+                 or any(is_server_cmd(str(data_get(e, "cmd", ""))) for e in facts.of_kind("terminal")))
+    if web_entry:
         return "web_app"
     code = "\n".join("\n".join(code_lines(e)) for e in facts.of_kind("file_write"))
     if _CLI_HINT_RE.search(code) or any(c.startswith(("python -m ", "node ", "./")) for c in _run_commands(facts)):
-        return "cli"
+        return "cli"  # a CLI that also renders an HTML report is still a CLI
+    if any(e.kind == "product_capture" for e in facts.events) or exts[".html"] > 0:
+        return "web_app"
     if facts.of_kind("image_generated") or any(data_get(e, "kind") in ("image", "video", "audio")
                                                for e in facts.of_kind("artifact")):
         return "media"
@@ -183,7 +197,8 @@ def _run_commands(facts: SessionFacts) -> list[str]:
     out: list[str] = []
     for ev in facts.of_kind("terminal"):
         cmd = normalize_ws(str(data_get(ev, "cmd", "")))
-        if is_demo_run(ev) and cmd not in out:
+        runs = is_demo_run(ev) or (is_server_cmd(cmd) and (ev.ok or data_get(ev, "exit_code") is None))
+        if runs and cmd not in out:
             out.append(cmd)
     return out[:4]
 
@@ -309,8 +324,19 @@ class _Film:
         return scenes
 
     def _tagline(self) -> str:
-        if self.p.one_liner and len(self.p.one_liner) <= TAGLINE_CHARS:
-            return self.p.one_liner
+        line = self.p.one_liner.strip()
+        if line and len(line) <= TAGLINE_CHARS:
+            return line
+        clause = re.split(r",\s|;\s|\s-\s|\.\s", line)[0].strip().rstrip(".") if line else ""
+        if 3 <= len(clause.split()) and len(clause) <= TAGLINE_CHARS:
+            return clause
+        feats = [f for f in self.p.features if f]
+        for n in (3, 2):
+            if len(feats) >= n:
+                rest = [f if f[1:2].isupper() else f[:1].lower() + f[1:] for f in feats[1:n]]
+                head = ", ".join([feats[0]] + rest[:-1]) + " and " + rest[-1]
+                if len(head) <= TAGLINE_CHARS:
+                    return head
         st = self.f.stats
         if st.tests_passed and st.files_created:
             return trim_chars(f"{st.files_created} files, built and tested in one session", TAGLINE_CHARS)
