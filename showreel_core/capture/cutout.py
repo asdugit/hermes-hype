@@ -225,7 +225,8 @@ def _flood_border(mask: bytearray, w: int, h: int) -> bytearray:
     while q:
         i = q.popleft()
         x, y = i % w, i // w
-        for j in ((i - 1) if x else -1, (i + 1) if x < w - 1 else -1, (i - w) if y else -1, (i + w) if y < h - 1 else -1):
+        for j in ((i - 1) if x else -1, (i + 1) if x < w - 1 else -1, (i - w) if y else -1,
+                  (i + w) if y < h - 1 else -1):
             if j >= 0 and mask[j] and not seen[j]:
                 seen[j] = 1
                 q.append(j)

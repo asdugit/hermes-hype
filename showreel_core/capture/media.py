@@ -34,7 +34,8 @@ from .cutout import CutoutQuality, cutout, fit_background, model_fit
 
 COPY_FORMATS = {"PNG": ".png", "JPEG": ".jpg", "WEBP": ".webp", "GIF": ".gif"}
 ROTATE_RE = re.compile(r"(?:rotate\s*:\s*(-?\d+)|displaymatrix: rotation of (-?[\d.]+) degrees)")
-SVG_SIZE_RE = re.compile(rb"<svg[^>]*?\bwidth=[\"']([\d.]+)(?:px)?[\"'][^>]*?\bheight=[\"']([\d.]+)(?:px)?[\"']", re.I | re.S)
+SVG_SIZE_RE = re.compile(rb"<svg[^>]*?\bwidth=[\"']([\d.]+)(?:px)?[\"'][^>]*?\bheight=[\"']([\d.]+)(?:px)?[\"']",
+                         re.I | re.S)
 SVG_VIEWBOX_RE = re.compile(rb"viewBox=[\"'][\d.\-]+[\s,]+[\d.\-]+[\s,]+([\d.]+)[\s,]+([\d.]+)", re.I)
 
 
