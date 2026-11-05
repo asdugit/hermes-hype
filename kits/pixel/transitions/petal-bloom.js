@@ -79,7 +79,7 @@ function render(tx, u, p) {
   if (!from) return;
 
   // ---- outgoing shot: cells detach in a radial wave from the origin -------------------------------------
-  const sw = from.width, sh = from.height, cell = P.cell > 0 ? P.cell : Math.max(1, Math.round(sw / 120));
+  const sw = from.width, sh = from.height, cell = P.cell > 0 ? P.cell : Math.max(1, Math.round(Math.max(sw, sh) / 120));
   const nx = Math.ceil(sw / cell), ny = Math.ceil(sh / cell), sx = W / sw, sy = H / sh;
   if (!C.src || C.src.width !== sw || C.src.height !== sh) {
     C.src = new OffscreenCanvas(sw, sh); C.mask = new OffscreenCanvas(sw, sh); C.memo = new Map();

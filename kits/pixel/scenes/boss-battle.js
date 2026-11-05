@@ -79,10 +79,10 @@ export function layout(ctx) {
   const R = W - Math.max(4, Math.round(sf.r || 0)), B = H - Math.max(4, Math.round(sf.b || 0));
   if (isVertical(ctx)) {
     const pw = Math.min(200, W - 24), ph = Math.round(pw * 9 / 16), py = T + 70, px = Math.round((W - pw) / 2);
-    const fy = py + ph + 34, cx = W / 2;
+    const fy = py + ph + 62, cx = W / 2;
     return {
       V: true, floorY: py + ph + 6, msg: [L - 4, T - 3, R - L + 8, 40], pic: [px, py, pw, ph], braziers: [[16, py + ph + 10], [W - 16, py + ph + 10]],
-      feet: [[cx - 30, fy + 2], [cx + 6, fy + 10], [cx + 42, fy + 18]], status: [L - 4, B - 58, R - L + 8, 58],
+      feet: [[cx - 30, fy], [cx + 6, fy + 5], [cx + 42, fy + 10]], status: [L - 4, B - 58, R - L + 8, 58],
       menu: [L - 4, T - 3, 100], help: [L + 100, T - 3, R - L - 92, 58], enemy: null, rowH: 16, lh: 13,
     };
   }
@@ -183,7 +183,7 @@ function render(ctx, t, p) {
   }
   for (const h of B.hits) {
     const [fx, fy] = h.boss ? [bx + pw / 2, by + 10] : (L.feet[h.hero] || L.feet[0]);
-    damageNumber(S, Math.round(fx), Math.round(h.boss ? fy : fy - 40), h.boss ? h.dmg : h.dmg, tq - h.t - 0.05, { color: h.boss && typeof h.dmg !== 'number' ? 'ice' : 'white', life: 1.4 });
+    damageNumber(S, Math.round(fx), Math.round(h.boss ? fy : Math.max(L.pic[1] + L.pic[3] + 36, fy - 40)), h.dmg, tq - h.t - 0.05, { color: h.boss && typeof h.dmg !== 'number' ? 'ice' : 'white', life: 1.4 });
   }
 
   // ---- UI
