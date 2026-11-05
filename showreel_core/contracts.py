@@ -88,7 +88,8 @@ class Event:
 @dataclass
 class Stats:
     """Numbers computed from the session. Never produced by the LLM (SPEC 3.2)."""
-    duration_s: float = 0.0
+    duration_s: float = 0.0          # active time (gaps > 10 min ignored)
+    wall_s: float = 0.0              # first to last event, wall clock
     turns: int = 0
     tool_calls: int = 0
     tool_kinds: dict[str, int] = field(default_factory=dict)
@@ -208,7 +209,7 @@ class Cue:
     t: float
     sfx: str
     gain_db: float = 0.0
-    align: Literal["onset", "peak", "end"] = "onset"
+    align: Literal["auto", "onset", "peak", "end"] = "auto"
 
 
 @dataclass
