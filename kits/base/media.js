@@ -31,7 +31,7 @@ export function prettyUrl(u) {
 export function browserBlock(ctx, img, o = {}) {
   const m = mediaOf(ctx, img);
   const width = o.width || 1400;
-  const chromeH = o.chrome === false ? 0 : 58;
+  const chromeH = o.chrome === false ? 0 : 66;
   const scale = width / m.w;
   const natural = m.h * scale;
   const viewH = Math.round(Math.min(o.viewH || natural, o.maxViewH || natural));

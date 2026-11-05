@@ -13,7 +13,7 @@ const IMAGE_DOC = { type: 'image', default: null, doc: '{asset, path, w, h, url,
 /** Browser width so the screenshot fits a box (keeps the image aspect). */
 function bw(img, maxW, maxH) {
   const w = Number(img.w) || 1440, hh = Number(img.h) || 900;
-  return Math.round(Math.min(maxW, ((maxH - 58) * w) / hh));
+  return Math.round(Math.min(maxW, ((maxH - 66) * w) / hh));
 }
 
 /** Headline column (landscape, left) or band (portrait, bottom) in screen space. Returns {update(t)}. */
@@ -257,16 +257,16 @@ launchScene('kit:launch/MONTAGE', {
     const nodes = items.map((it, i) => {
       const c = toolCard(it, { width: cw, height: chh });
       // a gentle S along the table: x marches, y swings
-      const x = L ? Math.sin(i * 0.9) * 90 : i * (cw + 130);
+      const x = L ? Math.sin(i * 0.9) * 90 : i * (cw + 320);
       const y = L ? i * (chh + 120) : Math.sin(i * 1.1) * 140;
       return { c, node: W.node(c.el, { x, y: y + chh / 2, z: 24, w: cw, h: chh }), x, y };
     });
-    W.light(L ? 0 : (n - 1) * (cw + 130) / 2, L ? (n - 1) * (chh + 120) / 2 : 0, L ? 1600 : n * 460 + 1200, L ? n * 200 + 1200 : 1500);
+    W.light(L ? 0 : (n - 1) * (cw + 320) / 2, L ? (n - 1) * (chh + 120) / 2 : 0, L ? 1600 : n * 460 + 1200, L ? n * 200 + 1200 : 1500);
     // the wire threads every card (under them), pulses run along the whole path
     const pts = nodes.map((q) => [q.x, q.y + chh + 70]);
     if (pts.length >= 2) W.wire([[pts[0][0] - (L ? 0 : 600), pts[0][1] - (L ? 500 : 0)], ...pts, [pts[pts.length - 1][0] + (L ? 0 : 900), pts[pts.length - 1][1] + (L ? 900 : 0)]],
       { radius: 160, pulses: 3, every: step * 2, speed: L ? 1200 : 1500, port: false });
-    const d = fitRect(W, F, L ? cw * 1.1 : cw * 2.2, L ? chh * 3.6 : chh * 2.4, 20, 0.92, 0.86);
+    const d = fitRect(W, F, L ? cw * 1.02 : cw * 1.8, L ? chh * 3.0 : chh * 2.1, 20, 0.92, 0.86);
     const keys = [];
     nodes.forEach((q, i) => {
       const t0 = i * step;
@@ -285,7 +285,7 @@ launchScene('kit:launch/MONTAGE', {
         nodes.forEach((q, i) => {
           const arrive = seg(t, i * step - 0.12, i * step + 0.3, ease.outQuint);
           const pre = seg(t, (i - 2) * step - 0.2, (i - 2) * step + 0.3, ease.outQuint);
-          W.update(q.node, { tilt: lerp(0, 24, arrive), z: lerp(24, 40, arrive), op: clamp(pre * 1.4) * (i < cur ? 0.7 : 1) });
+          W.update(q.node, { tilt: lerp(0, 24, arrive), z: lerp(24, 40, arrive), op: clamp(pre * 1.4) * (i < cur - 2 ? 0 : i < cur ? 0.7 : 1) });
           q.c.el.classList.toggle('on', i === cur);
         });
         for (const w of W.wires) w.set(t);

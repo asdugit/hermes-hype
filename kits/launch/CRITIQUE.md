@@ -61,3 +61,28 @@ Everything renders, no page errors, CSS module scripts load fine over the loopba
   type, default 0.62) -> all lines legible in both aspects; timer HUD 76 px on a dark plate; lower third
   on a bottom gradient. Accent falls back to the base blue when the style kit isn't loaded (in Quick films
   the style kit is always present, so overlays pick up the style accent).
+
+## Theme proofs (kits/base re-skinned with CSS only, 16:9)
+- terminal: phosphor green on black, all-mono, glow — coherent, every scene legible.
+- blueprint: white linework on blue grid, outlined sheets, yellow accent — coherent, reads as drafting.
+- comic: cream halftone, 5 px outlines + hard offset shadows, heavy uppercase display, red accent — strongest
+  departure from the default; still legible.
+- ink: rice paper, serif-italic display, vermilion seal — calm editorial; numerals in serif italic read well.
+- Product screenshots keep their own colours in every theme (correct: never re-tint the product).
+
+## Quick-mode sample film (webapp fixture, 26 s target -> 25.2 s, launch)
+- 16:9 keyframes: HOOK/TITLE/FEATURE x2/SCROLL/STATS/END all read; push-left transitions slide both DOM
+  shots; captions sit in their band (END moves its credit into the lockup when captions are up).
+- Fixed after the look: TITLE eyebrow crowded the title (QA overlap) -> eyebrow gap scales with title size;
+  END credit outside the runtime safe area -> safe area now max(kit, runtime) (16:9 bottom 120, 9:16 sides 120);
+  9:16 headlines at x=110 -> text columns 840 wide inside the 120 px sides.
+
+## Final pass (both aspects, all 15 types, launch + base)
+- Secondary chrome raised (bars 27-28 px, chips/badges/meta 25-26 px, gutter .92 em, tags 26 px) so held
+  frames pass the 22 px projected rule; remaining small_text flags are establishing frames during the
+  0.5 s entrance (chrome while the camera is wide) — accepted, the push brings them to 26-40 px.
+- MONTAGE (launch): cards were small with a grey slab of the previous card intruding after a closer fit ->
+  spacing cw + 320, closer fit (1.8 card widths), cards more than two behind fade out. Now one centred card,
+  the next one peeking in.
+- Remaining `clip` QA flags are by design: partially typed rows (width reveal) and pushed-in long code lines
+  running off the frame edge.
