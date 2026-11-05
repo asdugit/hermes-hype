@@ -172,8 +172,10 @@ HOW TO WORK
 - Then decide the one idea that exceeds the direction: `signature_moment`.
 - Build the film in acts. Each act is a world with a style, a palette (3-8 hex colours), 3-6 beats (concrete visible
   actions, not adjectives) and the product's role in it. Act durations must add up to the film length.
-- Choose worlds the engine can make beautiful: prefer kits/library scenes listed in the catalog, and plan custom
-  scenes only for the signature moments the kits cannot do.
+- Choose worlds the engine can make beautiful. Kit scenes are polished, production-tested and look better than a
+  first-draft custom scene: when a kit scene (or a library scene) expresses an idea of yours, build that part of
+  the film from it and tune it through its params. Spend custom scenes on what only this film needs (the
+  signature moment, a world no kit offers), at most 2-3 of them.
 - Plan the music: one bed per act (ids from the catalog only), with the turn landing on a bar line, plus stings.
 - Plan every product asset's use. The product media is real footage/images: show it, frame it, light it; you may
   stylise it (pixelate, paint over, put it in a world) but it must stay recognisable.

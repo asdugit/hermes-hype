@@ -169,6 +169,7 @@ def run(brief: Brief | None = None, *, llm: Any = None, renderer: Renderer | Non
     """Direct one film from a free-text brief. Never raises (see module docstring)."""
     t0 = time.monotonic()
     jd = Path(job_dir) if job_dir else Path.cwd() / "director-job"
+    llm = kwargs.get("director_llm") or llm or getattr(kwargs.get("host"), "llm", None)
     try:
         brief = brief or brief_from_kwargs(kwargs, jd)
         opts = kwargs.get("options")
