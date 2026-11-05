@@ -189,9 +189,15 @@ def encoder_spec(name: str, w: int, h: int, fps: float, *, crf: int = 18, preset
     raise ValueError(f"unknown encoder {name!r}")
 
 
+@functools.lru_cache(maxsize=32)
+def encoder_works(ffmpeg: str, encoder: str) -> bool:
+    """Cached smoke encode of one encoder (listed in ``-encoders`` is not proof it works)."""
+    return _smoke_encode(ffmpeg, encoder)
+
+
 def pick_encoder(caps: Capabilities, preferred: str | None = None) -> str:
-    """First working encoder in fallback order (``preferred`` first if it works)."""
-    if preferred and preferred in caps.working:
+    """``preferred`` if it really encodes, else the first working encoder in fallback order."""
+    if preferred and (preferred in caps.working or (preferred in caps.encoders and encoder_works(caps.path, preferred))):
         return preferred
     if caps.working:
         return caps.working[0]

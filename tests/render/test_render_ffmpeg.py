@@ -103,6 +103,14 @@ def test_pick_encoder():
     assert ei.value.code == "no_encoder"
 
 
+def test_pick_encoder_smoke_tests_an_unprobed_preference(monkeypatch):
+    caps = ff.Capabilities("ffmpeg", "v", frozenset({"libx264", "h264_mf"}), frozenset(), ("libx264",))
+    monkeypatch.setattr(ff, "encoder_works", lambda path, name: name == "h264_mf")
+    assert ff.pick_encoder(caps, "h264_mf") == "h264_mf"
+    monkeypatch.setattr(ff, "encoder_works", lambda path, name: False)
+    assert ff.pick_encoder(caps, "h264_mf") == "libx264"
+
+
 def test_chunk_encode_cmd():
     enc = ff.encoder_spec("libx264", 1920, 1080, 30)
     cmd = ff.chunk_encode_cmd("ffmpeg", fps=30, out_path=Path("c 1.mp4"), enc=enc, filter_graph="[0:v]null[vout]",
