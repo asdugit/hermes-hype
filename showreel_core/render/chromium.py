@@ -24,9 +24,10 @@ import tempfile
 import threading
 import time
 from collections import deque
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Iterable, Mapping, Sequence
+from typing import Any
 
 from .errors import RenderError
 from .ffmpeg import NO_WINDOW, _pm_binary
@@ -188,7 +189,7 @@ def build_flags(*, gpu: bool, window_size: tuple[int, int], user_data_dir: Path,
 
 # ------------------------------------------------------------------------------ launch
 
-_LIVE: set["LaunchedBrowser"] = set()
+_LIVE: set[LaunchedBrowser] = set()
 _LIVE_LOCK = threading.Lock()
 _WS_RE = re.compile(r"DevTools listening on (ws://\S+)")
 

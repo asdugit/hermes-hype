@@ -174,7 +174,7 @@ def test_real_ffmpeg_roundtrip(ffmpeg_path, tmp_path):
                               filter_graph="[0:v]scale=in_range=pc:in_color_matrix=bt601,format=gbrp,"
                                            "scale=out_range=tv:out_color_matrix=bt709,format=yuv420p,"
                                            "setparams=color_primaries=bt709:color_trc=bt709:colorspace=bt709[vout]")
-    p = subprocess.run(cmd, input=b"".join(frames), capture_output=True)
+    p = subprocess.run(cmd, input=b"".join(frames), capture_output=True, check=False)
     assert p.returncode == 0, p.stderr.decode()[-500:]
     assert ff.parse_progress(p.stdout.decode())["frame"] == "12"
     assert ff.count_frames(ffmpeg_path, out) == 12

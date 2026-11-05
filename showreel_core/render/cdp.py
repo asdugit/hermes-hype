@@ -9,7 +9,8 @@ from __future__ import annotations
 import asyncio
 import itertools
 import json
-from typing import Any, Awaitable, Callable
+from collections.abc import Awaitable, Callable
+from typing import Any
 
 from .errors import RenderError
 
@@ -58,7 +59,7 @@ class CDPConnection:
 
     @classmethod
     async def connect(cls, ws_url: str, *, timeout: float = 30.0,
-                      default_timeout: float = DEFAULT_TIMEOUT_S) -> "CDPConnection":
+                      default_timeout: float = DEFAULT_TIMEOUT_S) -> CDPConnection:
         """Open the websocket (no compression, no keepalive pings, large frames allowed)."""
         from websockets.asyncio.client import connect
 
@@ -67,7 +68,7 @@ class CDPConnection:
                 connect(ws_url, max_size=MAX_MESSAGE, compression=None, ping_interval=None,
                         open_timeout=timeout, close_timeout=2, max_queue=None),
                 timeout + 1)
-        except (OSError, asyncio.TimeoutError, Exception) as e:  # websockets raises several types
+        except (TimeoutError, OSError, Exception) as e:  # websockets raises several types
             raise CDPClosed(f"cannot connect to {ws_url}: {e}") from e
         return cls(ws, default_timeout)
 
@@ -134,7 +135,7 @@ class CDPConnection:
         t = self.default_timeout if timeout is None else timeout
         try:
             return await asyncio.wait_for(fut, t)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             self._pending.pop(mid, None)
             raise CDPTimeout(method, t) from None
 
@@ -167,13 +168,13 @@ class CDPConnection:
         t = self.default_timeout if timeout is None else timeout
         try:
             return await asyncio.wait_for(fut, t)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             raise CDPTimeout(f"event {method}", t) from None
         finally:
             for off in offs:
                 off()
 
-    def session(self, session_id: str) -> "CDPSession":
+    def session(self, session_id: str) -> CDPSession:
         return CDPSession(self, session_id)
 
     async def close(self) -> None:

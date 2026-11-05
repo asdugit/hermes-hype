@@ -39,11 +39,11 @@ class _Handler(SimpleHTTPRequestHandler):
         self.path = "/" + self.path[len(prefix):]
         return True
 
-    def do_GET(self) -> None:  # noqa: N802 (stdlib naming)
+    def do_GET(self) -> None:
         if self._strip_token():
             super().do_GET()
 
-    def do_HEAD(self) -> None:  # noqa: N802
+    def do_HEAD(self) -> None:
         if self._strip_token():
             super().do_HEAD()
 
@@ -55,7 +55,7 @@ class _Handler(SimpleHTTPRequestHandler):
         self.send_header("Cache-Control", "no-store")
         super().end_headers()
 
-    def log_message(self, format: str, *args: Any) -> None:  # noqa: A002
+    def log_message(self, format: str, *args: Any) -> None:
         pass
 
 
@@ -84,7 +84,7 @@ class PageServer:
         self._httpd: _Server | None = None
         self._thread: threading.Thread | None = None
 
-    def start(self) -> "PageServer":
+    def start(self) -> PageServer:
         handler = type("Handler", (_Handler,), {"token": self.token})
         self._httpd = _Server(("127.0.0.1", 0), partial(handler, directory=str(self.root)))
         self._thread = threading.Thread(target=self._httpd.serve_forever, kwargs={"poll_interval": 0.2},
@@ -113,7 +113,7 @@ class PageServer:
             self._httpd.server_close()
             self._httpd = None
 
-    def __enter__(self) -> "PageServer":
+    def __enter__(self) -> PageServer:
         return self.start()
 
     def __exit__(self, *exc: object) -> None:

@@ -46,7 +46,7 @@ class RenderPage:
 
     @classmethod
     async def open(cls, conn: CDPConnection, *, w: int, h: int, dpr: float = 1.0,
-                   allow_prefixes: tuple[str, ...] | None = None) -> "RenderPage":
+                   allow_prefixes: tuple[str, ...] | None = None) -> RenderPage:
         """Create a tab, size it, and (if ``allow_prefixes`` is given) fail every other request."""
         tid = (await conn.send("Target.createTarget", {"url": "about:blank"}))["targetId"]
         sid = (await conn.send("Target.attachToTarget", {"targetId": tid, "flatten": True}))["sessionId"]

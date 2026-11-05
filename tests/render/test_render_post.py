@@ -91,7 +91,7 @@ def test_crt_mask_has_scanlines_and_vignette(tmp_path):
     assert "lenscorrection" in pc.graph
     from PIL import Image
     mask = Image.open(next(tmp_path.glob("mask_*.png"))).convert("L")
-    px = lambda x, y: int(mask.getpixel((x, y)))  # noqa: E731
+    px = lambda x, y: int(mask.getpixel((x, y)))
     assert mask.size == (1920, 1080)
     cx = 960
     light, dark = 540, 542                       # period 3: rows with y % 3 == 2 are darkened
@@ -131,7 +131,7 @@ def test_chains_run_in_ffmpeg(spec, ffmpeg_path, tmp_path):
     out = tmp_path / f"o.{enc.container}"
     cmd = ff.chunk_encode_cmd(ffmpeg_path, fps=30, out_path=out, enc=enc, filter_graph=pc.graph,
                               extra_inputs=pc.extra_inputs)
-    p = subprocess.run(cmd, input=b"".join(frames), capture_output=True, timeout=60)
+    p = subprocess.run(cmd, input=b"".join(frames), capture_output=True, timeout=60, check=False)
     assert p.returncode == 0, p.stderr.decode()[-600:]
     assert ff.parse_progress(p.stdout.decode())["frame"] == "6"
     assert "bt709" in ff.media_info(ffmpeg_path, out).color and "unknown" not in ff.media_info(ffmpeg_path, out).color

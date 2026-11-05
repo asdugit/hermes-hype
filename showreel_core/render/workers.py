@@ -20,15 +20,25 @@ import shutil
 import threading
 import time
 from collections import deque
+from collections.abc import AsyncIterator, Awaitable, Callable, Mapping, Sequence
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, AsyncIterator, Awaitable, Callable, Mapping, Sequence
+from typing import Any
 
 from .cdp import CDPConnection
-from .chromium import BrowserCandidate, LaunchedBrowser, browser_candidates, launch_any, NO_BROWSER_HINT
+from .chromium import NO_BROWSER_HINT, BrowserCandidate, LaunchedBrowser, browser_candidates, launch_any
 from .errors import RenderError
-from .ffmpeg import (NO_WINDOW, capabilities, chunk_encode_cmd, concat, count_frames, encoder_spec,
-                     parse_progress, pick_encoder, resolve_ffmpeg)
+from .ffmpeg import (
+    NO_WINDOW,
+    capabilities,
+    chunk_encode_cmd,
+    concat,
+    count_frames,
+    encoder_spec,
+    parse_progress,
+    pick_encoder,
+    resolve_ffmpeg,
+)
 from .page import PageInfo, RenderPage
 from .post import REQUIRED_FILTERS, build_post, chain_seed, parse_spec
 from .probe import GPUProbe, probe_gpu_cached_async
@@ -404,7 +414,7 @@ async def _reporter(ctx: _Ctx, total: int, progress: ProgressCB | None, stop: as
         try:
             await asyncio.wait_for(stop.wait(), 0.5)
             return
-        except asyncio.TimeoutError:
+        except TimeoutError:
             pass
 
 

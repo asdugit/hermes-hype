@@ -14,9 +14,10 @@ import re
 import shutil
 import subprocess
 import sys
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Iterable, Mapping, Sequence
+from typing import Any
 
 from .errors import RenderError
 
@@ -76,8 +77,8 @@ def resolve_ffmpeg(env: Mapping[str, str] | None = None, *,
 
 # ------------------------------------------------------------------------ capabilities
 
-_ENC_RE = re.compile(r"^\s*V[\w.]{5}\s+(\S+)", re.M)
-_FILT_RE = re.compile(r"^\s*[TSC.]{2,3}\s+(\S+)\s+\S*->\S*[VN]", re.M)  # video or dynamic outputs
+_ENC_RE = re.compile(r"^\s*V[\w.]{5}\s+(\S+)", re.MULTILINE)
+_FILT_RE = re.compile(r"^\s*[TSC.]{2,3}\s+(\S+)\s+\S*->\S*[VN]", re.MULTILINE)  # video or dynamic outputs
 
 
 def parse_encoders(text: str) -> frozenset[str]:
@@ -91,7 +92,7 @@ def parse_filters(text: str) -> frozenset[str]:
 
 
 def _run_text(cmd: Sequence[str], timeout: float = 60) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(list(cmd), capture_output=True, text=True, encoding="utf-8", errors="replace",
+    return subprocess.run(list(cmd), capture_output=True, text=True, encoding="utf-8", errors="replace", check=False,
                           timeout=timeout, stdin=subprocess.DEVNULL, creationflags=NO_WINDOW)
 
 
@@ -387,7 +388,8 @@ def extract_frame(ffmpeg: str, path: Path, t: float, out_png: Path | None = None
            "-vf", "scale=in_color_matrix=bt709:in_range=tv,format=rgb24",
            "-f", "image2pipe", "-c:v", "png", "-"]
     try:
-        p = subprocess.run(cmd, capture_output=True, timeout=120, stdin=subprocess.DEVNULL, creationflags=NO_WINDOW)
+        p = subprocess.run(cmd, capture_output=True, timeout=120, stdin=subprocess.DEVNULL, creationflags=NO_WINDOW,
+                           check=False)
     except (OSError, subprocess.SubprocessError) as e:
         raise RenderError("ffmpeg", f"frame extract failed: {e}") from e
     if p.returncode != 0 or not p.stdout:

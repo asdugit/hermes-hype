@@ -17,9 +17,10 @@ Every random source is seeded (``noise`` gets an explicit seed; its default -1 i
 from __future__ import annotations
 
 import zlib
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 from .errors import RenderError
 

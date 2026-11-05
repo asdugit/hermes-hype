@@ -8,9 +8,10 @@ from __future__ import annotations
 import io
 import re
 import subprocess
+from collections.abc import Sequence
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any
 
 from ..render.errors import RenderError
 from ..render.ffmpeg import NO_WINDOW, extract_frame, media_info, parse_progress, resolve_ffmpeg
@@ -62,7 +63,7 @@ def decode_pass(ffmpeg: str, path: Path, *, black_min_s: float = BLACK_MIN_S,
     cmd = [ffmpeg, "-hide_banner", "-nostdin", "-nostats", "-progress", "pipe:1", "-i", str(path), "-map", "0:v:0",
            "-vf", f"blackdetect=d={black_min_s:g}:pix_th={pix_th:g}", "-an", "-f", "null", "-"]
     try:
-        p = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace",
+        p = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", check=False,
                            timeout=timeout, stdin=subprocess.DEVNULL, creationflags=NO_WINDOW)
     except (OSError, subprocess.SubprocessError) as e:
         raise RenderError("ffmpeg", f"decode pass failed: {e}") from e
