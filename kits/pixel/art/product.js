@@ -11,7 +11,10 @@ const CACHE_MAX = 96;
 
 /** Pixels (RGBA) of a frame source at w x h with cover/contain fit. Works for ImageBitmap/Image/Canvas and {data,width,height}. */
 function pixelsOf(src, w, h, fit) {
-  const sw = src.width || src.naturalWidth, sh = src.height || src.naturalHeight;
+  let crop = null;
+  if (src && src.__crop) { crop = src.__crop; src = src.src; }
+  const fw = src.width || src.naturalWidth, fh = src.height || src.naturalHeight;
+  const ox = crop ? crop[0] * fw : 0, oy = crop ? crop[1] * fh : 0, sw = crop ? crop[2] * fw : fw, sh = crop ? crop[3] * fh : fh;
   const sc = fit === 'contain' ? Math.min(w / sw, h / sh) : Math.max(w / sw, h / sh);
   const dw = sw * sc, dh = sh * sc, dx = (w - dw) / 2, dy = (h - dh) / 2;
   if (src.data && !(typeof ImageBitmap !== 'undefined' && src instanceof ImageBitmap)) {
@@ -22,7 +25,7 @@ function pixelsOf(src, w, h, fit) {
       let r = 0, g = 0, b = 0, a = 0, n = 0;
       for (let sy = Math.max(0, Math.floor(y0)); sy < Math.min(sh, Math.ceil(y1)); sy++)
         for (let sx = Math.max(0, Math.floor(x0)); sx < Math.min(sw, Math.ceil(x1)); sx++) {
-          const p = (sy * sw + sx) * 4; r += src.data[p]; g += src.data[p + 1]; b += src.data[p + 2]; a += src.data[p + 3]; n++;
+          const p = ((Math.floor(oy) + sy) * fw + Math.floor(ox) + sx) * 4; r += src.data[p]; g += src.data[p + 1]; b += src.data[p + 2]; a += src.data[p + 3]; n++;
         }
       const q = (y * w + x) * 4; if (n) { out[q] = r / n; out[q + 1] = g / n; out[q + 2] = b / n; out[q + 3] = a / n; }
     }
@@ -30,7 +33,7 @@ function pixelsOf(src, w, h, fit) {
   }
   const oc = new OffscreenCanvas(w, h), g = oc.getContext('2d', { willReadFrequently: true });
   g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
-  g.drawImage(src, dx, dy, dw, dh);
+  if (crop) g.drawImage(src, ox, oy, sw, sh, dx, dy, dw, dh); else g.drawImage(src, dx, dy, dw, dh);
   return g.getImageData(0, 0, w, h).data;
 }
 
@@ -95,17 +98,40 @@ const HORN = Sprite.rows([
 const HORN_R = HORN.flipX();
 
 /**
+ * Boss-lair backdrop inside a picture rect: dark ember gradient, slowly turning stepped light rays, a glowing
+ * floor disc and drifting embers — the stage for a product cutout.
+ */
+export function lair(S, x, y, w, h, t = 0) {
+  S.clip(x, y, w, h);
+  S.vbands(x, y, w, h, ['ink', 'plumdk', 'plum', 'maroon'], 4);
+  const cx = x + w / 2, cy = y + h * 0.62, rot = Math.floor(t * 6) / 6 * 0.25;
+  for (let k = 0; k < 8; k++) {                       // rays: 8 wedges, every other one lit
+    if (k & 1) continue;
+    const a0 = rot + k * Math.PI / 4, a1 = a0 + Math.PI / 9, R = Math.max(w, h);
+    S.poly([[cx, cy], [cx + Math.cos(a0) * R, cy + Math.sin(a0) * R], [cx + Math.cos(a1) * R, cy + Math.sin(a1) * R]], 'maroon');
+  }
+  S.glow(cx, cy, w * 0.55, REMAP.ember, 1.1, 0.7);
+  S.ellipse(cx, y + h * 0.86, w * 0.36, h * 0.07, 'ink', 0.8);
+  S.ellipse(cx, y + h * 0.86, w * 0.30, h * 0.05, 'maroon', 0.6);
+  for (let i = 0; i < 10; i++) {                      // embers rising
+    const ph = (t * 0.35 + i * 0.137) % 1, ex = x + ((i * 53 + 17) % w), ey = y + h - ph * h;
+    S.px(ex + Math.round(Math.sin(t * 3 + i) * 2), ey, ph < 0.5 ? 'gold' : 'amber');
+  }
+  S.unclip();
+}
+
+/**
  * Draw the product as a framed BOSS portrait: gold frame with horns + crest gem, ember aura, name plate and
  * HP bar. (x, y) = top-left of the picture area (pw x ph). Returns layout rects {pic, plate, bar, outer}.
- * o: {name, level, hp (0..1), hpLag, t, aura (0..1), gold (0..1 golden shimmer), horns (bool)}
+ * o: {name, level, hp (0..1), hpLag, t, aura (0..1), gold (0..1 golden shimmer), horns (bool), lair (draw the lair backdrop), remap, say}
  */
 export function bossFrame(S, sprite, x, y, pw, ph, o = {}) {
   const t = o.t || 0, fx = x - 6, fy = y - 6, fw = pw + 12, fh = ph + 12;
   // ember aura behind the frame (pulses on twos)
   const pulse = (Math.floor(t * 4) & 1) ? 2 : 0, aura = o.aura ?? 1;
   if (aura > 0) S.glow(x + pw / 2, y + ph / 2, Math.max(pw, ph) * 0.75 + pulse, REMAP.ember, 0.9 * aura, ph / pw + 0.25);
-  // obsidian horns curling up and out from the top corners
-  if (o.horns !== false) { S.blit(HORN, fx - 12, fy - 15); S.blit(HORN_R, fx + fw - HORN.w + 12, fy - 15); }
+  // bone horns curling up and out from the sides of the frame (clear of the message window above)
+  if (o.horns !== false) { S.blit(HORN, fx - 14, fy + 1); S.blit(HORN_R, fx + fw - HORN.w + 14, fy + 1); }
   // frame: ink, gold bevel (cream highlight top-left, amber/brown shadow bottom-right)
   S.rect(fx, fy, fw, fh, 'ink');
   S.rect(fx + 1, fy + 1, fw - 2, fh - 2, 'gold');
@@ -115,10 +141,10 @@ export function bossFrame(S, sprite, x, y, pw, ph, o = {}) {
   for (let i = fx + 8; i < fx + fw - 8; i += 6) { S.px(i, fy + 2, 'amber'); S.px(i, fy + fh - 3, 'gold'); }
   // corner studs
   for (const [cx, cy] of [[fx + 2, fy + 2], [fx + fw - 5, fy + 2], [fx + 2, fy + fh - 5], [fx + fw - 5, fy + fh - 5]]) { S.rect(cx, cy, 3, 3, 'red'); S.px(cx, cy, 'coral'); S.frame(cx - 1, cy - 1, 5, 5, 'ink'); }
-  // picture
+  // picture (over a "lair" backdrop when the product is a cutout)
   S.rect(x - 1, y - 1, pw + 2, ph + 2, 'ink');
-  if (sprite) S.blit(sprite, x + Math.round((pw - sprite.w) / 2), y + Math.round((ph - sprite.h) / 2), o.remap ? { remap: o.remap } : {});
-  else S.vbands(x, y, pw, ph, ['maroon', 'plumdk', 'ink'], 3);
+  if (o.lair || !sprite) lair(S, x, y, pw, ph, t);
+  if (sprite) S.blit(sprite, x + Math.round((pw - sprite.w) / 2), y + Math.round((ph - sprite.h) / 2) + (o.lair ? Math.round(ph * 0.04) : 0), o.remap ? { remap: o.remap } : {});
   if (o.gold > 0) S.remap(REMAP.gold, x, y, pw, ph, o.gold);
   // crest: a red gem in a gold claw on the top edge
   const cx = x + Math.round(pw / 2);

@@ -31,6 +31,7 @@ const PARAMS = {
   palette: { type: 'list', default: null, doc: 'sub-palette tokens for the product sprite (null = all 32 colours)' },
   dither: { type: 'number', default: 28, doc: 'ordered-dither strength for the product (0 = flat)' },
   fit: { type: 'string', default: 'cover', doc: 'product fit inside the portrait: cover | contain' },
+  backdrop: { type: 'string', default: 'auto', doc: 'auto (lair backdrop behind the product cutout when the asset has one) | media (the media as filmed)' },
 };
 
 const LEN = { blade: 2.9, slash: 1.9, spell: 2.0 };
@@ -128,10 +129,13 @@ function render(ctx, t, p) {
 
   // ---- product portrait
   const asset = assetOf(ctx, P.boss_media);
-  const spr = asset ? productSprite(ctx, asset, { w: pw, h: ph, t: tq, palette: P.palette, dither: P.dither, fit: P.fit }) : null;
+  const useCut = !!(asset && asset.cutout && P.backdrop !== 'media');
+  const spr = !asset ? null : useCut
+    ? productSprite(ctx, asset.cutout, { w: pw - 8, h: ph - 6, t: tq, palette: P.palette, dither: P.dither, fit: 'contain', outline: 'ink' })
+    : productSprite(ctx, asset, { w: pw, h: ph, t: tq, palette: P.palette, dither: P.dither, fit: P.fit });
   const clicked = tq >= B.click;
   const gold = clicked ? (Math.floor((tq - B.click) * 10) & 1 ? 0.5 : 0.25) * (1 - seg(tq, B.click + 0.3, B.click + 0.6)) : 0;
-  bossFrame(S, spr, bx, by, pw, ph, { name: boss, level: P.boss_level === '' ? null : P.boss_level, hp: bossHp, hpLag: bossLag, t: tq, gold,
+  bossFrame(S, spr, bx, by, pw, ph, { lair: useCut, name: boss, level: P.boss_level === '' ? null : P.boss_level, hp: bossHp, hpLag: bossLag, t: tq, gold,
     remap: bossFlash ? whiteMap() : null, say: sayF });
 
   // ---- party (facing left), hurt reactions
