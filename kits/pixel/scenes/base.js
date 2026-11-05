@@ -5,11 +5,13 @@ import { drawText, fontInfo } from './../core/text.js';
 
 const SCREENS = new WeakMap();
 
-/** The shot's game-resolution Screen (created once per ctx, sized ctx.w x ctx.h). */
+/** The shot's game-resolution Screen (created once per ctx, sized ctx.w x ctx.h), cleared to ink every call so a
+ *  render never sees the previous frame (purity). */
 export function screenOf(ctx) {
   let S = SCREENS.get(ctx);
   if (!S || S.w !== ctx.w || S.h !== ctx.h) { S = new Screen(ctx.w, ctx.h); SCREENS.set(ctx, S); }
   S.unclip();
+  S.fill('ink');
   return S;
 }
 
