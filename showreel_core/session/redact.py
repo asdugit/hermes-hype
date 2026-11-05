@@ -70,6 +70,9 @@ _TOKEN_PATTERNS = [
     r"\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}:[0-9a-f]{32}\b",  # fal.ai key
 ]
 _TOKEN_RE = re.compile("|".join(f"(?:{p})" for p in _TOKEN_PATTERNS))
+# Cheap literal pre-check: every token pattern above contains one of these fragments.
+_TOKEN_HINT_RE = re.compile(r"sk-|_live_|_test_|gh[pousr]_|github_pat_|glpat-|xox|xapp-|A[GIKNRS][A-Z]A|AIza|ya29\.|"
+                            r"eyJ|hf_|npm_|xai|pplx|gsk|r8|fw|nvapi|dop_v1_|SG\.|key-|:AA|-[0-9a-f]{12}:")
 _AUTH_RE = re.compile(
     r"(?i)(\bauthorization\b[\"']?\s*[:=]\s*[\"']?(?:bearer|basic|token|bot|digest)?\s*|\bbearer\s+)([A-Za-z0-9._~+/=\-]{8,})")
 _COOKIE_RE = re.compile(r"(?im)^(\s*(?:set-)?cookie\s*:\s*)(.+)$")
@@ -169,7 +172,8 @@ class Redactor:
     # ------------------------------------------------------------------ learning
     def learn(self, text: str) -> None:
         """Remember literal values assigned to secret-ish names so later bare mentions are masked too."""
-        if not text or not isinstance(text, str):
+        if not text or not isinstance(text, str) or len(text) < 10 or ("=" not in text and ":" not in text
+                                                                       and "--" not in text):
             return
         before = len(self._learned)
         for rx in (_ASSIGN_RE, _FLAG_RE):
@@ -202,34 +206,50 @@ class Redactor:
         return rx.sub(counted, text)
 
     def text(self, s: str) -> str:
-        """Redact one string."""
-        if not s or not isinstance(s, str):
+        """Redact one string. Each pass is guarded by a cheap substring test (big sessions have
+        ~100k strings; most contain nothing to redact)."""
+        if not s or not isinstance(s, str) or len(s) < 6:
             return s
-        s = self._sub(_PEM_RE, SECRET, s, "pem")
-        s = self._sub(_DATA_URI_RE, lambda m: m.group(1) + DATA, s, "data_uri")
+        low = s.lower()
+        if "private key" in low:
+            s = self._sub(_PEM_RE, SECRET, s, "pem")
+        if ";base64," in s:
+            s = self._sub(_DATA_URI_RE, lambda m: m.group(1) + DATA, s, "data_uri")
         learned = self._learned_pattern()
-        if learned is not None:
+        if learned is not None and any(v in s for v in self._learned):
             s = self._sub(learned, SECRET, s, "learned")
-        s = self._sub(_URL_CRED_RE, lambda m: f"{m.group(1)}{SECRET}@", s, "url_cred")
-        s = self._sub(_WEBHOOK_RE, lambda m: (m.group(1) or m.group(2)) + SECRET, s, "webhook")
-        s = self._sub(_QUERY_RE, lambda m: m.group(1) + SECRET, s, "query")
-        s = self._sub(_TOKEN_RE, SECRET, s, "token")
-        s = self._sub(_AUTH_RE, lambda m: m.group(1) + SECRET, s, "auth")
-        s = self._sub(_COOKIE_RE, lambda m: m.group(1) + SECRET, s, "cookie")
-        s = self._sub(_ASSIGN_RE, self._assign_repl, s, "assign")
-        s = self._sub(_FLAG_RE, self._assign_repl, s, "flag")
-        s = _GENERIC_RE.sub(lambda m: self._generic_repl(m, s), s)
-        if self.redact_emails:
+        if "://" in s:
+            if "@" in s:
+                s = self._sub(_URL_CRED_RE, lambda m: f"{m.group(1)}{SECRET}@", s, "url_cred")
+            if "hooks.slack.com" in low or "discord" in low:
+                s = self._sub(_WEBHOOK_RE, lambda m: (m.group(1) or m.group(2)) + SECRET, s, "webhook")
+        if "=" in s and ("?" in s or "&" in s):
+            s = self._sub(_QUERY_RE, lambda m: m.group(1) + SECRET, s, "query")
+        if len(s) >= 16 and _TOKEN_HINT_RE.search(s):
+            s = self._sub(_TOKEN_RE, SECRET, s, "token")
+        if "authorization" in low or "bearer" in low:
+            s = self._sub(_AUTH_RE, lambda m: m.group(1) + SECRET, s, "auth")
+        if "cookie" in low:
+            s = self._sub(_COOKIE_RE, lambda m: m.group(1) + SECRET, s, "cookie")
+        if "=" in s or ":" in s:
+            s = self._sub(_ASSIGN_RE, self._assign_repl, s, "assign")
+        if "-" in s:
+            s = self._sub(_FLAG_RE, self._assign_repl, s, "flag")
+        if len(s) >= 32:
+            s = _GENERIC_RE.sub(lambda m: self._generic_repl(m, s), s)
+        if self.redact_emails and "@" in s:
             s = self._sub(_EMAIL_RE, self._email_repl, s, "email")
         for h in self._homes:
             if h in s:
                 self.counts["home"] += s.count(h)
                 s = s.replace(h, "~")
-        for rx in _HOME_RES:
-            s = self._sub(rx, "~", s, "home")
+        low = s.lower()
+        if "users" in low or "/home/" in low:
+            for rx in _HOME_RES:
+                s = self._sub(rx, "~", s, "home")
         if self._user_re is not None:
             s = self._sub(self._user_re, "‹user›", s, "user")
-        if self.redact_ips:
+        if self.redact_ips and "." in s:
             s = self._sub(_IPV4_RE, self._ip_repl, s, "ip")
         return s
 
@@ -252,6 +272,12 @@ class Redactor:
         digits = sum(ch.isdigit() for ch in core)
         if digits < 3 or not any(ch.isupper() for ch in core) or not any(ch.islower() for ch in core):
             return tok
+        segs = [s for s in re.split(r"[_\-]", core) if s]
+        if len(segs) >= 3 and sum(map(len, segs)) / len(segs) <= 8:
+            return tok                                   # Word_Like-Identifiers_V2, file names
+        nxt = whole[m.end():m.end() + 6]
+        if re.match(r"\.[A-Za-z0-9]{1,5}\b", nxt) and whole[max(0, m.start() - 1):m.start()] in ("/", "\\"):
+            return tok                                   # a path component with an extension
         if _entropy(core) < 4.0:
             return tok
         self.counts["entropy"] += 1
