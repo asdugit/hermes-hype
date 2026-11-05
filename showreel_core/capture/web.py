@@ -255,7 +255,8 @@ class _WebJob:
 
     # ------------------------------------------------------------------ desktop
     async def desktop(self, policy: NetPolicy) -> CapturePage | None:
-        (w, h), dpr = self.plan.desktop[0], self.plan.desktop_dpr
+        """Load the page at the first desktop size (or the layout size when no desktop shots are wanted)."""
+        (w, h), dpr = (self.plan.desktop or (self.plan.layout,))[0], self.plan.desktop_dpr
         t0 = time.monotonic()
         page = await self.open_page(policy, self.r.url, w=w, h=h, dpr=dpr)
         state = await page.eval(pagejs.PAGE_STATE_JS) or {}
@@ -265,8 +266,9 @@ class _WebJob:
         self.r.meta.update(await page.eval(pagejs.META_JS) or {})
         self.title = str(self.r.meta.get("title") or self.t.title or "")
         data = await page.shot()
-        self.save(f"desktop_{w}x{h}.png", data, kind="viewport", viewport=(w, h), dpr=dpr,
-                  label=f"desktop {w}x{h}", ms=_ms(t0))
+        if self.plan.desktop:
+            self.save(f"desktop_{w}x{h}.png", data, kind="viewport", viewport=(w, h), dpr=dpr,
+                      label=f"desktop {w}x{h}", ms=_ms(t0))
         _mean, sd = luminance_stats(Image.open(io.BytesIO(data)))
         if sd < 2.0 and not state.get("media") and int(state.get("text_chars") or 0) < 3:
             self.r.quality = "blank" if self.r.quality == "ok" else self.r.quality

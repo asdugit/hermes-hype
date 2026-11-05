@@ -10,6 +10,7 @@ from conftest import FixtureServer
 from PIL import Image
 
 from showreel_core.capture import capture_product_report
+from showreel_core.capture.web import WebPlan
 from showreel_core.contracts import Event, Product
 
 pytestmark = [pytest.mark.slow, pytest.mark.usefixtures("has_browser", "render_slot")]
@@ -146,3 +147,11 @@ def test_cancel_stops_quickly(tmp_path, site_server):
     rep = capture_product_report(Product(urls=[site_server.url]), [], tmp_path / "cap", budget_s=60,
                                  progress=progress, cancel=cancel)
     assert time.monotonic() - t0 < 20 and rep.cancelled and rep.error is None
+
+
+def test_crops_only_plan_for_on_demand_director_requests(tmp_path, site_server):
+    plan = WebPlan(desktop=(), mobile=None, full_page=False, interactions=[], auto_features=0)
+    rep = capture_product_report(Product(urls=[site_server.url]), [], tmp_path / "cap", budget_s=40, web_plan=plan,
+                                 features=["Instant search", {"selector": "#pricing .plan.pro", "label": "Pro plan"}])
+    assert [(e.data["kind"], e.data["label"]) for e in rep.events] == [("element", "Instant search"),
+                                                                        ("element", "Pro plan")]
