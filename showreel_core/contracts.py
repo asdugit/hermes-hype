@@ -22,9 +22,25 @@ EventKind = Literal[
     "product_capture",   # captured by Showreel itself from the running product: {path, url, viewport:[w,h], full_page: bool, page_title}
 ]
 
-# What the film is about. "product" (default) = launch trailer for what was built,
-# the session supplies proof; "making_of" = the build story is the hero.
-FilmMode = Literal["product", "making_of"]
+# What the film is about (user-facing command words in parentheses):
+#   "product"   (/showreel)          launch trailer for what was built; the session supplies proof. DEFAULT.
+#   "making_of" (/showreel lore)     the build story is the hero (aliases: bts, process, making-of).
+#   "speedrun"  (/showreel speedrun) the build story as a speedrun: live split timer, milestone splits, time-lapse pacing.
+FilmMode = Literal["product", "making_of", "speedrun"]
+MODE_ALIASES: dict[str, str] = {
+    "trailer": "product", "product": "product", "launch": "product",
+    "lore": "making_of", "bts": "making_of", "process": "making_of", "making-of": "making_of", "makingof": "making_of",
+    "speedrun": "speedrun", "any%": "speedrun",
+}
+
+
+@dataclass
+class Split:
+    """A speedrun split (mode "speedrun"): a milestone and when it happened."""
+    label: str            # "First file", "Tests green", "Shipped" ... (<= 18 chars)
+    event_id: str
+    session_t: float      # seconds since session start (real time, shown on the timer)
+    film_t: float = 0.0   # when it appears in the film (set by the timing solver)
 
 
 @dataclass
@@ -209,6 +225,8 @@ class Timeline:
     cues: list[Cue] = field(default_factory=list)
     title: str = ""
     accent: str = ""
+    mode: FilmMode = "product"
+    splits: list[Split] = field(default_factory=list)   # speedrun overlay; empty otherwise
 
     def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
