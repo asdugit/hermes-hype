@@ -186,8 +186,8 @@ defineCine('kit:cinematic/CODE', 'Code card at 3/4 with the focus range lit by t
       items: [{ card: c, pos: [0, 0, 0], rot: [0, -14, 0], rim: 2.2, halo: 0.08 }, ...ghosts(seed, 8, { dim: 0.4 }), ...nearGhosts(seed)],
       register: true,
       cam: (t) => rig([[0, { pos: [0.5, 0.15, D * 1.1], look: [0, 0.1, 0], fov: 30 }], [dur * 0.35, { pos: [0.45, 0.12, D * 1.05], look: [0, 0.05, 0], fov: 30 }],
-        [dur, { pos: [0.25, yW * 0.8, D / 1.4], look: [0, yW, 0], fov: 30 }]], t),
-      focus: (t) => lerp(D * 1.1, D / 1.4, inOut((t - dur * 0.35) / (dur * 0.65))) + (t < 0.6 ? 0.25 * (1 - t / 0.6) : 0),
+        [dur, { pos: [0.25, yW * 0.6, D / 1.25], look: [0, yW * 0.75, 0], fov: 30 }]], t),
+      focus: (t) => lerp(D * 1.1, D / 1.25, inOut((t - dur * 0.35) / (dur * 0.65))) + (t < 0.6 ? 0.25 * (1 - t / 0.6) : 0),
       overlayKey: until(1.5),
     };
   });

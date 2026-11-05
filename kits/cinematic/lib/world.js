@@ -169,7 +169,7 @@ export function makeCine(ctx, o) {
   const THREE = ctx.THREE, { renderer, scene, camera } = ctx.three;
   const W = ctx.w, H = ctx.h, portrait = H > W;
   const low = o.quality === 'low' || (o.quality !== 'high' && softwareGL(renderer));
-  const scale = low ? 0.5 : 1;
+  const scale = low ? 0.67 : 1;   // text cards need more plate resolution than the meadow
   const barH = (o.letterbox ?? !portrait) ? Math.max(0, Math.round((H - W / 2.39) / 2)) : 0;
   const R = mulberry32(o.seed || 1);
   ctx.three.manual = true;
