@@ -21,7 +21,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
-from ..contracts import Event
+from ..contracts import Event, EventKind
 from . import diffparse
 from .stats import parse_test_summary
 from .textutil import (IMAGE_EXTS, basename, clip, first_comment_or_line, is_local_path, lang_for, norm_path,
@@ -79,7 +79,7 @@ class _Ctx:
     known: dict[str, list[str] | None] = field(default_factory=dict)  # path key -> last known lines
     last_url: str = ""
 
-    def add(self, kind: str, tool: str, title: str, summary: str, data: dict[str, Any],
+    def add(self, kind: EventKind, tool: str, title: str, summary: str, data: dict[str, Any],
             ok: bool = True, ts: float | None = None) -> Event:
         ev = Event(id=f"e{len(self.events)}", t=round(max(0.0, (ts or self.t0) - self.t0), 2), kind=kind,
                    tool=tool, title=clip(title, 80), summary=clip(summary, 160), data=data, ok=bool(ok))

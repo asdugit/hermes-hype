@@ -48,7 +48,7 @@ def clean_text(text: str) -> str:
 
 
 def _is_binary_line(line: str) -> bool:
-    if not line:
+    if not line or ("\ufffd" not in line and line.isascii()):
         return False
     bad = sum(1 for ch in line if ch == "\ufffd" or (0xD800 <= ord(ch) <= 0xDFFF))
     return bad / len(line) > 0.3
