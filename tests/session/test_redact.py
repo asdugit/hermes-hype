@@ -96,6 +96,8 @@ def test_ips_opt_in():
     "TOKEN_FILE=/etc/app/token",
     "sort_key = 'name_and_date'",
     "the_very_long_snake_case_identifier_for_testing_purposes_v2",
+    "WhatIfCubed_Ep2_SomethingElse_FinalCut4K_Master",
+    "AbstractSingletonProxyFactoryBean2024Impl",
     "integrity sha512-Q7xLm2pR9vT4kW8zN1bY6cJ3hF5dS0gA7eUuQ7xLm2pR9vT4kW8zN1bY6cJ3hF5dS0gA7eUu==",
     "color: #ff00aa; margin: 12px",
     "API_KEY=your-api-key-here",

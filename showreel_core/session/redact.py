@@ -275,6 +275,9 @@ class Redactor:
         segs = [s for s in re.split(r"[_\-]", core) if s]
         if len(segs) >= 3 and sum(map(len, segs)) / len(segs) <= 8:
             return tok                                   # Word_Like-Identifiers_V2, file names
+        words = re.findall(r"[A-Z]?[a-z]+|[A-Z]+(?![a-z])|\d+", core)
+        if words and sum(map(len, words)) / len(words) >= 3.2:
+            return tok                                   # CamelCaseWords_Ep2_LongName: real words, not noise
         nxt = whole[m.end():m.end() + 6]
         if re.match(r"\.[A-Za-z0-9]{1,5}\b", nxt) and whole[max(0, m.start() - 1):m.start()] in ("/", "\\"):
             return tok                                   # a path component with an extension
