@@ -8,7 +8,8 @@ import { seg, ease, clamp } from '../base/motion.js';
 import { kineticLine, kineticLetters, riseIn, ctaPill } from '../base/type.js';
 import { sr } from '../base/kit.js';
 
-const THEME = { theme: { type: 'string', default: 'base', doc: 'theme tokens (style name)' } };
+const THEME = { theme: { type: 'string', default: 'base', doc: 'theme tokens (style name)' },
+  accent: { type: 'string', default: '', doc: 'project accent #RRGGBB' } };
 
 /** Overlay frame: transparent (no stage background), type layer only. */
 function overlay(F) {
@@ -24,9 +25,10 @@ function scrimLayer(F, amount, shape = 'center') {
   if (!(amount > 0)) return { update() {} };
   const el = h('div', 'srb-abs');
   const a = amount.toFixed(2), b = (amount * 0.45).toFixed(2);
-  const g = shape === 'left' ? `linear-gradient(90deg, rgba(8,9,10,${a}) 0%, rgba(8,9,10,${a}) 40%, rgba(8,9,10,0) 78%)`
-    : shape === 'bottom' ? `linear-gradient(180deg, rgba(8,9,10,0) 40%, rgba(8,9,10,${a}) 78%)`
-    : `radial-gradient(${F.portrait ? '90% 42%' : '62% 56%'} at 50% 50%, rgba(8,9,10,${a}), rgba(8,9,10,${b}))`;
+  const c = (x) => `rgb(var(--sr-scrim-rgb) / ${x})`;
+  const g = shape === 'left' ? `linear-gradient(90deg, ${c(a)} 0%, ${c(a)} 40%, ${c(0)} 78%)`
+    : shape === 'bottom' ? `linear-gradient(180deg, ${c(0)} 40%, ${c(a)} 78%)`
+    : `radial-gradient(${F.portrait ? '90% 42%' : '62% 56%'} at 50% 50%, ${c(a)}, ${c(b)})`;
   el.style.cssText = `left:0;top:0;width:${F.W}px;height:${F.H}px;background:${g};`;
   F.el.insertBefore(el, F.cam);
   return { update(t, o) { css(el, { opacity: (seg(t, -0.05, 0.4, ease.outCubic) * (1 - seg(t, o, o + 0.3))).toFixed(3) }); } };
@@ -53,7 +55,7 @@ defineDomScene('kit:type/title', {
     const sc = scrimLayer(F, p.scrim, left ? 'left' : 'center');
     const box = centerBox(F, 0);
     if (left) { box.style.alignItems = 'flex-start'; box.style.textAlign = 'left'; box.style.paddingLeft = `${F.safe.l}px`; }
-    const maxW = L ? 860 : left ? 1100 : 1500;
+    const maxW = L ? 840 : left ? 1100 : 1500;
     const fs = p.size || fitSize(p.text, maxW, 2, L ? 120 : 150, 64, 0.5);
     const eb = p.eyebrow ? h('div', 'srb-eyebrow', null, [h('i'), String(p.eyebrow)]) : null;
     if (eb) eb.style.fontSize = '26px';
@@ -104,7 +106,7 @@ defineDomScene('kit:type/lower-third', {
     const bottom = L ? F.safe.b + 30 : F.safe.b + 40;
     box.style.cssText = `left:${F.safe.l}px;bottom:${bottom}px;`;
     const shade = h('div', 'srb-abs');
-    shade.style.cssText = `left:0;right:0;bottom:0;height:${bottom + 300}px;background:linear-gradient(180deg,rgba(8,9,10,0),rgba(8,9,10,.82) 62%);`;
+    shade.style.cssText = `left:0;right:0;bottom:0;height:${bottom + 300}px;background:linear-gradient(180deg,rgb(var(--sr-scrim-rgb) / 0),rgb(var(--sr-scrim-rgb) / .82) 62%);`;
     F.ov.append(shade, box);
     const o = outAt(dur);
     return {
@@ -172,15 +174,15 @@ defineDomScene('kit:type/end-lockup', {
     overlay(F);
     const L = F.portrait;
     const scrim = h('div', 'srb-abs');
-    scrim.style.cssText = `inset:0;background:radial-gradient(70% 60% at 50% 48%, rgba(8,9,10,${p.scrim}), rgba(8,9,10,${Math.min(1, p.scrim + 0.25)}));`;
+    scrim.style.cssText = `inset:0;background:radial-gradient(70% 60% at 50% 48%, rgb(var(--sr-scrim-rgb) / ${p.scrim}), rgb(var(--sr-scrim-rgb) / ${Math.min(1, p.scrim + 0.25)}));`;
     F.el.insertBefore(scrim, F.cam);
     const col = centerBox(F, L ? -60 : -30);
-    const ts = Math.round(clamp((L ? 860 : 1400) / (Math.max(3, String(p.title).length) * 0.56), 90, L ? 190 : 200));
+    const ts = Math.round(clamp((L ? 840 : 1400) / (Math.max(3, String(p.title).length) * 0.56), 90, L ? 190 : 200));
     const tl = kineticLetters(String(p.title || ''), { className: 'srb-display' });
     tl.el.style.cssText = `font-size:${ts}px;white-space:nowrap;`;
     col.appendChild(tl.el);
     const tg = p.tagline ? kineticLine(String(p.tagline), { className: 'srb-h1 srb-soft', emphasis: -1 }) : null;
-    if (tg) { tg.el.style.cssText = `font-size:${fitSize(p.tagline, L ? 860 : 1300, 2, 60, 44, 0.5)}px;margin-top:${Math.round(ts * 0.2)}px;`; col.appendChild(tg.el); }
+    if (tg) { tg.el.style.cssText = `font-size:${fitSize(p.tagline, L ? 840 : 1300, 2, 60, 44, 0.5)}px;margin-top:${Math.round(ts * 0.2)}px;`; col.appendChild(tg.el); }
     const pill = p.cta ? ctaPill(String(p.cta), { size: clamp(Math.floor(((L ? 840 : 1400) - 120) / (String(p.cta).length + 3) / 0.6), 22, 34) }) : null;
     if (pill) { pill.el.style.marginTop = `${Math.round(ts * 0.38)}px`; col.appendChild(pill.el); }
     const url = p.url ? h('div', 'srb-urltext', { text: String(p.url).replace(/^https?:\/\//, '') }) : null;
@@ -225,8 +227,8 @@ defineDomScene('kit:type/kinetic', {
     if (p.align === 'left' && !L) { box.style.alignItems = 'flex-start'; box.style.paddingLeft = `${F.safe.l}px`; box.style.textAlign = 'left'; }
     const items = lines.map((s, i) => {
       const k = kineticLine(s, { className: 'srb-h1', emphasis: p.emphasis });
-      const fs = fitSize(s, L ? 860 : 1500, 2, L ? 110 : 132, 64, 0.5);
-      k.el.style.cssText = `position:absolute;font-size:${fs}px;max-width:${L ? 860 : 1500}px;letter-spacing:-0.04em;text-shadow:0 6px 40px rgba(0,0,0,.45);`;
+      const fs = fitSize(s, L ? 840 : 1500, 2, L ? 110 : 132, 64, 0.5);
+      k.el.style.cssText = `position:absolute;font-size:${fs}px;max-width:${L ? 840 : 1500}px;letter-spacing:-0.04em;text-shadow:0 6px 40px rgba(0,0,0,.45);`;
       box.appendChild(k.el);
       return { k, t0: i * per, t1: (i + 1) * per };
     });

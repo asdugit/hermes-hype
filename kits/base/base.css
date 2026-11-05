@@ -33,6 +33,7 @@
   --sr-fail: #E8776B;
   --sr-plate: rgba(11,12,15,.88);
   --sr-plate-ink: var(--sr-fg);
+  --sr-scrim-rgb: 8 9 10;            /* stage colour as an RGB triplet: legibility scrims behind type */
   /* type */
   --sr-f-sans: "Geist", sans-serif;
   --sr-f-mono: "Geist Mono", monospace;

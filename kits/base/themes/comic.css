@@ -1,0 +1,28 @@
+/* Starter theme "comic" (CSS only): cream newsprint with halftone dots, thick black ink outlines with hard
+   offset shadows, heavy uppercase display, one red accent. */
+.sr-theme-comic {
+  --sr-stage: #F6E7C1;
+  --sr-stage-bg: radial-gradient(120% 95% at 50% 40%, #FBF0D3 0%, #F6E7C1 60%, #EBD6A4 100%);
+  --sr-grid: rgba(220,60,40,.20);
+  --sr-grid-size: 22px;
+  --sr-fg: #141210; --sr-fg-2: #4A4038; --sr-fg-3: #7A6C5E;
+  --sr-accent: #E8322A; --sr-accent-ink: #FFFFFF; --sr-accent-hl: #FFE14D; --sr-accent-glow: rgba(232,50,42,0);
+  --sr-paper: #FFFDF6; --sr-paper-2: #FFF3C4; --sr-rule: #141210;
+  --sr-ink: #141210; --sr-ink-2: #3A322B; --sr-ink-3: #7A6C5E; --sr-tone: #1F5FBF;
+  --sr-term: #141210; --sr-term-2: #26211C; --sr-term-rule: rgba(255,255,255,.2); --sr-term-ink: #FFFDF6; --sr-term-dim: #B9AC9A;
+  --sr-del-hl: #E9E2D2; --sr-fail: #E8322A;
+  --sr-plate: rgba(255,253,246,.96); --sr-plate-ink: #141210;
+  --sr-scrim-rgb: 246 231 193;
+  --sr-f-display: "Geist", sans-serif; --sr-w-display: 900; --sr-track-display: -0.03em; --sr-lead-display: .92; --sr-case-display: uppercase;
+  --sr-w-h1: 800; --sr-track-h1: -0.02em;
+  --sr-f-em: "Geist", sans-serif; --sr-em-style: italic; --sr-em-weight: 900; --sr-em-scale: 1.05; --sr-em-track: -0.02em;
+  --sr-r-panel: 6px; --sr-r-card: 6px; --sr-r-pill: 999px;
+  --sr-panel-edge: 0 0 0 5px #141210;
+  --sr-panel-shadow: 14px 14px 0 0 #141210;
+  --sr-term-edge: 0 0 0 5px #141210;
+  --sr-sheen: none;
+  --sr-vignette: radial-gradient(ellipse 85% 80% at 50% 46%, transparent 70%, rgba(120,80,30,.18) 100%);
+}
+.sr-theme-comic .srb-em { -webkit-text-stroke: 0; text-shadow: 4px 4px 0 #141210; }
+.sr-theme-comic .srb-display { text-shadow: 6px 6px 0 var(--sr-accent); }
+.sr-theme-comic .srb-pill { box-shadow: 0 0 0 4px #141210, 8px 8px 0 #141210; }

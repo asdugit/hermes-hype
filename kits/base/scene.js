@@ -45,7 +45,8 @@ export function defineDomScene(id, def) {
     render(ctx, t, p) { ensure(ctx, p).render(t); },
     cues(ctx, p) {
       const dur = Number(ctx.dur) || 1e9;
-      return (ensure(ctx, p).cues || []).filter((c) => c && c.t >= 0 && c.t < dur - 0.02)
+      const mute = new Set(Array.isArray(p && p._mute) ? p._mute : []);
+      return (ensure(ctx, p).cues || []).filter((c) => c && c.t >= 0 && c.t < dur - 0.02 && !mute.has(c.sfx))
         .map((c) => ({ t: Math.round(c.t * 1000) / 1000, sfx: c.sfx, gain_db: c.gain_db ?? 0 }));
     },
   });

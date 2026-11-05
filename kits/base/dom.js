@@ -110,16 +110,38 @@ export function frame(ctx, p, kind, baseCss) {
   const portrait = W < H * 0.9;
   const square = !portrait && W < H * 1.2;
   const el = h('div', `srb srb-${kind} sr-theme-${theme}${portrait ? ' srb-portrait' : ' srb-landscape'}`);
-  el.style.cssText = `width:${W}px;height:${H}px;transform:scale(${k});transform-origin:0 0;`;
+  el.style.cssText = `width:${W}px;height:${H}px;transform:scale(${k});transform-origin:0 0;` + accentVars(p && p.accent);
   const bg = h('div', 'srb-bg');
   const cam = h('div', 'srb-cam');
   const ov = h('div', 'srb-ov');
   el.append(bg, cam, ov);
   ctx.root.appendChild(el);
   // Safe area in reference px: render-tech C2 (16:9) and the 9:16 centre band (Shorts/TikTok UI).
-  const safe = portrait ? { l: 110, r: 110, t: 220, b: 420 } : { l: 120, r: 120, t: 90, b: 96 };
+  const safe = portrait ? { l: 120, r: 120, t: 220, b: 420 } : { l: 120, r: 120, t: 90, b: 120 };
+  const fs = ctx.film && ctx.film.safe;
+  if (fs && typeof fs === 'object') {
+    for (const side of ['l', 'r', 't', 'b']) if (Number.isFinite(Number(fs[side]))) safe[side] = Math.max(safe[side], Math.round(Number(fs[side]) / k));
+  }
   const caps = !!(p && p._captions);
   return { el, bg, cam, ov, W, H, k, portrait, square, safe, theme, caps };
+}
+
+/**
+ * Inline custom properties for a per-project accent (#RGB/#RRGGBB): --sr-accent plus derived ink (text on
+ * the accent), highlighter tint and glow. Empty string when the value is not a hex colour.
+ */
+export function accentVars(hex) {
+  const m = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(String(hex || '').trim());
+  if (!m) return '';
+  let s = m[1];
+  if (s.length === 3) s = s.split('').map((c) => c + c).join('');
+  const r = parseInt(s.slice(0, 2), 16), g = parseInt(s.slice(2, 4), 16), b = parseInt(s.slice(4, 6), 16);
+  const lin = (c) => { c /= 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
+  const L = 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+  const mix = (c, w) => Math.round(c + (255 - c) * w);
+  const ink = L > 0.36 ? '#11130F' : '#FFFFFF';
+  return `--sr-accent:#${s};--sr-accent-ink:${ink};--sr-accent-hl:rgb(${mix(r, 0.62)},${mix(g, 0.62)},${mix(b, 0.62)});` +
+    `--sr-accent-glow:rgba(${r},${g},${b},.34);`;
 }
 
 /** Split text into masked word spans: returns [{outer, inner, word, i}] (inner gets the motion). */

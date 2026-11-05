@@ -10,6 +10,9 @@ import { chatBlock, planBlock } from './cards.js';
 export const COMMON = {
   theme: { type: 'string', default: 'base', doc: 'theme registered by a style kit (CSS tokens on .sr-theme-<name>)' },
   label: { type: 'string', default: '', doc: 'storyboard label (<= 6 words); some scenes show it as a headline' },
+  accent: { type: 'string', default: '', doc: 'project accent #RRGGBB (overrides --sr-accent and its derived tokens)' },
+  _mute: { type: 'array', default: [], doc: 'sfx roles this shot must not emit (the timeline already places them)' },
+  _sync: { type: 'object', default: null, doc: 'beat-aligned moments from the timeline cues (shot-local s): {click, pass}' },
   _captions: { type: 'bool', default: false, doc: 'captions are up in this shot: content lifts clear of the caption band' },
 };
 
@@ -163,7 +166,8 @@ defineDomScene('kit:base/TERMINAL', {
     const typeAt = [0.25, 0.25 + clamp(cmdLen * 0.032, 0.35, 1.1)];
     const nOut = (p.output || []).length;
     const streamAt = [typeAt[1] + 0.2, typeAt[1] + 0.2 + clamp(nOut * 0.12, 0.2, 1.6)];
-    const badgeAt = Math.min(streamAt[1] + 0.2, Math.max(streamAt[1], dur - 1.1));
+    const syncPass = Number(p._sync && p._sync.pass);
+    const badgeAt = Number.isFinite(syncPass) && syncPass >= streamAt[1] && syncPass < dur - 0.5 ? syncPass : Math.min(streamAt[1] + 0.2, Math.max(streamAt[1], dur - 1.1));
     const b = termBlock(p, { width, fontSize: fsT, typeAt, streamAt, badgeAt, wrap: F.portrait, maxRows: F.portrait ? 18 : 14 });
     F.cam.appendChild(b.el);
     const x = (F.W - width) / 2, y = (F.H - b.h) / 2;

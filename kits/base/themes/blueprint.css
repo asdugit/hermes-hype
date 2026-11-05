@@ -1,0 +1,29 @@
+/* Starter theme "blueprint" (CSS only): white linework on blueprint blue, drafted panels (outlined
+   translucent sheets), mono annotations, one yellow pencil accent. */
+.sr-theme-blueprint {
+  --sr-stage: #0D3866;
+  --sr-stage-bg: linear-gradient(rgba(255,255,255,.07) 1.5px, transparent 1.5px) 0 0 / 120px 120px,
+    linear-gradient(90deg, rgba(255,255,255,.07) 1.5px, transparent 1.5px) 0 0 / 120px 120px,
+    radial-gradient(120% 95% at 50% 40%, #134A82 0%, #0D3866 55%, #0A2D53 100%);
+  --sr-grid: rgba(255,255,255,.10);
+  --sr-grid-size: 24px;
+  --sr-fg: #F4F8FF; --sr-fg-2: #A9C4E6; --sr-fg-3: #7FA0C8;
+  --sr-accent: #FFD34D; --sr-accent-ink: #1A1404; --sr-accent-hl: rgba(255,211,77,.20); --sr-accent-glow: rgba(255,211,77,.35);
+  --sr-paper: rgba(16,62,112,.92); --sr-paper-2: rgba(255,255,255,.06); --sr-rule: rgba(255,255,255,.35);
+  --sr-ink: #F4F8FF; --sr-ink-2: #C9DBF2; --sr-ink-3: #86A7CF; --sr-tone: #FFE08A;
+  --sr-term: #0A2A4E; --sr-term-2: rgba(255,255,255,.05); --sr-term-rule: rgba(255,255,255,.3); --sr-term-ink: #F4F8FF; --sr-term-dim: #8FB0D6;
+  --sr-del-hl: rgba(255,255,255,.08); --sr-fail: #FF8A7A;
+  --sr-plate: rgba(9,40,74,.92);
+  --sr-scrim-rgb: 9 40 74;
+  --sr-f-display: "Geist", sans-serif; --sr-w-display: 300; --sr-track-display: -0.04em; --sr-case-display: none;
+  --sr-w-h1: 300; --sr-track-h1: -0.02em;
+  --sr-f-em: "Geist Mono", monospace; --sr-em-style: normal; --sr-em-weight: 500; --sr-em-scale: .92; --sr-em-track: -0.02em;
+  --sr-label-track: .22em;
+  --sr-r-panel: 3px; --sr-r-card: 3px; --sr-r-pill: 3px;
+  --sr-panel-edge: 0 0 0 2px rgba(255,255,255,.8), 0 0 0 8px rgba(255,255,255,.05);
+  --sr-panel-shadow: 0 0 0 0 transparent;
+  --sr-term-edge: 0 0 0 2px rgba(255,255,255,.8);
+  --sr-sheen: none;
+  --sr-vignette: radial-gradient(ellipse 80% 75% at 50% 46%, transparent 60%, rgba(4,20,40,.5) 100%);
+}
+.sr-theme-blueprint .srb-panel, .sr-theme-blueprint .srb-term { outline: 1px dashed rgba(255,255,255,.35); outline-offset: 14px; }

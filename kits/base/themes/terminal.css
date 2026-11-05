@@ -1,0 +1,28 @@
+/* Starter theme "terminal" (CSS only, re-skins every kit:base scene): phosphor green on black, all mono,
+   square corners, no paper. A terminal style kit may register its own 'terminal' theme to replace this. */
+.sr-theme-terminal {
+  --sr-stage: #050806;
+  --sr-stage-bg: radial-gradient(110% 90% at 50% 45%, #0B140E 0%, #060A07 60%, #030504 100%);
+  --sr-grid: rgba(92,255,157,.07);
+  --sr-grid-size: 36px;
+  --sr-fg: #D8FFE6; --sr-fg-2: #7FBF95; --sr-fg-3: #4A7A5A;
+  --sr-accent: #5CFF9D; --sr-accent-ink: #021208; --sr-accent-hl: rgba(92,255,157,.22); --sr-accent-glow: rgba(92,255,157,.45);
+  --sr-paper: #08100B; --sr-paper-2: #0C1810; --sr-rule: rgba(92,255,157,.22);
+  --sr-ink: #D8FFE6; --sr-ink-2: #9FDDB4; --sr-ink-3: #4F8A63; --sr-tone: #F2E58C;
+  --sr-term: #040705; --sr-term-2: #0A130D; --sr-term-rule: rgba(92,255,157,.25); --sr-term-ink: #D8FFE6; --sr-term-dim: #5E9A72;
+  --sr-del-hl: rgba(255,90,90,.12); --sr-fail: #FF6B6B;
+  --sr-plate: rgba(2,6,3,.9);
+  --sr-scrim-rgb: 2 6 3;
+  --sr-f-sans: "Geist Mono", monospace; --sr-f-display: "Geist Mono", monospace; --sr-f-em: "Geist Mono", monospace;
+  --sr-w-display: 700; --sr-track-display: -0.04em; --sr-lead-display: .95; --sr-case-display: uppercase;
+  --sr-w-h1: 600; --sr-track-h1: -0.03em;
+  --sr-em-style: normal; --sr-em-weight: 700; --sr-em-scale: 1; --sr-em-track: -0.03em;
+  --sr-r-panel: 2px; --sr-r-card: 2px; --sr-r-pill: 2px;
+  --sr-panel-edge: 0 0 0 1.5px rgba(92,255,157,.45);
+  --sr-panel-shadow: 0 0 60px rgba(92,255,157,.10), 0 30px 60px -20px rgba(0,0,0,.8);
+  --sr-term-edge: 0 0 0 1.5px rgba(92,255,157,.45);
+  --sr-sheen: none;
+  --sr-vignette: radial-gradient(ellipse 78% 72% at 50% 46%, transparent 50%, rgba(0,0,0,.7) 100%);
+}
+.sr-theme-terminal .srb-em { text-shadow: 0 0 18px var(--sr-accent-glow); }
+.sr-theme-terminal .srb-display, .sr-theme-terminal .srb-h1 { text-shadow: 0 0 22px rgba(92,255,157,.18); }

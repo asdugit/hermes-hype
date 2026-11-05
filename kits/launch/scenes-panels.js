@@ -83,7 +83,8 @@ launchScene('kit:launch/TERMINAL', {
     const typeAt = [0.25, 0.25 + clamp(String(p.cmd || '').length * 0.032, 0.35, 1.1)];
     const nOut = (p.output || []).length;
     const streamAt = [typeAt[1] + 0.2, typeAt[1] + 0.2 + clamp(nOut * 0.12, 0.2, 1.6)];
-    const badgeAt = Math.min(streamAt[1] + 0.2, Math.max(streamAt[1], dur - 1.1));
+    const syncPass = Number(p._sync && p._sync.pass);
+    const badgeAt = Number.isFinite(syncPass) && syncPass >= streamAt[1] && syncPass < dur - 0.5 ? syncPass : Math.min(streamAt[1] + 0.2, Math.max(streamAt[1], dur - 1.1));
     const b = termBlock(p, { width, fontSize: fs, typeAt, streamAt, badgeAt, wrap: L, maxRows: L ? 18 : 14 });
     const n = W.node(b.el, { x: 0, y: 0, z: 50, w: b.w, h: b.h, tilt: 40 });
     W.light(0, -b.h * 0.4, b.w * 1.2, b.h * 1.5);

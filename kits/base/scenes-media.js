@@ -62,7 +62,7 @@ defineDomScene('kit:base/HOOK', {
     if (label) {
       line = kineticLine(label, { className: 'srb-h1', emphasis: 'auto' });
       const fs = L ? 92 : 96;
-      line.el.style.cssText = `position:absolute;font-size:${fs}px;width:${L ? 860 : 560}px;` +
+      line.el.style.cssText = `position:absolute;font-size:${fs}px;width:${L ? 840 : 560}px;` +
         (L ? `left:${F.safe.l}px;top:${300}px;` : `left:${F.safe.l}px;top:${F.H / 2 - fs * 1.2}px;`);
       F.ov.appendChild(line.el);
     }
@@ -148,7 +148,8 @@ defineDomScene('kit:base/FEATURE', {
     const bbox = p.bbox || [0.1, 0.1, 0.8, 0.8];
     const click = p.click || [bbox[0] + bbox[2] / 2, bbox[1] + bbox[3] / 2];
     const tPush = clamp(dur * 0.2, 0.9, 1.3);
-    const press = clamp(dur * 0.45, tPush + 1.2, Math.max(tPush + 1.2, dur - 1.4));
+    const sync = Number(p._sync && p._sync.click);
+    const press = Number.isFinite(sync) && sync > tPush + 0.8 && sync < dur - 0.6 ? sync : clamp(dur * 0.45, tPush + 1.2, Math.max(tPush + 1.2, dur - 1.4));
     const arrive = press - 0.62;
     const name = String(p.feature || p.label || '').trim();
     // media region: right of the label column (landscape) / above the label band (portrait)
@@ -169,7 +170,7 @@ defineDomScene('kit:base/FEATURE', {
       eyebrow = h('div', 'srb-eyebrow', null, [h('i'), 'Feature']);
       line = kineticLine(name, { className: 'srb-h1', emphasis: 'auto' });
       const fs = L ? 84 : fitSize(name, 600, 3, 92, 64, 0.5);
-      line.el.style.cssText = `font-size:${fs}px;margin-top:26px;max-width:${L ? 860 : 620}px;`;
+      line.el.style.cssText = `font-size:${fs}px;margin-top:26px;max-width:${L ? 840 : 620}px;`;
       box.append(eyebrow, line.el);
       box.style.cssText = L ? `left:${F.safe.l}px;top:${F.H - F.safe.b - 300}px;`
         : `left:${F.safe.l}px;top:0;height:${F.H}px;display:flex;flex-direction:column;justify-content:center;`;

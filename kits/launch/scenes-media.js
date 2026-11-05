@@ -22,8 +22,8 @@ function headline(F, text, o = {}) {
   const box = h('div', 'srb-abs');
   const eyebrow = o.eyebrow ? h('div', 'srb-eyebrow', null, [h('i'), o.eyebrow]) : null;
   const line = kineticLine(text, { className: 'srb-h1', emphasis: o.emphasis ?? 'auto' });
-  const fs = L ? fitSize(text, 860, 3, 92, 66, 0.5) : fitSize(text, o.colW || 620, 4, 96, 66, 0.5);
-  line.el.style.cssText = `font-size:${fs}px;margin-top:${eyebrow ? 26 : 0}px;max-width:${L ? 860 : o.colW || 620}px;`;
+  const fs = L ? fitSize(text, 840, 3, 92, 66, 0.5) : fitSize(text, o.colW || 620, 4, 96, 66, 0.5);
+  line.el.style.cssText = `font-size:${fs}px;margin-top:${eyebrow ? 26 : 0}px;max-width:${L ? 840 : o.colW || 620}px;`;
   if (eyebrow) box.appendChild(eyebrow);
   box.appendChild(line.el);
   if (o.scrim !== false) {
@@ -127,7 +127,8 @@ launchScene('kit:launch/FEATURE', {
     const bbox = p.bbox || [0.1, 0.1, 0.8, 0.8];
     const click = p.click || [bbox[0] + bbox[2] / 2, bbox[1] + bbox[3] / 2];
     const tPush = clamp(dur * 0.2, 0.9, 1.3);
-    const press = clamp(dur * 0.45, tPush + 1.2, Math.max(tPush + 1.2, dur - 1.4));
+    const sync = Number(p._sync && p._sync.click);
+    const press = Number.isFinite(sync) && sync > tPush + 0.8 && sync < dur - 0.6 ? sync : clamp(dur * 0.45, tPush + 1.2, Math.max(tPush + 1.2, dur - 1.4));
     const R = mediaRegion(F, !!name);
     const cam = pushTrack(W, F, n, b, b.rect(bbox), { tPush, dur, yaw0: 8, pitchWide: 26, pitchPush: 14, region: R, pushFillH: 0.8, keepLeft: false, maxPush: 2.4 });
     const ring = ringBlock();

@@ -5,10 +5,12 @@
   "describe": "Flagship launch-film style: paper UI on a lit graphite table, look-at camera, one lime accent.",
   "requires": ["base"],
   "theme": "launch",
+  "accent": "project",
   "scenes": ["HOOK", "TITLE", "PROBLEM", "PLAN", "CODE", "DIFF", "TERMINAL", "MONTAGE", "SCREEN", "STATS",
              "BEFORE_AFTER", "CALLOUT", "END", "FEATURE", "SCROLL"],
   "fonts": [],
   "finish": {"grain": 0.035, "vignette": 0.22},
-  "transitions": {"cut": null, "match": ["crossfade", 0.3], "push": ["push-left", 0.55], "wipe": ["wipe", 0.6]},
+  "transitions": {"cut": null, "match": ["crossfade", 0.3], "push": ["push-left", 0.5], "wipe": ["wipe", 0.6]},
+  "caption_style": {"font": "Geist", "size": 46, "weight": 600, "bg": "rgba(10,11,13,0.72)"},
   "background": "#0A0B0D"
 }

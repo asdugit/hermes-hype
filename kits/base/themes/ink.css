@@ -1,0 +1,26 @@
+/* Starter theme "ink" (CSS only): sumi ink on warm rice paper, serif italic emphasis, soft paper panels,
+   a vermilion seal accent. Calm, editorial. */
+.sr-theme-ink {
+  --sr-stage: #EFE9DC;
+  --sr-stage-bg: radial-gradient(120% 95% at 45% 40%, #F7F2E7 0%, #EFE9DC 55%, #E2D9C6 100%);
+  --sr-grid: rgba(26,24,20,0);
+  --sr-fg: #1B1915; --sr-fg-2: #5A5348; --sr-fg-3: #8E8576;
+  --sr-accent: #C8402A; --sr-accent-ink: #FFF8EE; --sr-accent-hl: rgba(200,64,42,.14); --sr-accent-glow: rgba(200,64,42,0);
+  --sr-paper: #FBF8F1; --sr-paper-2: #F3EEE3; --sr-rule: #DDD4C2;
+  --sr-ink: #1B1915; --sr-ink-2: #4E473D; --sr-ink-3: #968C7C; --sr-tone: #6B5A3A;
+  --sr-term: #22201C; --sr-term-2: #2B2823; --sr-term-rule: rgba(255,248,238,.12); --sr-term-ink: #F4EEE2; --sr-term-dim: #A39A8A;
+  --sr-del-hl: #EAE3D4; --sr-fail: #C8402A;
+  --sr-plate: rgba(251,248,241,.95); --sr-plate-ink: #1B1915;
+  --sr-scrim-rgb: 239 233 220;
+  --sr-f-display: "Instrument Serif", serif; --sr-w-display: 400; --sr-track-display: -0.02em; --sr-lead-display: .95;
+  --sr-w-h1: 400; --sr-track-h1: -0.02em;
+  --sr-em-style: italic; --sr-em-weight: 400; --sr-em-scale: 1.12;
+  --sr-r-panel: 6px; --sr-r-card: 6px;
+  --sr-panel-edge: 0 0 0 1px rgba(27,25,21,.12);
+  --sr-panel-shadow: 0 40px 70px -30px rgba(60,45,20,.35), 0 10px 24px -10px rgba(60,45,20,.25);
+  --sr-term-edge: 0 0 0 1px rgba(27,25,21,.4);
+  --sr-sheen: none;
+  --sr-vignette: radial-gradient(ellipse 85% 80% at 50% 46%, transparent 60%, rgba(90,70,40,.22) 100%);
+}
+.sr-theme-ink .srb-display { font-style: italic; }
+.sr-theme-ink .srb-rule { height: 3px; box-shadow: none; }

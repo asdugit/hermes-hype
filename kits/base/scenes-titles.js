@@ -29,12 +29,12 @@ export const TITLE_DEF = {
     const heroElsewhere = !!p._hero_elsewhere;
     const hasHero = heroElsewhere || !!(p.hero && (p.hero.asset || p.hero.kind));
     const centered = L || !hasHero;
-    const maxW = L ? 860 : hasHero ? 860 : 1500;
+    const maxW = L ? 840 : hasHero ? 860 : 1500;
     const ts = titleSize(title, maxW, L ? 200 : 220, L ? 90 : 110);
     const box = h('div', 'srb-abs');
     const eb = p.eyebrow ? h('div', 'srb-eyebrow', null, [h('i'), String(p.eyebrow)]) : null;
     const tl = kineticLetters(title, { className: 'srb-display' });
-    tl.el.style.cssText = `font-size:${ts}px;white-space:nowrap;margin-top:${eb ? 40 : 0}px;`;
+    tl.el.style.cssText = `font-size:${ts}px;white-space:nowrap;margin-top:${eb ? Math.round(36 + ts * 0.12) : 0}px;`;
     const tgs = fitSize(tagline, maxW, 2, L ? 64 : 72, 52, 0.5);
     const tg = tagline ? kineticLine(tagline, { className: 'srb-h1', emphasis: 'auto' }) : null;
     if (tg) tg.el.style.cssText = `font-size:${tgs}px;margin-top:${Math.round(ts * 0.26)}px;max-width:${maxW}px;`;
@@ -125,7 +125,7 @@ export const CALLOUT_DEF = {
   build(ctx, p, F) {
     const L = F.portrait;
     const text = String(p.text || '').trim();
-    const maxW = L ? 860 : 1380;
+    const maxW = L ? 840 : 1380;
     const fs = fitSize(text, maxW, L ? 6 : 3, L ? 92 : 104, 54, 0.42);
     const box = h('div', 'srb-abs');
     const qm = h('div', 'srb-quote srb-qm'); // glyph drawn by ::before: decorative, not QA text
@@ -168,7 +168,7 @@ export const END_DEF = {
   build(ctx, p, F) {
     const L = F.portrait;
     const title = String(p.title || '').trim();
-    const ts = titleSize(title, L ? 860 : 1400, L ? 190 : 200, 90);
+    const ts = titleSize(title, L ? 840 : 1400, L ? 190 : 200, 90);
     const col = centerBox(F, L ? -60 : -30);
     let pb = null;
     if (p.pb_display) {
@@ -186,7 +186,7 @@ export const END_DEF = {
     let tg = null;
     if (p.tagline) {
       tg = kineticLine(String(p.tagline), { className: 'srb-h1 srb-soft', emphasis: -1 });
-      tg.el.style.cssText = `font-size:${fitSize(p.tagline, L ? 860 : 1300, 2, 60, 44, 0.5)}px;margin-top:${Math.round(ts * 0.2)}px;max-width:${L ? 860 : 1300}px;`;
+      tg.el.style.cssText = `font-size:${fitSize(p.tagline, L ? 840 : 1300, 2, 60, 44, 0.5)}px;margin-top:${Math.round(ts * 0.2)}px;max-width:${L ? 840 : 1300}px;`;
       col.appendChild(tg.el);
     }
     let pill = null;
@@ -203,8 +203,14 @@ export const END_DEF = {
       col.appendChild(url);
     }
     const credit = h('div', 'srb-credit', { text: String(p.credit || '') });
-    credit.style.cssText = `position:absolute;left:0;right:0;text-align:center;bottom:${L ? F.safe.b - 40 : F.safe.b - 20}px;`;
-    F.ov.appendChild(credit);
+    if (F.caps) {
+      // captions own the bottom band: the credit joins the lockup column instead
+      credit.style.marginTop = '30px';
+      col.appendChild(credit);
+    } else {
+      credit.style.cssText = `position:absolute;left:0;right:0;text-align:center;bottom:${F.safe.b}px;`;
+      F.ov.appendChild(credit);
+    }
     const pillAt = 0.75;
     return {
       cues: [...(pill ? [{ t: pillAt + 0.05, sfx: 'appear', gain_db: -10 }] : []), ...(pb ? [{ t: 0.1, sfx: 'pass', gain_db: -6 }] : [])],
