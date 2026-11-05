@@ -71,7 +71,7 @@ def write_json_atomic(path: Path, data: Any, retries: int = 8) -> None:
     """Write JSON so readers see the old or the new file, never half of one."""
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(f".{path.name}.{os.getpid()}.{threading.get_ident()}.tmp")
-    tmp.write_text(json.dumps(data, ensure_ascii=False, indent=1, default=str), encoding="utf-8")
+    tmp.write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":"), default=str), encoding="utf-8")
     for attempt in range(retries):
         try:
             os.replace(tmp, path)
@@ -184,20 +184,19 @@ class JobStore:
 
     # -- queries --------------------------------------------------------------------
     def list(self, session_id: str | None = None, limit: int = 50) -> list[dict[str, Any]]:
-        """Jobs newest first (optionally only one session's)."""
+        """Jobs newest first by creation time (optionally only one session's)."""
         if not self.jobs_dir.is_dir():
             return []
-        out: list[dict[str, Any]] = []
-        for d in sorted(self.jobs_dir.iterdir(), key=lambda p: p.name, reverse=True):
+        found: list[dict[str, Any]] = []
+        for d in self.jobs_dir.iterdir():
             if not valid_id(d.name):
                 continue
             job = self.load(d.name)
             if job is None or (session_id and job.get("session_id") != session_id):
                 continue
-            out.append(job)
-            if len(out) >= limit:
-                break
-        return out
+            found.append(job)
+        found.sort(key=lambda j: (float(j.get("created") or 0), j.get("id", "")), reverse=True)
+        return found[:limit]
 
     def latest(self, session_id: str | None = None) -> dict[str, Any] | None:
         jobs = self.list(session_id, limit=1)
