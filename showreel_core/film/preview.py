@@ -115,9 +115,27 @@ def keyframes_for(film: dict[str, Any], per_shot: int) -> list[float]:
     return sorted(set(out))
 
 
+RETRY_CODES = ("cdp_timeout", "cdp_closed", "browser_launch")
+CAPTURE_TIMEOUT_S = 20.0
+
+
 async def capture_keyframes(job_dir: Path, times: Sequence[float], *, w: int, h: int, gpu: bool = False,
-                            page: str = "stage.html") -> tuple[list[Still], dict[str, Any]]:
-    """Seek + capture + QA each time in one browser session. Raises RenderError on load failures."""
+                            page: str = "stage.html", attempts: int = 2) -> tuple[list[Still], dict[str, Any]]:
+    """Seek + capture + QA each time in one browser session; one fresh-browser retry on a CDP hang
+    (Chromium's intermittent Page.captureScreenshot stall, research/wp-a-renderer.md known issue 1)."""
+    from ..render.errors import RenderError
+
+    for k in range(attempts):
+        try:
+            return await _capture_keyframes(job_dir, times, w=w, h=h, gpu=gpu, page=page)
+        except RenderError as e:
+            if e.code not in RETRY_CODES or k == attempts - 1:
+                raise
+    raise AssertionError("unreachable")
+
+
+async def _capture_keyframes(job_dir: Path, times: Sequence[float], *, w: int, h: int, gpu: bool,
+                             page: str) -> tuple[list[Still], dict[str, Any]]:
     from ..render.workers import page_session
 
     stills: list[Still] = []
@@ -126,7 +144,7 @@ async def capture_keyframes(job_dir: Path, times: Sequence[float], *, w: int, h:
             a = time.perf_counter()
             await p.seek(t)
             b = time.perf_counter()
-            png = await p.capture("png")
+            png = await p.capture("png", timeout=CAPTURE_TIMEOUT_S)
             c = time.perf_counter()
             qa = await p.evaluate(f"window.__sr.qa({float(t)!r})") or []
             tt = repr(float(t))

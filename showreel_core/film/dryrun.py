@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
 import sys
 import time
@@ -72,6 +73,7 @@ class DryRunReport:
         return "\n".join(lines)
 
 
+CAPTURE_TIMEOUT_S = 20.0
 RASTER_JITTER = 2          # max channel difference tolerated between two renders of the same t (GPU raster paths)
 RASTER_JITTER_FRAC = 0.02  # ... on at most this fraction of pixels
 
@@ -172,15 +174,15 @@ async def _run(job: Path, *, per_shot: int, times: Sequence[float] | None, w: in
                     t = r.times[len(r.times) // 2]
                     other = next((x.times[0] for x in rep.shots if x is not r and x.times), None)
                     await p.seek(t)
-                    c1 = await p.capture("png")
+                    c1 = await p.capture("png", timeout=CAPTURE_TIMEOUT_S)
                     if other is not None:
                         await p.seek(other)
                     await p.seek(r.times[0] if r.times[0] != t else r.times[-1])
                     await p.seek(t)
-                    c2 = await p.capture("png")
+                    c2 = await p.capture("png", timeout=CAPTURE_TIMEOUT_S)
                     await p.evaluate("window.__sr.purge()")
                     await p.seek(t)
-                    c3 = await p.capture("png")
+                    c3 = await p.capture("png", timeout=CAPTURE_TIMEOUT_S)
                     ok12, mx12, f12 = same_pixels(c1, c2)
                     ok13, mx13, f13 = same_pixels(c1, c3)
                     r.probe = {"t": t, "hashes": [pixel_hash(c) for c in (c1, c2, c3)],
@@ -226,8 +228,12 @@ def dryrun(job_dir: Path, *, per_shot: int = 3, times: Sequence[float] | None = 
         page = "stage.html?lenient=1" if lenient else "stage.html"
         from ..render.workers import _run_sync
 
-        _run_sync(lambda: _run(job, per_shot=per_shot, times=times, w=w, h=h, gpu=gpu, determinism=determinism,
-                               page=page, rep=rep))
+        for attempt in range(2):   # one fresh-browser retry on Chromium's intermittent capture stall
+            rep = DryRunReport()
+            _run_sync(lambda rep=rep: _run(job, per_shot=per_shot, times=times, w=w, h=h, gpu=gpu,
+                                           determinism=determinism, page=page, rep=rep))
+            if not (rep.error and rep.error.get("code") in ("cdp_timeout", "cdp_closed")) or attempt:
+                break
         for s in rep.shots:
             rep.qa += [{**q, "shot": q.get("shot") or s.id} for q in s.qa]
         rep.ok = (not rep.ready_error and not rep.error and not rep.scene_errors and not rep.page_errors
@@ -247,12 +253,16 @@ def main(argv: Sequence[str] | None = None) -> int:
     ap.add_argument("--no-determinism", action="store_true")
     ap.add_argument("--gpu", action="store_true")
     ap.add_argument("--strict", action="store_true", help="load without ?lenient=1 (first failure rejects ready)")
+    ap.add_argument("--slot-dir", default=os.environ.get("SHOWREEL_RENDER_SLOT_DIR"), help="shared render slots")
     ap.add_argument("--json", action="store_true")
     a = ap.parse_args(argv)
+    from .preview import render_slot
+
     times = [float(x) for x in a.times.split(",") if x.strip()] or None
     size = (int(a.size.lower().split("x")[0]), int(a.size.lower().split("x")[1])) if a.size else None
-    r = dryrun(a.job, per_shot=a.per_shot, times=times, size=size, determinism=not a.no_determinism, gpu=a.gpu,
-               lenient=not a.strict)
+    with render_slot(a.slot_dir, "showreel-dryrun"):
+        r = dryrun(a.job, per_shot=a.per_shot, times=times, size=size, determinism=not a.no_determinism, gpu=a.gpu,
+                   lenient=not a.strict)
     if a.json:
         print(json.dumps(r.to_dict(), indent=1))
     else:
