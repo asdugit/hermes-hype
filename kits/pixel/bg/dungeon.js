@@ -190,10 +190,11 @@ export function bossDoor(S, camX, wx, floorY, t, o = {}) {
   if (chains > 0) {
     const brk = 1 - chains;
     const link = (px, py, i) => {
-      const fx = brk > 0 ? Math.round((rand(7, i) - 0.5) * 120 * brk) : 0, fy = brk > 0 ? Math.round(brk * brk * 160 - rand(8, i) * 40 * brk) : 0;
+      if (brk > 0.55 && rand(9, i) < (brk - 0.55) * 2.5) return;       // links vanish as they fall
+      const fx = brk > 0 ? Math.round((rand(7, i) - 0.5) * 70 * brk) : 0, fy = brk > 0 ? Math.round(brk * brk * 220 - rand(8, i) * 30 * brk) : 0;
       S.rect(px + fx - 1, py + fy - 1, 3, 3, i & 1 ? 'grey' : 'silver'); S.px(px + fx, py + fy, 'ink');
     };
-    for (let i = 0; i <= 18; i++) { const u = i / 18; link(Math.round(x - 4 + u * (dw + 8)), Math.round(y + 8 + u * (dh - 30)), i); link(Math.round(x + dw + 4 - u * (dw + 8)), Math.round(y + 8 + u * (dh - 30)), i + 40); }
+    for (let i = 0; i <= 18; i += brk > 0 ? 2 : 1) { const u = i / 18; link(Math.round(x - 4 + u * (dw + 8)), Math.round(y + 8 + u * (dh - 30)), i); link(Math.round(x + dw + 4 - u * (dw + 8)), Math.round(y + 8 + u * (dh - 30)), i + 40); }
     const ly = y + dh / 2 - 6 + Math.round(brk * brk * 120), lx = x + dw / 2 - 7;
     S.ring(lx + 7, ly, 6, 2, 'grey'); S.rect(lx, ly, 14, 12, 'gold'); S.frame(lx, ly, 14, 12, 'ink'); S.rect(lx + 1, ly + 1, 12, 1, 'cream'); S.rect(lx + 1, ly + 10, 12, 1, 'amber');
     S.rect(lx + 6, ly + 4, 2, 2, 'ink'); S.rect(lx + 6, ly + 6, 2, 3, 'ink');

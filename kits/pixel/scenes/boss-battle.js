@@ -183,7 +183,7 @@ function render(ctx, t, p) {
   }
   for (const h of B.hits) {
     const [fx, fy] = h.boss ? [bx + pw / 2, by + 10] : (L.feet[h.hero] || L.feet[0]);
-    damageNumber(S, Math.round(fx), Math.round(h.boss ? fy : Math.max(L.pic[1] + L.pic[3] + 36, fy - 40)), h.dmg, tq - h.t - 0.05, { color: h.boss && typeof h.dmg !== 'number' ? 'ice' : 'white', life: 1.4 });
+    damageNumber(S, Math.round(fx), Math.round(h.boss ? fy : L.V ? Math.max(L.pic[1] + L.pic[3] + 36, fy - 40) : fy - 40), h.dmg, tq - h.t - 0.05, { color: h.boss && typeof h.dmg !== 'number' ? 'ice' : 'white', life: 1.4 });
   }
 
   // ---- UI
