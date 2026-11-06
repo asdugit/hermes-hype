@@ -61,6 +61,7 @@ from .types import (
     SCORE_BAR,
     Brief,
     Budget,
+    Capabilities,
     DirectorResult,
     MediaAsset,
     RoundScore,
@@ -314,6 +315,7 @@ def brief_from_kwargs(kw: dict[str, Any], job_dir: Path) -> Brief:
         assets=assets,
         seconds=float(kw.get("seconds") or getattr(opts, "seconds", 45) or 45),
         aspect=aspect, fps=int(kw.get("fps") or 30), seed=int(kw.get("seed") or 7),
+        capabilities=Capabilities(gpu=bool(kw.get("gpu"))),
         notes=str(kw.get("notes") or getattr(opts, "notes", "") or ""),
     )
 
