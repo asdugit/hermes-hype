@@ -256,24 +256,25 @@ launchScene('kit:launch/MONTAGE', {
     const items = (p.items || []).slice(0, 16);
     const n = Math.max(1, items.length);
     const cw = L ? 820 : 700, chh = L ? 220 : 240;
+    const gx = L ? 0 : cw + 150, gy = L ? chh + 90 : 0;      // a tight conveyor: 3+ cards in frame at once
     const step = dur / n;
     const nodes = items.map((it, i) => {
       const c = toolCard(it, { width: cw, height: chh });
       // a gentle S along the table: x marches, y swings
-      const x = L ? Math.sin(i * 0.9) * 90 : i * (cw + 320);
-      const y = L ? i * (chh + 120) : Math.sin(i * 1.1) * 140;
+      const x = L ? Math.sin(i * 0.9) * 70 : i * gx;
+      const y = L ? i * gy : Math.sin(i * 1.1) * 110;
       return { c, node: W.node(c.el, { x, y: y + chh / 2, z: 24, w: cw, h: chh }), x, y };
     });
-    W.light(L ? 0 : (n - 1) * (cw + 320) / 2, L ? (n - 1) * (chh + 120) / 2 : 0, L ? 1600 : n * 460 + 1200, L ? n * 200 + 1200 : 1500);
+    W.light(L ? 0 : (n - 1) * gx / 2, L ? (n - 1) * gy / 2 : 0, L ? 1600 : n * 460 + 1200, L ? n * 200 + 1200 : 1500);
     // the wire threads every card (under them), pulses run along the whole path
     const pts = nodes.map((q) => [q.x, q.y + chh + 70]);
     if (pts.length >= 2) W.wire([[pts[0][0] - (L ? 0 : 600), pts[0][1] - (L ? 500 : 0)], ...pts, [pts[pts.length - 1][0] + (L ? 0 : 900), pts[pts.length - 1][1] + (L ? 900 : 0)]],
       { radius: 160, pulses: 3, every: step * 2, speed: L ? 1200 : 1500, port: false });
-    const d = fitRect(W, F, L ? cw * 1.02 : cw * 1.8, L ? chh * 3.0 : chh * 2.1, 20, 0.92, 0.86);
+    const d = fitRect(W, F, L ? cw * 1.08 : cw * 2.25, L ? chh * 4.0 : chh * 2.0, 20, 0.94, 0.86);
     const keys = [];
     nodes.forEach((q, i) => {
       const t0 = i * step;
-      const tg = [q.x, q.y + chh * 0.4, 24];
+      const tg = [q.x, q.y - chh * (L ? 0.1 : 0.25), 60];     // the standing card's visual centre
       keys.push([t0, { target: tg, dist: d, yaw: L ? 0 : -6, pitch: 24, roll: -1 }]);
       keys.push([t0 + Math.min(step * 0.62, 0.42), { target: [tg[0] + (L ? 0 : 18), tg[1] + (L ? 14 : 0), 24], dist: d * 0.985, yaw: L ? 0 : -6, pitch: 24, roll: -1 }]);
     });
@@ -288,7 +289,8 @@ launchScene('kit:launch/MONTAGE', {
         nodes.forEach((q, i) => {
           const arrive = seg(t, i * step - 0.12, i * step + 0.3, ease.outQuint);
           const pre = seg(t, (i - 2) * step - 0.2, (i - 2) * step + 0.3, ease.outQuint);
-          W.update(q.node, { tilt: lerp(0, 24, arrive), z: lerp(24, 40, arrive), op: clamp(pre * 1.4) * (i < cur - 2 ? 0 : i < cur ? 0.7 : 1) });
+          const behind = cur - i;           // cards behind fade out before the camera leaves them (no off-frame text)
+          W.update(q.node, { tilt: lerp(0, 24, arrive), z: lerp(24, 40, arrive), op: clamp(pre * 1.4) * (behind >= 2 ? 0 : behind === 1 ? 0.6 : 1) });
           q.c.el.classList.toggle('on', i === cur);
         });
         for (const w of W.wires) w.set(t);

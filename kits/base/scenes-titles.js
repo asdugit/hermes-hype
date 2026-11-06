@@ -234,7 +234,7 @@ export const END_DEF = {
       credit.style.marginTop = '30px';
       col.appendChild(credit);
     } else {
-      credit.style.cssText = `position:absolute;left:0;right:0;text-align:center;bottom:${F.safe.b}px;`;
+      credit.style.cssText = `position:absolute;left:0;right:0;text-align:center;bottom:${F.safe.b + 18}px;`;   // glyph box overhangs the line box
       F.ov.appendChild(credit);
     }
     const pillAt = 0.75;

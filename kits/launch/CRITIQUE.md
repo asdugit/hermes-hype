@@ -99,3 +99,19 @@ aspects. Rendered fine (0 page errors, video QA ok). 16:9 ~6.5/10, 9:16 ~5.5/10.
 - SCREEN (product image) is the strongest frame: full-bleed product. More of the product, bigger, everywhere.
 - Backgrounds: flat graphite + thin lime wires on every type scene -> needs depth (light pool, haze, bokeh,
   product echo) so type scenes don't feel empty.
+
+## W3 look 2 — after backdrop + count-up + address-bar fixes (re-shot from the real timeline, 16:9)
+- TITLE now uses the film's product image as its hero (left lockup + tilted product panel): no more word-on-black.
+- STATS/END/CALLOUT: product image lies on the table under the type as a defocused echo (blur 7-9 px, op ~0.5,
+  radial scrim) -> frames feel full; numerals and lockup still read cleanly. Count-up mid frame now reads "417 15"
+  (same digit count, 15 Hz steps) instead of "10 1".
+- Found a hard dark vertical band left of TITLE: the lens shift translated the whole view and uncovered the stage.
+  Fixed by shifting world origin + perspective-origin together (exact 2D shift, nothing uncovered).
+- Address bars show page title / file stem ("preview", "board_1"), never "~/showreel-work/...".
+
+## W3 look 3 — 9:16
+- TITLE: product panel on top, lockup below (was: panel at the bottom under the caption band).
+- SCREEN/FEATURE push in by height (crop the landscape screenshot's sides) -> product fills the frame at the push.
+- HOOK still leaves the lower third dark (platform UI zone, acceptable); STATS stack now fits the safe area.
+- product_scale (Director knob) verified at 1.6 on HOOK/TITLE/SCREEN: product clearly larger; at > 1.4 the HOOK
+  headline starts to overlap the product (the Director's call).
