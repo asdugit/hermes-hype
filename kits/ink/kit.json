@@ -1,0 +1,41 @@
+{
+  "name": "ink",
+  "version": 1,
+  "entry": "kit.js",
+  "describe": "Hand-drawn illustrated explainer: warm textured paper, seeded sketchy ink strokes that draw on, the user and a little robot helper acting out each beat, sticky notes, arrows and handwritten notes, real product captures taped onto the page; ink-bleed and paper-slide transitions; gentle hand-held camera.",
+  "requires": ["base"],
+  "theme": "ink",
+  "backdrop": true,
+  "scenes": ["HOOK", "TITLE", "PROBLEM", "PLAN", "CODE", "DIFF", "TERMINAL", "MONTAGE", "SCREEN", "STATS",
+             "BEFORE_AFTER", "CALLOUT", "END", "FEATURE", "SCROLL"],
+  "transitions_defined": ["kit:ink/ink-bleed", "kit:ink/paper-slide"],
+  "fonts": [
+    {"family": "Fraunces", "src": "fonts/Fraunces-VF.ttf", "weight": "100 900", "style": "normal"},
+    {"family": "Fraunces", "src": "fonts/Fraunces-Italic-VF.ttf", "weight": "100 900", "style": "italic"},
+    {"family": "Inter", "src": "fonts/Inter-VF.ttf", "weight": "100 900", "style": "normal"},
+    {"family": "Caveat", "src": "fonts/Caveat-VF.ttf", "weight": "400 700", "style": "normal"},
+    {"family": "JetBrains Mono", "src": "fonts/JetBrainsMono-VF.ttf", "weight": "100 800", "style": "normal"}
+  ],
+  "licenses": ["fonts/OFL-Fraunces.txt", "fonts/OFL-Inter.txt", "fonts/OFL-Caveat.txt", "fonts/OFL-JetBrainsMono.txt",
+               "vendor/LICENSE-roughjs.txt"],
+  "finish": {"grain": 0.02, "vignette": 0.0},
+  "transitions": {"cut": null, "match": ["kit:ink/paper-slide", 0.5], "push": ["kit:ink/paper-slide", 0.6], "wipe": ["kit:ink/ink-bleed", 0.7]},
+  "caption_style": {"font": "Inter", "size": 44, "weight": 500, "color": "#2B2622", "bg": "rgba(251,246,236,0.94)"},
+  "background": "#F4ECDF",
+  "style": {
+    "id": "ink",
+    "name": "Ink",
+    "blurb": "Hand-drawn explainer: warm paper, sketchy ink, sticky notes and a little robot",
+    "voice_speed": 1.0,
+    "palette": {"paper": "#F4ECDF", "paper_deep": "#EADFCC", "ink": "#2B2622", "ink_soft": "#6B5E53", "terra": "#D2603A",
+                "mustard": "#E9B04A", "teal": "#3D7A72", "peach": "#F0D3B6", "cream": "#FBF6EC",
+                "note_butter": "#F7DC7E", "note_peach": "#F5B9A0", "note_mint": "#C3DCC3", "note_sky": "#BED6E4"},
+    "fonts": {"display": "Fraunces", "hand": "Caveat", "body": "Inter", "mono": "JetBrains Mono"},
+    "bpm": [100, 115],
+    "music": ["ink_a", "ink_b"],
+    "sfx": {"cut": "paper", "move": "paper", "click": "click", "type": "plotter", "appear": "pop", "pass": "chime",
+            "fail": "error", "hit": "stamp", "hero": "hit", "build": "reverse", "shot": "shutter", "buy": "cash", "switch": "switch_whoosh"},
+    "post": "grain_vignette",
+    "post_params": {"grain_vignette": {"grain": 3, "vignette": 0.0}}
+  }
+}

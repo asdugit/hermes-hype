@@ -1,0 +1,94 @@
+/* Showreel style "ink": a warm illustrated explainer. Warm off-white paper (procedural grain + mottling), one
+   warm-ink outline weight drawn with seeded Rough.js and offset from the fills (print misregistration), flat
+   offset shadows (never blurred), 4 hues + neutrals with terracotta as the one hero accent, Fraunces display,
+   Fraunces italic taglines, Caveat handwriting, Inter labels, JetBrains Mono for real code / terminal text.
+   Tokens re-skin every kit:base scene (theme "ink"); .ik-* classes style the kit:ink/* scenes. No CSS animation:
+   every moving value is written from t by the scenes. */
+
+.sr-theme-ink {
+  --ik-paper: #F4ECDF; --ik-paper-d: #EADFCC; --ik-ink: #2B2622; --ik-ink-s: #6B5E53;
+  --ik-terra: #D2603A; --ik-terra-d: #A9472A; --ik-mustard: #E9B04A; --ik-teal: #3D7A72; --ik-teal-d: #2C5D57;
+  --ik-peach: #F0D3B6; --ik-cream: #FBF6EC; --ik-screen: #2F2A26;
+  --ik-title: "Fraunces", Georgia, serif;
+  --ik-body: "Inter", sans-serif;
+  --ik-hand: "Caveat", cursive;
+  --ik-mono: "JetBrains Mono", monospace;
+
+  --sr-stage: #F4ECDF;
+  --sr-stage-bg: radial-gradient(125% 100% at 48% 42%, #F7F0E5 0%, #F4ECDF 58%, #EADFCC 100%);
+  --sr-grid: rgba(0,0,0,0);
+  --sr-vignette: radial-gradient(ellipse 75% 70% at 50% 48%, rgba(0,0,0,0) 60%, rgba(92,62,38,.16) 100%);
+  --sr-fg: #2B2622; --sr-fg-2: #6B5E53; --sr-fg-3: #8E7F71;
+  --sr-accent: #D2603A; --sr-accent-ink: #FBF6EC; --sr-accent-hl: rgba(233,176,74,.42); --sr-accent-glow: rgba(210,96,58,0);
+  --sr-em-color: #A9472A;
+  --sr-paper: #FBF6EC; --sr-paper-2: #F0D3B6; --sr-rule: #E6DAC6;
+  --sr-ink: #2B2622; --sr-ink-2: #4E443B; --sr-ink-3: #9A8B7C; --sr-tone: #3D7A72;
+  --sr-term: #2F2A26; --sr-term-2: #E6DAC6; --sr-term-rule: rgba(251,246,236,.12); --sr-term-ink: #FBF6EC; --sr-term-dim: #B8A894;
+  --sr-del-hl: rgba(210,96,58,.12); --sr-fail: #C2452B;
+  --sr-plate: #FBF6EC; --sr-plate-ink: #2B2622;
+  --sr-scrim-rgb: 244 236 223;
+  --sr-f-sans: "Inter", sans-serif; --sr-f-mono: "JetBrains Mono", monospace;
+  --sr-f-display: "Fraunces", serif; --sr-w-display: 650; --sr-track-display: -0.02em; --sr-lead-display: .92; --sr-case-display: none;
+  --sr-w-h1: 600; --sr-track-h1: -0.01em;
+  --sr-f-em: "Fraunces", serif; --sr-em-style: italic; --sr-em-weight: 400; --sr-em-scale: 1.0; --sr-em-track: 0;
+  --sr-label-track: .18em; --sr-w-num: 650;
+  --sr-r-panel: 6px; --sr-r-card: 6px; --sr-r-pill: 10px;
+  --sr-panel-edge: 0 0 0 3px #2B2622;
+  --sr-panel-shadow: 12px 14px 0 0 rgba(92,62,38,.15);
+  --sr-term-edge: 0 0 0 3px #2B2622;
+  --sr-sheen: none;
+}
+.sr-theme-ink .srb-display { font-variation-settings: "SOFT" 100, "WONK" 1, "opsz" 144; }
+.sr-theme-ink .srb-em { font-variation-settings: "SOFT" 100, "opsz" 36; }
+.sr-theme-ink .srb-eyebrow { font-family: var(--ik-body); font-weight: 600; letter-spacing: .22em; text-transform: uppercase; color: var(--ik-terra); }
+
+/* ── page ── */
+.sr-theme-ink .ik-abs, .sr-theme-ink .ik-box { position: absolute; }
+.sr-theme-ink .ik-svg { position: absolute; left: 0; top: 0; overflow: visible; }
+.sr-theme-ink .ik-sheet { position: absolute; background: var(--ik-paper); overflow: hidden; }
+.sr-theme-ink .ik-mottle { position: absolute; left: 0; top: 0; width: 100%; height: 100%; }
+.sr-theme-ink .ik-grain { position: absolute; left: 0; top: 0; width: 100%; height: 100%; background-size: 256px 256px; background-repeat: repeat; }
+.sr-theme-ink .ik-vignette { position: absolute; left: 0; top: 0; width: 100%; height: 100%;
+  background: radial-gradient(ellipse 78% 72% at 50% 48%, rgba(0,0,0,0) 58%, rgba(92,62,38,.17) 100%); }
+.sr-theme-ink .ik-top { pointer-events: none; }
+
+/* ── type roles ── */
+.sr-theme-ink .ik-kicker { position: absolute; font-family: var(--ik-body); font-weight: 600; font-size: 24px; line-height: 1; letter-spacing: .22em; text-transform: uppercase; color: var(--ik-terra); white-space: nowrap; }
+.sr-theme-ink .ik-title { position: absolute; font-family: var(--ik-title); font-weight: 650; font-variation-settings: "SOFT" 100, "WONK" 1, "opsz" 144;
+  color: var(--ik-ink); letter-spacing: -0.02em; line-height: .92; }
+.sr-theme-ink .ik-h { position: absolute; font-family: var(--ik-title); font-weight: 600; font-variation-settings: "SOFT" 100, "WONK" 0, "opsz" 72;
+  color: var(--ik-ink); letter-spacing: -0.01em; line-height: 1.0; }
+.sr-theme-ink .ik-tagline { position: absolute; font-family: var(--ik-title); font-style: italic; font-weight: 400; font-variation-settings: "SOFT" 100, "opsz" 36;
+  color: var(--ik-ink-s); line-height: 1.22; }
+.sr-theme-ink .ik-hand { position: absolute; font-family: var(--ik-hand); font-weight: 600; color: var(--ik-terra-d); line-height: 1.0; white-space: nowrap; }
+.sr-theme-ink .ik-body { position: absolute; font-family: var(--ik-body); font-weight: 500; font-size: 30px; line-height: 1.35; color: var(--ik-ink); }
+.sr-theme-ink .ik-mono { font-family: var(--ik-mono); font-weight: 500; }
+.sr-theme-ink .ik-word { display: inline-block; white-space: nowrap; }
+.sr-theme-ink .ik-ch { display: inline-block; white-space: pre; }
+.sr-theme-ink .ik-num { position: absolute; font-family: var(--ik-title); font-weight: 700; font-variation-settings: "SOFT" 100, "WONK" 1, "opsz" 144;
+  color: var(--ik-ink); letter-spacing: -0.03em; line-height: .9; white-space: nowrap; }
+
+/* ── props ── */
+.sr-theme-ink .ik-note-num { position: absolute; left: 30px; top: 26px; font-family: var(--ik-title); font-style: italic; font-weight: 600; font-size: 40px; line-height: 1; font-variation-settings: "SOFT" 100, "opsz" 36; color: var(--ik-terra-d); }
+.sr-theme-ink .ik-note-text { position: absolute; font-family: var(--ik-hand); font-weight: 600; color: var(--ik-ink); line-height: 1.04; overflow-wrap: anywhere; }
+.sr-theme-ink .ik-tag-text, .sr-theme-ink .ik-tab-text { position: absolute; font-family: var(--ik-mono); font-weight: 500; color: var(--ik-ink); white-space: nowrap; }
+.sr-theme-ink .ik-view { position: absolute; overflow: hidden; background: #fff; }
+.sr-theme-ink .ik-screen { position: absolute; overflow: hidden; font-family: var(--ik-mono); font-weight: 500; color: #FBF6EC; }
+.sr-theme-ink .ik-code-line { white-space: pre; font-family: var(--ik-mono); font-weight: 500; color: var(--ik-ink); }
+.sr-theme-ink .ik-card-tool { position: absolute; font-family: var(--ik-hand); font-weight: 600; font-size: 30px; line-height: 1.1; font-size: 44px; color: var(--ik-ink); white-space: nowrap; }
+.sr-theme-ink .ik-card-arg { position: absolute; font-family: var(--ik-mono); font-weight: 500; font-size: 24px; line-height: 40px; color: var(--ik-ink); overflow-wrap: anywhere; max-height: 120px; overflow: hidden; }
+.sr-theme-ink .ik-quote { position: absolute; font-family: var(--ik-title); font-style: italic; font-weight: 400; font-variation-settings: "SOFT" 100, "opsz" 36;
+  color: var(--ik-ink); line-height: 1.18; text-align: center; }
+.sr-theme-ink .ik-say { position: absolute; font-family: var(--ik-hand); font-weight: 600; color: var(--ik-ink); line-height: 1.08; }
+.sr-theme-ink .ik-pill { position: absolute; font-family: var(--ik-mono); font-weight: 500; font-size: 32px; line-height: 1; color: var(--ik-ink); white-space: nowrap; }
+.sr-theme-ink .ik-credit { position: absolute; font-family: var(--ik-body); font-weight: 500; font-size: 24px; line-height: 1; letter-spacing: .04em; color: var(--ik-ink-s); white-space: nowrap; }
+.sr-theme-ink .ik-url { position: absolute; font-family: var(--ik-body); font-weight: 500; font-size: 30px; line-height: 1; color: var(--ik-ink-s); white-space: nowrap; }
+
+/* syntax on paper: ink, teal keywords, terracotta strings, soft comments */
+.sr-theme-ink .tk-k { color: #2C5D57; font-weight: 700; }
+.sr-theme-ink .tk-f { color: #2B2622; font-weight: 700; }
+.sr-theme-ink .tk-s { color: #A9472A; }
+.sr-theme-ink .tk-c { color: #8E7F71; font-style: italic; }
+.sr-theme-ink .tk-n { color: #C98E2C; font-weight: 700; }
+.sr-theme-ink .ik-screen .tk-k { color: #E9B04A; } .sr-theme-ink .ik-screen .tk-s { color: #F0B99A; }
+.sr-theme-ink .ik-screen .tk-c, .sr-theme-ink .ik-screen .tk-f { color: #FBF6EC; }
