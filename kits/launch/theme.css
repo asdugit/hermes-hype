@@ -61,7 +61,11 @@
 
 /* ── 3D table world (kit:launch scenes) ─────────────────────────────── */
 .sr-theme-launch .slw-table { position: absolute; left: -4000px; top: -4000px; width: 8000px; height: 8000px;
-  background: radial-gradient(var(--lrx, 1500px) var(--lry, 1100px) at var(--lx, 4000px) var(--ly, 4000px), var(--sr-table-lit), rgba(30,32,37,0) 100%), var(--sr-table); }
+  background:
+    /* accent practical light spilling from the far left + a cool fill from the right: depth on the table */
+    radial-gradient(1500px 1100px at calc(var(--lx, 4000px) - 1500px) calc(var(--ly, 4000px) - 900px), color-mix(in srgb, var(--sr-accent) 10%, transparent), transparent 70%),
+    radial-gradient(1700px 1300px at calc(var(--lx, 4000px) + 1700px) calc(var(--ly, 4000px) + 300px), rgba(120,150,210,.07), transparent 70%),
+    radial-gradient(var(--lrx, 1500px) var(--lry, 1100px) at var(--lx, 4000px) var(--ly, 4000px), var(--sr-table-lit), rgba(30,32,37,0) 100%), var(--sr-table); }
 .sr-theme-launch .slw-table::before { content: ""; position: absolute; inset: 0;
   background-image: radial-gradient(circle, var(--sr-grid) 1.8px, transparent 2.4px); background-size: 40px 40px; background-position: 20px 20px;
   -webkit-mask-image: radial-gradient(calc(var(--lrx, 1500px) * 1.3) calc(var(--lry, 1100px) * 1.3) at var(--lx, 4000px) var(--ly, 4000px), #000 0%, rgba(0,0,0,.55) 50%, transparent 100%); }
