@@ -281,6 +281,7 @@ def run_job(job: dict[str, Any], blender: BlenderFound | Path | str, *, progress
     start|build|frame|done|error plus ``done``, ``total``, ``frame``, ``frame_s``, ``build_s``, ``eta_s``.
     ``command`` overrides the full command line (tests run a fake Blender with it)."""
     t_start = time.monotonic()
+    job = {**job, "out_dir": str(Path(job["out_dir"]).resolve())}
     out_dir = Path(job["out_dir"])
     out_dir.mkdir(parents=True, exist_ok=True)
     res = RunResult(ok=False)
@@ -300,7 +301,7 @@ def run_job(job: dict[str, Any], blender: BlenderFound | Path | str, *, progress
                 p.unlink()
     run = dict(job)
     run["frames"] = todo if (job.get("frames") is not None or len(todo) != int(job["frame_count"])) else None
-    job_path = job_path or out_dir / "job.json"
+    job_path = Path(job_path or out_dir / "job.json").resolve()
     job_path.write_text(json.dumps(run, indent=1), encoding="utf-8")
     log_path = log_path or out_dir / "blender.log"
     res.log = str(log_path)
@@ -390,7 +391,9 @@ def _spawn_and_watch(cmd: list[str], job: dict[str, Any], todo: list[int], res: 
                         rendered.append(ev["frame"])
                         if ev.get("s") is not None:
                             frame_s.append(float(ev["s"]))
-                        mean = sum(frame_s) / len(frame_s) if frame_s else None
+                        # the first frame carries shader compilation / scene sync: keep it out of the rate
+                        steady = frame_s[1:] or frame_s
+                        mean = sum(steady) / len(steady) if steady else None
                         eta = mean * (total - len(rendered)) if mean is not None else None
                         _emit(progress, phase="frame", frame=ev["frame"], frame_s=ev.get("s"), done=len(rendered),
                               total=total, eta_s=eta)

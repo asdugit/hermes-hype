@@ -19,7 +19,8 @@ from collections.abc import Iterable
 from dataclasses import dataclass, field
 from typing import Any
 
-from .config import EFFORTS, MAX_SECONDS, MIN_SECONDS, Options, norm_aspects
+from .blender.trigger import blender_requested
+from .config import EFFORTS, MAX_SECONDS, MIN_SECONDS, Options, norm_aspects, norm_engine
 from .contracts import MODE_ALIASES
 
 ACTIONS = {"styles": "styles", "status": "status", "cancel": "cancel", "revise": "revise",
@@ -32,6 +33,9 @@ _VOICE_ON = {"voice", "narrated", "--voice"}
 _ASPECT_WORDS = {"vertical", "portrait", "9:16", "both", "horizontal", "landscape", "16:9", "wide", "square", "1:1"}
 _STRONG_ASPECTS = {"vertical", "9:16", "16:9", "1:1"}
 _PREVIEW = {"preview", "draft", "--preview"}
+#: 3D engine words (edge tokens): ``/showreel pixel 60 blender``. Inside free text, see blender.trigger.
+_ENGINE_WORDS = {"blender": "blender", "--blender": "blender", "--no-blender": "browser", "no-blender": "browser",
+                 "--browser": "browser", "--engine-auto": "auto"}
 _FINAL = {"final", "--final"}
 #: Mode words strong enough to count when they appear inside free text.
 _DISTINCT_MODES = {"lore", "bts", "making-of", "makingof", "speedrun", "any%"}
@@ -44,15 +48,16 @@ _LEN_RE = re.compile(r"^(\d{1,3})(s|sec|secs|seconds?)?$")
 _MIN_RE = re.compile(r"^(\d)(m|min|mins|minutes?)$")
 _STRIP = ",.;!?\"'()[]{}"
 _VALUE_FLAGS = {"--seconds": "seconds", "--length": "seconds", "--duration": "seconds", "--style": "style",
-                "--mode": "mode", "--effort": "effort", "--aspect": "aspect"}
+                "--mode": "mode", "--effort": "effort", "--aspect": "aspect", "--engine": "engine_3d"}
 
 HELP = (
-    "Usage: /showreel [lore|speedrun] [style] [30|60|90] [vertical|both] [mute] [quick|standard|max]\n"
+    "Usage: /showreel [lore|speedrun] [style] [30|60|90] [vertical|both] [mute] [quick|standard|max] [blender]\n"
     "  /showreel                      product trailer of what this session built (default)\n"
     "  /showreel lore                 the making-of story · /showreel speedrun  the build as a speedrun\n"
     "  /showreel pixel 60 vertical    style + length + 9:16 · add 'mute' for captions only\n"
     "  /showreel <any direction>      Directed film, e.g. /showreel pixel, then bloom into anime, sell it\n"
     "  /showreel revise <notes>       another pass on the last film with your notes\n"
+    "  add 'blender' (or say 'use blender') to render the 3D shots in your own Blender\n"
     "  /showreel styles | status | cancel"
 )
 
@@ -74,6 +79,7 @@ class Command:
 class _Tok:
     raw: str
     kind: str = "text"                # text | mode | style | seconds | aspect | voice | effort | preview | final | flag
+    #                                   | engine_3d
     value: Any = None
     strong: bool = True               # counts inside free text (as a hint)
     pref: bool = False                # a style followed by "style"/"look": preferred hint
@@ -100,8 +106,8 @@ def _classify(raw: str, styles: set[str]) -> _Tok:
             return _value(raw, _VALUE_FLAGS[key], val, styles)
     if "=" in tok and not tok.startswith("-"):
         key, _, val = tok.partition("=")
-        if key in {"seconds", "length", "style", "mode", "effort", "aspect"}:
-            return _value(raw, {"length": "seconds"}.get(key, key), val, styles)
+        if key in {"seconds", "length", "style", "mode", "effort", "aspect", "engine", "engine_3d"}:
+            return _value(raw, {"length": "seconds", "engine": "engine_3d"}.get(key, key), val, styles)
     if tok in _VALUE_FLAGS:
         return _Tok(raw, "flag", _VALUE_FLAGS[tok])
     if tok in styles:
@@ -116,6 +122,8 @@ def _classify(raw: str, styles: set[str]) -> _Tok:
         return _Tok(raw, "voice", True, strong=False)
     if tok in EFFORTS or tok in {"--quick", "--standard", "--max", "maximum"}:
         return _Tok(raw, "effort", {"maximum": "max"}.get(tok, tok.lstrip("-")), strong=False)
+    if tok in _ENGINE_WORDS:
+        return _Tok(raw, "engine_3d", _ENGINE_WORDS[tok], strong=False)
     if tok in _PREVIEW:
         return _Tok(raw, "preview", True, strong=False)
     if tok in _FINAL:
@@ -138,6 +146,8 @@ def _value(raw: str, kind: str, val: str, styles: set[str]) -> _Tok:
         return _Tok(raw, "mode", MODE_ALIASES.get(val, "product"))
     if kind == "effort":
         return _Tok(raw, "effort", val if val in EFFORTS else "standard")
+    if kind == "engine_3d":
+        return _Tok(raw, "engine_3d", norm_engine(val))
     return _Tok(raw, "aspect", norm_aspects(val))
 
 
@@ -260,6 +270,11 @@ def parse(raw: str | None, *, styles: Iterable[str] = (), base: Options | None =
             opts.direction = text
             for t in sorted((t for t in middle if t.kind != "text" and t.strong), key=lambda t: not t.pref):
                 _apply_hint(opts, t)
+            wants = blender_requested(text)
+            if wants is not None:
+                opts.hints["engine_3d"] = "blender" if wants else "browser"
+                if "engine_3d" not in opts.explicit:
+                    opts.engine_3d = opts.hints["engine_3d"]
     opts.hints.pop("_applied", None)
     return cmd
 
@@ -284,6 +299,8 @@ def describe(opts: Options) -> str:
         parts.append("preview")
     if opts.directed:
         parts.append(f"directed ({opts.effort})")
+    if opts.engine_3d == "blender":
+        parts.append("3D in Blender")
     return " · ".join(parts)
 
 

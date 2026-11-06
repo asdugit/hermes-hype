@@ -60,6 +60,16 @@ def norm_mode(value: Any) -> str:
     return MODE_ALIASES.get(key, key if key in MODES else "product")
 
 
+ENGINES_3D = ("browser", "blender", "auto")
+
+
+def norm_engine(value: Any) -> str:
+    """``engine_3d`` value: browser (three.js, default) | blender | auto (Blender when installed)."""
+    key = str(value or "").strip().lower()
+    key = {"three": "browser", "threejs": "browser", "three.js": "browser", "chromium": "browser"}.get(key, key)
+    return key if key in ENGINES_3D else "browser"
+
+
 def norm_aspects(value: Any) -> list[str]:
     """``"both"``/``"vertical"``/``["16:9","9:16"]``/... -> ordered unique aspect list (default 16:9)."""
     raw = value if isinstance(value, (list, tuple)) else [value]
@@ -91,6 +101,8 @@ class Options:
     voice_speed: float | None = None       # narration pace override (None = the style's voice_speed)
     hints: dict[str, Any] = field(default_factory=dict)   # parse hints for the Director (style words in text...)
     explicit: list[str] = field(default_factory=list)     # option names the user set explicitly
+    engine_3d: str = "browser"             # 3D shots: browser (three.js) | blender (user's Blender) | auto
+    blender_path: str = ""                 # explicit Blender executable (else SHOWREEL_BLENDER / PATH / standard)
 
     @property
     def directed(self) -> bool:
@@ -126,6 +138,8 @@ class Options:
         o.voice_speed = norm_speed(o.voice_speed)
         o.hints = dict(o.hints) if isinstance(o.hints, dict) else {}
         o.explicit = [str(x) for x in (o.explicit or [])]
+        o.engine_3d = norm_engine(o.engine_3d)
+        o.blender_path = str(o.blender_path or "").strip()
         return o
 
 
@@ -140,13 +154,16 @@ class Settings:
     effort: str = "standard"
     max_parallel_workers: int = 0          # 0 = auto
     narration_speed: float | None = None   # empty = each style's voice_speed
+    engine_3d: str = "browser"             # browser | blender | auto
+    blender_path: str = ""                 # path to the blender executable (optional)
 
     def options(self) -> Options:
         """Default :class:`Options` for a new film."""
         return Options(style=self.default_style, seconds=self.default_seconds, aspects=norm_aspects(self.aspect),
                        voice=self.narration, redact=self.redact, effort=self.effort,
                        workers=self.max_parallel_workers or None,
-                       voice_speed=norm_speed(self.narration_speed)).normalised()
+                       voice_speed=norm_speed(self.narration_speed), engine_3d=self.engine_3d,
+                       blender_path=self.blender_path).normalised()
 
 
 def load_settings(get_config: Callable[[str, Any], Any] | None = None) -> Settings:

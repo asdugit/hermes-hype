@@ -1,0 +1,9 @@
+{
+  "name": "frames",
+  "version": 1,
+  "entry": "kit.js",
+  "describe": "Full-bleed player for pre-rendered frame sequences (the Blender pass rewrites blender: shots to kit:frames/play).",
+  "requires": [],
+  "scenes": ["play"],
+  "fonts": []
+}

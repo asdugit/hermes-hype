@@ -13,7 +13,10 @@ from collections.abc import Iterable, Mapping
 from dataclasses import asdict, dataclass
 from typing import Any, TypeGuard
 
-SCENE_ID_RE = re.compile(r"^(kit:[a-z0-9_-]+/[a-z0-9_.-]+|lib:[a-z0-9_.-]+|custom:[a-z0-9_.-]+)$", re.IGNORECASE)
+SCENE_ID_RE = re.compile(r"^(kit:[a-z0-9_-]+/[a-z0-9_.-]+|lib:[a-z0-9_.-]+|custom:[a-z0-9_.-]+"
+                         r"|blender:[a-z0-9_-]+/[a-z0-9_.-]+)$", re.IGNORECASE)
+#: ``blender:<kit>/<scene>`` shots are rendered by the Blender pass (showreel_core.blender.film) before the page
+#: is built; they are valid in film.json but never reach the browser.
 SHOT_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,47}$")
 ASSET_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,47}$")
 KIT_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
@@ -104,7 +107,8 @@ def _validate_item(v: _V, it: Any, path: str, dur: float, size: tuple[int, int] 
             v.err(f"{path}.t1", f"{t1} is past the film end (dur {dur})")
     scene = it.get("scene")
     if not isinstance(scene, str) or not SCENE_ID_RE.match(scene):
-        v.err(f"{path}.scene", f"must be 'kit:<kit>/<name>', 'lib:<name>' or 'custom:<name>' (got {scene!r})")
+        v.err(f"{path}.scene", f"must be 'kit:<kit>/<name>', 'lib:<name>', 'custom:<name>' or 'blender:<kit>/<scene>' "
+                               f"(got {scene!r})")
     elif known_scenes is not None and scene not in known_scenes:
         v.err(f"{path}.scene", f"unknown scene {scene!r}")
     res = it.get("res")
@@ -208,8 +212,8 @@ def validate_film(film: Any, *, known_scenes: Iterable[str] | None = None,
         if not isinstance(a, Mapping):
             v.err(p, "must be an object")
             continue
-        if a.get("type") not in ("image", "frames", "video"):
-            v.err(f"{p}.type", f"must be image, frames or video (got {a.get('type')!r})")
+        if a.get("type") not in ("image", "frames", "video", "model"):
+            v.err(f"{p}.type", f"must be image, frames, video or model (got {a.get('type')!r})")
     if known_assets is not None:
         missing = sorted(set(assets) - set(known_assets))
         for name in missing:

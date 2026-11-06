@@ -164,6 +164,10 @@ def build_job(film: Mapping[str, Any], job_dir: Path, *, kits_root: Path | None 
     if issues:
         raise JobError(issues)
     film_n = normalize_film(film)
+    blender = [str(s.get("id")) for s in film_n["shots"] if str(s.get("scene") or "").startswith("blender:")]
+    if blender:
+        raise JobError([FilmIssue("shots", f"Blender shots {', '.join(blender)} must be rendered first "
+                                           "(showreel_core.blender.film.render_film_shots rewrites them to kit:frames/play)")])
     scenes = dict(scenes or {})
     problems: list[FilmIssue] = []
 
