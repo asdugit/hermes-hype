@@ -42,9 +42,27 @@ const FINAL_FS = /* glsl */`
 precision highp float; varying vec2 vUv;
 uniform sampler2D scene, mist, bloom, rays; uniform vec2 res; uniform float t;
 uniform float bloomK, mistK, raysK, caK, vignK, exposure, grainK;
-uniform vec3 tintHi, tintLo;
+uniform vec3 tintHi, tintLo, flareCol;
+uniform vec2 sunUV; uniform float flareK, aspect;
 ${DISPLAY}
 float h(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+// lens flare: soft ghosts strung along the sun -> centre axis + a thin anamorphic streak through the sun
+vec3 ghost(vec2 uv, float f, float r, vec3 tint){
+  vec2 c = sunUV + (vec2(0.5) - sunUV) * f * 2.0;
+  float d = length((uv - c) * vec2(aspect, 1.0));
+  float a = smoothstep(r, r * 0.55, d) * (0.55 + 0.45 * smoothstep(r * 0.2, r * 0.95, d));
+  return tint * a;
+}
+vec3 flare(vec2 uv){
+  vec3 acc = ghost(uv, 0.42, 0.030, vec3(1.0, 0.75, 0.55)) * 0.55;
+  acc += ghost(uv, 0.68, 0.055, vec3(0.95, 0.62, 0.85)) * 0.30;
+  acc += ghost(uv, 1.02, 0.020, vec3(0.75, 0.85, 1.0)) * 0.55;
+  acc += ghost(uv, 1.30, 0.090, vec3(0.80, 0.70, 1.0)) * 0.16;
+  acc += ghost(uv, 1.62, 0.040, vec3(1.0, 0.85, 0.65)) * 0.28;
+  vec2 dv = (uv - sunUV) * vec2(aspect, 1.0);
+  acc += flareCol * exp(-abs(dv.y) * 160.0) * exp(-abs(dv.x) * 2.6) * 0.55;
+  return acc * flareCol;
+}
 void main(){
   vec2 uv = vUv;
   vec2 cc = uv - 0.5;
@@ -56,6 +74,7 @@ void main(){
   } else col = texture2D(scene, uv).rgb;
   vec3 m = texture2D(mist, uv).rgb, b = texture2D(bloom, uv).rgb, ry = texture2D(rays, uv).rgb;
   col += b * bloomK + ry * raysK;
+  if (flareK > 0.0) col += flare(uv) * flareK;
   col = mix(col, max(col, m), mistK);                    // pro-mist: highlights bleed softly into the shadows
   col += m * mistK * 0.25;
   col *= exposure;
@@ -97,6 +116,8 @@ export function makePost(THREE, renderer, opts) {
     bloomK: { value: g.bloom ?? 0.8 }, mistK: { value: g.mist ?? 0.15 }, raysK: { value: opts.rays ? (g.rays ?? 0.5) : 0 }, caK: { value: opts.ca ?? 1.0 },
     vignK: { value: g.vignette ?? 0.22 }, exposure: { value: g.exposure ?? 1.0 }, grainK: { value: g.grain ?? 0.0 },
     tintHi: { value: new THREE.Vector3(...(g.tintHi || [1.02, 1.0, 0.97])) }, tintLo: { value: new THREE.Vector3(...(g.tintLo || [0.97, 0.98, 1.04])) },
+    flareCol: { value: new THREE.Vector3(...(g.flareCol || [1.0, 0.86, 0.7])) }, sunUV: { value: new THREE.Vector2(0.5, 0.5) }, flareK: { value: 0 },
+    aspect: { value: W / H },
   });
   const pass = (mat, rt) => { quad.material = mat; renderer.setRenderTarget(rt); renderer.render(sc, cam); };
   function blur2(rtA, rtB, w, h, k = 1) {
@@ -120,6 +141,11 @@ export function makePost(THREE, renderer, opts) {
       down.uniforms.src.value = a4.texture; down.uniforms.texel.value.set(1 / q4[0], 1 / q4[1]); down.uniforms.threshold.value = 0.85; pass(down, a8);
       blur2(a8, b8, q8[0], q8[1], 1.0); blur2(a8, b8, q8[0], q8[1], 2.0);
       fin.uniforms.t.value = t;
+      if (sunNDC && (g.flare ?? 0) > 0) {
+        const on = 1 - Math.min(1, Math.max(0, Math.max(Math.abs(sunNDC[0]), Math.abs(sunNDC[1])) - 0.92) * 4);
+        fin.uniforms.sunUV.value.set(sunNDC[0] * 0.5 + 0.5, sunNDC[1] * 0.5 + 0.5);
+        fin.uniforms.flareK.value = g.flare * on;
+      } else fin.uniforms.flareK.value = 0;
       pass(fin, null);
       renderer.autoClear = prevAuto;
     },

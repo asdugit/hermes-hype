@@ -54,7 +54,7 @@ void main(){
 export function makeMountains(THREE, opts) {
   const P = opts.preset, group = new THREE.Group();
   const radii = [2600, 1300, 620, 300];
-  const hazeAmts = [0.48, 0.34, 0.2, 0.14];
+  const hazeAmts = opts.preset.mountainHaze || [0.36, 0.24, 0.13, 0.08];
   const rims = lin3(P.sun.glow);
   P.mountains.forEach((m, i) => {
     const R = radii[i] || 400 + i * 300;

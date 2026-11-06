@@ -59,16 +59,19 @@ void main(){
 const MEADOW_FS = /* glsl */`
 precision highp float;
 varying vec2 vUv; varying float vLevel; varying vec3 vTint; varying vec3 vStem; varying vec3 vCentre; varying float vKind; varying float vDist; varying vec3 vW;
-uniform vec3 lightCol, ambCol, haze, sunDir; uniform float fogDensity, backlight, opacity;
+uniform vec3 lightCol, ambCol, haze, sunDir; uniform float fogDensity, backlight, opacity, petalTint;
 ${COMMON}
 void main(){
   vec4 s = sampleSprite(vKind, vLevel, vUv);
   s.a *= smoothstep(0.0, 0.1, vUv.x) * smoothstep(1.0, 0.9, vUv.x) * smoothstep(1.0, 0.93, vUv.y);
   if (s.a < 0.004) discard;
-  vec3 col = s.r * vTint + s.g * vStem + s.b * vCentre;
   vec3 V = normalize(cameraPosition - vW);
   float lit = 0.55 + 0.45 * vUv.y;
-  col *= mix(ambCol, lightCol, lit);
+  vec3 L = mix(ambCol, lightCol, lit);
+  // petals keep their own hue (white stays white, pink stays pink): only part of the warm key tints them;
+  // stems and centres take the full scene light
+  vec3 Lp = mix(vec3(dot(L, vec3(0.3333))), L, petalTint) * 1.06;
+  vec3 col = s.r * vTint * Lp + (s.g * vStem + s.b * vCentre) * L;
   float bl = pow(max(dot(-V, sunDir), 0.0), 3.0) * backlight;
   col += lightCol * bl * (0.35 * s.r * (1.0 - s.g) + 0.10 * s.g) * (0.4 + 0.6 * vUv.y);
   col = mix(col, haze, 1.0 - exp(-vDist * fogDensity));
@@ -185,7 +188,7 @@ export function makeMeadow(THREE, opts) {
     focus: { value: opts.focus }, cocK: { value: opts.cocK }, pxScale: { value: opts.pxScale },
     t: { value: 0 }, windAmp: { value: opts.wind ?? 1 }, windDir: { value: new THREE.Vector2(0.86, -0.5) }, shift: { value: new THREE.Vector3() },
     lightCol: { value: c3(P.light) }, ambCol: { value: c3(P.ambient) }, haze: { value: c3(P.haze) }, sunDir: { value: opts.sunDir },
-    fogDensity: { value: P.fogDensity }, backlight: { value: P.backlight }, opacity: { value: 1 },
+    fogDensity: { value: P.fogDensity }, backlight: { value: P.backlight }, opacity: { value: 1 }, petalTint: { value: P.petalTint ?? 0.4 },
   };
   const mat = new THREE.ShaderMaterial({ vertexShader: MEADOW_VS, fragmentShader: MEADOW_FS, uniforms, transparent: true, depthWrite: false, depthTest: true });
   const mesh = new THREE.Mesh(geo, mat);

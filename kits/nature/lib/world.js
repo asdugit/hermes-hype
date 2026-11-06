@@ -2,7 +2,7 @@
 // Used by the kit's scenes (flower-field, sky-reveal, product-hero) and exposed as a building block.
 import { resolvePreset, FLOWERS, lin3 } from './presets.js';
 import { resolveQuality } from './quality.js';
-import { cameraPose, clamp, hashStr } from './math.js';
+import { cameraPose, clamp, lerp, hashStr } from './math.js';
 import { makeSky } from './sky.js';
 import { makeMountains } from './mountains.js';
 import { makeTerrain } from './terrain.js';
@@ -13,8 +13,10 @@ import { makePost } from './post.js';
 
 const D2R = Math.PI / 180;
 
-/** Default drive-slope hill + its descent line (world metres, camera base at the origin looking -z). */
-export const SLOPE = { hill: { x: 20, d: 46, h: 4.2, rx: 22, rd: 18 }, a: [33, -57], b: [4, -27] };
+/** Default drive-slope hill + its descent line (world metres, camera base at the origin looking -z): the car comes
+ *  over the crest and drives down toward the camera, the way the clip's 3/4-front view faces. 9:16 has its own. */
+export const SLOPE = { hill: { x: 20, d: 46, h: 4.2, rx: 22, rd: 18 }, a: [20, -48], b: [6, -22] };
+export const SLOPE_V = { hill: { x: 8, d: 44, h: 4.0, rx: 15, rd: 16 }, a: [8, -46], b: [2.2, -20] };
 
 /** Keep flyers out of the reserved title area (pure; returns a new spec). */
 export function avoidTitle(spec, title) {
@@ -71,7 +73,8 @@ export function buildWorld(ctx, o) {
 
   const hills = [...(o.hills || [])];
   const flyerSpecs = (o.flyers || []).map((f) => avoidTitle(f, o.title));
-  if (flyerSpecs.some((f) => f.path === 'drive-slope') || o.slopeHill) hills.push(SLOPE.hill);
+  const SL = o.slope || (portrait ? SLOPE_V : SLOPE);
+  if (flyerSpecs.some((f) => f.path === 'drive-slope') || o.slopeHill) hills.push(SL.hill);
   const terrainOpt = { hills };
   const mountains = makeMountains(THREE, { preset, base: [0, 1.45, 0], azMin: azMin - 10, azMax: azMax + 10, seed, sunDir: sky.sunDir });
   scene.add(mountains.group);
@@ -101,25 +104,54 @@ export function buildWorld(ctx, o) {
     count: Math.round(preset.fireflies * (Q.tier === 'low' ? 0.6 : 1)), fireflies: true, view }) : null;
   if (flies) scene.add(flies.mesh);
 
-  const env = { slope: { a: SLOPE.a, b: SLOPE.b }, terrain: terrainOpt };
-  const flyers = makeFlyers(THREE, { specs: flyerSpecs, assets: (n) => ctx.asset(n), preset, sunDir: sky.sunDir, dur, quality: Q, env, seed, view, rim: o.rim ?? 1 });
+  const env = { slope: { a: SL.a, b: SL.b }, terrain: terrainOpt };
+  /** The live camera frame at t (for camera-relative flyers such as the pass-by). */
+  const viewAt = (t) => {
+    const ps = poseAt(t), cy = Math.cos(ps.yaw), sy = Math.sin(ps.yaw), cp = Math.cos(ps.pitch), sp = Math.sin(ps.pitch);
+    const f = [sy * cp, sp, -cy * cp], r = [cy, 0, sy];
+    const u = [r[1] * f[2] - r[2] * f[1], r[2] * f[0] - r[0] * f[2], r[0] * f[1] - r[1] * f[0]];
+    return { base: ps.pos, fwd: f, right: r, up: u };
+  };
+  const flyers = makeFlyers(THREE, { specs: flyerSpecs, assets: (n) => ctx.asset(n), preset, sunDir: sky.sunDir, dur, quality: Q, env, seed, view, rim: o.rim ?? 1,
+    portrait, flowerColors, viewAt });
   scene.add(flyers.group);
 
   const post = makePost(THREE, renderer, { w: W, h: H, scale: Q.scale, samples: Q.samples, raySamples: Q.raySamples, rays: Q.rays && preset.rays > 0, ca: (preset.ca ?? 1) * Q.ca,
-    grade: { bloom: preset.bloom, rays: preset.rays, mist: preset.mist, exposure: preset.exposure, vignette: o.vignette ?? 0.2 } });
+    grade: { bloom: preset.bloom, rays: preset.rays, mist: preset.mist, exposure: preset.exposure, vignette: o.vignette ?? 0.2, flare: o.flare ?? preset.flare ?? 0 } });
   ctx.three.manual = true;
 
   const sunV = new THREE.Vector3();
-  const resolved = flyerSpecs.map((f, i) => resolveFlyer(f, i, dur, seed));
+  const resolved = flyerSpecs.map((f, i) => resolveFlyer(f, i, dur, seed, portrait));
+  /** Focus distance (m) on flyer i at time t (null when it is not visible). */
+  function distTo(i, t) {
+    const hero = resolved[i];
+    if (!hero) return null;
+    const pz = flyerPose(hero, t, { dur, slope: env.slope, terrain: terrainOpt });
+    if (!pz.visible) return null;
+    const p = flyers.posOf(pz, t);
+    const ps = poseAt(t).pos;
+    return clamp(Math.hypot(p[0] - ps[0], p[1] - ps[1], p[2] - ps[2]), 4, 200);
+  }
+  const target = (k, t) => (typeof k === 'number' && Number.isInteger(k) && k >= 0 && k < resolved.length ? (distTo(k, t) ?? focus0)
+    : k && typeof k === 'object' && Number.isFinite(k.m) ? k.m : focus0);
+  // rack focus: o.rack = [[t, flyerIndex | {m: metres}], ...] — eased pulls between targets (each tracked live)
+  const rack = Array.isArray(o.rack) && o.rack.length ? [...o.rack].sort((a, b) => a[0] - b[0]) : null;
   function focusAt(t) {
     if (typeof o.focus === 'number') return o.focus;
-    const hero = resolved[o.focusOn ?? 0];
-    if (!hero) return focus0;
-    const pz = flyerPose(hero, t, { dur, slope: env.slope, terrain: terrainOpt });
-    if (!pz.visible) return focus0;
-    const p = pz.world || flyers.worldFromNDC(pz.sx, pz.sy, pz.d);
-    const ps = poseAt(t).pos;
-    return clamp(Math.hypot(p[0] - ps[0], p[1] - ps[1], p[2] - ps[2]), 6, 200);
+    if (rack) {
+      if (t <= rack[0][0]) return target(rack[0][1], t);
+      for (let i = 1; i < rack.length; i++) {
+        const [t1, k1] = rack[i];
+        if (t <= t1) {
+          const [t0, k0] = rack[i - 1], pull = Math.min(0.9, (t1 - t0));
+          const u = clamp((t - (t1 - pull)) / pull), e = u * u * (3 - 2 * u);
+          const a = target(k0, t), b = target(k1, t);
+          return 1 / lerp(1 / a, 1 / b, e);                // pull in diopters (how a focus puller moves)
+        }
+      }
+      return target(rack[rack.length - 1][1], t);
+    }
+    return distTo(o.focusOn ?? 0, t) ?? focus0;
   }
 
   const skip = new Set(o.skip || []);   // dev profiling: ['sky','mountains','terrain','meadow','near','petals','flyers']
@@ -135,7 +167,7 @@ export function buildWorld(ctx, o) {
     near.update(t, focus, [(ps.pos[0] - start[0]) * FOLLOW, (ps.pos[1] - start[1]) * FOLLOW, (ps.pos[2] - start[2]) * FOLLOW]);
     if (petals) petals.update(t, focus);
     if (flies) flies.update(t, focus);
-    flyers.update(t, camera, { cocK, focus, pxScale });
+    flyers.update(t, camera, { cocK, focus, pxScale, hpx: H / 2 });
     renderer.setRenderTarget(post.target);
     renderer.setClearColor(0x000000, 1);
     renderer.clear(true, true, true);

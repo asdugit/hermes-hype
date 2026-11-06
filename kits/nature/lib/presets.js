@@ -3,7 +3,7 @@
 // pastel meadow, and the magenta→cyan "aesthetic" edit. Sun az/el in degrees (az 0 = straight ahead, + = right).
 
 const FLOWERS = {
-  pink: '#F2A3B3', rose: '#E98AA6', yellow: '#F2D35A', butter: '#F7E08A', white: '#F6F1E2', cream: '#F3EFD9',
+  pink: '#F4A6C0', rose: '#E98AA6', yellow: '#F2D35A', butter: '#F7E08A', white: '#F6F1E2', cream: '#F3EFD9',
   lilac: '#B7A2E0', lupine: '#7A5BC2', peach: '#F6B48F', coral: '#F08F7E', blue: '#8EA2E8',
 };
 
@@ -12,13 +12,13 @@ export const PRESETS = {
     sky: [[0, '#FFF0D2'], [2.5, '#FCDDB2'], [6, '#F7C08F'], [11, '#EEA9AE'], [17, '#C99BC4'], [25, '#9C8CC2'], [45, '#6A68A6']],
     sun: { az: -6, el: 5.2, color: '#FFE9BE', glow: '#FFC487', size: 0.9, power: 7.0, halo: 1.0 },
     clouds: { lit: '#FFD7A8', mid: '#EBA6B4', shadow: '#7E70AC', rim: '#FFF3DA', cover: 0.55, band: [4, 42], lowBand: [1.0, 5.0] },
-    mountains: [{ col: '#C9AFCB', el: [1.4, 4.4] }, { col: '#AB92BE', el: [0.8, 3.0] }, { col: '#8C77A3', el: [0.4, 1.8] }, { col: '#8F8092', el: [0.25, 1.1] }],
-    haze: '#F6CDB6', fogDensity: 0.0042,
-    grass: { shadow: '#4A5E3A', base: '#6F8A45', lit: '#C2BE62', tip: '#EBD48A' },
-    light: '#FFD7A6', ambient: '#AE9CC8', exposure: 1.0, backlight: 1.0,
-    flowers: { white: 3, yellow: 4, pink: 3, peach: 2, lilac: 3, lupine: 2 },
+    mountains: [{ col: '#B89BC8', el: [2.2, 6.4] }, { col: '#9A7DB6', el: [1.2, 4.2] }, { col: '#7C65A0', el: [0.5, 2.4] }, { col: '#7F6E8E', el: [0.25, 1.2] }],
+    haze: '#F4CDBE', fogDensity: 0.0040,
+    grass: { shadow: '#43583A', base: '#6A8746', lit: '#B9BE66', tip: '#E6D892' },
+    light: '#FFD9B0', ambient: '#AE9CC8', exposure: 1.0, backlight: 1.0, petalTint: 0.35,
+    flowers: { white: 5, pink: 4, lilac: 3, yellow: 3, lupine: 2, rose: 1 },
     petals: ['pink', 'yellow', 'peach', 'white', 'pink'],
-    bloom: 0.85, rays: 0.55, mist: 0.08, fireflies: 0, stars: 0,
+    bloom: 0.85, rays: 0.55, mist: 0.07, flare: 0.6, fireflies: 0, stars: 0,
   },
   golden: {
     sky: [[0, '#FFF0CC'], [4, '#FFDFA6'], [10, '#F7D7AE'], [20, '#D6D8DE'], [34, '#A9C4E2'], [55, '#86AEDC'], [80, '#6A97D0']],

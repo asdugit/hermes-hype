@@ -82,7 +82,7 @@ def node_report() -> dict:
 
 
 def test_pure_logic_checks(node_report):
-    assert node_report["paths"] == 8
+    assert node_report["paths"] == 9
     assert node_report["presets"] >= 6
     assert not node_report["errors"], node_report["errors"][:8]
 

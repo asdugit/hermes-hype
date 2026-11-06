@@ -99,7 +99,7 @@ export function terrainGrad(x, z, opt, e = 0.25) {
 
 /**
  * Camera pose for a named move at shot-local t (pure). Returns {pos:[x,y,z], yaw, pitch, roll, fov} (radians).
- * Moves: drift | push | crane-up | tilt-down | pan | static | hero-arc.  `amt` scales the travel.
+ * Moves: drift | push | crane-up | crane-dolly | sweep | tilt-down | pan | static | hero-arc.  `amt` scales the travel.
  */
 export function cameraPose(move, t, dur, base, amt = 1) {
   const u = easeInOutSine(t / Math.max(dur, 1e-3));
@@ -111,6 +111,14 @@ export function cameraPose(move, t, dur, base, amt = 1) {
   switch (move) {
     case 'push': pos = [bx, by + 0.25 * amt * u, bz - 9 * amt * u]; break;
     case 'crane-up': pos = [bx + 1.5 * amt * lin, by + lerp(-0.55, 3.2, u) * amt, bz - 2 * amt * u]; pitch = base.pitch + lerp(-0.04, 0.03, u) * amt; break;
+    case 'crane-dolly': {   // rises up over the flowers while dollying in: the meadow drops away, the mountains rise
+      pos = [bx + 1.2 * amt * lin, by + lerp(0.0, 2.6, u) * amt, bz - 8 * amt * u];
+      pitch = base.pitch + lerp(0.035, -0.02, u) * amt; yaw = base.yaw - 0.04 * amt * (lin - 0.5); break;
+    }
+    case 'sweep': {         // lateral truck with a counter-pan: the subject holds while the foreground slides (parallax)
+      pos = [bx + lerp(-4.5, 4.5, u) * amt, by + 0.25 * amt * Math.sin(Math.PI * lin), bz - 2.5 * amt * u];
+      yaw = base.yaw + lerp(0.075, -0.075, u) * amt; break;
+    }
     case 'tilt-down': pitch = lerp(base.pitch + 0.62 * amt, base.pitch, easeInOutCubic(lin)); pos = [bx, by, bz - 3 * amt * u]; break;
     case 'pan': yaw = base.yaw + lerp(0.10, -0.10, u) * amt; pos = [bx, by, bz - 2 * amt * u]; break;
     case 'static': break;

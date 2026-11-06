@@ -43,8 +43,8 @@ const COMMON = {
   palette: { type: 'object', default: null, doc: 'preset overrides, e.g. {"sky": [[0,"#FFF0D2"],[20,"#E9A2B4"]], "light": "#FFD7A6"}' },
   product: { type: 'asset', default: null, doc: 'product media; with no `flyers`, 4 copies fly non-uniformly (descend, rise, drive-slope, float)' },
   count: { type: 'int', default: 4, doc: 'how many product flyers to auto-place (1–6) when `flyers` is empty' },
-  flyers: { type: 'array', default: [], doc: `[{media, path: ${PATHS.join('|')}, d?, x0?, x1?, y0?, y1?, t0?, t1? (s), size? (m), facing?: right|left, cutout?: bool, key?: bool}]` },
-  camera: { type: 'enum', values: ['drift', 'push', 'crane-up', 'tilt-down', 'pan', 'static', 'hero-arc'], default: 'drift', doc: 'slow camera move' },
+  flyers: { type: 'array', default: [], doc: `[{media, path: ${PATHS.join('|')}, d?, x0?, x1?, y0?, y1?, t0?, t1? (s), size? (m), facing?: right|left, heading?, clipRate?, clipOffset?, streaks? (0-1), wake? (0-1), cutout?: bool, key?: bool}]` },
+  camera: { type: 'enum', values: ['drift', 'push', 'crane-up', 'crane-dolly', 'sweep', 'tilt-down', 'pan', 'static', 'hero-arc'], default: 'drift', doc: 'slow camera move (crane-dolly: rise + dolly in; sweep: lateral truck with counter-pan = strong parallax)' },
   cameraAmount: { type: 'number', default: 1, doc: 'scale of the camera travel (0 = locked off, 1 = default, 2 = bold)' },
   title: { type: 'enum', values: ['none', 'top', 'center', 'left', 'right'], default: 'none', doc: 'reserve this area for an overlay title (flyers keep out)' },
   quality: { type: 'enum', values: ['auto', 'high', 'medium', 'low'], default: 'auto', doc: 'auto = low on software GL (SwiftShader), high on GPU' },
@@ -52,7 +52,10 @@ const COMMON = {
   petals: { type: 'number', default: 1, doc: 'petal density multiplier (0 = none)' },
   flowers: { type: 'number', default: 1, doc: 'meadow density multiplier' },
   focus: { type: 'any', default: 'auto', doc: '"auto" = rack to the first flyer, or a distance in metres' },
+  rack: { type: 'array', default: null, doc: 'rack focus keys [[t, flyerIndex | {m: metres}], ...]: eased pulls between targets (e.g. hold the far cars, pull to the pass-by)' },
+  focusOn: { type: 'int', default: 0, doc: 'flyer index that focus "auto" follows' },
   dof: { type: 'number', default: 1, doc: 'depth-of-field strength' },
+  flare: { type: 'number', default: null, doc: 'lens flare strength (ghosts + anamorphic streak from the sun; preset default, 0 = off)' },
   variant: { type: 'string', default: '', doc: 'any string → a different (deterministic) arrangement of clouds/flowers' },
 };
 
@@ -89,13 +92,19 @@ sr.defineScene('kit:nature/product-hero', {
   layer: 'three',
   describe: 'The product presented on a meadow hilltop at golden hour: sun behind it (warm rim light and halo), low camera slowly pushing in, grass and petals in the wind. Leaves the top for a title.',
   params: { ...COMMON, time: { ...COMMON.time, default: 'golden' }, camera: { ...COMMON.camera, default: 'push' },
-    cameraAmount: { ...COMMON.cameraAmount, default: 0.35 }, title: { ...COMMON.title, default: 'top' } },
+    cameraAmount: { ...COMMON.cameraAmount, default: 0.35 }, title: { ...COMMON.title, default: 'top' },
+    size: { type: 'number', default: 5.0, doc: 'product width in metres on the hilltop' },
+    distance: { type: 'number', default: 19, doc: 'hilltop distance in metres (smaller = bigger in frame)' },
+    heading: { type: 'number', default: 0.12, doc: 'product yaw in radians (+ = turned toward the camera)' },
+    pitch: { type: 'number', default: null, doc: 'camera pitch in degrees (default 3.2; with title "top" 8.5 so the product sits in the lower half under the title)' },
+    hill: { type: 'number', default: 2.0, doc: 'hilltop height in metres' } },
   async setup(ctx, p) {
     const preset = resolvePreset(p.time);
-    const az = preset.sun.az, d = 19;
+    const az = preset.sun.az, d = p.distance ?? 19;
     const x = Math.tan(az * Math.PI / 180) * d;
-    const fl = Array.isArray(p.flyers) && p.flyers.length ? p.flyers : p.product ? [{ media: p.product, path: 'hero', at: [x, -d], size: 5.0 }] : [];
-    ctx.state = buildWorld(ctx, { ...p, flyers: fl, pitch: 3.2, yaw: az * 0.85, hills: [{ x, d, h: 2.0, rx: 14, rd: 7 }], focus: p.focus === 'auto' ? d : p.focus });
+    const fl = Array.isArray(p.flyers) && p.flyers.length ? p.flyers : p.product ? [{ media: p.product, path: 'hero', at: [x, -d], size: p.size ?? 5.0, heading: p.heading ?? 0.12 }] : [];
+    const pitch = p.pitch ?? (p.title === 'top' ? (ctx.h > ctx.w ? 13 : 13) : 3.2);
+    ctx.state = buildWorld(ctx, { ...p, flyers: fl, pitch, yaw: az * 0.85, hills: [{ x, d, h: p.hill ?? 2.0, rx: 14, rd: 7 }], focus: p.focus === 'auto' ? d : p.focus });
     ctx.info = () => ctx.state.info();
   },
   render(ctx, t) { ctx.state.render(t); },

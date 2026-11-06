@@ -19,10 +19,11 @@ for (const path of PATHS) {
     const a = flyerPose(s, t, env), b = flyerPose(s, t, env);
     if (JSON.stringify(a) !== JSON.stringify(b)) fail(`${path}: not deterministic at t=${t}`);
     if (!a.visible) { prev = null; continue; }
-    const vals = a.world ? a.world : [a.sx, a.sy, a.d];
-    if (vals.some((v) => !Number.isFinite(v))) fail(`${path}: non-finite pose at t=${t}`);
-    if (prev && !a.world) { const j = Math.hypot(a.sx - prev.sx, a.sy - prev.sy); if (j > 0.25) fail(`${path}: jump ${j.toFixed(3)} at t=${t}`); }
-    if (prev && a.world) { const j = Math.hypot(...a.world.map((v, i) => v - prev.world[i])); if (j > 1.5) fail(`${path}: world jump ${j.toFixed(2)} at t=${t}`); }
+    const m = a.world || a.cam;                       // metric poses (ground / live-camera-relative)
+    const vals = m ? m : [a.sx, a.sy, a.d];
+    if (vals.some((v) => !Number.isFinite(v)) || ![a.nose, a.bank, a.heading].every((v) => Number.isFinite(v ?? 0))) fail(`${path}: non-finite pose at t=${t}`);
+    if (prev && !m) { const j = Math.hypot(a.sx - prev.sx, a.sy - prev.sy); if (j > 0.25) fail(`${path}: jump ${j.toFixed(3)} at t=${t}`); }
+    if (prev && m) { const pm = prev.world || prev.cam; const j = Math.hypot(...m.map((v, i) => v - pm[i])); if (j > 1.5) fail(`${path}: world jump ${j.toFixed(2)} at t=${t}`); }
     prev = a;
   }
 }
@@ -54,7 +55,7 @@ for (let f = 0; f <= 450; f += 10) {
 }
 
 // 4) camera rigs: deterministic, continuous, finite for every move
-for (const move of ['drift', 'push', 'crane-up', 'tilt-down', 'pan', 'static', 'hero-arc']) {
+for (const move of ['drift', 'push', 'crane-up', 'crane-dolly', 'sweep', 'tilt-down', 'pan', 'static', 'hero-arc']) {
   const base = { pos: [0, 1.45, 0], yaw: 0, pitch: 0.08, fov: 34, target: [0, 0, -30] };
   let prev = null;
   for (let f = 0; f <= 450; f++) {
