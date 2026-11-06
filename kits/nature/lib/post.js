@@ -33,8 +33,11 @@ precision highp float; varying vec2 vUv; uniform sampler2D src; uniform vec2 sun
 const int N = RAY_N;
 void main(){
   vec2 d = (vUv - sun) / float(N) * 0.92;
-  vec2 p = vUv; float w = 1.0; vec3 acc = vec3(0.0);
-  for (int i = 0; i < N; i++) { p -= d; vec3 c = texture2D(src, p).rgb; float l = max(max(c.r, c.g), c.b); acc += c * smoothstep(0.75, 1.6, l) * w; w *= 0.955; }
+  // per-pixel jittered start (interleaved gradient noise): without it a small bright spot is copied N times along
+  // the ray = rows of evenly spaced dashes (very visible in 9:16, where the sun is far from the bottom)
+  float j = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
+  vec2 p = vUv + d * (0.5 - j); float w = 1.0; vec3 acc = vec3(0.0);
+  for (int i = 0; i < N; i++) { p -= d; vec3 c = texture2D(src, p).rgb; float l = dot(c, vec3(0.2126, 0.7152, 0.0722)); acc += c * smoothstep(0.85, 1.7, l) * smoothstep(0.32, 0.1, length(p - sun)) * w; w *= 0.955; }   // only the sun's neighbourhood emits (bright rims on the cars must not)
   gl_FragColor = vec4(acc / float(N) * onScreen, 1.0);
 }`;
 
@@ -130,13 +133,15 @@ export function makePost(THREE, renderer, opts) {
       const prevAuto = renderer.autoClear; renderer.autoClear = true;
       // mist chain (¼, full colour)
       down.uniforms.src.value = target.texture; down.uniforms.texel.value.set(1 / iw, 1 / ih); down.uniforms.threshold.value = 0; pass(down, a4);
-      // rays from the ¼ image before blurring
+      blur2(a4, b4, q4[0], q4[1], 1.0); blur2(a4, b4, q4[0], q4[1], 2.2);   // wide: a soft glow, never an outline
+      // rays from the BLURRED ¼ image: a sharp source (a white blossom, a chrome glint) smaller than the march step
+      // is hit by only some rays = a dotted / dashed line away from the sun (hero 9:16 at 34 s); blurred sources are
+      // wider than the step, so they streak smoothly and tiny ones fall under the bright-pass
       if (opts.rays && sunNDC) {
         raysM.uniforms.src.value = a4.texture; raysM.uniforms.sun.value.set(sunNDC[0] * 0.5 + 0.5, sunNDC[1] * 0.5 + 0.5);
         raysM.uniforms.onScreen.value = 1 - Math.min(1, Math.max(0, Math.max(Math.abs(sunNDC[0]), Math.abs(sunNDC[1])) - 1.0) * 2.0);
         pass(raysM, r4);
       }
-      blur2(a4, b4, q4[0], q4[1], 1.0); blur2(a4, b4, q4[0], q4[1], 2.2);   // wide: a soft glow, never an outline
       // bloom chain (⅛, thresholded)
       down.uniforms.src.value = a4.texture; down.uniforms.texel.value.set(1 / q4[0], 1 / q4[1]); down.uniforms.threshold.value = 0.85; pass(down, a8);
       blur2(a8, b8, q8[0], q8[1], 1.0); blur2(a8, b8, q8[0], q8[1], 2.0);
