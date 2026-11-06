@@ -563,6 +563,9 @@ ANSWER WITH A PATCH, NOT A FILM. Return only what changes:
 Everything you do not mention stays exactly as it is: keep what works (regressions are worse than an unfixed polish
 issue). Kit scenes are fixed through their params (see the catalog); when the product reads small, raise its size
 params (see PRODUCT SIZE). Prefer replacing a weak custom scene by a kit scene over rewriting it.
+SCOPE: fix every severity-3 issue and at most the 4 most damaging others - a few precise changes beat many. Keep the
+TIMELINE (every shot's id, t0, t1) unless an issue is about pacing or the user's notes ask for it: the engine keeps
+the best version of each shot across revisions, and that needs the same shots at the same times.
 
 {DOCTRINE}
 

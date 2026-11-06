@@ -515,10 +515,12 @@ def exemplar_text(ex: Exemplar, *, seconds: float, product: str, name: str, cta:
     head = (f"## PROVEN FILM `{ex.id}` ({score}{ex.source})\n"
             + ("ADAPT THIS FILM. It is the highest craft the kits reach: its camera moves, flyer depths/sizes/paths, "
                "timings, transitions, lockup layout and music cue sheet were tuned by eye over many preview rounds. "
-               "Keep its shots, kit scenes and params unless the treatment explicitly needs something else; change "
-               "names, on-screen text, colours/time of day and the acts the treatment rewrites. Every change you make "
-               "must be an improvement you can name. Do not add custom scenes unless the treatment's signature moment "
-               "cannot be told with these shots.\n" if whole else
+               "KEEP EVERY ONE OF ITS SHOTS (same kit scene, params as the base); you may retime them a little, "
+               "change names, on-screen text, colours/time of day, and enlarge the product where the critic found it "
+               "small. Never replace or remove a proven shot. You may ADD at most one shot (prefer a kit scene; a "
+               "custom scene only if the treatment's signature moment cannot be told with kit scenes) - in trials, "
+               "replacing proven shots with new custom ones lowered the critic score every time. Every change must "
+               "be an improvement you can name.\n" if whole else
                "BORROW FROM THIS FILM: for every act of your film that uses the same kit, start from its shots "
                "(scene + params, verbatim where they fit) instead of inventing params - they are proven on screen.\n")
             + "Why it works:\n" + "\n".join(f"- {w}" for w in ex.why))
