@@ -1,0 +1,93 @@
+/* Showreel style "terminal": a single-phosphor CRT (P3 amber by default, P1 green as a per-film swap). Every
+   face is IBM Plex Mono on a character grid (box-drawing + blocks connect at line-height 1.3), VT323 only for
+   display numerals/taglines. The --sr-* tokens re-skin kit:base / kit:type scenes; the .tm-* classes style the
+   text-mode scenes of kit:terminal. Wide halation, curvature and RGB misconvergence are the ffmpeg `crt` post
+   chain; this sheet owns the content-dependent look (phosphor colour, tight glow, inverse video, scanlines). */
+
+.sr-theme-terminal {
+  --ph: #FFB13B; --ph-hot: #FFE6B8; --ph-mid: #C98A2C; --ph-dim: #7C531A; --ph-faint: #3A2609;
+  --ph-rgb: 255, 177, 59; --glass: #0C0805; --glass-lit: #1A1108;
+  --sr-stage: var(--glass);
+  --sr-stage-bg: radial-gradient(ellipse 72% 66% at 50% 48%, var(--glass-lit) 0%, var(--glass) 72%, #050302 100%);
+  --sr-grid: transparent;
+  --sr-grid-size: 40px;
+  --sr-vignette: radial-gradient(ellipse 88% 84% at 50% 50%, transparent 58%, rgba(0,0,0,.42) 100%);
+  --sr-fg: var(--ph-hot); --sr-fg-2: var(--ph); --sr-fg-3: var(--ph-mid);
+  --sr-accent: var(--ph); --sr-accent-ink: var(--glass); --sr-accent-hl: rgba(var(--ph-rgb), .22);
+  --sr-accent-glow: rgba(var(--ph-rgb), .45);
+  --sr-paper: #110B06; --sr-paper-2: #1A1108; --sr-rule: var(--ph-dim);
+  --sr-ink: var(--ph); --sr-ink-2: var(--ph-mid); --sr-ink-3: var(--ph-dim); --sr-tone: var(--ph-hot);
+  --sr-term: #0A0704; --sr-term-2: #140D06; --sr-term-rule: var(--ph-dim); --sr-term-ink: var(--ph); --sr-term-dim: var(--ph-mid);
+  --sr-del-hl: rgba(var(--ph-rgb), .06); --sr-fail: var(--ph-hot);
+  --sr-plate: rgba(12,8,5,.9); --sr-plate-ink: var(--ph);
+  --sr-scrim-rgb: 12 8 5;
+  --sr-f-sans: "IBM Plex Mono", "JetBrains Mono", monospace;
+  --sr-f-mono: "IBM Plex Mono", "JetBrains Mono", monospace;
+  --sr-f-display: "VT323", "IBM Plex Mono", monospace;
+  --sr-f-em: "VT323", "IBM Plex Mono", monospace;
+  --sr-w-display: 400; --sr-track-display: 0.01em; --sr-lead-display: .9; --sr-case-display: uppercase;
+  --sr-w-h1: 500; --sr-track-h1: 0;
+  --sr-em-style: normal; --sr-em-weight: 400; --sr-em-scale: 1.1; --sr-em-color: var(--ph-hot); --sr-em-track: 0;
+  --sr-label-track: .16em; --sr-w-num: 400;
+  --sr-r-panel: 0; --sr-r-card: 0; --sr-r-pill: 0;
+  --sr-panel-edge: 0 0 0 2px var(--ph-dim);
+  --sr-panel-shadow: 0 0 40px rgba(var(--ph-rgb), .06);
+  --sr-term-edge: 0 0 0 2px var(--ph-dim);
+  --sr-sheen: none;
+  --tm-f: "IBM Plex Mono", "JetBrains Mono", monospace;
+  --tm-fd: "VT323", "IBM Plex Mono", monospace;
+}
+.sr-theme-terminal.tm-p1 {
+  --ph: #4BFF86; --ph-hot: #D9FFE6; --ph-mid: #35C268; --ph-dim: #1E7A40; --ph-faint: #0E3A1E;
+  --ph-rgb: 75, 255, 134; --glass: #040905; --glass-lit: #0A160D;
+}
+.sr-theme-terminal .srb-display, .sr-theme-terminal .srb-h1 { text-shadow: 0 0 2px rgba(var(--ph-rgb), .8), 0 0 14px rgba(var(--ph-rgb), .35); }
+
+/* ── text-mode grid ─────────────────────────────────────────────── */
+.sr-theme-terminal .tm-pre { position: absolute; margin: 0; font-family: var(--tm-f); font-weight: 500; white-space: pre;
+  color: var(--ph); font-variant-ligatures: none; font-synthesis: none; letter-spacing: 0;
+  text-shadow: 0 0 1px rgba(var(--ph-rgb), .9), 0 0 6px rgba(var(--ph-rgb), .42); }
+.sr-theme-terminal .tm-disp { position: absolute; font-family: var(--tm-fd); font-weight: 400; white-space: pre; color: var(--ph);
+  text-shadow: 0 0 2px rgba(var(--ph-rgb), .9), 0 0 14px rgba(var(--ph-rgb), .45); }
+.sr-theme-terminal .h { color: var(--ph-hot); text-shadow: 0 0 1px var(--ph-hot), 0 0 8px rgba(var(--ph-rgb), .85), 0 0 22px rgba(var(--ph-rgb), .45); }
+.sr-theme-terminal .m { color: var(--ph-mid); text-shadow: 0 0 5px rgba(var(--ph-rgb), .25); }
+.sr-theme-terminal .d { color: var(--ph-dim); text-shadow: none; }
+.sr-theme-terminal .f { color: var(--ph-faint); text-shadow: none; }
+.sr-theme-terminal .i { background: var(--ph); color: var(--glass); text-shadow: none; box-shadow: 0 0 18px rgba(var(--ph-rgb), .5); }
+.sr-theme-terminal .ih { background: var(--ph-hot); color: var(--glass); text-shadow: none; box-shadow: 0 0 22px rgba(var(--ph-rgb), .7); }
+.sr-theme-terminal .s { text-decoration: line-through; text-decoration-thickness: .09em; text-decoration-color: var(--ph-mid); }
+.sr-theme-terminal .c { display: inline-block; width: .6em; height: 1.05em; vertical-align: -.2em; background: var(--ph-hot);
+  box-shadow: 0 0 10px rgba(var(--ph-rgb), .8); }
+.sr-theme-terminal .c.off { background: transparent; box-shadow: none; }
+.sr-theme-terminal .lo { color: var(--ph); text-shadow: 0 0 2px rgba(var(--ph-rgb), .9), 0 0 14px rgba(var(--ph-rgb), .55), 0 0 40px rgba(var(--ph-rgb), .22); font-weight: 400; }
+.sr-theme-terminal .ls { color: var(--ph-dim); opacity: .75; text-shadow: none; font-weight: 400; }
+
+/* ── odometer drums (VT323) ─────────────────────────────────────── */
+.sr-theme-terminal .tm-odo { position: absolute; display: flex; align-items: center; font-family: var(--tm-fd); font-weight: 400; }
+.sr-theme-terminal .tm-cell { position: relative; display: inline-block; overflow: hidden; margin-right: .05em;
+  border-top: 2px solid var(--ph-faint); border-bottom: 2px solid var(--ph-faint);
+  background: linear-gradient(180deg, rgba(0,0,0,.6), rgba(0,0,0,0) 30%, rgba(0,0,0,0) 70%, rgba(0,0,0,.6)); }
+.sr-theme-terminal .tm-drum { position: absolute; left: 0; right: 0; display: flex; flex-direction: column; align-items: center; }
+.sr-theme-terminal .tm-drum b { display: block; font-weight: 400; color: var(--ph-hot); text-align: center;
+  text-shadow: 0 0 3px rgba(var(--ph-rgb), .9), 0 0 18px rgba(var(--ph-rgb), .6); }
+.sr-theme-terminal .tm-drum b.g { color: var(--ph-faint); text-shadow: none; }
+.sr-theme-terminal .tm-sep { display: inline-block; color: var(--ph-hot); text-align: center;
+  text-shadow: 0 0 12px rgba(var(--ph-rgb), .7); }
+.sr-theme-terminal .tm-unit { display: inline-block; color: var(--ph); margin-left: .12em; text-shadow: 0 0 10px rgba(var(--ph-rgb), .5); }
+.sr-theme-terminal .tm-lbl { position: absolute; font-family: var(--tm-f); font-weight: 500; letter-spacing: .16em; text-transform: uppercase;
+  color: var(--ph-mid); white-space: nowrap; text-shadow: 0 0 5px rgba(var(--ph-rgb), .25); }
+
+/* ── media in the tube (dithered phosphor -> real) ─────────────── */
+.sr-theme-terminal .tm-media { position: absolute; overflow: hidden; }
+.sr-theme-terminal .tm-media canvas { position: absolute; left: 0; top: 0; }
+
+/* ── tube furniture ─────────────────────────────────────────────── */
+.sr-theme-terminal .tm-scan { position: absolute; inset: 0; pointer-events: none;
+  background: repeating-linear-gradient(180deg, rgba(0,0,0,0) 0, rgba(0,0,0,0) 2px, rgba(0,0,0,.30) 2px, rgba(0,0,0,.30) 4px); }
+.sr-theme-terminal.srb-portrait .tm-scan { background: repeating-linear-gradient(180deg, rgba(0,0,0,0) 0, rgba(0,0,0,0) 2px, rgba(0,0,0,.22) 2px, rgba(0,0,0,.22) 4px); }
+.sr-theme-terminal .tm-roll { position: absolute; left: 0; right: 0; height: 34%; pointer-events: none;
+  background: linear-gradient(180deg, rgba(var(--ph-rgb), 0), rgba(var(--ph-rgb), .035) 50%, rgba(var(--ph-rgb), 0)); }
+.sr-theme-terminal .tm-flick { position: absolute; inset: 0; pointer-events: none; background: #000; }
+.sr-theme-terminal .tm-beam { position: absolute; pointer-events: none; background: var(--ph-hot); border-radius: 50%;
+  box-shadow: 0 0 24px 8px rgba(var(--ph-rgb), .8), 0 0 80px 30px rgba(var(--ph-rgb), .35); }
+.sr-theme-terminal .tm-scr { position: absolute; inset: 0; transform-origin: 50% 50%; }
