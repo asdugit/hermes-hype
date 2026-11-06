@@ -328,9 +328,14 @@ SELF-CHECK BEFORE ANSWERING
 - None of the forbidden APIs appear (Math.random, Date, performance.now, timers, rAF, fetch/XHR/WebSocket, dynamic
   import, eval, new Function, document./window. access, external URLs).
 - Every beat of the spec happens at its time; the shot works for the whole duration (no dead tail, no blank frames).
-- The product media is drawn from ctx.asset(<param value>) and is the hero when the spec says so.
-- All readable text goes through ctx.text inside ctx.safe; every pixel is painted every frame.
+- The product media is drawn from ctx.asset(<param value>) and is the hero when the spec says so: it spans >= 35 % of
+  the frame width at its key moment (the engine MEASURES this in every keyframe and sends small products back), and
+  nothing (title, scrim, haze, particles) covers it.
+- All readable text goes through ctx.text inside ctx.safe; every pixel is painted every frame. `ctx.w`/`ctx.h` are
+  the surface size on every layer; DOM scenes build elements with `ctx.el(tag, props, ...kids)`; text painted into
+  WebGL is registered with `ctx.qaText([x, y, w, h], size, text)`; purely decorative DOM text gets `data-qa="off"`.
 - Params with defaults make the scene render sensibly even if a param is missing."""
+
 
 def scene_prompt(brief: Brief, catalog: Catalog, spec: dict[str, Any], shots: list[dict[str, Any]],
                  plan_shots: dict[str, dict[str, Any]]) -> tuple[str, str]:

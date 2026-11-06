@@ -40,6 +40,7 @@ NATURE_FLYER_SCENES = ("kit:nature/flower-field", "kit:nature/sky-reveal")
 NATURE_HERO_SCENES = ("kit:nature/product-hero",)
 HERO_SIZE_M, HERO_DIST_M = 5.0, 19.0     # product-hero defaults (one product on the hilltop)
 SCALE_PARAMS = ("product_scale", "productScale", "hero_scale")
+FAINT = 0.56               # clarity below this reads as ghosted (b1/a1 keyframes: ghost cards 0.32-0.54, clear 0.6-1.0)
 
 
 @dataclass
@@ -54,6 +55,7 @@ class Measure:
     area: float = 0.0
     bbox: tuple[float, float, float, float] | None = None     # x0, y0, x1, y1 as frame fractions
     regions: int = 0
+    clarity: float = 0.0       # how strongly the product's own pixels reach the screen (1 = opaque, ungraded)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -328,15 +330,40 @@ def measure(normal: bytes, flipped: bytes, *, threshold: int = DIFF_THRESHOLD, g
     return True, round(bbox[2] - bbox[0], 3), round(bbox[3] - bbox[1], 3), round(n / (gw * gh), 4), bbox, regions
 
 
+def clarity(normal: bytes, flipped: bytes, bbox: tuple[float, float, float, float] | None,
+            threshold: int = DIFF_THRESHOLD) -> float:
+    """How strongly the product reaches the screen inside ``bbox``: the mean colour change of its changed pixels
+    over the 128 the flip applies (1.0 = opaque and ungraded; haze, glass, scrims, low opacity and heavy grading
+    pull it down - a ghosted product measures ~0.2-0.35)."""
+    from PIL import Image, ImageChops
+
+    if bbox is None:
+        return 0.0
+    a = Image.open(io.BytesIO(normal)).convert("RGB")
+    b = Image.open(io.BytesIO(flipped)).convert("RGB")
+    if b.size != a.size:
+        b = b.resize(a.size)
+    box = (round(bbox[0] * a.width), round(bbox[1] * a.height), round(bbox[2] * a.width), round(bbox[3] * a.height))
+    if box[2] - box[0] < 2 or box[3] - box[1] < 2:
+        return 0.0
+    r, g, bl = ImageChops.difference(a.crop(box), b.crop(box)).split()
+    hist = ImageChops.lighter(ImageChops.lighter(r, g), bl).histogram()
+    n = sum(hist[threshold:])
+    if not n:
+        return 0.0
+    return round(min(1.0, sum(i * c for i, c in enumerate(hist) if i >= threshold) / n / 128.0), 3)
+
+
 def measure_frames(frames: list[Any], normal: list[bytes], flipped: list[bytes]) -> list[Measure]:
     """One :class:`Measure` per keyframe (``frames`` are sheet.Frame objects)."""
     out = []
     for f, a, b in zip(frames, normal, flipped, strict=False):
         try:
             vis, w, h, area, bbox, regions = measure(a, b)
+            clear = clarity(a, b, bbox) if vis else 0.0
         except Exception:
-            vis, w, h, area, bbox, regions = False, 0.0, 0.0, 0.0, None, 0
-        out.append(Measure(f.cell, f.shot, f.t, vis, w, h, area, bbox, regions))
+            vis, w, h, area, bbox, regions, clear = False, 0.0, 0.0, 0.0, None, 0, 0.0
+        out.append(Measure(f.cell, f.shot, f.t, vis, w, h, area, bbox, regions, clear))
     return out
 
 
@@ -358,10 +385,11 @@ def summarise(measures: list[Measure], hook_t: float = 1.0) -> Prominence:
         return Prominence(0.0, 0.0, {}, None)
     per: dict[str, dict[str, float]] = {}
     for m in measures:
-        d = per.setdefault(m.shot, {"max_width": 0.0, "visible": 0.0, "frames": 0.0})
+        d = per.setdefault(m.shot, {"max_width": 0.0, "visible": 0.0, "frames": 0.0, "clarity": 0.0})
         d["frames"] += 1
         d["visible"] += 1 if m.visible else 0
         d["max_width"] = max(d["max_width"], m.width if m.visible else 0.0)
+        d["clarity"] = max(d["clarity"], m.clarity if m.visible and m.width >= 0.08 else 0.0)
     for d in per.values():
         d["visible"] = round(d["visible"] / d["frames"], 3)
     hook = min(measures, key=lambda m: abs(m.t - hook_t))
@@ -380,6 +408,12 @@ def facts(p: Prominence, film: dict[str, Any], measures: list[Measure] | None = 
         lines.append("MEASURED largest product width per shot: " + ", ".join(parts))
     if p.hook_visible is False:
         lines.append("MEASURED: the product is not on screen at the 1 s hook frame")
+    faint = [f"{sid} {p.per_shot[sid]['clarity']:.0%}" for sid in order
+             if sid in p.per_shot and p.per_shot[sid]["max_width"] >= 0.08
+             and 0 < p.per_shot[sid].get("clarity", 1.0) < FAINT]
+    if faint:
+        lines.append("MEASURED: the product reads FAINT (ghosted by haze, glass, a scrim, low opacity or grading; "
+                     f"clarity < {FAINT:.0%}) in: " + ", ".join(faint))
     crops = cropped(measures or [])
     if crops:
         lines.append("MEASURED: the product runs off the frame edge in " + ", ".join(

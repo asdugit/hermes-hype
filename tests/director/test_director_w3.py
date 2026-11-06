@@ -364,3 +364,25 @@ def test_film_prompt_adapts_the_proven_film(env: dict[str, Any]) -> None:
     _instr, text = prompts.film_prompt(env["brief"], env["catalog"], dict(TREATMENT, recipe="race-chase"),
                                        max_custom=2)
     assert "Chosen recipe: `race-chase`" in text and "BORROW FROM THIS FILM" in text
+
+
+def test_clarity_tells_a_ghosted_product_from_a_solid_one() -> None:
+    from PIL import Image
+    base = Image.new("RGB", (480, 270), (120, 140, 170))
+
+    def frame(alpha: float) -> tuple[bytes, bytes]:
+        out = []
+        for color in ((200, 30, 30), (200 ^ 0x80, 30 ^ 0x80, 30 ^ 0x80)):
+            im = base.copy()
+            over = Image.new("RGB", (160, 90), color)
+            region = im.crop((160, 90, 320, 180))
+            im.paste(Image.blend(region, over, alpha), (160, 90))
+            buf = io.BytesIO()
+            im.save(buf, "PNG")
+            out.append(buf.getvalue())
+        return out[0], out[1]
+    solid, ghost = frame(1.0), frame(0.35)
+    vis, _w, *_rest, bbox, _ = pm.measure(*solid)
+    assert vis and pm.clarity(*solid, bbox) > 0.9
+    vis, _w, *_rest, bbox, _ = pm.measure(*ghost)
+    assert vis and pm.clarity(*ghost, bbox) < pm.FAINT

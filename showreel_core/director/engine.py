@@ -1077,6 +1077,14 @@ def _revise_version(r: _Run, v: Version) -> Version | None:
                        "issue": f"the product is visible in only {v.score.product_share:.0%} of keyframes (measured)",
                        "fix": "put the product on screen (large, lit) in more shots or shorten shots without it"})
     small = _small_product_shots(v)
+    faint = _faint_product_shots(v)
+    if faint:
+        extras.append({"shot": "film", "target": "film", "severity": 3,
+                       "issue": "MEASURED: the product reads faint/ghosted (its own pixels barely reach the "
+                                "screen) in: " + ", ".join(f"{s} (clarity {c:.0%})" for s, c in faint),
+                       "fix": "make the product solid and crisp there: for a screenshot/UI card in a nature scene set "
+                              "`key: false` on its flyer (auto-key eats light UI backgrounds) and bring it closer "
+                              "(less haze); move titles/lockups/scrims off the product; lower bloom/mist over it"})
     if small and v.score and v.score.product_hero is not None and v.score.product_hero < PRODUCT_HERO_BAR:
         extras.append({"shot": "film", "target": "film", "severity": 3,
                        "issue": f"the product is framed as the hero (>= {PRODUCT_HERO_SIZE:.0%} of the frame width) in "
@@ -1148,6 +1156,14 @@ def _num(x: Any) -> float:
         return float(x)
     except (TypeError, ValueError):
         return 0.0
+
+
+def _faint_product_shots(v: Version) -> list[tuple[str, float]]:
+    """(shot, best clarity) for shots whose sizeable product never reads solid (measured, see prominence.clarity)."""
+    if v.prom is None:
+        return []
+    return [(s, float(d.get("clarity", 1.0))) for s, d in v.prom.per_shot.items()
+            if d["visible"] > 0 and d["max_width"] >= 0.08 and 0 < float(d.get("clarity", 1.0)) < pm.FAINT]
 
 
 def _small_product_shots(v: Version) -> list[tuple[str, float]]:
