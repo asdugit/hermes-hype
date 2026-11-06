@@ -134,6 +134,15 @@ def check_treatment(obj: Any, brief: Brief, catalog: Catalog) -> Checked:
     product_assets = {a.name for a in brief.assets if a.product}
     if product_assets and not ({p.get("asset") for p in t.get("asset_plan") or []} & product_assets):
         errors.append(f"`asset_plan` must plan the use of the product media ({sorted(product_assets)})")
+    from .recipes import get as get_recipe
+    rid = str(t.get("recipe") or "").strip().lower()
+    if rid and rid != "custom" and get_recipe(rid) is None:
+        warnings.append(f"unknown recipe `{rid}` -> custom")
+        t["recipe"] = "custom"
+    voice = _dict(t.get("voice"))
+    mode = str(voice.get("mode") or "none").strip().lower()
+    t["voice"] = {"mode": mode if mode in ("none", "sparse", "narrated") else "sparse",
+                  "tone": str(voice.get("tone") or "")}
     return Checked(t, errors, warnings)
 
 
@@ -145,6 +154,10 @@ def check_film(obj: Any, brief: Brief, catalog: Catalog, *, max_custom: int) -> 
         return Checked(None, ["the answer must be a JSON object with `film` and `plan`"])
     film = copy.deepcopy(obj["film"])
     plan = copy.deepcopy(_dict(obj.get("plan")))
+    for key in ("voiceover", "narration"):          # narration lines belong to the plan; audio files come later
+        lines = film.pop(key, None)
+        if isinstance(lines, list) and lines and not plan.get("voiceover") and key == "voiceover":
+            plan["voiceover"] = lines
     errors: list[str] = []
     warnings: list[str] = []
     dur = float(brief.seconds)
@@ -176,6 +189,7 @@ def check_film(obj: Any, brief: Brief, catalog: Catalog, *, max_custom: int) -> 
     _check_finish(film)
     plan["shots"] = _check_plan_shots(plan, shots, warnings)
     plan["custom_scenes"] = list(customs.values())
+    plan["voiceover"] = check_voiceover(plan.get("voiceover"), dur, errors, warnings)
     names = {a.name for a in brief.assets}
     used = set()
     for s in shots:
@@ -440,6 +454,40 @@ def _check_finish(film: dict[str, Any]) -> None:
     f = _dict(film.get("finish"))
     limits = {"grain": 0.2, "vignette": 0.6, "bloom": 1.0}
     film["finish"] = {k: max(0.0, min(lim, _num(f.get(k), 0.0) or 0.0)) for k, lim in limits.items() if k in f}
+
+
+VOICE_WPS = 2.4            # words per second of window a narration line may use (Edge ~154 wpm at 1.0 = 2.57 w/s)
+VOICE_AIR = 0.4            # silence kept before the next line
+
+
+def check_voiceover(lines: Any, dur: float, errors: list[str], warnings: list[str]) -> list[dict[str, Any]]:
+    """Validate narration lines ``[{t, text}]``: inside the film, ordered, never overlapping, within the word budget
+    of their window (lines are never cut, so an over-long line goes back to the model)."""
+    out: list[dict[str, Any]] = []
+    for v in lines if isinstance(lines, list) else []:
+        if not isinstance(v, dict):
+            continue
+        t, text = _num(v.get("t")), " ".join(str(v.get("text") or "").split())
+        if t is None or not text:
+            continue
+        if not 0.0 <= t <= dur - 1.0:
+            warnings.append(f"dropped narration line at {t:g} s (outside 0..{dur - 1:g} s): {text[:60]!r}")
+            continue
+        out.append({"t": round(max(0.3, t), 2), "text": text})
+    out.sort(key=lambda v: v["t"])
+    if len(out) > 14:
+        errors.append(f"{len(out)} narration lines; keep it to <= 14 (silence is part of the film)")
+    for i, v in enumerate(out):
+        end = out[i + 1]["t"] - VOICE_AIR if i + 1 < len(out) else dur - 0.3
+        window = max(0.0, end - v["t"])
+        words = len(v["text"].split())
+        budget = window * VOICE_WPS
+        if words > budget * 1.15 + 0.5:
+            errors.append(f"narration line at {v['t']:g} s has {words} words but its window ({window:.1f} s until "
+                          f"the next line/end) fits ~{int(budget)}: shorten it or move the next line later")
+        elif words > budget + 0.5:
+            warnings.append(f"narration line at {v['t']:g} s is tight ({words} words in {window:.1f} s)")
+    return out
 
 
 def _check_plan_shots(plan: dict[str, Any], shots: list[dict[str, Any]], warnings: list[str]) -> list[dict[str, Any]]:

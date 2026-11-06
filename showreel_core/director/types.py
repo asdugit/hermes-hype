@@ -93,12 +93,14 @@ class Budget:
     film_repairs: int           # extra film/treatment calls when validation fails
     max_calls: int              # hard cap on model calls for the whole run
     max_custom: int = 3         # custom scenes per film
+    prominence_repairs: int = 1  # measured-product repair passes per version before the critic looks
 
 
 EFFORTS: dict[str, Budget] = {
     "quick": Budget(rounds=1, keyframes_per_shot=1, scene_tries=2, film_repairs=1, max_calls=16, max_custom=2),
     "standard": Budget(rounds=2, keyframes_per_shot=3, scene_tries=3, film_repairs=2, max_calls=36, max_custom=3),
-    "max": Budget(rounds=4, keyframes_per_shot=5, scene_tries=4, film_repairs=2, max_calls=72, max_custom=4),
+    "max": Budget(rounds=4, keyframes_per_shot=5, scene_tries=4, film_repairs=2, max_calls=72, max_custom=4,
+                  prominence_repairs=2),
 }
 SCORE_BAR = 8.0                 # every rubric score must reach this to stop early
 PRODUCT_SHARE_BAR = 0.6         # product visible in >= 60 % of frames (critic-judged)
@@ -148,6 +150,8 @@ class DirectorResult:
     usage: dict[str, Any] = field(default_factory=dict)
     seconds: float = 0.0
     log: list[dict[str, Any]] = field(default_factory=list)
+    measured: dict[str, Any] = field(default_factory=dict)        # pixel-measured product prominence of the result
+    narration: list[dict[str, Any]] = field(default_factory=list)  # [{path, start, duration, text, speed}]
 
     def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
