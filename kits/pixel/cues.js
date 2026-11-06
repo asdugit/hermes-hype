@@ -13,6 +13,7 @@ export const SFX = {
   buy: ['level_up', -2],         // MISSING dedicated 'buy' (ka-ching chiptune)
   slash: ['whoosh_short', -2],   // MISSING dedicated 'sword_slash'
   throw: ['whoosh_short', 0],    // MISSING 'blade_spin'
+  charge: ['power_up', -4],      // boss winds up (engine rev + glow)
   hit: ['hit', 0],
   damage: ['error', -6],         // MISSING 8-bit 'damage' buzz
   door_rumble: ['sub_drop', -2], // MISSING 'door_rumble' (stone grind)

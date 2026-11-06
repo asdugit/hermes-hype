@@ -16,7 +16,8 @@ import * as worlds from './bg/worlds.js';
 import * as ui from './ui/ui.js';
 import * as panels from './ui/panels.js';
 import { SFX, MISSING, cue } from './cues.js';
-import { screenOf, present, say, withDefaults, isVertical } from './scenes/base.js';
+import { screenOf, uiOf, present, say, withDefaults, isVertical, gameCtx, pixelScale } from './scenes/base.js';
+import * as camera from './core/camera.js';
 import { pickOrigin } from './scenes/boss-battle.js';
 import { SCENES } from './scenes/index.js';
 import { petalBloom } from './transitions/petal-bloom.js';
@@ -28,8 +29,11 @@ for (const t of [petalBloom, iris, screenSlide, battleSwirl]) sr.defineTransitio
 /** Building blocks for Director-written scenes: `const px = ctx.kit('pixel'); const S = px.begin(ctx); ...; px.end(ctx, S)`. */
 export const blocks = {
   // frame plumbing
+  game: gameCtx, pixelScale,
   begin: (ctx) => screenOf(ctx).fill('ink'),
-  end: (ctx, S) => present(ctx, S),
+  uiScreen: (ctx) => uiOf(ctx),
+  end: (ctx, S, o) => present(ctx, S, o),
+  camera,
   say, withDefaults, isVertical,
   // palette & drawing
   PALETTE, NAMES, IDX, RGB, RAMPS, REMAP, quantize, bayer, ci, Screen, Sprite,

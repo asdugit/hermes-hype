@@ -119,7 +119,7 @@ export function damageNumber(S, x, y, value, dt, o = {}) {
   const yy = Math.round(y - hop(u, o.height || 10) - hop(u2, 3));
   if (dt > (o.life || 1.3) - 0.3 && !blink(dt, 0.1)) return true;
   const str = String(value);
-  drawText(S, str, x, yy, { font: 'caps', color: o.color || 'white', outline: 'ink', diag: true, align: 'center' });
+  drawText(S, str, x, yy - ((o.scale || 1) - 1) * 8, { font: 'caps', scale: o.scale || 1, color: o.color || 'white', outline: 'ink', diag: true, align: 'center' });
   return true;
 }
 

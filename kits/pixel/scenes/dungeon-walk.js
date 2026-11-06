@@ -1,10 +1,11 @@
 // dungeon-walk.js — kit:pixel/dungeon-walk: the party walks a torch-lit corridor to the sealed
 // "LOCKED BOSS" door; it stops, the leader reacts, the chains snap and the door swings open.
-import { screenOf, withDefaults, isVertical, say, present } from './base.js';
+import { screenOf, uiOf, withDefaults, isVertical, say, present } from './base.js';
 import { wall, floor, torch, torchLights, DUNGEON_LEVELS, banner, chain, bones, bossDoor } from './../bg/dungeon.js';
 import { heroFrames, walkCel, idleCel, HERO_ANCHOR } from './../art/heroes.js';
 import { EMOTE, puff, fade, flash } from './../art/fx.js';
-import { step, seg, ease, shakeAt, hop, clamp } from './../core/motion.js';
+import { step, seg, ease, shakeAt, hop, clamp, lerp } from './../core/motion.js';
+import { punch } from './../core/camera.js';
 import { cue } from './../cues.js';
 
 const PARAMS = {
@@ -15,6 +16,8 @@ const PARAMS = {
   speed: { type: 'number', default: 44, doc: 'walk speed in game px per second' },
   caption: { type: 'string', default: '', doc: 'optional one-line message shown in a window while walking' },
   fade_in: { type: 'bool', default: true, doc: 'palette fade from black at the start' },
+  camera: { type: 'string', default: 'follow', doc: 'follow (close on the party, pull back to reveal the door, push into it as it opens) | wide (locked off)' },
+  zoom: { type: 'number', default: 2, doc: 'close-up zoom while following (2 = 8 px pixels at 1080p on a film-size surface; game-res surfaces floor to 1 or 2)' },
 };
 
 function timeline(ctx, P) {
@@ -77,14 +80,37 @@ function render(ctx, t, p) {
     const u = seg(tq, T.emote, T.emote + 0.2), lx = leadWX - camX;
     S.blit(EMOTE.bang, lx - 2, L.feet - 44 - Math.round(hop(u, 5)));
   }
-  // optional caption window
-  if (P.caption) captionBox(ctx, S, P.caption, L, tq);
+  // optional caption window (UI layer: the camera never zooms it)
+  const U = P.caption ? uiOf(ctx) : null;
+  if (U) captionBox(ctx, U, P.caption, L, tq);
 
   // screen effects
   if (sx || sy) S.shift(sx, sy, 'ink');
   if (P.open && tq >= T.chainsAt && tq < T.chainsAt + 0.07) flash(S, 'white', 0.5);
   if (P.fade_in) fade(S, 4 - Math.floor(seg(tq, 0, 0.45) * 4.999));
-  present(ctx, S);
+  present(ctx, S, { ui: U, cam: P.camera === 'wide' ? null : walkCam(t, P, L, T, leadWX - camX, doorWX - camX, S.w, S.h) });
+}
+
+/**
+ * Follow camera: close on the party (lead room ahead), pull back as the door scrolls in, lean toward the door on the
+ * rumble, punch on the chain snap, then push into the opening doorway (the battle swirl takes over from there).
+ */
+function walkCam(t, P, L, T, leadX, doorX, W, H) {
+  const tq = step(t, 15), Z = Math.max(1, P.zoom || 2);
+  const party = [leadX - L.gap + (L.V ? 10 : 36), L.feet - (L.V ? 70 : 44)];
+  const wide = [W / 2, H / 2], door = [doorX, L.floorY - (L.V ? 70 : 52)];
+  const mid = [(party[0] + door[0]) / 2, (party[1] + door[1]) / 2];
+  const r = ease.inOutCubic(seg(t, T.arrive - 1.2, T.arrive + 0.15));          // reveal
+  const lean = ease.inOutCubic(seg(t, T.openAt - 0.15, T.openAt + 0.45));      // toward the door
+  const dive = ease.inCubic(seg(t, T.doorT0, T.doorT1 + 0.5));                 // into the doorway
+  let zoom = lerp(Z, 1, r);
+  zoom = lerp(zoom, 1.25, lean);
+  zoom = lerp(zoom, 2.25, dive);
+  zoom += punch(tq, [T.chainsAt], 0.25, 0.3);
+  let x = lerp(party[0], wide[0], r), y = lerp(party[1], wide[1], r);
+  x = lerp(x, mid[0], lean); y = lerp(y, mid[1], lean);
+  x = lerp(x, door[0], dive); y = lerp(y, door[1], dive);
+  return { zoom: Math.round(zoom * 4) / 4, x, y };
 }
 
 function captionBox(ctx, S, text, L, t) {
