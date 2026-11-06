@@ -970,7 +970,7 @@ def _critique(r: _Run, v: Version, rnd: int) -> RoundScore | None:
     if first is not None:
         checks.append(f"product first appears at {first:g} s")
     if v.prom is not None:
-        checks += pm.facts(v.prom, v.film)
+        checks += pm.facts(v.prom, v.film, v.measures)
         if r.parent_prom is not None and r.brief.notes.strip():
             checks.append("MEASURED before the user's notes (largest product width per shot): " + ", ".join(
                 f"{sid} {d['max_width']:.0%}" for sid, d in r.parent_prom.per_shot.items()))
@@ -1095,7 +1095,7 @@ def _revise_version(r: _Run, v: Version) -> Version | None:
     recode: list[str] = list(scene_issues)
     if film_issues:
         r.emit("revise", f"Revising the film script ({len(film_issues)} film-level issue(s), as a patch)")
-        facts = pm.facts(v.prom, v.film) if v.prom is not None else None
+        facts = pm.facts(v.prom, v.film, v.measures) if v.prom is not None else None
         instr, text = prompts.revise_patch_prompt(r.brief, r.catalog, r.treatment, v.film, v.plan, issues + extras, "",
                                                   max_custom=r.budget.max_custom, keep=keep, seen=bool(images),
                                                   facts=facts)

@@ -320,3 +320,20 @@ def test_contact_sheet_sizes_survive_fake_captures() -> None:
     from PIL import Image
     data = png((10, 10, 10), (960, 540))
     assert Image.open(io.BytesIO(data)).size == (960, 540)
+
+
+def test_product_hero_bump_grows_the_one_hilltop_product() -> None:
+    shot = {"id": "end", "scene": "kit:nature/product-hero", "params": {"product": "car", "title": "top"}}
+    est = pm.estimate_width(shot, "16:9")
+    assert est is not None and 0.2 < est < 0.3                        # 5 m at 19 m
+    what = pm.bump(shot, 1.6)
+    assert what.startswith("hero size") and "flyers" not in shot["params"] and shot["params"]["size"] == 8.0
+    assert pm.estimate_width(shot, "16:9") > 0.35
+
+
+def test_cropped_product_is_reported() -> None:
+    ms = [pm.Measure(1, "hero", 1.0, True, 0.4, 0.3, 0.1, (0.3, 0.0, 0.7, 0.3), 1),
+          pm.Measure(2, "ui", 2.0, True, 0.5, 0.5, 0.2, (0.2, 0.2, 0.7, 0.7), 1)]
+    lines = pm.facts(pm.summarise(ms), {"shots": [{"id": "hero"}, {"id": "ui"}]}, ms)
+    assert any("off the frame edge in hero (top, 1 frame(s))" in ln for ln in lines)
+    assert not any("ui (" in ln for ln in lines)

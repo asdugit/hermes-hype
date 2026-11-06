@@ -37,6 +37,7 @@ NATURE_SLOTS = {"descend": (20, 5.4), "rise": (70, 6.0), "drive-slope": (26, 5.2
 NATURE_DEFAULT_PATHS = ("descend", "rise", "drive-slope", "float", "arc", "orbit")
 NATURE_FLYER_SCENES = ("kit:nature/flower-field", "kit:nature/sky-reveal")
 NATURE_HERO_SCENES = ("kit:nature/product-hero",)
+HERO_SIZE_M, HERO_DIST_M = 5.0, 19.0     # product-hero defaults (one product on the hilltop)
 SCALE_PARAMS = ("product_scale", "productScale", "hero_scale")
 
 
@@ -100,8 +101,22 @@ def estimate_width(shot: dict[str, Any], aspect: str) -> float | None:
         ws = [flyer_width(f, aspect, scale) for f in nature_flyers(params)]
         return max(ws) if ws else 0.0
     if scene in NATURE_HERO_SCENES:
-        return flyer_width({"path": "hero", **(nature_flyers(params) or [{}])[0]}, aspect, scale)
+        fl = params.get("flyers")
+        if isinstance(fl, list) and fl:
+            return max(flyer_width({"path": "hero", **f}, aspect, scale) for f in fl if isinstance(f, dict))
+        return _hero_width(params, aspect, scale)
     return None
+
+
+def _hero_width(params: dict[str, Any], aspect: str, scale: float = 1.0) -> float:
+    """product-hero without explicit flyers: ONE product of ``size`` m (default 5) on a hilltop ``distance`` m away
+    (default 19) - kits/nature/kit.js."""
+    try:
+        size = float(params.get("size") or HERO_SIZE_M) * scale
+        d = float(params.get("distance") or HERO_DIST_M)
+    except (TypeError, ValueError):
+        size, d = HERO_SIZE_M, HERO_DIST_M
+    return size / max(0.5, 2 * d * _tan_h(aspect))
 
 
 def _scale_of(params: dict[str, Any]) -> float:
@@ -152,6 +167,10 @@ def bump(shot: dict[str, Any], factor: float, declared: Iterable[str] = ()) -> s
             params[k] = round(min(3.0, old * factor), 2)
             return f"{k} {old:g} -> {params[k]:g}"
     scene = str(shot.get("scene", ""))
+    if scene in NATURE_HERO_SCENES and not (isinstance(params.get("flyers"), list) and params["flyers"]):
+        old = float(params.get("size") or HERO_SIZE_M)          # ONE hilltop product: grow it, never add flyers
+        params["size"] = round(min(old * factor, 24.0), 2)
+        return f"hero size {old:g} -> {params['size']:g} m"
     if scene in NATURE_FLYER_SCENES or scene in NATURE_HERO_SCENES:
         flyers = [dict(f) for f in nature_flyers(params)] or ([{"media": params.get("product"), "path": "hero"}]
                                                                if params.get("product") else [])
@@ -350,7 +369,7 @@ def summarise(measures: list[Measure], hook_t: float = 1.0) -> Prominence:
                       per, hook.visible if abs(hook.t - hook_t) < 0.6 else None)
 
 
-def facts(p: Prominence, film: dict[str, Any]) -> list[str]:
+def facts(p: Prominence, film: dict[str, Any], measures: list[Measure] | None = None) -> list[str]:
     """Engine-measured facts for the critic and the revisions."""
     lines = [f"MEASURED (pixel-exact): the product is visible in {p.visible_share:.0%} of keyframes and spans "
              f">= {HERO_WIDTH:.0%} of the frame width in {p.hero_share:.0%}"]
@@ -360,7 +379,27 @@ def facts(p: Prominence, film: dict[str, Any]) -> list[str]:
         lines.append("MEASURED largest product width per shot: " + ", ".join(parts))
     if p.hook_visible is False:
         lines.append("MEASURED: the product is not on screen at the 1 s hook frame")
+    crops = cropped(measures or [])
+    if crops:
+        lines.append("MEASURED: the product runs off the frame edge in " + ", ".join(
+            f"{sid} ({'/'.join(sorted(edges))}, {n} frame(s))" for sid, (edges, n) in crops.items())
+            + " - fine for a deliberate UI close-up, a flaw for a hero or flying product")
     return lines
+
+
+def cropped(measures: list[Measure], edge: float = 0.006) -> dict[str, tuple[set[str], int]]:
+    """Shots whose (non-trivial) product region touches a frame edge: shot -> (edges, frames)."""
+    out: dict[str, tuple[set[str], int]] = {}
+    for m in measures:
+        if not m.visible or m.bbox is None or m.width < 0.12:
+            continue
+        x0, y0, x1, y1 = m.bbox
+        edges = {k for k, hit in (("left", x0 <= edge), ("top", y0 <= edge), ("right", x1 >= 1 - edge),
+                                  ("bottom", y1 >= 1 - edge)) if hit}
+        if edges:
+            prev = out.get(m.shot, (set(), 0))
+            out[m.shot] = (prev[0] | edges, prev[1] + 1)
+    return out
 
 
 def save(path: Path, measures: list[Measure], summary: Prominence) -> None:
