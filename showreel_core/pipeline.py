@@ -283,7 +283,7 @@ def _d_solve(sb: Any, bundle: Any, voice_durations: dict[int, float], bpm: float
 
 
 def _d_quick_film(timeline: Any, *, job_dir: Path, page_dir: Path, style: str, aspect: str, preview: bool,
-                  storyboard: Any, bundle: Any) -> dict[str, Any]:
+                  storyboard: Any, bundle: Any, blender: bool = False) -> dict[str, Any]:
     """Timeline -> ``{"film": film.json, "assets": {...}, "scenes": {...}}`` via ``film/quick.py`` (WP-D).
 
     A bare film dict is accepted too (no extra assets or scenes).
@@ -295,7 +295,9 @@ def _d_quick_film(timeline: Any, *, job_dir: Path, page_dir: Path, style: str, a
     res = _call_flexible(quick, ("film_from_timeline", "timeline_to_film", "quick_film", "build_film"),
                          timeline=timeline, style=style, aspect=aspect, preview=preview, job_dir=job_dir,
                          page_dir=page_dir, storyboard=storyboard, events=bundle.events, stats=bundle.stats,
-                         product=getattr(storyboard, "product", None))
+                         product=getattr(storyboard, "product", None), blender=blender,
+                         product_model=str(getattr(getattr(bundle, "product", None), "model", "") or
+                                           getattr(getattr(storyboard, "product", None), "model", "") or ""))
     if hasattr(res, "to_dict") and not isinstance(res, dict):
         res = res.to_dict()
     if isinstance(res, dict) and "film" in res and "shots" not in res:
@@ -316,6 +318,18 @@ def _d_build_page(film: dict[str, Any], *, page_dir: Path, job_dir: Path, assets
     except JobError as exc:
         raise StageError("film_invalid", f"the film could not be built: {exc}") from exc
     return "stage.html"
+
+
+def _d_blender_locate(config_path: str | None) -> Any:
+    """The user's Blender (``BlenderFound``) or ``BlenderMissing`` with a user-facing message."""
+    from .blender.locate import locate
+    return locate(config_path)
+
+
+def _d_blender_pass(film: dict[str, Any], job_dir: Path, **kw: Any) -> Any:
+    """Blender pass of a film (``showreel_core.blender.film.render_film_shots``; never raises)."""
+    from .blender.film import render_film_shots
+    return render_film_shots(film, job_dir, **kw)
 
 
 def _d_layout_qa(built: Built, times: list[float], thumbs_dir: Path | None) -> dict[str, Any]:
@@ -498,6 +512,8 @@ class Deps:
     check_video: Callable[..., Any] | None = _d_check_video
     deliver: Callable[..., Any] = _d_deliver
     director: Callable[[], Any] = _d_director
+    blender_locate: Callable[[str | None], Any] = _d_blender_locate
+    blender_pass: Callable[..., Any] = _d_blender_pass
 
 
 def _call_flexible(module: Any, names: tuple[str, ...], **kwargs: Any) -> Any:
@@ -540,6 +556,7 @@ class _Run:
     clips: dict[int, Any] = field(default_factory=dict)       # storyboard index -> VoiceClip
     built: list[Built] = field(default_factory=list)
     title: str = ""
+    blender: Any = None                                       # BlenderFound once located ("" = looked, none)
 
     def warn(self, msg: str) -> None:
         log.info("showreel %s: %s", self.job_id, msg)
@@ -1000,10 +1017,16 @@ def _build_aspect(run: _Run, aspect: str, style: str) -> Built:
     if page_dir.exists():
         shutil.rmtree(page_dir, ignore_errors=True)
     page_dir.mkdir(parents=True, exist_ok=True)
+    found = blender_engine(run)
+    qkw = {"blender": True} if found else {}
     made = run.deps.quick_film(tl, job_dir=run.job_dir, page_dir=page_dir, style=style, aspect=aspect,
-                               preview=run.opts.preview, storyboard=run.storyboard, bundle=run.bundle)
+                               preview=run.opts.preview, storyboard=run.storyboard, bundle=run.bundle, **qkw)
     film = made["film"]
-    page = run.deps.build_page(film, page_dir=page_dir, job_dir=run.job_dir, assets=made.get("assets"),
+    assets = made.get("assets")
+    if found and (film.get("meta") or {}).get("blender_shots"):
+        from .film.quick import revert_blender
+        film, assets = blender_pass(run, film, assets, page_dir, tag, found, revert=revert_blender)
+    page = run.deps.build_page(film, page_dir=page_dir, job_dir=run.job_dir, assets=assets,
                                scenes=made.get("scenes"))
     voices = [{"path": str(run.clips[int(sc.data["story_index"])].path), "start": float(sc.vo_t0),
                "duration": float(run.clips[int(sc.data["story_index"])].duration)}
@@ -1077,7 +1100,10 @@ def _directed(run: _Run) -> list[Built] | None:
                "session_id": run.job.get("session_id", ""), "digest": getattr(run.bundle, "digest", ""),
                "product": getattr(run.bundle, "product", None), "seconds": run.opts.seconds, "aspect": aspect,
                "fps": fps, "size": (w, h), "seed": run.seed, "notes": run.opts.notes, "style": run.opts.style,
-               "hints": run.opts.hints, "voice_speed": run.opts.voice_speed}
+               "hints": run.opts.hints, "voice_speed": run.opts.voice_speed,
+               "engine_3d": run.opts.engine_3d}
+    found = blender_engine(run)
+    offered["blender"] = found.to_dict() if found else None   # the Director may write blender: shots when set
     try:
         params = inspect.signature(director).parameters
         takes_all = any(p.kind is inspect.Parameter.VAR_KEYWORD for p in params.values())
@@ -1107,7 +1133,19 @@ def _directed(run: _Run) -> list[Built] | None:
     director_dir = Path(res.get("job_dir") or run.job_dir)
     built_dir = next((Path(d) for d in (res.get("page_dir"), director_dir) if d and (Path(d) / "stage.html").is_file()
                       and (Path(d) / "film.json").is_file()), None)
-    if built_dir is not None:
+    from .blender.film import blender_shots
+    if blender_shots(film):
+        if not found:
+            run.warn("the Director's film has Blender shots but Blender is not available; made a Quick film instead")
+            return None
+        page_dir = run.job_dir / "page"
+        page_dir.mkdir(parents=True, exist_ok=True)
+        scenes = ({str(k): Path(v) for k, v in (res.get("scene_files") or {}).items()}
+                  or {f"custom:{p.stem}": p for p in sorted((director_dir / "scenes").glob("*.js"))})
+        film, assets = blender_pass(run, film, dict(res.get("assets") or {}), page_dir, "directed", found,
+                                    revert=None, scenes=scenes)
+        page = run.deps.build_page(film, page_dir=page_dir, job_dir=run.job_dir, assets=assets, scenes=scenes)
+    elif built_dir is not None:
         page_dir, page = built_dir, "stage.html"          # the Director built (and dry-ran) its final page
     else:
         page_dir = run.job_dir / "page"
@@ -1131,6 +1169,64 @@ def _directed(run: _Run) -> list[Built] | None:
                        scene_labels=[str(s.get("id", "")) for s in shots])]
     run.store.update(run.job_id, duration_s=dur)
     return run.built
+
+
+def blender_engine(run: _Run) -> Any:
+    """The user's Blender when this film should use it (``engine_3d`` blender/auto), else None. Located once per
+    run; when the user asked for Blender and it is missing, the job log says so and 3D stays in the browser."""
+    eng = str(getattr(run.opts, "engine_3d", "browser") or "browser")
+    if eng == "browser":
+        return None
+    if run.blender is not None:
+        return run.blender or None
+    found = run.deps.blender_locate(getattr(run.opts, "blender_path", "") or None)
+    if getattr(found, "ok", False):
+        run.blender = found
+        run.info(f"3D engine: Blender {found.version_string} ({found.path})")
+        return found
+    run.blender = ""
+    msg = getattr(found, "message", "Blender was not found.")
+    if eng == "blender":
+        run.warn(f"{msg} Made the 3D shots in the browser (three.js) instead.")
+    else:
+        run.info(f"3D engine: browser (engine_3d auto, no Blender: {msg})")
+    return None
+
+
+def blender_pass(run: _Run, film: dict[str, Any], assets: dict[str, Any] | None, page_dir: Path, tag: str,
+                 found: Any, *, revert: Callable[[dict[str, Any]], dict[str, Any]] | None,
+                 scenes: dict[str, Any] | None = None) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Render the film's ``blender:`` shots into ``page_dir`` (cache under ``job_dir/blender/<tag>``) and return
+    ``(film, assets)`` for ``build_page``. On failure: ``revert(film)`` (Quick: browser originals) with a warning,
+    or StageError when there is no fallback (Directed). Progress: "Blender: shot k/n, frame f/N, ETA ..."."""
+    tier = "preview" if run.opts.preview else "final"
+
+    def progress(ev: dict[str, Any]) -> None:
+        frames, frame = int(ev.get("frames") or 0), int(ev.get("frame") or 0)
+        if ev.get("phase") == "eta" and ev.get("eta_s") is not None:
+            run.info(str(ev.get("message")))           # "Blender shots: ~9 min on your GPU" in the job log
+        run.rep.progress(frame / frames if frames else 0.0, str(ev.get("message") or "Blender"),
+                         eta_s=ev.get("eta_s"))
+
+    n_shots = sum(1 for s in film.get("shots") or [] if str(s.get("scene", "")).startswith("blender:"))
+    run.info(f"Blender pass ({tier}): {n_shots} shot(s)")
+    bp = run.deps.blender_pass(film, page_dir, blender=found, tier=tier, assets=dict(assets or {}), scenes=scenes,
+                               progress=progress, cancel=lambda: run.cancel.is_set(),
+                               cache_dir=run.job_dir / "blender" / tag)
+    run.store.update(run.job_id, blender=bp.to_dict() if hasattr(bp, "to_dict") else {})
+    if getattr(bp, "cancelled", False):
+        raise Cancelled()
+    if bp.ok:
+        run.info(bp.message)
+        for w in bp.warnings[:6]:
+            run.warn(f"Blender: {w}")
+        return bp.film, {**bp.browser_assets, **bp.manifest}
+    if revert is None:
+        raise StageError("blender", f"the Blender shots failed: {bp.message}")
+    run.warn(f"Blender could not render the 3D shots ({bp.message}); made them in the browser instead")
+    film = revert(film)
+    keep = {n: a for n, a in (assets or {}).items() if n in (film.get("assets") or {})}
+    return film, keep
 
 
 def _back_half(run: _Run) -> None:

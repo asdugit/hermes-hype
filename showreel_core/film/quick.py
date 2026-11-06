@@ -242,17 +242,139 @@ def _transition(kind: str, kit: Mapping[str, Any]) -> tuple[str, float] | None:
     return str(v[0]), float(v[1])
 
 
+# ----------------------------------------------------------------------------------------- Blender (BLENDER.md)
+
+#: Quick mode x Blender ("Quick mapping" in BLENDER.md; B2 fills the scene names). storyboard type ->
+#: {"model": entry for 3D products, "screen": entry for software products}; entry = {"scene": "blender:<kit>/<s>",
+#: "params": {...}}. Param strings "{product}" -> the product asset (3D model or product image), "{media}" -> the
+#: shot's own image asset (else the product image), "{label}" -> the shot's headline text.
+BLENDER_QUICK: dict[str, dict[str, dict[str, Any]]] = {}
+BLENDER_TYPES = ("HOOK", "TITLE", "FEATURE", "SCROLL", "END")
+#: dev placeholder (SHOWREEL_BLENDER_PLACEHOLDER=1): every product type -> the hello scene
+PLACEHOLDER_ENTRY = {"scene": "blender:_test/hello", "params": {"color": "#E5484D", "spin": 120}}
+PRODUCT3D_ASSET = "product3d"
+
+
+def blender_quick_table(kits_root: Path | None = None) -> dict[str, dict[str, dict[str, Any]]]:
+    """The Quick mapping restricted to scenes that exist (+ the dev placeholder when enabled)."""
+    import os
+
+    from ..blender.film import scene_file
+    table: dict[str, dict[str, dict[str, Any]]] = {}
+    for typ in BLENDER_TYPES:
+        row = dict(BLENDER_QUICK.get(typ) or {})
+        if os.environ.get("SHOWREEL_BLENDER_PLACEHOLDER") == "1":
+            for kind in ("model", "screen"):
+                row.setdefault(kind, PLACEHOLDER_ENTRY)
+        for kind, entry in list(row.items()):
+            try:
+                ok = scene_file(str(entry.get("scene")), kits_root).is_file()
+            except ValueError:
+                ok = False
+            if not ok:
+                row.pop(kind)
+        if row:
+            table[typ] = row
+    return table
+
+
+def _fill(x: Any, subs: Mapping[str, str]) -> Any:
+    if isinstance(x, str):
+        return subs.get(x, x) if x.startswith("{") and x.endswith("}") else x
+    if isinstance(x, dict):
+        return {k: _fill(v, subs) for k, v in x.items()}
+    if isinstance(x, list):
+        return [_fill(v, subs) for v in x]
+    return x
+
+
+def _type_overlay(typ: str, data: Mapping[str, Any], theme: str) -> tuple[str, dict[str, Any]] | None:
+    """The words a browser type scene would have shown, as a kit:type overlay above the Blender picture."""
+    if typ == "TITLE" and data.get("title"):
+        return "kit:type/title", {"text": str(data["title"]), "sub": str(data.get("tagline") or ""), "theme": theme}
+    if typ == "END":
+        return "kit:type/end-lockup", {"title": str(data.get("title") or ""), "cta": str(data.get("cta") or ""),
+                                       "url": str(data.get("url") or ""), "credit": str(data.get("credit") or ""),
+                                       "theme": theme}
+    if typ == "FEATURE" and data.get("feature"):
+        return "kit:type/lower-third", {"title": str(data["feature"]), "theme": theme}
+    if typ == "HOOK" and data.get("label"):
+        return "kit:type/title", {"text": str(data["label"]), "theme": theme}
+    return None
+
+
+def apply_blender(film: dict[str, Any], datas: list[tuple[str, dict[str, Any]]], *, product_model: str | None,
+                  product_image: str | None, assets: dict[str, dict[str, Any]], theme: str,
+                  kits_root: Path | None = None) -> list[str]:
+    """Turn Quick product shots into ``blender:`` shots per the Quick mapping (in place); returns the shot ids.
+    The browser originals are kept in ``film.meta.blender_fallback`` (see :func:`revert_blender`)."""
+    table = blender_quick_table(kits_root)
+    if not table or not (product_model or product_image):
+        return []
+    product = PRODUCT3D_ASSET if product_model else product_image
+    if product_model:
+        assets[PRODUCT3D_ASSET] = {"src": product_model, "type": "model"}
+        film["assets"][PRODUCT3D_ASSET] = {"type": "model"}
+    kind = "model" if product_model else "screen"
+    fallback: dict[str, Any] = {}
+    done: list[str] = []
+    for shot, (typ, data) in zip(film["shots"], datas):
+        entry = (table.get(typ) or {}).get(kind)
+        if not entry:
+            continue
+        own = next((d["asset"] for d in _image_dicts(data)), None)
+        label = str(data.get("title") or data.get("feature") or data.get("label") or "")
+        subs = {"{product}": str(product), "{media}": str(own or product_image or product), "{label}": label}
+        fallback[shot["id"]] = {"scene": shot["scene"], "params": shot["params"], "res": shot.get("res")}
+        shot["scene"] = str(entry["scene"])
+        shot["params"] = {**_fill(dict(entry.get("params") or {}), subs), "product": str(product)}
+        shot.pop("res", None)
+        ov = _type_overlay(typ, data, theme)
+        if ov:
+            film["overlays"].append({"id": f"blx_{shot['id']}"[:48], "t0": shot["t0"], "t1": shot["t1"],
+                                     "scene": ov[0], "params": ov[1]})
+        done.append(shot["id"])
+    if done:
+        film["meta"]["blender_fallback"] = fallback
+        film["meta"]["blender_shots"] = done
+        if "type" not in film["kits"] and kit_exists("type"):
+            film["kits"].append("type")
+    return done
+
+
+def revert_blender(film: dict[str, Any]) -> dict[str, Any]:
+    """Film with the browser originals of Quick's Blender shots (Blender missing or failed)."""
+    fb = (film.get("meta") or {}).get("blender_fallback") or {}
+    if not fb:
+        return film
+    out = json.loads(json.dumps(film))
+    for shot in out["shots"]:
+        orig = fb.get(shot.get("id"))
+        if orig:
+            shot["scene"], shot["params"] = orig["scene"], orig["params"]
+            if orig.get("res"):
+                shot["res"] = orig["res"]
+    out["overlays"] = [o for o in out.get("overlays") or [] if not str(o.get("id", "")).startswith("blx_")]
+    out["assets"].pop(PRODUCT3D_ASSET, None)
+    out["meta"].pop("blender_fallback", None)
+    out["meta"]["blender_shots"] = []
+    return out
+
+
 # ----------------------------------------------------------------------------------------- adapter
 
 def film_from_timeline(timeline: Any, *, style: str | None = None, aspect: str | None = None,
                        job_dir: Path | str | None = None, preview: bool = False,
                        kits_root: Path | str | None = None, media_map: Mapping[str, str] | None = None,
-                       claim: bool = True, product: Any = None, **_: Any) -> dict[str, Any]:
+                       claim: bool = True, product: Any = None, blender: bool = False, product_model: str = "",
+                       **_: Any) -> dict[str, Any]:
     """Timeline (dataclass or dict) -> ``{"film": film.json dict, "assets": {name: spec}, "scenes": {}}``.
 
     ``job_dir`` resolves relative media paths in the scene data; ``media_map`` maps data paths to files
     explicitly (tests/fixtures). ``claim`` removes the cues the kit scenes emit themselves from
     ``timeline.cues`` (see module doc). ``aspect`` is informational (size comes from the timeline).
+    ``blender=True`` maps product shots to Blender scenes (:func:`apply_blender`; the pipeline runs the Blender
+    pass and falls back to :func:`revert_blender` when Blender is missing or fails).
     """
     kits_root = Path(kits_root) if kits_root else KITS_ROOT
     tl = _as_dict(timeline)
@@ -391,6 +513,11 @@ def film_from_timeline(timeline: Any, *, style: str | None = None, aspect: str |
     if isinstance(render, Mapping) and render.get("post"):
         # style post chain (e.g. terminal's CRT) -> pipeline RenderSpec(post=, post_params=)
         film["render"] = {"post": str(render["post"]), "post_params": dict(render.get("post_params") or {})}
+    if blender:
+        model = str(product_model or getattr(product, "model", "")
+                    or (product.get("model") if isinstance(product, Mapping) else "") or "")
+        apply_blender(film, datas, product_model=model if model and Path(model).is_file() else None,
+                      product_image=(product_image or {}).get("asset"), assets=media.assets, theme=theme)
     return {"film": film, "assets": media.assets, "scenes": {}}
 
 

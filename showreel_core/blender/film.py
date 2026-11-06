@@ -464,8 +464,8 @@ def _render(film: Mapping[str, Any], job_dir: Path, out: BlenderPass, shots: lis
         return [f for f in runner.requested_frames(p.job) if not runner.verify_frame(runner.frame_path(p.job, f),
                                                                                        expect=exp).ok]
 
-    for p in plans:
-        if not p.job.get("handoff") or p.from_shot not in order:
+    for p in plans:      # shots handed off from an earlier Blender shot are finalized once that shot is rendered
+        if not (p.from_shot and p.from_shot in order):
             finalize(p)
 
     # 5. benchmark -> ETA (the frames land in the shot's cache dir and are reused)
