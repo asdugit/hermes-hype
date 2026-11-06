@@ -21,7 +21,7 @@ export function kineticLine(text, { emphasis = -1, className = 'srb-h1', tag = '
       const ex = o.out != null ? exitAt(t, o.out + i * 0.03, 0.3) : { u: 0, op: 1, y: 0, blur: 0 };
       const y = st.y * 100 * rise + ex.y * 4; // % of the word box: words rise out of their mask
       const b = st.blur + ex.blur;
-      css(w.inner, { transform: `translate3d(0,${y.toFixed(2)}%,0)`, opacity: (st.op * ex.op).toFixed(3),
+      css(w.inner, { transform: `translate(0, ${y.toFixed(2)}%)`, opacity: (st.op * ex.op).toFixed(3),
         filter: b > 0.05 ? `blur(${b.toFixed(2)}px)` : 'none' });
     });
   }
@@ -45,7 +45,7 @@ export function kineticLetters(text, { className = 'srb-display' } = {}) {
     letters.forEach((inner, i) => {
       const st = entrance(t, t0 + i * stagger, o.dur ?? 0.6, 1, o.blur ?? 8);
       const ex = o.out != null ? exitAt(t, o.out, 0.3) : { op: 1, y: 0, blur: 0 };
-      css(inner, { transform: `translate3d(0,${(st.y * 105).toFixed(2)}%,0)`, opacity: (st.op * ex.op).toFixed(3),
+      css(inner, { transform: `translate(0, ${(st.y * 105).toFixed(2)}%)`, opacity: (st.op * ex.op).toFixed(3),
         filter: st.blur + ex.blur > 0.05 ? `blur(${(st.blur + ex.blur).toFixed(2)}px)` : 'none' });
     });
   }
@@ -57,7 +57,7 @@ export function riseIn(el, t, t0, o = {}) {
   const st = entrance(t, t0, o.dur ?? 0.5, o.rise ?? 18, o.blur ?? 6);
   const ex = o.out != null ? exitAt(t, o.out, 0.3) : { op: 1, y: 0, blur: 0 };
   const b = st.blur + ex.blur;
-  css(el, { opacity: (st.op * ex.op).toFixed(3), transform: `translate3d(0,${(st.y + ex.y).toFixed(2)}px,0) ${o.extra || ''}`,
+  css(el, { opacity: (st.op * ex.op).toFixed(3), transform: `translate(0, ${(st.y + ex.y).toFixed(2)}px) ${o.extra || ''}`,
     filter: b > 0.05 ? `blur(${b.toFixed(2)}px)` : 'none' });
   return st.u;
 }
@@ -113,8 +113,18 @@ export function statsBlock(stats, o = {}) {
   const el = h('div', 'srb-stats');
   const portrait = !!o.portrait;
   const n = Math.max(1, list.length);
-  const size = o.size || (portrait ? (n === 1 ? 300 : n === 2 ? 230 : 196) : n === 1 ? 300 : n === 2 ? 250 : 210);
-  el.style.cssText = `position:absolute;display:flex;${portrait ? 'flex-direction:column;align-items:flex-start;' : 'align-items:flex-end;'}gap:${o.gap ?? (portrait ? (n === 3 ? 56 : 90) : 120)}px;`;
+  let size = o.size || (portrait ? (n === 1 ? 300 : n === 2 ? 230 : 196) : n === 1 ? 300 : n === 2 ? 250 : 210);
+  const gap = o.gap ?? (portrait ? (n === 3 ? 56 : 90) : 120);
+  if (o.maxW > 0) {
+    // conservative width estimate of the final text (em), calibrated on the launch display face at 196 px
+    // ("1 h 01 min" renders ~4.4 em): digits .6, letters .56, spaces .26, punctuation .3
+    const em = (x) => [...String(x)].reduce((a, c) => a + (/\d/.test(c) ? 0.6 : /\s/.test(c) ? 0.26 : /[\w]/.test(c) ? 0.56 : 0.3), 0);
+    const ems = list.map((x) => Math.max(em(x.display ?? x.value ?? ''), 1));
+    const need = portrait ? Math.max(...ems) : ems.reduce((a, b) => a + b, 0);
+    const room = portrait ? o.maxW : o.maxW - gap * (n - 1);
+    if (need * size > room) size = Math.max(90, Math.floor(room / need));
+  }
+  el.style.cssText = `position:absolute;display:flex;${portrait ? 'flex-direction:column;align-items:flex-start;' : 'align-items:flex-end;'}gap:${gap}px;`;
   const items = list.map((s, i) => {
     const col = h('div', '');
     col.style.cssText = 'display:flex;flex-direction:column;align-items:flex-start;';
@@ -143,7 +153,7 @@ export function statsBlock(stats, o = {}) {
       const t0 = landAt + i * 0.18;
       const st = entrance(t, t0, 0.55, 34, 10);
       const punch = 1 + 0.14 * (1 - seg(t, t0, t0 + 0.45, ease.outQuint));
-      css(it.col, { opacity: st.op.toFixed(3), transform: `translate3d(0,${st.y.toFixed(2)}px,0)`,
+      css(it.col, { opacity: st.op.toFixed(3), transform: `translate(0, ${st.y.toFixed(2)}px)`,
         filter: st.blur > 0.05 ? `blur(${st.blur.toFixed(2)}px)` : 'none' });
       css(it.num, { transform: `scale(${punch.toFixed(4)})`, transformOrigin: '0 85%' });
       const txt = countFrame(it.s.display, it.s.value, t, t0 + 0.05);

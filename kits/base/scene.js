@@ -60,7 +60,7 @@ export function flatCam(F, t, cx, cy, zoom = 1, o = {}) {
   const [dx, dy, dr] = drift(t, o.seed ?? 7, o.drift ?? 2.2, o.rot ?? 0.05);
   const lift = o.lift || 0;
   const ax = o.ax ?? F.W / 2, ay = o.ay ?? F.H / 2;
-  css(F.cam, { transform: `translate3d(${ax.toFixed(2)}px,${(ay - lift).toFixed(2)}px,0) rotate(${((o.roll || 0) + dr).toFixed(4)}deg) scale(${zoom.toFixed(5)}) translate3d(${(-cx + dx).toFixed(2)}px,${(-cy + dy).toFixed(2)}px,0)` });
+  css(F.cam, { transform: `translate(${ax.toFixed(2)}px, ${(ay - lift).toFixed(2)}px) rotate(${((o.roll || 0) + dr).toFixed(4)}deg) scale(${zoom.toFixed(5)}) translate(${(-cx + dx).toFixed(2)}px, ${(-cy + dy).toFixed(2)}px)` });
   css(F.bg, { '--gx': `${(-(cx - F.W / 2) * 0.08 + dx * 2).toFixed(2)}px`, '--gy': `${(-(cy - F.H / 2) * 0.08 + dy * 2).toFixed(2)}px` });
 }
 

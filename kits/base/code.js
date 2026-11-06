@@ -117,7 +117,7 @@ export function codeBlock(data, o = {}) {
     const blink = typing || Math.floor(t * 1.8) % 2 === 0;
     if (cur >= 0 && u < 1 && o.caret !== false) {
       css(caret, { display: 'block', opacity: blink ? '1' : '0',
-        transform: `translate3d(calc(${gutW}px + ${shown[cur]}ch), ${padTop + cur * rowH}px, 0)`, height: `${Math.round(rowH * 0.7)}px`,
+        transform: `translate(calc(${gutW}px + ${shown[cur]}ch), ${padTop + cur * rowH}px)`, height: `${Math.round(rowH * 0.7)}px`,
         top: `${Math.round(rowH * 0.15)}px`, left: '0' });
     } else css(caret, { display: 'none' });
   }

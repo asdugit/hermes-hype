@@ -21,7 +21,8 @@ export const COMMON = {
 export function panelIn(el, t, t0 = -0.25, dur = 0.85, o = {}) {
   const u = seg(t, t0, t0 + dur, ease.outQuint);
   const b = (1 - u) * (o.blur ?? 8);
-  css(el, { transform: `perspective(2400px) translate3d(0,${((1 - u) * (o.rise ?? 60)).toFixed(2)}px,0) rotateX(${((1 - u) * (o.tilt ?? 14)).toFixed(3)}deg) scale(${(1 - (1 - u) * 0.05).toFixed(4)})`,
+  // settled panels drop the 3D transform: a 3D layer under a zooming flatCam rasterizes at a seek-history-dependent scale
+  css(el, { transform: u >= 1 ? 'none' : `perspective(2400px) translate(0, ${((1 - u) * (o.rise ?? 60)).toFixed(2)}px) rotateX(${((1 - u) * (o.tilt ?? 14)).toFixed(3)}deg) scale(${(1 - (1 - u) * 0.05).toFixed(4)})`,
     transformOrigin: '50% 100%', opacity: clamp(u * 2.2).toFixed(3), filter: b > 0.05 ? `blur(${b.toFixed(2)}px)` : 'none' });
   return u;
 }

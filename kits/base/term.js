@@ -108,7 +108,7 @@ export function termBlock(data, o = {}) {
     outRows.forEach((r, i) => {
       const t0 = streamAt[0] + (n > 1 ? (i * (streamAt[1] - streamAt[0])) / n : 0);
       const a = seg(t, t0, t0 + 0.18, ease.outCubic);
-      css(r.el, { opacity: a.toFixed(3), transform: `translate3d(0,${((1 - a) * 8).toFixed(2)}px,0)` });
+      css(r.el, { opacity: a.toFixed(3), transform: `translate(0, ${((1 - a) * 8).toFixed(2)}px)` });
     });
     const b = seg(t, badgeAt, badgeAt + 0.42, ease.outBack);
     const bo = seg(t, badgeAt, badgeAt + 0.12);

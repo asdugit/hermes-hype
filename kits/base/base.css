@@ -71,7 +71,7 @@
   background-image: radial-gradient(circle, var(--sr-grid) 1.6px, transparent 2.2px);
   background-size: var(--sr-grid-size) var(--sr-grid-size);
   -webkit-mask-image: radial-gradient(70% 70% at 50% 45%, #000 0%, rgba(0,0,0,.5) 55%, transparent 100%);
-  transform: translate3d(var(--gx, 0px), var(--gy, 0px), 0); }
+  transform: translate(var(--gx, 0px), var(--gy, 0px)); }
 .srb-bg::after { content: ""; position: absolute; inset: 0; background: var(--sr-vignette); }
 .srb-cam { position: absolute; inset: 0; transform-origin: 0 0; perspective: 2200px; }
 .srb-ov { position: absolute; inset: 0; pointer-events: none; }
@@ -89,7 +89,7 @@
   letter-spacing: var(--sr-em-track); color: var(--sr-em-color); font-size: calc(1em * var(--sr-em-scale)); line-height: 0; }
 .srb-mask { display: inline-block; overflow: hidden; vertical-align: bottom; padding: .24em .12em .28em; margin: -.24em -.12em -.28em; }
 .srb-mask:has(> .srb-em) { padding: .42em .2em .42em; margin: -.42em -.2em -.42em; }
-.srb-mask > .srb-wi { display: inline-block; will-change: transform; }
+.srb-mask > .srb-wi { display: inline-block; }
 .srb-label { font: 500 22px/1.2 var(--sr-f-mono); letter-spacing: var(--sr-label-track); text-transform: uppercase; color: var(--sr-fg-2); }
 .srb-rule { height: 4px; border-radius: 2px; background: var(--sr-accent); transform-origin: 0 50%; box-shadow: 0 0 18px var(--sr-accent-glow); }
 

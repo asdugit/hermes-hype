@@ -313,7 +313,7 @@ defineDomScene('kit:type/speedrun-timer', {
           const ft = Number(sp.film_t) || 0;
           const nx = i + 1 < rows.length ? Number(rows[i + 1].s.film_t) || 0 : Infinity;
           const u = seg(t, ft, ft + 0.35, ease.outQuint), v = seg(t, nx, nx + 0.3, ease.outCubic);
-          css(r, { opacity: (t >= ft ? 1 - v : 0).toFixed(3), transform: `translate3d(0,${((1 - u) * 42 - v * 42).toFixed(2)}px,0)` });
+          css(r, { opacity: (t >= ft ? 1 - v : 0).toFixed(3), transform: `translate(0, ${((1 - u) * 42 - v * 42).toFixed(2)}px)` });
         });
       },
     };

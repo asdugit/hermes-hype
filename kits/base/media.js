@@ -29,12 +29,19 @@ const LOCAL_PATH = /^(?:~|\/|[a-z]:[\\/]|file:)|\\/i;
  * Address-bar text for a screenshot: a web URL (no scheme), else the page title, else the file name — never a
  * filesystem path (local captures and session screenshots carry paths) — cut to `maxChars` with an ellipsis.
  */
-export function addressText(meta, maxChars = 60) {
+// machine-made file stems ("e84_desktop_1920x1080", "shot_003", "cap-2026...") never reach an address bar
+const MACHINE_STEM = /^(?:e\d+_|shot[_-]?\d|cap(?:ture)?[_-]|img[_-]?\d|screenshot[_-]?\d)|\d{3,4}x\d{3,4}|_(?:full|desktop|mobile|viewport|cut|el|step)(?:_|$)|^\d+$/i;
+
+export function addressText(meta, maxChars = 60, fallback = '') {
   const m = meta || {};
   const raw = String(m.url || '').trim();
   let s = raw && !LOCAL_PATH.test(raw) ? prettyUrl(raw) : '';
   if (!s && m.page_title) s = String(m.page_title).trim().replace(/\.(png|jpe?g|webp|gif|avif|bmp)$/i, '');
-  if (!s && (raw || m.path)) s = String(raw || m.path).split(/[\\/]/).pop().replace(/\.(png|jpe?g|webp|gif|avif|bmp)$/i, '');
+  if (!s && (raw || m.path)) {
+    const stem = String(raw || m.path).split(/[\\/]/).pop().replace(/\.(png|jpe?g|webp|gif|avif|bmp|mp4|webm|mov)$/i, '');
+    s = MACHINE_STEM.test(stem) ? '' : stem;
+  }
+  if (!s) s = String(fallback || '').trim();
   return s.length > maxChars ? `${s.slice(0, Math.max(4, maxChars - 1))}\u2026` : s;
 }
 
@@ -58,7 +65,7 @@ export function browserBlock(ctx, img, o = {}) {
     const url = h('div', 'srb-url');
     url.dataset.qa = 'off';           // browser chrome: cropped by push-ins by design, not content to QA
     // ~16 px per mono char at 27 px; dots + padding + lock take ~190 px
-    const pu = addressText(m.meta, Math.max(12, Math.floor((width - 200) / 17)));
+    const pu = addressText(m.meta, Math.max(12, Math.floor((width - 200) / 17)), (ctx.film && ctx.film.title) || '');
     const slash = /^[\w.-]+(:\d+)?\//.test(pu) ? pu.indexOf('/') : -1;
     url.appendChild(h('span', '', { html: ICONS.lock }));
     if (slash > 0) { url.appendChild(h('b', '', { text: pu.slice(0, slash) })); url.append(pu.slice(slash)); }
@@ -93,7 +100,7 @@ export function browserBlock(ctx, img, o = {}) {
 
   function setScroll(u) {
     scrollY = range * clamp(u);
-    css(cv, { transform: `translate3d(0,${(-scrollY).toFixed(2)}px,0) scale(${cs})` });
+    css(cv, { transform: `translate(0, ${(-scrollY).toFixed(2)}px) scale(${cs})` });
     if (scrollable) {
       const th = Math.max(40, viewH * viewH / natural);
       css(sb, { height: th + 'px', top: `${(6 + (viewH - th - 12) * clamp(u)).toFixed(2)}px` });
@@ -140,7 +147,7 @@ export function cursorBlock(o) {
     const y = lerp(o.from[1], o.to[1], u) - Math.sin(Math.PI * u) * 40;
     const dip = t >= o.press ? Math.exp(-(t - o.press) * 14) * (t - o.press < 0.06 ? (t - o.press) / 0.06 : 1) : 0;
     const vis = seg(t, travel0 - 0.25, travel0 + 0.05);
-    css(cur, { opacity: vis.toFixed(3), transform: `translate3d(${x.toFixed(2)}px,${y.toFixed(2)}px,0) scale(${(s * (1 - 0.16 * dip)).toFixed(4)})` });
+    css(cur, { opacity: vis.toFixed(3), transform: `translate(${x.toFixed(2)}px, ${y.toFixed(2)}px) scale(${(s * (1 - 0.16 * dip)).toFixed(4)})` });
     for (const [r, delay, max] of [[rip, 0, 90], [rip2, 0.12, 150]]) {
       const ru = seg(t, o.press + delay, o.press + delay + 0.7, ease.outCubic);
       const rad = 10 + max * ru;

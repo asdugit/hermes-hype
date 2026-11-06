@@ -122,7 +122,7 @@ export function planBlock(data, o = {}) {
   function update(t) {
     rows.forEach((r, i) => {
       const e = seg(t, startAt + i * 0.08, startAt + i * 0.08 + 0.5, ease.outQuint);
-      css(r.row, { opacity: clamp(e * 1.6).toFixed(3), transform: `translate3d(0,${((1 - e) * 22).toFixed(2)}px,0)`,
+      css(r.row, { opacity: clamp(e * 1.6).toFixed(3), transform: `translate(0, ${((1 - e) * 22).toFixed(2)}px)`,
         filter: e < 0.98 ? `blur(${((1 - e) * 5).toFixed(2)}px)` : 'none' });
       if (r.st === 'done') {
         const s = spring(t - tickT[i], 3.2);

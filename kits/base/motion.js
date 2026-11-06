@@ -155,5 +155,5 @@ export function exitAt(t, t1, dur = 0.3, rise = -12, blur = 6) {
 /** CSS fragment for an entrance/exit state. */
 export function enterCss(st, extra = '') {
   const b = st.blur > 0.05 ? `blur(${st.blur.toFixed(2)}px)` : 'none';
-  return { opacity: st.op.toFixed(3), transform: `translate3d(0,${st.y.toFixed(2)}px,0) ${extra}`.trim(), filter: b };
+  return { opacity: st.op.toFixed(3), transform: `translate(0, ${st.y.toFixed(2)}px) ${extra}`.trim(), filter: b };
 }

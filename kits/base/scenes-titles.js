@@ -50,7 +50,7 @@ export const TITLE_DEF = {
     const heroData = p.hero && (p.hero.asset || p.hero.kind) ? p.hero : (p.backdrop && p.backdrop.asset ? p.backdrop : null);
     const hasHero = heroElsewhere || !!heroData;
     const centered = L || !hasHero;
-    const maxW = L ? 840 : hasHero ? 860 : 1500;
+    const maxW = L ? 800 : hasHero ? 860 : 1500;     // 9:16: safe width 840 less the camera's 1.04 push-in
     const ts = titleSize(title, maxW, L ? 200 : 220, L ? 90 : 110);
     const box = h('div', 'srb-abs');
     const eb = p.eyebrow ? h('div', 'srb-eyebrow', null, [h('i'), String(p.eyebrow)]) : null;
@@ -92,7 +92,7 @@ export const TITLE_DEF = {
         if (hero) {
           hero.update(t);
           const u = panelIn(hero.el, t, -0.1, 1.0, { tilt: 18, rise: 70 });
-          if (!L) css(hero.el, { transform: `perspective(2000px) translate3d(${((1 - u) * 60).toFixed(2)}px,0,0) rotateY(${(-16 + (1 - u) * -10).toFixed(3)}deg) rotateX(${(4 + (1 - u) * 10).toFixed(3)}deg)` });
+          if (!L) css(hero.el, { transform: `perspective(2000px) translate(${((1 - u) * 60).toFixed(2)}px, 0) rotateY(${(-16 + (1 - u) * -10).toFixed(3)}deg) rotateX(${(4 + (1 - u) * 10).toFixed(3)}deg)` });
         }
         const u = seg(t, 0, ctx.dur, ease.outCubic);
         flatCam(F, t, F.W / 2, F.H / 2, lerp(1, 1.035, u), { lift: F.caps ? 40 : 0 });
@@ -112,7 +112,7 @@ export const STATS_DEF = {
   build(ctx, p, F) {
     const L = F.portrait;
     const bd = backdropLayer(ctx, F, p);
-    const sb = statsBlock(p.stats || [], { portrait: L, landAt: 0.12 });
+    const sb = statsBlock(p.stats || [], { portrait: L, landAt: 0.12, maxW: (F.W - F.safe.l - F.safe.r) * 0.96 });
     const label = String(p.label || '').trim();
     const eb = label ? h('div', 'srb-eyebrow', null, [h('i'), label]) : null;
     const box = centerBox(F, eb ? 20 : 0);

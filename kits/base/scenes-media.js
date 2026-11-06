@@ -326,7 +326,7 @@ defineDomScene('kit:base/MONTAGE', {
           const on = i === cur;
           const dist = Math.abs(i - cur);
           css(q.el, { opacity: (u * (on ? 1 : dist === 1 ? 0.8 : 0.5)).toFixed(3),
-            transform: `perspective(1600px) rotateX(${((1 - u) * 75).toFixed(3)}deg) translate3d(0,${((1 - u) * 30).toFixed(2)}px,0) scale(${on ? 1.04 : 1})`,
+            transform: u >= 1 ? `scale(${on ? 1.04 : 1})` : `perspective(1600px) rotateX(${((1 - u) * 75).toFixed(3)}deg) translate(0, ${((1 - u) * 30).toFixed(2)}px) scale(${on ? 1.04 : 1})`,
             transformOrigin: '50% 100%', zIndex: on ? '5' : '1' });
           q.el.classList.toggle('on', on);
         });
