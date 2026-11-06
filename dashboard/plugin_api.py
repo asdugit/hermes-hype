@@ -1,27 +1,38 @@
 """Showreel dashboard API: ``/api/plugins/showreel/*`` for the Desktop pane (SPEC 3.9).
 
-Hermes imports this file on its own (not as part of the plugin package), so the core package is
-loaded by path under a private module name. Job state is shared with the plugin's own threads through
-files in the plugin data dir (``jobs/<id>/job.json``). Handlers never block the event loop: request
-bodies are read with a size cap, everything else runs in the thread pool.
+Hermes imports this file on its own (not as part of the plugin package), so the core package and the
+pane read models (``pane_data.py`` beside this file) are loaded by path under private module names.
+Job state is shared with the plugin's own threads through files in the plugin data dir
+(``jobs/<id>/job.json`` plus side files). Handlers never block the event loop: request bodies are
+read with a size cap, everything else runs in the thread pool.
 
 Routes
-  GET  /styles                      styles + small preview data URLs
-  GET  /jobs?session_id=            jobs, newest first (log tails only)
-  POST /jobs                        {session_id, options} -> start a film
-  GET  /jobs/latest?session_id=     newest job of the session, or {"stage": "none"}
-  GET  /jobs/{id}                   one job
-  POST /jobs/{id}/cancel            raise the cancel flag
-  PUT  /jobs/{id}/storyboard        {storyboard} pane edits (used by the next rerender)
-  POST /jobs/{id}/rerender          {aspects?, options?} new job from the (edited) storyboard, no LLM call
-  GET  /jobs/{id}/thumbs            scene thumbnails + contact sheet as data URLs
+  GET  /health                         {ok, api}: the pane's "is the backend on" probe
+  GET  /styles                         styles in roster order + preview availability (small ones inline)
+  GET  /styles/{id}/preview            {kind, mime, url}: one style's looping preview as a data URL
+  GET  /jobs?session_id=&limit=        jobs, newest first (log tails only)
+  GET  /jobs/active                    running jobs of every session + ones that just finished (status chip)
+  GET  /jobs/latest?session_id=        newest job of the session, or {"stage": "none"}
+  POST /jobs                           {session_id, options} -> start a film (409 while one is running)
+  GET  /jobs/{id}                      one job
+  POST /jobs/{id}/cancel               raise the cancel flag
+  GET  /jobs/{id}/storyboard           {storyboard, edited}: the pane's edit if saved, else the job's own
+  PUT  /jobs/{id}/storyboard           {storyboard} pane edits (used by the next rerender)
+  POST /jobs/{id}/rerender             {aspects?, options?} new job from the (edited) storyboard, no LLM call
+  POST /jobs/{id}/revise               {notes, options?} new job: same film options + notes (Directed: revise pass)
+  GET  /jobs/{id}/thumbs               scene thumbnails + contact sheet as data URLs
+  GET  /jobs/{id}/director-log?since=  Director live log from line `since`, treatment, versions, scores, usage
+  GET  /jobs/{id}/director/image?v=&name=&w=   one contact sheet / keyframe, downscaled, as a data URL
+  GET  /jobs/{id}/director/scene?v=&name=      one custom scene's code (read-only peek)
+  GET  /jobs/{id}/post-text            {text}: a ready-to-post caption for the finished film
+  GET  /library                        the user's saved scenes/worlds with thumbnails
 """
 from __future__ import annotations
 
-import base64
 import importlib.util
 import json
 import sys
+import time
 from pathlib import Path
 from typing import Any
 
@@ -31,10 +42,14 @@ from starlette.concurrency import run_in_threadpool
 
 ROOT = Path(__file__).resolve().parents[1]
 CORE_NAME = "_showreel_dashboard_core"
+PANE_NAME = "_showreel_pane_data"
+API_VERSION = 2
 BODY_LIMIT = 512 * 1024
 THUMB_LIMIT = 600 * 1024
-PREVIEW_LIMIT = 400 * 1024
-MIME = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp", ".gif": "image/gif"}
+NOTES_LIMIT = 2000
+#: Extra preview folder the integration build fills (``assets/previews/<style>.webp|mp4``); a kit or style
+#: pack's own ``preview.*`` wins over it.
+PREVIEW_DIRS = (ROOT / "assets" / "previews",)
 
 
 def _load_core() -> Any:
@@ -56,22 +71,43 @@ def _sub(name: str) -> Any:
     return importlib.import_module(f"{CORE_NAME}.{name}")
 
 
+def _pane() -> Any:
+    """``pane_data.py`` (read models for the pane), loaded by path like the core."""
+    if PANE_NAME in sys.modules:
+        return sys.modules[PANE_NAME]
+    path = Path(__file__).resolve().parent / "pane_data.py"
+    spec = importlib.util.spec_from_file_location(PANE_NAME, path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"cannot load {path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[PANE_NAME] = module
+    spec.loader.exec_module(module)
+    return module
+
+
 router = APIRouter()
+_CACHES: dict[str, Any] = {}
+
+
+def _job_cache() -> Any:
+    if "jobs" not in _CACHES:
+        _CACHES["jobs"] = _pane().JobCache()
+    return _CACHES["jobs"]
+
+
+def _image_cache() -> Any:
+    if "images" not in _CACHES:
+        _CACHES["images"] = _pane().ImageCache()
+    return _CACHES["images"]
 
 
 def _err(status: int, message: str) -> JSONResponse:
     return JSONResponse({"error": message}, status_code=status)
 
 
-def _data_url(path: str | Path, limit: int) -> str:
-    p = Path(path)
-    mime = MIME.get(p.suffix.lower())
-    try:
-        if not mime or not p.is_file() or p.stat().st_size > limit:
-            return ""
-        return f"data:{mime};base64," + base64.b64encode(p.read_bytes()).decode("ascii")
-    except OSError:
-        return ""
+def _reply(result: tuple[int, dict[str, Any]]) -> JSONResponse:
+    status, payload = result
+    return JSONResponse(payload, status_code=status)
 
 
 async def _json_body(request: Request) -> dict[str, Any] | None:
@@ -99,22 +135,45 @@ def _view(job: dict[str, Any]) -> dict[str, Any]:
     return _sub("jobs").public_view(job)
 
 
+def _job_or_404(job_id: str) -> tuple[Any, dict[str, Any] | None]:
+    store = _store()
+    if not _sub("jobs").valid_id(job_id):
+        return store, None
+    return store, store.load(job_id)
+
+
+def _directed(job: dict[str, Any]) -> bool:
+    return job.get("kind") == "directed" or bool(str((job.get("options") or {}).get("direction") or "").strip())
+
+
+@router.get("/health")
+async def health() -> Any:
+    return {"ok": True, "api": API_VERSION}
+
+
 # --------------------------------------------------------------------------- styles
 
-def _styles() -> list[dict[str, Any]]:
-    cfg = _sub("config")
-    out = []
-    for s in cfg.discover_styles().values():
-        d = s.to_dict()
-        d["preview_url"] = _data_url(s.preview, PREVIEW_LIMIT) if s.preview else ""
-        d.pop("preview", None)
-        out.append(d)
-    return sorted(out, key=lambda d: (not d["ready"], d["id"]))
+def _style_dicts() -> list[dict[str, Any]]:
+    return [s.to_dict() for s in _sub("config").discover_styles().values()]
 
 
 @router.get("/styles")
 async def get_styles() -> Any:
-    return {"styles": await run_in_threadpool(_styles)}
+    def go() -> list[dict[str, Any]]:
+        return _pane().style_rows(_style_dicts(), list(PREVIEW_DIRS))
+    return {"styles": await run_in_threadpool(go)}
+
+
+@router.get("/styles/{style_id}/preview")
+async def style_preview(style_id: str) -> Any:
+    def go() -> tuple[int, dict[str, Any]]:
+        sid = style_id.strip().lower()
+        if not sid.replace("-", "").replace("_", "").isalnum():
+            return 404, {"error": "unknown style"}
+        declared = next((str(s.get("preview") or "") for s in _style_dicts() if s.get("id") == sid), "")
+        payload = _pane().preview_payload(sid, declared, list(PREVIEW_DIRS))
+        return (200, payload) if payload else (404, {"error": "no preview for this style yet"})
+    return _reply(await run_in_threadpool(go))
 
 
 # ----------------------------------------------------------------------------- jobs
@@ -123,7 +182,10 @@ def _start(session_id: str, options: dict[str, Any], *, parent: str = "", reuse:
            ) -> tuple[int, dict[str, Any]]:
     cfg, jobs, llm, pipeline = _sub("config"), _sub("jobs"), _sub("llm"), _sub("pipeline")
     store = jobs.JobStore()
-    store.mark_stale(active_ids=set(pipeline.running_ids()))
+    # No ``active_ids`` here: this module's pipeline copy only knows the jobs it started itself, so a film the
+    # plugin's own copy runs in this same process (slash command, tool) would look orphaned during a long
+    # model call. Dead runner processes and hour-long silence still mark a job stale.
+    store.mark_stale()
     busy = store.running(session_id)
     if busy:
         return 409, {"error": "a showreel is already rendering for this session", "job": jobs.public_view(busy[0])}
@@ -147,14 +209,23 @@ async def post_job(request: Request) -> Any:
         return _err(400, "session_id is required")
     raw = body.get("options")
     opts: dict[str, Any] = raw if isinstance(raw, dict) else {}
-    status, payload = await run_in_threadpool(_start, sid, opts)
-    return JSONResponse(payload, status_code=status)
+    return _reply(await run_in_threadpool(_start, sid, opts))
 
 
 @router.get("/jobs")
 async def list_jobs(session_id: str = "", limit: int = 20) -> Any:
     def go() -> list[dict[str, Any]]:
-        return [_view(j) for j in _store().list(session_id or None, limit=max(1, min(100, limit)))]
+        store, jobs = _store(), _sub("jobs")
+        found = _job_cache().jobs(store.jobs_dir, jobs.valid_id, session_id or None, max(1, min(100, limit)))
+        return [_view(j) for j in found]
+    return {"jobs": await run_in_threadpool(go)}
+
+
+@router.get("/jobs/active")
+async def active_jobs() -> Any:
+    def go() -> list[dict[str, Any]]:
+        store, jobs = _store(), _sub("jobs")
+        return _pane().active_jobs(_job_cache().jobs(store.jobs_dir, jobs.valid_id, None, 40), time.time())
     return {"jobs": await run_in_threadpool(go)}
 
 
@@ -164,14 +235,6 @@ async def latest_job(session_id: str = "") -> Any:
         job = _store().latest(session_id or None)
         return _view(job) if job else {"stage": "none", "session_id": session_id}
     return await run_in_threadpool(go)
-
-
-def _job_or_404(job_id: str) -> tuple[Any, dict[str, Any] | None]:
-    store = _store()
-    jobs = _sub("jobs")
-    if not jobs.valid_id(job_id):
-        return store, None
-    return store, store.load(job_id)
 
 
 @router.get("/jobs/{job_id}")
@@ -193,8 +256,7 @@ async def cancel_job(job_id: str) -> Any:
         if tok is not None:
             tok.set()
         return 200, {"ok": ok, "id": job_id}
-    status, payload = await run_in_threadpool(go)
-    return JSONResponse(payload, status_code=status)
+    return _reply(await run_in_threadpool(go))
 
 
 def _check_storyboard(sb: Any) -> str:
@@ -210,6 +272,18 @@ def _check_storyboard(sb: Any) -> str:
         if not isinstance(s.get("refs", []), list) or not isinstance(s.get("vo", ""), str):
             return f"scene {k}: refs must be a list and vo a string"
     return ""
+
+
+@router.get("/jobs/{job_id}/storyboard")
+async def get_storyboard(job_id: str) -> Any:
+    def go() -> tuple[int, dict[str, Any]]:
+        store, job = _job_or_404(job_id)
+        if job is None:
+            return 404, {"error": "not found"}
+        edit = store.storyboard_edit(job_id)
+        return 200, {"id": job_id, "storyboard": edit or job.get("storyboard"), "edited": edit is not None,
+                     "source": job.get("storyboard_source") or ""}
+    return _reply(await run_in_threadpool(go))
 
 
 @router.put("/jobs/{job_id}/storyboard")
@@ -228,8 +302,7 @@ async def put_storyboard(job_id: str, request: Request) -> Any:
             return 404, {"error": "not found"}
         path = store.save_storyboard_edit(job_id, sb)
         return 200, {"ok": True, "path": str(path)}
-    status, payload = await run_in_threadpool(go)
-    return JSONResponse(payload, status_code=status)
+    return _reply(await run_in_threadpool(go))
 
 
 @router.post("/jobs/{job_id}/rerender")
@@ -244,6 +317,9 @@ async def rerender(job_id: str, request: Request) -> Any:
             return 404, {"error": "not found"}
         sb = store.storyboard_edit(job_id) or job.get("storyboard")
         if not sb:
+            if _directed(job):
+                return 409, {"error": "a Directed film has no storyboard to re-render: use Revise (for example "
+                                      "'make a 9:16 version') to direct it again", "directed": True}
             return 409, {"error": "this job has no storyboard to re-render (it never got that far)"}
         opts = dict(job.get("options") or {})
         if isinstance(body.get("options"), dict):
@@ -252,8 +328,32 @@ async def rerender(job_id: str, request: Request) -> Any:
             opts["aspects"] = body["aspects"]
         opts["direction"] = ""          # re-render the storyboard as is: Quick back half, no model call
         return _start(job.get("session_id") or "", opts, parent=job_id, reuse=sb)
-    status, payload = await run_in_threadpool(go)
-    return JSONResponse(payload, status_code=status)
+    return _reply(await run_in_threadpool(go))
+
+
+@router.post("/jobs/{job_id}/revise")
+async def revise(job_id: str, request: Request) -> Any:
+    body = await _json_body(request)
+    if body is None:
+        return _err(400, "expected a JSON object body under 512 KB")
+    notes = str(body.get("notes") or "").strip()
+    if not notes:
+        return _err(400, "notes are required: say what should change")
+    if len(notes) > NOTES_LIMIT:
+        return _err(400, f"notes are limited to {NOTES_LIMIT} characters")
+
+    def go() -> tuple[int, dict[str, Any]]:
+        _, job = _job_or_404(job_id)
+        if job is None:
+            return 404, {"error": "not found"}
+        if job.get("stage") != "done":
+            return 409, {"error": "only a finished film can be revised"}
+        opts = dict(job.get("options") or {})
+        if isinstance(body.get("options"), dict):
+            opts.update({k: v for k, v in body["options"].items() if k not in ("direction", "notes")})
+        opts["notes"] = notes
+        return _start(job.get("session_id") or "", opts, parent=job_id)
+    return _reply(await run_in_threadpool(go))
 
 
 @router.get("/jobs/{job_id}/thumbs")
@@ -262,8 +362,78 @@ async def thumbs(job_id: str) -> Any:
         _, job = _job_or_404(job_id)
         if job is None:
             return 404, {"error": "not found"}
-        urls = [_data_url(p, THUMB_LIMIT) for p in (job.get("thumbs") or [])[:40]]
-        sheet = _data_url(job["contact_sheet"], 4 * THUMB_LIMIT) if job.get("contact_sheet") else ""
+        url = _pane().data_url
+        urls = [url(p, THUMB_LIMIT) for p in (job.get("thumbs") or [])[:40]]
+        sheet = url(job["contact_sheet"], 4 * THUMB_LIMIT) if job.get("contact_sheet") else ""
         return 200, {"thumbs": urls, "contact_sheet": sheet}
-    status, payload = await run_in_threadpool(go)
-    return JSONResponse(payload, status_code=status)
+    return _reply(await run_in_threadpool(go))
+
+
+# --------------------------------------------------------------------------- the Director, live
+
+def _score_bar() -> float:
+    try:
+        return float(_sub("director.types").SCORE_BAR)
+    except Exception:  # noqa: BLE001 - the Director package is optional in a build
+        return 8.0
+
+
+@router.get("/jobs/{job_id}/director-log")
+async def director_log(job_id: str, since: int = 0, limit: int = 400) -> Any:
+    def go() -> tuple[int, dict[str, Any]]:
+        store, job = _job_or_404(job_id)
+        if job is None:
+            return 404, {"error": "not found"}
+        payload = _pane().director_payload(store.job_dir(job_id), max(0, since), max(1, min(2000, limit)),
+                                           _score_bar())
+        payload.update(id=job_id, directed=_directed(job), direction=(job.get("options") or {}).get("direction", ""))
+        return 200, payload
+    return _reply(await run_in_threadpool(go))
+
+
+@router.get("/jobs/{job_id}/director/image")
+async def director_image(job_id: str, v: int = 1, name: str = "", w: int = 960) -> Any:
+    def go() -> tuple[int, dict[str, Any]]:
+        store, job = _job_or_404(job_id)
+        if job is None:
+            return 404, {"error": "not found"}
+        path = _pane().director_image_path(store.job_dir(job_id), v, name)
+        if path is None:
+            return 404, {"error": "no such image"}
+        return 200, dict(_image_cache().get(path, max(160, min(1920, w))), v=v, name=name)
+    return _reply(await run_in_threadpool(go))
+
+
+@router.get("/jobs/{job_id}/director/scene")
+async def director_scene(job_id: str, v: int = 1, name: str = "") -> Any:
+    def go() -> tuple[int, dict[str, Any]]:
+        store, job = _job_or_404(job_id)
+        if job is None:
+            return 404, {"error": "not found"}
+        code = _pane().scene_code(store.job_dir(job_id), v, name)
+        return (200, code) if code else (404, {"error": "no such scene"})
+    return _reply(await run_in_threadpool(go))
+
+
+# ------------------------------------------------------------------------- result helpers
+
+@router.get("/jobs/{job_id}/post-text")
+async def post_text(job_id: str) -> Any:
+    def go() -> tuple[int, dict[str, Any]]:
+        store, job = _job_or_404(job_id)
+        if job is None:
+            return 404, {"error": "not found"}
+        sb = store.storyboard_edit(job_id) or job.get("storyboard") or {}
+        tagline = str(sb.get("tagline") or "") if isinstance(sb, dict) else ""
+        pane = _pane()
+        treatment = pane.treatment_summary(store.job_dir(job_id) / "director") or {}
+        return 200, {"id": job_id, "text": pane.post_text(job, tagline, treatment.get("logline", ""))}
+    return _reply(await run_in_threadpool(go))
+
+
+@router.get("/library")
+async def library() -> Any:
+    def go() -> dict[str, Any]:
+        lib = _sub("jobs").data_root() / "library"
+        return {"dir": str(lib), "items": _pane().library_items(lib)}
+    return await run_in_threadpool(go)
