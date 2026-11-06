@@ -60,7 +60,9 @@ PROFILES: dict[str, dict[str, Any]] = {
               "claims": False, "background": "#0B0A12", "finish": {"grain": 0.0, "vignette": 0.12},
               "transitions": {"cut": None, "match": ["kit:pixel/screen-slide", 0.4], "push": ["kit:pixel/battle-swirl", 0.5],
                               "wipe": ["kit:pixel/iris", 0.6]},
-              "caption_style": {"font": "Silkscreen", "size": 44, "weight": 400}},
+              "caption_style": {"font": "Silkscreen", "size": 44, "weight": 400},
+              # kit-relative font files the film must load (the kit itself draws baked bitmap glyphs)
+              "film_fonts": [{"family": "Silkscreen", "src": "fonts/Silkscreen-Regular.ttf", "weight": 400}]},
 }
 
 
@@ -369,7 +371,9 @@ def film_from_timeline(timeline: Any, *, style: str | None = None, aspect: str |
         "version": 1, "fps": int(tl.get("fps") or 30), "size": [w, h], "dur": round(dur, 4),
         "seed": int(tl.get("seed") or 1), "title": str(tl.get("title") or ""),
         "background": str(kit.get("background") or "#0A0B0D"),
-        "fonts": [], "kits": kits,
+        "fonts": [{**f, "src": f"kits/{style}/{f['src']}"} for f in kit.get("film_fonts") or []
+                  if isinstance(f, Mapping) and f.get("src") and (kits_root / style / str(f["src"])).is_file()],
+        "kits": kits,
         "assets": {n: {"type": spec["type"]} for n, spec in media.assets.items()},
         "shots": shots, "transitions": transitions, "overlays": overlays,
         "finish": finish,

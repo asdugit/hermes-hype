@@ -210,6 +210,8 @@ def test_wrapped_kits_get_asset_names_and_the_product_media():
     assert shots["s04_feature"]["params"]["image"] in assets               # names, never paths
     assert all(s["params"]["media"] in assets for s in film["shots"])
     assert all(s.get("res") == [480, 270] for s in film["shots"])
+    assert film["fonts"] == [{"family": "Silkscreen", "src": "kits/pixel/fonts/Silkscreen-Regular.ttf", "weight": 400}]
+    assert film["caption_style"]["font"] == "Silkscreen"
 
 
 def test_kit_render_block_reaches_the_film(tmp_path):
