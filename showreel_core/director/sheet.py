@@ -56,8 +56,15 @@ def plan_keyframes(film: dict[str, Any], per_shot: int, *, max_frames: int = 30)
     return frames
 
 
+# Sheets stay under the vision models' ~1568 px long edge, so nothing is downscaled again on the way in: each
+# landscape keyframe reaches the critic at 768 px wide (40 % of 1080p). At the old 4-up layout (~386 px after the
+# model's downscale) pixel art read as "static" and 1080p-legible type as "microscopic".
+SHEET_LANDSCAPE = (768, 2, 6)       # cell width, columns, cells per sheet
+SHEET_PORTRAIT = (360, 4, 8)
+
+
 def contact_sheets(images: list[bytes], frames: list[Frame], out_dir: Path, *, prefix: str = "contact",
-                   cell_w: int = 480, cols: int = 4, max_cells: int = 20) -> list[Path]:
+                   cell_w: int | None = None, cols: int | None = None, max_cells: int | None = None) -> list[Path]:
     """Lay keyframes out on numbered sheets (JPEG); returns the sheet paths."""
     from PIL import Image, ImageDraw
 
@@ -71,8 +78,10 @@ def contact_sheets(images: list[bytes], frames: list[Frame], out_dir: Path, *, p
     sample = next((p for p in pics if p is not None), None)
     aspect = (sample.height / sample.width) if sample else 9 / 16
     portrait = aspect > 1.0
-    cols = 6 if portrait else cols
-    cell_w = 300 if portrait else cell_w
+    dcw, dcols, dmax = SHEET_PORTRAIT if portrait else SHEET_LANDSCAPE
+    cell_w = cell_w or dcw
+    cols = cols or dcols
+    max_cells = max_cells or dmax
     cell_h = round(cell_w * aspect)
     label_h = 30
     font = _font(20)

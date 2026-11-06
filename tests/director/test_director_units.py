@@ -235,7 +235,7 @@ def test_contact_sheet(tmp_path: Path) -> None:
     assert len(paths) == 2 and all(p.stat().st_size > 1000 for p in paths)
     from PIL import Image
     with Image.open(paths[0]) as im:
-        assert im.width > 1900
+        assert 1500 < im.width <= 1568                      # never downscaled again by the vision model
 
 
 # ------------------------------------------------------------------------------------ prompts
