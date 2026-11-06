@@ -153,7 +153,7 @@ def make_deps(rec: Recorder, *, bundle: SavedSession | None = None, render_fail:
                 quick_film=quick_film, build_page=build_page, layout_qa=layout_qa, render=render,
                 fit_music=fit_music, place_sfx=place_sfx, mix=mix, audio_report=lambda *a, **k: {"ok": True},
                 mux=mux, check_video=check_video, speed_check=lambda speed: None,
-                director=(lambda: director), capture=capture, gpu_ok=lambda cache: True,
+                director=(lambda: director), capture=capture, gpu_ok=lambda cache: True, fit_cue_sheet=None,
                 join_music=lambda parts, xfade, out: (rec.add("join_music", {"parts": len(parts), "xfade": xfade}),
                                                       Path(out).write_bytes(b"RIFFjoined"))[1] and out)
     for k, v in overrides.items():

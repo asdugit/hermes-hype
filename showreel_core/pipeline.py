@@ -359,6 +359,15 @@ def _d_fit_music(bed: Any, duration: float, out_path: Path, drop_time: float | N
     return fit_bed(bed, duration, out_path, drop_time=drop_time, last_word_time=last_word_time)
 
 
+def _d_fit_cue_sheet(music: list[dict[str, Any]], duration: float, out_path: Path, *, style: str, seed: int,
+                     drop_time: float | None, last_word_time: float | None) -> Any:
+    """The designed multi-bed fit (``audio.cuesheet``): each bed bar-fitted to its span, stings rendered into
+    the music with their impact on ``t`` (returned in ``.consumed``), riser/downbeat joins."""
+    from .audio.cuesheet import fit_cue_sheet
+    return fit_cue_sheet(music, duration, out_path, style=style, seed=seed, last_word_time=last_word_time,
+                         drop_times=[drop_time] if drop_time is not None else [])
+
+
 def _d_join_music(parts: list[Path], xfade: float, out_path: Path) -> Path:
     """Concatenate fitted bed segments with equal-power-ish triangular crossfades (ffmpeg ``acrossfade``)."""
     import subprocess
@@ -480,6 +489,7 @@ class Deps:
     render: Callable[..., Any] = _d_render
     fit_music: Callable[..., Any] = _d_fit_music
     join_music: Callable[..., Any] = _d_join_music
+    fit_cue_sheet: Callable[..., Any] | None = _d_fit_cue_sheet    # None: per-bed fit + crossfades (stand-in)
     gpu_ok: Callable[[Path], bool | None] | None = _d_gpu_ok
     place_sfx: Callable[..., Any] = _d_place_sfx
     mix: Callable[..., Any] = _d_mix
@@ -1289,13 +1299,33 @@ def _cue_sheet(run: _Run, b: Built, plan: list[dict[str, Any]], out: Path) -> Pa
     return out
 
 
-def _music_track(run: _Run, b: Built, out: Path) -> Path | None:
-    """Fit the film's bed(s) to its length; ``None`` (with a warning) when no music can be made."""
+def _designed_cue_sheet(run: _Run, b: Built, out: Path) -> tuple[Path, list[dict[str, Any]]]:
+    """``film.music`` through ``deps.fit_cue_sheet``: the music track and the stings it already contains."""
+    music = [m for m in (b.film.get("music") or []) if isinstance(m, dict)]
+    res = run.deps.fit_cue_sheet(music, b.dur, out, style=b.style, seed=run.seed, drop_time=b.drop_time,
+                                 last_word_time=b.last_word_time)
+    for w in (getattr(res, "warnings", None) or [])[:3]:
+        run.info(f"music: {w}")
+    segs = getattr(res, "segments", None) or []
+    joins = [str(getattr(s, "bed_id", "?")) + (f" -{s.join_out}->" if getattr(s, "join_out", "final") != "final" else "")
+             for s in segs]
+    run.info(f"music cue sheet: {' '.join(joins)} ({len(segs)} segment(s), designed joins)")
+    return Path(getattr(res, "path", out)), list(getattr(res, "consumed", None) or [])
+
+
+def _music_track(run: _Run, b: Built, out: Path) -> tuple[Path | None, list[dict[str, Any]]]:
+    """Fit the film's bed(s) to its length -> (music, stings rendered into it); music ``None`` (with a warning)
+    when none can be made."""
     plan = [m for m in (b.film.get("music") or []) if isinstance(m, dict) and m.get("bed")]
     bed_id = str(plan[0]["bed"]) if len(plan) >= 1 else None
+    if len(plan) > 1 and run.deps.fit_cue_sheet is not None:
+        try:
+            return _designed_cue_sheet(run, b, out)
+        except Exception as exc:  # noqa: BLE001 - fall back to per-bed fits + crossfades
+            run.info(f"designed cue sheet failed ({exc}); crossfading per-bed fits", level="warn")
     if len(plan) > 1:
         try:
-            return _cue_sheet(run, b, plan, out)
+            return _cue_sheet(run, b, plan, out), []
         except Exception as exc:  # noqa: BLE001 - fall back to one bed for the whole film
             run.warn(f"multi-bed music failed ({exc}); the first bed plays the whole film")
     bed = None
@@ -1305,24 +1335,27 @@ def _music_track(run: _Run, b: Built, out: Path) -> Path | None:
     bed = bed or run.deps.pick_bed(b.style, run.seed)
     if bed is None:
         run.warn("no music bed for this style; the film has no music")
-        return None
+        return None, []
     try:
         fitted = run.deps.fit_music(bed, b.dur, out, b.drop_time, b.last_word_time)
     except Exception as exc:  # noqa: BLE001
         run.warn(f"music could not be fitted ({exc}); the film has no music")
-        return None
+        return None, []
     for w in (getattr(fitted, "warnings", None) or [])[:3]:
         run.info(f"music: {w}")
     run.info(f"music bed {getattr(fitted, 'bed_id', '?')} at {getattr(fitted, 'bpm', '?')} bpm")
-    return Path(getattr(fitted, "path", out))
+    return Path(getattr(fitted, "path", out)), []
 
 
 def _mix_one(run: _Run, b: Built, tag: str) -> tuple[Path | None, Any]:
     mdir = run.job_dir / f"mix_{tag}"
     mdir.mkdir(parents=True, exist_ok=True)
-    music = _music_track(run, b, mdir / "music.wav")
+    music, in_music = _music_track(run, b, mdir / "music.wav")
+    cues = [c for c in b.cues if not (isinstance(c, dict) and any(
+        str(c.get("sfx")) == str(m.get("sting")) and abs(float(c.get("t", -1)) - float(m.get("t", -9))) < 2e-3
+        for m in in_music))]
     try:
-        sfx, warns = run.deps.place_sfx(b.cues, b.dur, b.style, b.fps)
+        sfx, warns = run.deps.place_sfx(cues, b.dur, b.style, b.fps)
     except Exception as exc:  # noqa: BLE001
         sfx, warns = [], [f"SFX placement failed: {exc}"]
     for w in warns[:4]:
