@@ -7,6 +7,7 @@ import { mediaOf } from '../base/media.js';
 import * as cards from './lib/cards.js';
 import { makeCine, rig, mulberry32, clamp, lerp, inOut, outCubic, TPU } from './lib/world.js';
 import * as type from './lib/type.js';
+import { drawLockup, LOCKUP_PARAMS } from './lib/lockup.js';
 
 const { PAD } = cards;
 const hashStr = (s) => { let h = 2166136261 >>> 0; for (const ch of String(s)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619) >>> 0; } return h; };
@@ -379,4 +380,11 @@ defineCine('kit:cinematic/card-field', 'Generic cards-in-depth world from any re
     };
   });
 
-if (typeof sr.defineKit === 'function') sr.defineKit('cinematic', { cards, makeCine, rig, type });
+sr.defineScene('kit:cinematic/lockup', {
+  layer: '2d',
+  describe: 'End-title lockup OVERLAY (transparent): product name in wide-tracked Cormorant caps rising letter by letter with a light sweep, an accent hairline, an italic tagline and a CTA pill with an arrow; soft scrim for bright pictures. Put it in film.overlays over a product shot (e.g. kit:nature/product-hero with title "top").',
+  params: LOCKUP_PARAMS,
+  render(ctx, t, p) { drawLockup(ctx, t, p); },
+});
+
+if (typeof sr.defineKit === 'function') sr.defineKit('cinematic', { cards, makeCine, rig, type, drawLockup });

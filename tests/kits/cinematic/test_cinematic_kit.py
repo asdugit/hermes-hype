@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[3]
 KIT = ROOT / "kits" / "cinematic"
 TYPES = ["HOOK", "TITLE", "PROBLEM", "PLAN", "CODE", "DIFF", "TERMINAL", "MONTAGE", "SCREEN", "STATS",
          "BEFORE_AFTER", "CALLOUT", "END", "FEATURE", "SCROLL"]
-EXTRA = ["card-field", "screen-push"]
+EXTRA = ["card-field", "screen-push", "lockup"]
 FORBIDDEN = [r"\bMath\.random\b", r"\bDate\b", r"\bperformance\.now\b", r"\bsetTimeout\b", r"\bsetInterval\b",
              r"\brequestAnimationFrame\b", r"\bfetch\s*\(", r"\bXMLHttpRequest\b", r"\bWebSocket\b", r"\bEventSource\b",
              r"\bimport\s*\(", r"\beval\s*\(", r"\bnew\s+Function\b", r"\bdocument\.", r"\bwindow\.", r"https?://"]
@@ -86,6 +86,8 @@ def test_every_scene_renders_through_the_runtime(tmp_path):
             p = {"cards": [{"kind": "code", **samples["CODE"]}, {"kind": "terminal", **samples["TERMINAL"]}], "hero": 1}
         if name == "screen-push":
             p = dict(samples.get("SCREEN") or {})
+        if name == "lockup":
+            p = {"title": "FOCUSFOX", "tagline": "Focus, unlocked.", "cta": "Try it free", "cta_at": "bottom"}
         shots.append({"id": f"s{len(shots)}", "t0": t, "t1": t + 2.0, "scene": f"kit:cinematic/{name}", "params": {**p, "quality": "low"}})
         t += 2.0
     film = {"version": 1, "fps": 30, "size": [960, 540], "dur": t, "seed": 5, "assets": assets, "shots": shots}

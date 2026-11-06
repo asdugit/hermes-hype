@@ -32,6 +32,13 @@ any real content as a world) and `kit:cinematic/screen-push` (`{image, bbox, cap
 Common params: `label`, `quality` (`auto` = half-res plate + 12-tap DOF on SwiftShader), `rail` (`{from, to, ticks, label}`
 — session progress 0..1 over the shot; omit to hide), `register` (show `● CAPTURED · SESSION`, default true).
 
+### Overlay: `kit:cinematic/lockup` (end title over any picture, transparent)
+Product name in wide-tracked Cormorant caps rising letter by letter with a light sweep, accent hairline, italic tagline,
+CTA pill with an arrow; soft plum scrim for bright pictures. Params: `title` · `tagline` · `cta` · `eyebrow` ·
+`at` upper\|center\|lower · `cta_at` stack\|bottom (bottom: the product sits between title and CTA) · `accent`
+(product colour) · `scrim` 0.5 · `hold`. Put it in `film.overlays` over `kit:nature/product-hero` (`title: "top"`).
+Recipe: kits/nature/RECIPES.md §5.
+
 ## Building blocks — `ctx.kit('cinematic')`
 `cards` (painters: `codeCard, diffCard, terminalCard, planCard, promptCard, screenshotCard, chipCard, ghostCard,
 mediaCard`), `makeCine(ctx, {items, cam(t), focus(t), overlay(g,t,F), overlayKey(t), flare(t), ...})` (the world),

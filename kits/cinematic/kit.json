@@ -25,7 +25,8 @@
     "FEATURE",
     "SCROLL",
     "card-field",
-    "screen-push"
+    "screen-push",
+    "lockup"
   ],
   "fonts": [
     {
