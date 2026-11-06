@@ -54,15 +54,20 @@ class Kit:
     aliases: dict[str, str] = field(default_factory=dict)
 
     def resolve(self, name: str, style: str | None = None) -> SfxSound | None:
-        """Sound by name, by alias (``slash`` -> ``sword_slash``; ``@role`` aliases resolve per style), or by a
-        style role (e.g. 'cut' -> 'whoosh_short' in Launch; unknown styles use the Launch roles)."""
+        """The sound a cue name plays in ``style``: a style ROLE wins over a same-named sound (pixel's ``hit`` role
+        is ``coin``, ``buy`` is the 8-bit ka-ching only in pixel styles and ``cash`` elsewhere; same order as
+        ``pipeline.sfx_for_style``), then a sound name, then an alias (``slash`` -> ``sword_slash``; ``@role``
+        aliases resolve per style), then the Launch role table (styles without their own map)."""
+        table = self.styles.get(style or "", {})
+        if name in table and table[name] in self.sounds:
+            return self.sounds[table[name]]
         if name in self.sounds:
             return self.sounds[name]
         target = self.aliases.get(name, name)
         if target in self.sounds:
             return self.sounds[target]
         role = target[1:] if target.startswith("@") else target
-        alias = self.styles.get(style or "", {}).get(role) or self.styles.get("launch", {}).get(role)
+        alias = table.get(role) or self.styles.get("launch", {}).get(role)
         return self.sounds.get(alias) if alias else None
 
 

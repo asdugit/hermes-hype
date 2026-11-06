@@ -7,12 +7,17 @@ from pathlib import Path
 import pytest
 
 from showreel_core.audio.music import ASSETS, all_beds, load_beds, pick_bed, resolve_bed
-from showreel_core.audio.sfx import SYNC_POINTS, load_kit
+from showreel_core.audio.sfx import SYNC_POINTS, Kit, load_kit
 
 STYLES = ("launch", "pixel", "cinematic", "terminal", "blueprint")
 FAMILIES = ("dream", "pixel_boss", "comic", "ink")
 KIT_NAMES = ("bloom_riser", "buy", "sword_slash", "blade_spin", "damage", "footstep", "door_rumble", "chain_break",
              "menu_move", "menu_confirm", "petal_burst", "level_up", "switch_whoosh")
+
+
+def _r(kit: Kit, name: str, style: str | None = None) -> str:
+    snd = kit.resolve(name, style)
+    return snd.name if snd else ""
 
 
 @pytest.mark.parametrize("style", STYLES + FAMILIES)
@@ -94,12 +99,14 @@ def test_kit_names_requested_by_other_packages_resolve():
     for name in KIT_NAMES:
         assert name in kit.sounds, name
     # ISSUES.md #6 names: aliases, never broken names
-    assert kit.resolve("slash").name == "sword_slash" and kit.resolve("throw").name == "blade_spin"
-    assert kit.resolve("chains").name == "chain_break" and kit.resolve("menu_select").name == "menu_confirm"
-    assert kit.resolve("whoosh", "launch").name == "whoosh_short" and kit.resolve("whoosh", "blueprint").name == "paper"
-    assert kit.resolve("tick", "terminal").name == "key" and kit.resolve("split", "pixel").name == "coin"
-    assert kit.resolve("buy", "launch").name == "buy" and kit.resolve("purchase", "ink").name == "cash"
-    assert kit.resolve("switch", "dream").name == "bloom_riser"
+    assert _r(kit, "slash") == "sword_slash" and _r(kit, "throw") == "blade_spin"
+    assert _r(kit, "chains") == "chain_break" and _r(kit, "menu_select") == "menu_confirm"
+    assert _r(kit, "whoosh", "launch") == "whoosh_short" and _r(kit, "whoosh", "blueprint") == "paper"
+    assert _r(kit, "tick", "terminal") == "key" and _r(kit, "split", "pixel") == "coin"
+    assert _r(kit, "buy", "launch") == "cash" and _r(kit, "purchase", "ink") == "cash"
+    assert _r(kit, "buy", "pixel") == "buy" and _r(kit, "buy") == "buy"
+    assert _r(kit, "hit", "pixel") == "coin" and _r(kit, "click", "comic") == "pop"   # ISSUES #18
+    assert _r(kit, "switch", "dream") == "bloom_riser"
     keys = {v["key"] for v in kit.sounds["bloom_riser"].variants}
     assert keys == {b.key for b in load_beds("dream")}
 

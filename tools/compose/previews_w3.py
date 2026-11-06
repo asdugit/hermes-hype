@@ -37,7 +37,7 @@ DEMO = {  # 30 s: boss fight (music + SFX) -> BUY -> bloom riser -> dream with n
               {"bed": "dream", "t0": 14.0, "t1": 30.0}],
     "cues": [{"t": 2.0, "sfx": "footstep"}, {"t": 2.4, "sfx": "footstep"}, {"t": 2.8, "sfx": "footstep"},
              {"t": 4.0, "sfx": "blade_spin"}, {"t": 4.6, "sfx": "damage"}, {"t": 6.2, "sfx": "sword_slash"},
-             {"t": 6.3, "sfx": "hit"}, {"t": 10.4, "sfx": "menu_move"}, {"t": 10.8, "sfx": "menu_move"},
+             {"t": 6.3, "sfx": "damage"}, {"t": 10.4, "sfx": "menu_move"}, {"t": 10.8, "sfx": "menu_move"},
              {"t": 11.2, "sfx": "menu_confirm"}, {"t": 11.32, "sfx": "buy"}, {"t": 13.4, "sfx": "bloom_riser"}],
 }
 VO_START = 15.6
@@ -136,6 +136,28 @@ def mock_mixes(out: Path, work: Path, ffmpeg: str) -> list[dict[str, Any]]:
     return rows
 
 
+HERO = Path(__file__).resolve().parents[3] / "hero" / "hero.json"
+
+
+def hero_audio(out: Path, work: Path, ffmpeg: str) -> dict[str, Any] | None:
+    """The hand-polished hero film.json (``../hero/hero.json``, no narration) through ``render_film_audio``."""
+    if not HERO.is_file():
+        return None
+    film = json.loads(HERO.read_text(encoding="utf-8"))
+    t0 = time.perf_counter()
+    res = render_film_audio(film, work / "hero_audio.wav", style="pixel", seed=int(film.get("seed", 7)),
+                            fps=film.get("fps", 30), work_dir=work / "hero", ffmpeg=ffmpeg)
+    secs = time.perf_counter() - t0
+    if not (res.ok and res.music):
+        return {"error": res.error}
+    rep = audio_report(res.path, float(film["dur"]), ffmpeg=ffmpeg)
+    name = f"hero_film_audio_{round(float(film['dur']))}s.mp3"
+    to_mp3(res.path, out / name, ffmpeg)
+    return {"file": name, "dur": film["dur"], "seconds": round(secs, 2), "lufs": rep.get("lufs_i"),
+            "tp": rep.get("true_peak_db"), "pass": rep.get("pass"), "music": res.music.to_dict(),
+            "sfx": [[round(p.start, 3), p.name] for p in res.sfx], "warnings": res.warnings}
+
+
 def crossfade_demo(out: Path, work: Path, ffmpeg: str) -> dict[str, Any]:
     """Music only: comic -> ink at 9.0 s with a downbeat crossfade (no sting), 20 s."""
     sheet = [{"bed": "comic_a", "t0": 0.0, "t1": 9.0}, {"bed": "ink_a", "t0": 9.0, "t1": 20.0}]
@@ -187,7 +209,7 @@ def readme_block(res: dict[str, Any]) -> str:
     st = (m.get("stings") or [{}])[0]
     L += ["", "### W3.2 `cuesheet_pixel_boss_to_dream_30s.mp3` - the style-switch film path", "",
           "A 30 s film.json run through `render_film_audio` (cue sheet + SFX + narration, one mix): boss fight "
-          "(footsteps, a thrown blade, damage, a slash + hit, menu cursor, confirm, **buy**) -> the **bloom_riser** "
+          "(footsteps, a thrown blade, damage, a slash + damage, menu cursor, confirm, **buy**) -> the **bloom_riser** "
           "swells into its soft impact -> the dream bed. Narration (edge-tts 7.3.1, "
           f"`{(d.get('voice') or {}).get('provider', VOICE)}`, **speed 1.0**) from {VO_START} s:", "",
           f"> {DEMO_LINE}", "",
@@ -196,9 +218,9 @@ def readme_block(res: dict[str, Any]) -> str:
         a, b = segs[0], segs[-1]
         L += ["", f"- Beds picked: `{a['bed_id']}` ({a['key']}, {a['bpm']:g} BPM) -> `{b['bed_id']}` ({b['key']}, "
               f"{b['bpm']:g} BPM): the boss outro's bVII is V of the dream key, so the switch is a real cadence.",
-              f"- The boss bed fades out under the riser and stops at {a['t1']} s; the sting `{st.get('file')}` "
+              f"- The boss bed fades out under the riser and stops at {a['t1']:.2f} s; the sting `{st.get('file')}` "
               f"(key {st.get('key')}) lands its impact at exactly {st.get('t')} s; only its shimmer rings until the "
-              f"dream downbeat at {b['t0']} s; the dream's final hit is at {b.get('end_time')} s (after the last word "
+              f"dream downbeat at {b['t0']} s; the dream's final hit is at {b.get('end_time') or 0:.2f} s (after the last word "
               f"at {round(VO_START + (d.get('voice') or {}).get('duration', 0), 2)} s) and rings to 30 s.",
               "- Listen for: does the riser read as 'transformation' (not a trailer boom)? Is the shimmer gap "
               "before the dream too long or just right? Does the voice sit clearly over the dream bed?",
@@ -207,7 +229,7 @@ def readme_block(res: dict[str, Any]) -> str:
           f"SNR median {d.get('snr')} dB, music - voice {d.get('music_minus_voice')} LU, longest gap "
           f"{d.get('gap')} s, gates {'pass' if d.get('pass') else 'FAIL'}; narration "
           f"{(d.get('voice') or {}).get('wpm')} wpm at speed 1.0; whole audio stage {d.get('seconds')} s.",
-          "Narration pace: the user locked speed 1.13 for cinematic narration; this demo reads at speed 1.0 as "
+          "", "Narration pace: the user locked speed 1.13 for cinematic narration; this demo reads at speed 1.0 as "
           "asked for the comparison.",
           "", "### W3.3 `cuesheet_comic_to_ink_20s.mp3` - a join without a sting", "",
           "comic_a until 9.0 s, ink_a from 9.0 s: the comic bed fades over its last beat and stops just before the "
@@ -227,6 +249,17 @@ def readme_block(res: dict[str, Any]) -> str:
     for r in res.get("mixes") or []:
         L.append(f"| `{r['file']}` | {r['duck_mid_db']:g} | {r['lufs']} | {r['tp']} | {r['snr']} | "
                  f"{r['music_minus_voice']} | {'pass' if r['pass'] else 'FAIL'} |")
+    h = res.get("hero") or {}
+    if h.get("file"):
+        hs = (h.get("music") or {}).get("segments") or []
+        L += ["", f"### W3.6 `{h['file']}` - the hero film's soundtrack (music + SFX, no narration)", "",
+              "`hero/hero.json` (the hand-polished boss -> meadow film) through `render_film_audio`, exactly what "
+              "`hero/render_hero.py` muxes: " + " -> ".join(
+                  f"`{x['bed_id']}` {x['t0']}-{x['t1']} s ({x['key']}, sections "
+                  + ", ".join(f"{q['name']} {q['t0']}" for q in x['sections']) + ")" for x in hs)
+              + f"; bloom_riser impact at {((h.get('music') or {}).get('stings') or [{}])[0].get('t')} s; "
+              f"{len(h.get('sfx') or [])} SFX. Measured {h.get('lufs')} LUFS, TP {h.get('tp')} dBTP, gates "
+              f"{'pass' if h.get('pass') else 'FAIL'}; rendered in {h.get('seconds')} s."]
     L += ["<!-- /wave3 -->", ""]
     return "\n".join(L)
 
@@ -263,6 +296,7 @@ def main(argv: list[str] | None = None) -> int:
         res["demo"] = cuesheet_demo(a.out, work, ffmpeg)
         res["crossfade"] = crossfade_demo(a.out, work, ffmpeg)
         res["mixes"] = mock_mixes(a.out, work, ffmpeg)
+        res["hero"] = hero_audio(a.out, work, ffmpeg)
     (work / "previews_w3.json").write_text(json.dumps(res, indent=1, default=str), encoding="utf-8")
     update_readme(a.out, res)
     d = res["demo"]
