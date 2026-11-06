@@ -65,7 +65,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--out", type=Path, default=ASSETS)
     ap.add_argument("--spectro", type=Path, default=None, help="write debug spectrogram PNGs here")
     a = ap.parse_args(argv)
-    todo = beds.all_beds() if a.all else [tuple(b.split("_", 1)) for b in a.beds.split(",") if b]
+    todo = beds.all_beds() if a.all else [tuple(b.rsplit("_", 1)) for b in a.beds.split(",") if b]
     with render_lock():
         by_style: dict[str, list[dict]] = {}
         for style, variant in todo:

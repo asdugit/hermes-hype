@@ -5,6 +5,7 @@ import importlib
 from types import ModuleType
 
 STYLES = ("launch", "pixel", "cinematic", "terminal", "blueprint")
+FAMILIES = ("dream", "pixel_boss", "comic", "ink")      # wave 3: mood beds and the comic/ink styles
 
 
 def module(style: str) -> ModuleType:
@@ -14,7 +15,7 @@ def module(style: str) -> ModuleType:
 def all_beds() -> list[tuple[str, str]]:
     """[(style, variant)] for every composed bed."""
     out = []
-    for st in STYLES:
+    for st in STYLES + FAMILIES:
         try:
             mod = module(st)
         except ModuleNotFoundError:

@@ -11,6 +11,7 @@ MODES = {
     "phrygian": [0, 1, 3, 5, 7, 8, 10],
     "lydian": [0, 2, 4, 6, 7, 9, 11],
     "mixolydian": [0, 2, 4, 5, 7, 9, 10],
+    "harmonic_minor": [0, 2, 3, 5, 7, 8, 11],
 }
 
 
@@ -36,12 +37,27 @@ class Key:
         return 12 * (octave + 1 + o) + self.tonic + self.steps[idx] + alter
 
     def chord(self, root_degree: int, kind: str = "triad", octave: int = 3, alter: int = 0) -> list[int]:
-        """Diatonic chord on a degree. kind: triad, 7, 9, add9, sus2, sus4, 6."""
+        """Chord on a degree.
+
+        Diatonic kinds (stacked from the scale): triad, 7, 9, add9, sus2, sus4, 6, 5.
+        Fixed-quality kinds (semitones over the diatonic root, for borrowed/chromatic chords such as V in
+        minor or bVII in major): maj, min, dim, aug, maj7, dom7, m7, m9, maj9, dom9, add9maj, 7sus4.
+        """
+        root = self.degree(root_degree, octave) + alter
+        if kind in QUALITY:
+            return [root + s for s in QUALITY[kind]]
         stacks = {"triad": [0, 2, 4], "7": [0, 2, 4, 6], "9": [0, 2, 4, 6, 8], "add9": [0, 2, 4, 8],
                   "sus2": [0, 1, 4], "sus4": [0, 3, 4], "6": [0, 2, 4, 5], "5": [0, 4]}[kind]
-        root = self.degree(root_degree, octave) + alter
         base = self.degree(root_degree, octave)
         return [self.degree(root_degree + s, octave) - base + root for s in stacks]
+
+
+QUALITY: dict[str, list[int]] = {
+    "maj": [0, 4, 7], "min": [0, 3, 7], "dim": [0, 3, 6], "aug": [0, 4, 8], "m7b5": [0, 3, 6, 10],
+    "maj7": [0, 4, 7, 11], "dom7": [0, 4, 7, 10], "m7": [0, 3, 7, 10], "m9": [0, 3, 7, 10, 14],
+    "maj9": [0, 4, 7, 11, 14], "dom9": [0, 4, 7, 10, 14], "add9maj": [0, 4, 7, 14], "7sus4": [0, 5, 7, 10],
+    "7#9": [0, 4, 7, 10, 15], "maj6": [0, 4, 7, 9], "69": [0, 4, 7, 9, 14], "m6": [0, 3, 7, 9],
+}
 
 
 def _stack(base: int, pcs: list[int]) -> list[int]:

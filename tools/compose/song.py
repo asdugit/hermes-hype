@@ -71,6 +71,7 @@ class Song:
         self.tracks: dict[str, Track] = {}
         self.kicks: list[float] = []
         self.title, self.notes = title, notes
+        self.meta: dict[str, object] = {}       # extra bars.json fields (family, cadence_to, mood, ...)
         self.reverb_ir = D.reverb_ir(2.4, 0.018, 0.55, seed=bed_id)
         self.delay_time = self.beat * 0.75
 
@@ -190,6 +191,7 @@ class Song:
                          for s in self.sections],
             "loop_unit_bars": 2, "lufs": report.get("lufs"), "true_peak_db": report.get("true_peak_db"),
             "phone_band": report.get("phone_band"), "lr_corr": report.get("lr_corr"), "notes": self.notes,
+            **self.meta,
         }
 
 

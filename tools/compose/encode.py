@@ -13,8 +13,6 @@ import numpy as np
 
 from .dsp import SR
 
-LOCK = Path(__file__).resolve().parents[3] / "render.lock"
-
 
 def ffmpeg() -> str:
     """Resolve ffmpeg: $SHOWREEL_FFMPEG / $FFMPEG_PATH, the Hermes-managed build, then PATH."""
@@ -59,24 +57,45 @@ def decode(path: Path, channels: int = 2) -> np.ndarray:
     return np.frombuffer(out, "<f4").reshape(-1, channels).T.astype(np.float64)
 
 
+WORK = Path(__file__).resolve().parents[3]
+SLOTS = [WORK / f"render.slot{k}" for k in (1, 2, 3)]
+
+
 @contextlib.contextmanager
 def render_lock(name: str = "wp-c-audio composer", wait_s: float = 1800.0) -> Iterator[None]:
-    """Shared-machine etiquette: hold C:/Users/2/showreel-work/render.lock while rendering."""
-    if not (LOCK.parent / "render.lock.README").is_file():
+    """Shared-machine etiquette (``render.lock.README``): hold one of the 3 render slots while rendering.
+
+    A slot is taken atomically (O_CREAT|O_EXCL); slots older than 15 min are stale and may be removed.
+    Waits (5 s polls) up to ``wait_s`` and then raises instead of taking over a live slot.
+    """
+    if not (WORK / "render.lock.README").is_file():
         yield
         return
     t0 = time.time()
-    while LOCK.exists() and time.time() - LOCK.stat().st_mtime < 900:
-        if time.time() - t0 > wait_s:
-            raise TimeoutError(f"render.lock held by: {LOCK.read_text(encoding='utf-8').strip()}")
-        time.sleep(20)
-    LOCK.write_text(f"{name} pid={os.getpid()}\n", encoding="utf-8")
+    mine: Path | None = None
+    while mine is None:
+        for slot in SLOTS:
+            with contextlib.suppress(OSError):
+                if slot.exists() and time.time() - slot.stat().st_mtime >= 900:
+                    slot.unlink()
+            try:
+                fd = os.open(slot, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            except OSError:
+                continue
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                f.write(f"{name} {os.getpid()} {time.strftime('%Y-%m-%dT%H:%M:%S')}\n")
+            mine = slot
+            break
+        if mine is None:
+            if time.time() - t0 > wait_s:
+                raise TimeoutError("all render slots busy: " + ", ".join(
+                    s.read_text(encoding="utf-8", errors="replace").strip() for s in SLOTS if s.exists()))
+            time.sleep(5)
     try:
         yield
     finally:
         with contextlib.suppress(OSError):
-            if LOCK.read_text(encoding="utf-8").startswith(name):
-                LOCK.unlink()
+            mine.unlink()
 
 
 def spectrogram_png(x: np.ndarray, path: Path, fmax: float = 8000.0, px_per_s: int = 12) -> None:
