@@ -92,10 +92,11 @@ def hermes_adapter(root: str | None) -> Any:
     if root not in sys.path:
         sys.path.insert(0, root)
     try:
-        from agent.plugin_llm import _TrustPolicy, make_plugin_llm_for_test
+        from agent.plugin_llm import PluginLlm
     except ImportError as exc:  # pragma: no cover - environment dependent
         raise SystemExit(f"--llm hermes needs the Hermes venv and agent code at {root}: {exc}") from exc
-    plugin_llm = make_plugin_llm_for_test(plugin_id="showreel-dev", policy=_TrustPolicy(plugin_id="showreel-dev"))
+    # public facade; the trust policy comes from the user's config (plugins.entries.showreel-dev)
+    plugin_llm = PluginLlm(plugin_id="showreel-dev")
     return hermes_llm(plugin_llm, task=None)
 
 

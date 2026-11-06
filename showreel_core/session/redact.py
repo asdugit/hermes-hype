@@ -85,7 +85,7 @@ _SECRET_NAME_RE = re.compile(
     r"(?:^|[_\-.])auth(?:$|[_\-.])|auth[_\-.]?token|bearer|webhook[_\-.]?url|dsn)")
 _SECRET_NAME_DENY = re.compile(
     r"(?i)^(?:pwd|oldpwd|max_tokens?|num_tokens|tokens?_?(?:count|used|limit|budget|len|length)|"
-    r"token_?type|.*_(?:file|path|dir|url_env|env|name|names|id_env|count|len|length|limit|type|kind|field|header|policy))$")
+    r"token_?type|.*_(?:file|path|dir|url_env|name|names|id_env|count|len|length|limit|type|kind|field|header|policy|env))$")
 _GENERIC_RE = re.compile(r"(?<![A-Za-z0-9+_\-])[A-Za-z0-9+_\-]{32,}={0,2}(?![A-Za-z0-9+_\-])")
 _SRI_PREFIX_RE = re.compile(r"sha(?:1|224|256|384|512)-$", re.I)
 _EMAIL_RE = re.compile(r"(?<![\w.%+\-])([A-Za-z0-9._%+\-]+)@([A-Za-z0-9\-]+(?:\.[A-Za-z0-9\-]+)*\.[A-Za-z]{2,})\b")
