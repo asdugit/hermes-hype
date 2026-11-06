@@ -220,8 +220,9 @@ def readme_block(res: dict[str, Any]) -> str:
               f"{b['bpm']:g} BPM): the boss outro's bVII is V of the dream key, so the switch is a real cadence.",
               f"- The boss bed fades out under the riser and stops at {a['t1']:.2f} s; the sting `{st.get('file')}` "
               f"(key {st.get('key')}) lands its impact at exactly {st.get('t')} s; only its shimmer rings until the "
-              f"dream downbeat at {b['t0']} s; the dream's final hit is at {b.get('end_time') or 0:.2f} s (after the last word "
-              f"at {round(VO_START + (d.get('voice') or {}).get('duration', 0), 2)} s) and rings to 30 s.",
+              f"dream downbeat at {b['t0']} s; the dream's final hit is at {b.get('end_time') or 0:.2f} s "
+              f"(after the last word at {round(VO_START + (d.get('voice') or {}).get('duration', 0), 2)} s) and "
+              "rings to 30 s.",
               "- Listen for: does the riser read as 'transformation' (not a trailer boom)? Is the shimmer gap "
               "before the dream too long or just right? Does the voice sit clearly over the dream bed?",
               "- `cuesheet_pixel_boss_to_dream_30s_music_only.mp3`: the same music track without SFX/voice."]
