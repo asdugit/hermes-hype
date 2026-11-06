@@ -1,6 +1,6 @@
 // Showreel kit "launch" — panel scenes on the table: PROBLEM, PLAN, CODE, DIFF, TERMINAL.
 
-import { launchScene, camTrack, fitRect, nodeIn, pushTrack, panelWires } from './stage.js';
+import { launchScene, camTrack, fitRect, nodeIn, pushTrack, panelWires, backdropPanel } from './stage.js';
 import { codeBlock, diffBlock } from '../base/code.js';
 import { termBlock, termFont, termWidth } from '../base/term.js';
 import { chatBlock, planBlock } from '../base/cards.js';
@@ -120,6 +120,8 @@ launchScene('kit:launch/PROBLEM', {
     const len = String(p.text || '').length;
     const typeAt = [0.35, Math.max(0.9, Math.min(dur * 0.62, 0.35 + len * 0.045))];
     const b = chatBlock(p, { width, maxLines: L ? 9 : 5, typeAt });
+    // the product the ask is about, as a defocused echo on the table (fills the tall frame in 9:16)
+    const bd = backdropPanel(ctx, W, F, p, { x: L ? 60 : 420, y: L ? -b.h * 0.9 : -40, width: L ? 1400 : 1700, rz: L ? -4 : 6, op: 0.34, scrim: 0, tilt: 0, blur: 8 });
     const n = W.node(b.el, { x: 0, y: b.h / 2, z: 34, w: b.w, h: b.h });
     W.light(0, -20, b.w * 1.2, b.h * 1.8);
     const q0 = W.nodePoint(n, 0, b.h * 0.5);
@@ -134,6 +136,7 @@ launchScene('kit:launch/PROBLEM', {
       cues: b.cues,
       render(t) {
         b.update(t);
+        if (bd) bd.set(t);
         const u = nodeIn(t);
         W.update(n, { z: lerp(140, 34, u), op: clamp(u * 2) });
         wire.set(t);
@@ -150,6 +153,7 @@ launchScene('kit:launch/PLAN', {
   build(ctx, p, F, W) {
     const dur = ctx.dur, L = F.portrait;
     const b = planBlock(p, { width: L ? 920 : 1200, rowH: L ? 104 : 96, tickEvery: Math.min(0.5, (dur * 0.55) / Math.max(1, (p.items || []).length)) });
+    const bd = backdropPanel(ctx, W, F, p, { x: L ? -60 : -460, y: L ? -b.h * 0.75 : -40, width: L ? 1400 : 1700, rz: L ? 5 : -6, op: 0.34, scrim: 0, tilt: 0, blur: 8 });
     const n = W.node(b.el, { x: 0, y: b.h / 2, z: 34, w: b.w, h: b.h });
     W.light(0, 0, b.w * 1.3, b.h * 1.5);
     const p0 = W.nodePoint(n, b.w, b.top0 + b.rowH * 0.5);
@@ -163,6 +167,7 @@ launchScene('kit:launch/PLAN', {
     return {
       cues: b.cues,
       render(t) {
+        if (bd) bd.set(t);
         b.update(t);
         const u = nodeIn(t);
         W.update(n, { z: lerp(140, 34, u), op: clamp(u * 2) });

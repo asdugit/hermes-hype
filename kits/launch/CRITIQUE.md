@@ -115,3 +115,14 @@ aspects. Rendered fine (0 page errors, video QA ok). 16:9 ~6.5/10, 9:16 ~5.5/10.
 - HOOK still leaves the lower third dark (platform UI zone, acceptable); STATS stack now fits the safe area.
 - product_scale (Director knob) verified at 1.6 on HOOK/TITLE/SCREEN: product clearly larger; at > 1.4 the HOOK
   headline starts to overlap the product (the Director's call).
+
+## W3 look 4 — gallery of all 15 types (G1 fixtures + backdrop), 16:9 and 9:16
+- 16:9 strong: HOOK, TITLE (product hero), PLAN, TERMINAL, SCREEN, STATS (echo), CALLOUT (echo), FEATURE.
+- MONTAGE was one small card in a void -> tight conveyor (3 cards in frame), centred on the standing card, trailing
+  cards fade before they leave the frame.
+- Table: added an accent practical spill (far left) + cool fill (right) -> the graphite reads as a lit surface.
+- 9:16 PROBLEM/PLAN: a wide card in a tall frame left 40 % dark above it -> the product echo now lies on the table
+  behind/above the card (flat, no scrim; scrim is screen-space and washed the world card grey on the first try).
+- GOTCHA: a node at z <= 0 (coplanar with / under the table) made Chromium's 3D plane sorting hang
+  Page.captureScreenshot (> 60 s). Keep world nodes at z >= 1.
+- END credit now sits 18 px above the safe line (the glyph box overhang tripped safe-area QA).

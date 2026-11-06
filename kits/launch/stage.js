@@ -7,6 +7,7 @@ import { pchip, clamp, seg, ease } from '../base/motion.js';
 import { COMMON } from '../base/scenes-panels.js';
 import { makeWorld } from './world.js';
 import { LAUNCH_CSS } from './css.js';
+import { contentBlock } from '../base/scenes-media.js';
 
 export const LCOMMON = {
   ...COMMON, theme: { type: 'string', default: 'launch', doc: 'theme tokens (launch by default)' },
@@ -145,3 +146,29 @@ export function hubWires(W, x, y, nWires = 4, o = {}) {
 
 /** Screen-space kinetic headline helpers are reused from kits/base; re-export for scene files. */
 export { h, css, clamp, seg, ease, pchip };
+
+/**
+ * The film's product image (params.backdrop, injected by Quick mode) as a large screen lying on the table
+ * under the type: the world blur defocuses it into a product echo, a radial scrim keeps the type legible.
+ * Returns {set(t)} or null. o: {x, y, width, tilt, rz, op, scrim (0 = no scrim), blur}
+ */
+export function backdropPanel(ctx, W, F, p, o = {}) {
+  if (!p.backdrop || !(p.backdrop.asset || p.backdrop.path)) return null;
+  const L = F.portrait;
+  const b = contentBlock(ctx, p.backdrop, { width: o.width || (L ? 1250 : 1700), fast: true, t0: 0 });
+  b.el.dataset.qa = 'off';          // a defocused echo: its address bar is decoration, not text to check
+  b.el.style.filter = `blur(${o.blur ?? 7}px) brightness(.82)`;
+  const n = W.node(b.el, { x: o.x ?? 0, y: (o.y ?? 0) + b.h / 2, z: 2, w: b.w, h: b.h, tilt: o.tilt ?? 6, rz: o.rz ?? -5 });
+  // screen-space scrim for type laid over the world (scrim: 0 = none, for panels that live in the world themselves)
+  const scrim = h('div', 'slw-scrim');
+  if (o.scrim !== 0) F.ov.insertBefore(scrim, F.ov.firstChild);
+  scrim.style.cssText = `position:absolute;inset:0;pointer-events:none;background:radial-gradient(${L ? '90% 60%' : '62% 70%'} at 50% ${L ? '46%' : '50%'},` +
+    `rgba(10,11,13,${o.scrim ?? 0.78}) 0%,rgba(10,11,13,${((o.scrim ?? 0.78) * 0.55).toFixed(2)}) 55%,rgba(10,11,13,0) 100%);`;
+  return {
+    set(t) {
+      const u = seg(t, -0.3, 1.2, ease.outCubic);
+      const flat = o.tilt === 0;      // under a world panel: stay flat on the table so it never cuts through it
+      W.update(n, { op: (o.op ?? 0.5) * u, tilt: (o.tilt ?? 6) + (flat ? 0 : (1 - u) * 10), rz: (o.rz ?? -5) + (1 - u) * -4, z: flat ? 1 : 2 + (1 - u) * 60 });
+    },
+  };
+}
