@@ -149,7 +149,8 @@ function sheet(ctx, p, F) {
     cell('Scale', f.scale || 'NTS', 'nb');
     const rv = cell('Rev', f.rev || 'A', 'nr nb');
     const x = L ? 960 - w : W - bd - w;
-    const y = L ? 1500 - 132 : F.caps ? bd : H - bd - 128;
+    // captions own the band under the content: 16:9 moves the block to the top, 9:16 below the caption band
+    const y = L ? (F.caps ? H - bd - 128 - 24 : 1500 - 132) : F.caps ? bd : H - bd - 128;
     tb.style.left = `${x}px`; tb.style.top = `${y}px`;
     html.appendChild(tb);
     const v = rv.querySelector('.v');

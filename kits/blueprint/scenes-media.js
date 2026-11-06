@@ -120,17 +120,20 @@ function screenBuild(ctx, p, F, S, feature) {
   if (wide) { fx = r.x + click[0] * r.w; fy = r.y + click[1] * r.h; rad = 0.22 * Math.min(r.w, r.h) + 20; }
   else { fx = r.x + (bb[0] + bb[2] / 2) * r.w; fy = r.y + (bb[1] + bb[3] / 2) * r.h; rad = Math.max(bb[2] * r.w, bb[3] * r.h) / 2 * 1.12 + 10; }
   const tC = Math.max(1.55 * k, tFrame);
-  const bpos = [fx + rad * 0.72 + 30, fy - rad * 0.72 - 30];
+  // the balloon + DETAIL C label go up-right of the circle, mirrored up-left when they would leave the sheet
+  const flip = fx + rad * 0.72 + 30 + 200 > bx.x + bx.w;
+  const bpos = [flip ? fx - rad * 0.72 - 30 : fx + rad * 0.72 + 30, fy - rad * 0.72 - 30];
+  const dlx = flip ? bpos[0] - 30 - 150 : bpos[0] + 30;
   // object lines over a light capture get a dark halo drawn with them (white on white would vanish)
   const haloed = (dd, cls, at) => { P.add(stroke(S.top, dd, 'halo'), { at, track: 'halo' }); P.add(stroke(S.top, dd, cls), { at }); };
   if (detail) {
     haloed(circleD(fx, fy, rad, -Math.PI * 0.75), 'obj', [tC, tC + 0.4 * k]);
-    P.add(line(S.top, [[fx + rad * 0.707, fy - rad * 0.707], [bpos[0] - 15, bpos[1] + 15]], 'lead'), { at: [tC + 0.4 * k, tC + 0.5 * k] });
+    P.add(line(S.top, [[fx + (flip ? -1 : 1) * rad * 0.707, fy - rad * 0.707], [bpos[0] + (flip ? 15 : -15), bpos[1] + 15]], 'lead'), { at: [tC + 0.4 * k, tC + 0.5 * k] });
     const b = balloon(S.top, bpos[0], bpos[1], 'C');
     P.add(b.ring, { at: [tC + 0.45 * k, tC + 0.55 * k] }); P.pop(b.disc); P.pop(b.num);
-    const dl = S.text('bp-part', 'Detail C', bpos[0] + 30, bpos[1] - 18);
+    const dl = S.text('bp-part', 'Detail C', dlx, bpos[1] - 18);
     dl.style.cssText += 'background:var(--plate);padding:4px 8px;';
-    P.letter(dl, { x: bpos[0] + 34, y: bpos[1] - 14, w: 120, h: 28 }, { at: [tC + 0.5 * k, tC + 0.75 * k] });
+    P.letter(dl, { x: dlx + 4, y: bpos[1] - 14, w: 120, h: 28 }, { at: [tC + 0.5 * k, tC + 0.75 * k] });
   }
   const tZ = Math.max(tC + 0.55 * k, Math.min(dur - 1.4, tC + 0.9 * k));
   const z = clamp(Math.min((bx.w * 0.78) / (2 * rad), (bx.h * 0.74) / (2 * rad)), 1.6, 2.8);
@@ -165,13 +168,13 @@ function screenBuild(ctx, p, F, S, feature) {
     const fl = line(S.top, L ? [[cxB + boxW / 2, cyB], [cxB + boxW / 2, (cyB + qy) / 2], [qx, (cyB + qy) / 2], [qx, qy]] : [[cxB, cyB + fhB / 2], [cxB - 30, cyB + fhB / 2], [qx, qy]], 'lead');
     P.add(fl, { at: [tClick + 0.25, tClick + 0.4] });
     cues.push({ t: tClick, sfx: 'click', gain_db: -4 });
-    feat = { tClick, union: { x0: Math.min(fx - rad, cxB) - 30, y0: Math.min(fy - rad, cyB, bpos[1] - 40) - 30, x1: Math.max(fx + rad, cxB + boxW, bpos[0] + 200) + 30, y1: Math.max(fy + rad, cyB + fhB) + 30 } };
+    feat = { tClick, union: { x0: Math.min(fx - rad, cxB, flip ? dlx : Infinity) - 30, y0: Math.min(fy - rad, cyB, bpos[1] - 40) - 30, x1: Math.max(fx + rad, cxB + boxW, flip ? 0 : bpos[0] + 200) + 30, y1: Math.max(fy + rad, cyB + fhB) + 30 } };
   }
   S.titleBlock({ title: fitS(String(img.page_title || 'VIEW A'), 18), rev: p.rev || 'A' }, stages.develop[1]);
   const cx0 = S.W / 2, cy0 = S.H / 2;
   if (detail) {
     // detail zoom: frame the detail circle, its balloon label and (FEATURE) the callout box together
-    const U = feat ? feat.union : { x0: fx - rad - 20, y0: Math.min(fy - rad, bpos[1] - 40) - 20, x1: Math.max(fx + rad, bpos[0] + 200) + 20, y1: fy + rad + 20 };
+    const U = feat ? feat.union : { x0: Math.min(fx - rad, flip ? bpos[0] - 200 : Infinity) - 20, y0: Math.min(fy - rad, bpos[1] - 40) - 20, x1: Math.max(fx + rad, flip ? 0 : bpos[0] + 200) + 20, y1: fy + rad + 20 };
     const zz = clamp(Math.min((S.W - 2 * S.bd - 60) / (U.x1 - U.x0), (S.H - 2 * S.bd - 60) / (U.y1 - U.y0)), 1.1, z);
     const ux = (U.x0 + U.x1) / 2, uy = (U.y0 + U.y1) / 2;
     S.camera([[0, [cx0, cy0, 1.0]], [tZ, [cx0, cy0, 1.01]], [tZ + 0.8 * k, [ux, uy, zz]], [dur + 1, [ux + 4, uy + 4, zz * 1.02]]]);

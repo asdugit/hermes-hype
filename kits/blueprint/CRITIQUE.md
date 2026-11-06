@@ -66,3 +66,11 @@ Film: HOOK → TITLE → FEATURE ×2 → SCROLL → STATS → END, `sheet-slide`
   all read; 9:16 puts the callout under the view.
 - SCROLL: the A section line now rides above the page (top layer).
 - END: signed sheet + RELEASED stamp land; the caption crosses the big frame line at the end (minor).
+
+## Round 5 — 9:16 Quick sample (keyframes + late frames of FEATURE / STATS)
+- The DETAIL C balloon label left the sheet on the right edge (9:16) -> the balloon + label mirror up-left of the
+  circle when they would leave the box; the detail zoom frames them either way. Re-check: label fully visible.
+- 9:16 captions crossed the title block (block at 1368–1500, caption band ~1440–1540) -> with captions the block
+  sits under the caption band (16:9 already moves it to the top). Re-check: clear.
+- FEATURE callouts sit under the view on a plate and read at phone size; the click crosshair + rings show over both
+  the light and the dark capture thanks to the halo.
