@@ -1,13 +1,12 @@
 """Blender host engine: locate the user's Blender, run ``blender:`` shots headlessly, feed frames to the film.
 
-Public API (see BLENDER.md):
+Modules (see BLENDER.md):
 
-* :func:`locate.locate` -> ``BlenderFound | BlenderMissing``
-* :func:`runner.make_job` / :func:`runner.run_job` / :func:`runner.benchmark` (job.json protocol v1)
-* :func:`film.render_film_shots` (Blender pass of a film.json) and ``python -m showreel_core.blender.render_film``
+* ``locate``: ``locate(config_path)`` -> ``BlenderFound | BlenderMissing`` (user-facing message, never raises)
+* ``runner``: ``make_job`` / ``run_job`` / ``benchmark`` (job.json protocol v1, SR_* progress, verify, resume)
+* ``film``: ``render_film_shots`` (Blender pass of a film.json); ``render_film``: the CLI
+  ``python -m showreel_core.blender.render_film FILM.json --out OUT.mp4``
+* ``trigger``: ``blender_requested(text)`` ("use blender" in a direction)
+
+Nothing is re-exported here on purpose: ``from showreel_core.blender import locate`` must stay the module.
 """
-from __future__ import annotations
-
-from .locate import BlenderFound, BlenderMissing, locate
-
-__all__ = ["BlenderFound", "BlenderMissing", "locate"]
