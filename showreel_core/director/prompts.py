@@ -266,6 +266,9 @@ PRODUCT SIZE (the engine measures it in every keyframe; < 25 % of the frame widt
   20 m = 25 %, `float` 6 m at 36 m = 15 %, `rise`/`arc` at 70-90 m = specks. In a product shot give the lead flyer
   `size` >= 9 at d <= 24 (or path `hero`), keep 1-2 smaller ones behind it for depth; never 4+ default specks.
 - If a kit scene declares `product_scale`, use >= 1.2 in product shots.
+- SCREEN products (UI screenshots) in nature scenes fly as cards with `key: false` (auto-key ghosts light UI), at
+  most ~60 % of the width. The nature `product-hero` cannot un-key a screenshot (a ghost): show UI close-ups with
+  `kit:cinematic/screen-push` or `kit:launch/SCREEN|FEATURE` and let the meadow carry the mood around them.
 
 PLAN RULES
 - plan.shots: one entry per shot: `intent` (what the viewer must see and feel, one sentence), `product_visible`
