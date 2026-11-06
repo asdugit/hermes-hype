@@ -89,3 +89,18 @@ def test_preview_writes_stills_and_contact_sheet(tmp_path: Path, demo, render_sl
     r = preview(fp, tmp_path / "out", keyframes=[0.5, 3.0, 5.0, 7.0], size=(640, 360), kits_root=kits)
     assert r.ok, r.to_dict()
     assert len(r.stills) == 4 and Path(r.contact_sheet).is_file()
+
+
+def test_sdk_additions_transition_cues_dom_height_qa_opt_out(tmp_path: Path, demo, render_slot):
+    """Wave-3 SDK: transition cues(), ctx.h number + ctx.el + ctx.film.safe on DOM, data-qa="off", qaText on DOM."""
+    job = _job(tmp_path, demo, [{"id": "probe", "t0": 0, "t1": 1.2, "scene": "kit:demo/probe"},
+                                {"id": "dom", "t0": 0.8, "t1": 2, "scene": "kit:demo/qa-dom"}],
+               transitions=[{"from": "probe", "to": "dom", "type": "kit:demo/flash", "t": 0.8, "dur": 0.4,
+                             "params": {"sfx": "chime"}}])
+    r = dryrun(job, times=[0.4, 1.6], determinism=False, lenient=False)
+    assert r.ready_error == "" and r.scene_errors == [], r.summary()
+    assert [(round(c["t"], 3), c["sfx"]) for c in r.cues] == [(0.8, "whoosh_short"), (1.0, "chime")]
+    assert all(c["shot"] == "tx:0" for c in r.cues)
+    msgs = " ".join(q["msg"] for q in r.qa)
+    assert "texture text" in msgs                      # qaText from a DOM layer reaches QA
+    assert "tiny dom text" in msgs and "decorative" not in msgs

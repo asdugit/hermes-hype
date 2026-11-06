@@ -112,3 +112,29 @@ def test_kit_reference_detection_and_order():
                       "fonts": [{"src": "kits/launch/fonts/a.ttf"}], "kits": ["extra"]}) == {"pixel", "fx", "launch", "extra"}
     assert _order_kits({"a": {"b"}, "b": {"c"}, "c": set(), "d": {"a"}}) == ["c", "b", "a", "d"]
     assert set(_order_kits({"a": {"b"}, "b": {"a"}})) == {"a", "b"}   # cycles don't hang
+
+
+def test_imports_resolve_against_the_importing_file():
+    sub = "import { S } from '../core/gfx.js';\nimport { sr } from '../../../runtime/showreel.js';\nexport { x } from './y.js';"
+    assert kits_referenced(sub, "kits/pixel/scenes/a.js") == {"pixel"}          # own kit: dropped by build_job
+    assert kits_referenced("import { w } from '../nature/lib/world.js';", "kits/pixel/kit.js") == {"nature"}
+    assert kits_referenced("import { w } from '../../nature/a.js';", "kits/pixel/scenes/a.js") == {"nature"}
+    assert kits_referenced("import { sr } from '../runtime/showreel.js';", "scenes/boss.js") == set()
+
+
+def test_kit_subfolder_imports_and_cross_kit_imports_build(tmp_path: Path):
+    kits = tmp_path / "kits"
+    (kits / "alpha" / "scenes").mkdir(parents=True)
+    (kits / "alpha" / "core").mkdir()
+    (kits / "beta").mkdir()
+    (kits / "alpha" / "kit.js").write_text(
+        "import { sr } from '../../runtime/showreel.js';\nimport './scenes/a.js';\nimport { b } from '../beta/kit.js';\n",
+        encoding="utf-8")
+    (kits / "alpha" / "scenes" / "a.js").write_text("import { c } from '../core/c.js';\nexport const a = c;\n", encoding="utf-8")
+    (kits / "alpha" / "core" / "c.js").write_text("export const c = 1;\n", encoding="utf-8")
+    (kits / "beta" / "kit.js").write_text("export const b = 2;\n", encoding="utf-8")
+    f = {"version": 1, "fps": 30, "size": [640, 360], "dur": 1.0, "shots": [{"id": "a", "t0": 0, "t1": 1, "scene": "kit:alpha/x"}]}
+    job = build_job(f, tmp_path / "job", kits_root=kits)
+    assert (job / "kits" / "beta" / "kit.js").is_file() and not (job / "kits" / "core").exists()
+    html = (job / "stage.html").read_text(encoding="utf-8")
+    assert html.index("kits/beta/kit.js") < html.index("kits/alpha/kit.js")       # dependency loads first

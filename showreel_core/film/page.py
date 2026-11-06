@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import html
 import json
+import posixpath
 import re
 import shutil
 from collections.abc import Mapping
@@ -23,7 +24,8 @@ KITS_ROOT = REPO_ROOT / "kits"
 VENDOR_THREE = REPO_ROOT / "vendor" / "three"
 
 KIT_REF_RE = re.compile(r"""\b(?:ctx|sr)\.kit\(\s*['"]([a-z0-9_-]+)['"]""")
-KIT_IMPORT_RE = re.compile(r"""(?:from|import)\s*['"](?:\.\./)+kits/([a-z0-9_-]+)/""")
+# static relative imports / re-exports: import x from './a.js', import './a.js', export { y } from '../b.js'
+IMPORT_SPEC_RE = re.compile(r"""(?:\bfrom|\bimport)\s*['"](\.{1,2}/[^'"\n]+)['"]""")
 THREE_RE = re.compile(r"""layer\s*:\s*['"]three['"]|from\s+['"]three(?:/addons/[^'"]*)?['"]|\bctx\.THREE\b|\bimport\(\s*['"]three""")
 KIT_COPY_IGNORE = shutil.ignore_patterns("__pycache__", "*.pyc", "*.py", "tests", "demo_out", ".git*", "*.blend", "*.psd")
 
@@ -63,11 +65,26 @@ def scene_filename(scene_id: str) -> str:
     return f"{name}.js" if kind == "custom" else f"lib-{name}.js"
 
 
-def kits_referenced(js: str) -> set[str]:
-    """Kit names a JS source refers to: ctx.kit('x'), sr.kit('x'), imports of '../kits/x/...'.
+def imported_kits(js: str, rel_path: str) -> set[str]:
+    """Kits that the static relative imports of the job file ``rel_path`` land in.
 
-    Kit-to-kit imports ('../x/...' from kits/<k>/) are declared in kits/<k>/kit.json "requires" instead."""
-    return set(KIT_REF_RE.findall(js)) | set(KIT_IMPORT_RE.findall(js))
+    Each specifier is resolved against the importing file's own directory (``kits/pixel/scenes/a.js``
+    importing ``'../core/b.js'`` stays in ``pixel``; ``scenes/x.js`` importing ``'../runtime/showreel.js'``
+    is the runtime, not a kit; ``kits/pixel/kit.js`` importing ``'../nature/lib/w.js'`` is kit ``nature``).
+    """
+    base = posixpath.dirname(rel_path.replace("\\", "/"))
+    out: set[str] = set()
+    for spec in IMPORT_SPEC_RE.findall(js):
+        parts = posixpath.normpath(posixpath.join(base, spec)).split("/")
+        if len(parts) >= 3 and parts[0] == "kits" and re.fullmatch(r"[a-z0-9_-]+", parts[1], re.IGNORECASE):
+            out.add(parts[1])
+    return out
+
+
+def kits_referenced(js: str, rel_path: str = "scenes/scene.js") -> set[str]:
+    """Kit names a JS source refers to: ``ctx.kit('x')``, ``sr.kit('x')`` and relative imports that resolve
+    into ``kits/x/`` from ``rel_path`` (the file's job-relative path; scenes live in ``scenes/``)."""
+    return set(KIT_REF_RE.findall(js)) | imported_kits(js, rel_path)
 
 
 def film_kits(film: Mapping[str, Any]) -> set[str]:
@@ -181,8 +198,8 @@ def build_job(film: Mapping[str, Any], job_dir: Path, *, kits_root: Path | None 
 
     # kits (transitively through references in kit and scene code)
     want = film_kits(film_n)
-    for text in scene_src.values():
-        want |= kits_referenced(text)
+    for sid, text in scene_src.items():
+        want |= kits_referenced(text, f"scenes/{scene_filename(sid)}")
     deps: dict[str, set[str]] = {}
     kit_fonts: list[dict[str, Any]] = []
     needs_three = False
@@ -198,8 +215,8 @@ def build_job(film: Mapping[str, Any], job_dir: Path, *, kits_root: Path | None 
             continue
         shutil.copytree(src_dir, job / "kits" / k, ignore=KIT_COPY_IGNORE)
         refs: set[str] = set()
-        for _, text in _js_sources(job / "kits" / k):
-            refs |= kits_referenced(text)
+        for path, text in _js_sources(job / "kits" / k):
+            refs |= kits_referenced(text, path.relative_to(job).as_posix())
         meta = _kit_meta(job / "kits" / k, problems)
         for req in meta.get("requires") or []:
             if req == "three":

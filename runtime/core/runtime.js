@@ -235,6 +235,22 @@ export class Runtime {
       this._evict(new Set());
     }
     for (const c of F.cues) cues.push({ t: Number(c.t), sfx: String(c.sfx), gain_db: Number(c.gain_db || 0), align: c.align || 'auto', shot: null });
+    // transition cues: def.cues(params, {dur, t, from, to, aspect}) -> [{t | u, sfx, gain_db?, align?}]
+    // (t = seconds from the start of the window, u = 0..1 progress), e.g. a petal burst at u = 0.35
+    for (const tr of F.transitions) {
+      const d = this.transitions.get(tr.type);
+      if (!d || typeof d.cues !== 'function') continue;
+      try {
+        const list = d.cues(tr.params, { dur: tr.dur, t: tr.t, from: tr.from.id, to: tr.to.id, aspect: F.aspect }) || [];
+        if (!Array.isArray(list)) throw new Error('cues() must return an array');
+        for (const c of list) {
+          const lt = c && c.u != null ? Number(c.u) * tr.dur : Number(c && c.t);
+          cues.push({ ...this._cue(lt, c && c.sfx, c, tr.to), t: tr.t + lt, shot: `tx:${tr.index}` });
+        }
+      } catch (e) {
+        soft(`transition ${tr.index} (${tr.type}): cues()`, e);
+      }
+    }
     this.cues = cues.filter((c) => Number.isFinite(c.t) && c.t >= 0 && c.t <= F.dur && c.sfx)
       .sort((a, b) => a.t - b.t || String(a.sfx).localeCompare(String(b.sfx)));
     this.api.cues = this.cues;
@@ -381,14 +397,19 @@ export class Runtime {
       });
     };
     const text = (g, str, o = {}) => drawText(g, str, o, g && g.canvas === s.canvas ? sink : null);
-    /** Register a text box drawn by other means (bitmap fonts, sprites): {x, y, w, h, text, size|glyph_px} in surface px. */
-    const qaText = (b) => {
+    /**
+     * Register a text box drawn by other means (bitmap fonts, sprites, text painted into a WebGL/three texture)
+     * so layout QA can see it. Surface px. Either qaText({x, y, w, h, text, size|glyph_px}) or
+     * qaText([x, y, w, h], size, text).
+     */
+    const qaText = (b, size, str) => {
+      if (Array.isArray(b)) b = { x: b[0], y: b[1], w: b[2], h: b[3], size, text: str };
       if (!b || !Number.isFinite(b.w) || !Number.isFinite(b.h)) return;
       sink({ rect: [b.x || 0, b.y || 0, b.w, b.h], size: Number(b.size || b.glyph_px || b.h), text: String(b.text || ''), overflow: !!b.overflow, fontOk: true, font: b.font || '' });
     };
     const ctx = {
       w, h, dur: item.dur, id: item.id, seed, layer: def.layer, params: item.params,
-      film: { w: F.w, h: F.h, fps: F.fps, dur: F.dur, aspect: F.aspect, title: F.title, seed: F.seed },
+      film: { w: F.w, h: F.h, fps: F.fps, dur: F.dur, aspect: F.aspect, title: F.title, seed: F.seed, safe: { ...F.safe } },
       shot: { t0: item.t0, t1: item.t1, kind: item.kind },
       safe: { l: F.safe.l * kx, r: F.safe.r * kx, t: F.safe.t * ky, b: F.safe.b * ky },
       rng: (k = 0) => makeRng(mixSeed(seed, k)),
@@ -426,7 +447,8 @@ export class Runtime {
     if (def.layer === 'dom') {
       ctx.root = s.root;
       ctx.css = (cssText) => rt._scopedCss(item.scene, cssText);
-      ctx.h = (tag, props = {}, ...kids) => {
+      // DOM builder (ctx.h stays the surface height on every layer, SDK §4)
+      ctx.el = (tag, props = {}, ...kids) => {
         const el = document.createElement(tag);
         for (const [k, v] of Object.entries(props || {})) {
           if (k === 'class' || k === 'className') el.className = v;
@@ -636,7 +658,7 @@ export class Runtime {
       const inst = this.instances.get(it.key);
       if (!inst) continue;
       if (inst.def.layer === 'dom') boxes.push(...domTextBoxes(inst.surf.root, this.stage, { id: it.id, kind: it.kind }));
-      else boxes.push(...inst.boxes);
+      boxes.push(...inst.boxes);
     }
     boxes.push(...domTextBoxes(this.captions.root, this.stage, { id: 'captions', kind: 'caption' }));
     const skip = new Set();

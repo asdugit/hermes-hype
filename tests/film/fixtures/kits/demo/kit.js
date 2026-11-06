@@ -65,7 +65,7 @@ sr.defineScene('kit:demo/card', {
               border-radius: 32px; background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.16); color: #fff; }
       .card h1 { font-size: 88px; line-height: 1.05; margin: 0 0 20px; font-weight: 400; }
       .card p { font-size: 42px; margin: 0; color: #c9d2e8; }`);
-    const card = ctx.h('div', { class: 'card' }, ctx.h('h1', { text: p.title }), ctx.h('p', { text: p.body }));
+    const card = ctx.el('div', { class: 'card' }, ctx.el('h1', { text: p.title }), ctx.el('p', { text: p.body }));
     ctx.root.append(card);
     ctx.state.card = card;
   },
@@ -176,9 +176,11 @@ sr.defineScene('kit:demo/qa-dom', {
   setup(ctx) {
     ctx.css(`.box { position: absolute; left: 400px; top: 400px; width: 300px; height: 64px; overflow: hidden;
                white-space: nowrap; font: 48px "Demo Sans"; color: #fff; }
-             .small { position: absolute; left: 400px; top: 600px; font: 14px "Demo Sans"; color: #fff; }`);
-    ctx.root.append(ctx.h('div', { class: 'box', text: 'This line is far too long for its box' }),
-      ctx.h('div', { class: 'small', text: 'tiny dom text' }));
+             .small { position: absolute; left: 400px; top: 600px; font: 14px "Demo Sans"; color: #fff; }
+             .deco { top: 700px; }`);
+    ctx.root.append(ctx.el('div', { class: 'box', text: 'This line is far too long for its box' }),
+      ctx.el('div', { class: 'small', text: 'tiny dom text' }),
+      ctx.el('div', { class: 'small deco', 'data-qa': 'off', text: 'decorative' }));
   },
   render() {},
 });
@@ -224,4 +226,31 @@ sr.defineScene('kit:demo/sloppy', {
     }
     g.fillRect((Date.now() / 10) % ctx.w, 10, 20, 20);
   },
+});
+
+// ------------------------------------------------------------------ SDK additions (wave 3)
+sr.defineScene('kit:demo/probe', {
+  layer: 'dom',
+  describe: 'Checks ctx.h is the surface height on DOM layers, ctx.film.safe exists, qaText works on DOM layers.',
+  setup(ctx) {
+    if (typeof ctx.h !== 'number' || ctx.h <= 0) throw new Error(`ctx.h is not the surface height: ${typeof ctx.h}`);
+    if (typeof ctx.el !== 'function') throw new Error('ctx.el (DOM builder) missing');
+    const s = ctx.film.safe;
+    if (!s || !(s.l > 0) || !(s.b > 0)) throw new Error(`ctx.film.safe missing: ${JSON.stringify(s)}`);
+    ctx.root.append(ctx.el('div', { style: { position: 'absolute', left: '0', top: '0', width: `${ctx.w}px`, height: `${ctx.h}px`, background: '#111' } }));
+  },
+  render(ctx) {
+    // text "painted into a texture": registered by hand, deliberately tiny so QA reports it
+    ctx.qaText([ctx.w / 2, ctx.h / 2, 120, 10], 9, 'texture text');
+  },
+});
+
+sr.defineTransition('kit:demo/flash', {
+  kind: 'css',
+  render(tx, u) {
+    tx.toEl.style.opacity = String(u);
+    tx.g.fillStyle = `rgba(255,255,255,${(1 - Math.abs(u * 2 - 1)).toFixed(3)})`;
+    tx.g.fillRect(0, 0, tx.w, tx.h);
+  },
+  cues(p, tr) { return [{ u: 0.5, sfx: p.sfx || 'pop' }, { t: 0, sfx: 'whoosh_short', gain_db: -6 }]; },
 });

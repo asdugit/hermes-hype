@@ -22,6 +22,7 @@ export function domTextBoxes(root, stage, owner) {
     if (!n.nodeValue || !n.nodeValue.trim()) continue;
     const el = n.parentElement;
     if (!el || effOpacity(el) < 0.05) continue;
+    if (el.closest('[data-qa="off"]')) continue;     // decorative text opted out of layout QA
     range.selectNodeContents(n);
     const rects = [...range.getClientRects()].filter((r) => r.width > 0 && r.height > 0);
     if (!rects.length) continue;
