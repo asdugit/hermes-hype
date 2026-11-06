@@ -65,6 +65,16 @@ class Event:
       file_patch: {path, lang, hunks: [{header, lines: [[op, text]]}], adds, dels}
       terminal:   {cmd, output_lines: [str], exit_code: int|None, elapsed_s: float|None}
       screenshot / image_generated: {path (copied into job assets), w, h, url?}
+      product_capture (Showreel's own capture of the running product, capture/; tool "showreel_capture"):
+                  {path, url, viewport: [w, h], full_page, page_title,
+                   kind: viewport|full|mobile|mobile_full|element|interaction|pdf_page|image|video,
+                   size, dpr, label, target_kind: url|html|image|video|pdf, source_ids, quality: ok|blank|error_overlay,
+                   ms, accent?, theme_color?, favicon?, background?,
+                   element shots: selector|query, bbox, clip (page CSS px at the layout width), layout;
+                   interaction shots: step, action; truncated?, pages? (pdf);
+                   media: src, format, palette, duration_s, fps, poster, poster_t,
+                          cutout {ok, grade, score, reason, model, still, frames_dir?, pattern?, count?, ...}}
+                  (full key reference: research/wp-j-capture.md "Event shape")
       todo:       {items: [{text, status}]}
       user_prompt / assistant_note / final_answer: {text}
       web_search / web_extract / browser_nav: {query|url, titles?: [str]}
