@@ -42,8 +42,12 @@ export function termBlock(data, o = {}) {
   out.style.cssText = `font-size:${fs}px;line-height:${rowH}px;padding:${padTop}px ${padX}px ${Math.round(rowH * 0.5)}px;`;
   el.appendChild(out);
 
+  // unwrapped rows are cut to the visible columns with an ellipsis (a hard overflow cut reads as a glitch, and the
+  // full-length text box made layout QA report 9000 px commands as running off the frame)
+  // (5 % column margin: themes may swap in a slightly wider mono, e.g. Space Mono 0.612 em vs Geist Mono 0.6)
+  const fit = (s, n) => { const m = Math.floor(n * 0.95); return s.length > m ? `${s.slice(0, Math.max(1, m - 1)).trimEnd()}\u2026` : s; };
   const cmd = String(data.cmd || '');
-  const cmdParts = o.wrap ? wrapPlain(cmd, maxChars - 2) : [cmd];
+  const cmdParts = o.wrap ? wrapPlain(cmd, maxChars - 2) : [fit(cmd, maxChars - 2)];
   const rows = [];
   cmdParts.forEach((c, i) => {
     const line = h('div', 'srb-line srb-cmd');
@@ -59,7 +63,7 @@ export function termBlock(data, o = {}) {
   if (data.truncated_top) outLines = ['\u2026', ...outLines];
   const maxRows = o.maxRows || 14;
   const disp = [];
-  for (const ln of outLines) for (const part of (o.wrap ? wrapPlain(ln, maxChars) : [ln])) disp.push({ s: part, src: ln });
+  for (const ln of outLines) for (const part of (o.wrap ? wrapPlain(ln, maxChars) : [fit(ln, maxChars)])) disp.push({ s: part, src: ln });
   const shown = disp.slice(Math.max(0, disp.length - (maxRows - rows.length)));
   for (const d of shown) {
     const fail = FAIL_RE.test(d.src) && !data.ok;

@@ -67,6 +67,9 @@ comicScene('kit:comic/TITLE', {
     // ribbon (tagline): one or two lines of Bangers on a red banner
     let ribbon = null;
     if (tagline) {
+      // 16:9: a long title shrinks the masthead, which would lift the ribbon over the corner box (NEW! hidden)
+      // (the ribbon is rotated -4deg: its rising right end must clear the NEW! sticker that hangs under the box)
+      if (L) y = Math.max(y, S.t + ch + 44);
       const lines = tagline.length > 24 ? twoLines(tagline) : [tagline];
       const rW = L ? 980 : 840;
       const longest = Math.max(...lines.map((s) => s.length));
