@@ -97,9 +97,13 @@ class Version:
         return {c["name"]: c for c in self.plan.get("custom_scenes") or []}
 
     def key(self) -> tuple[float, ...]:
+        """Ranking: passed, mean, min, then the user's requirements met and how well the product sells."""
         s = self.score
-        return (1.0 if s and s.passed else 0.0, s.mean if s else 0.0, s.min if s else 0.0, -len(self.fallbacks),
-                float(self.n))
+        reqs = [q for q in (self.critique or {}).get("requirements") or [] if isinstance(q, dict)]
+        met = sum(1 for q in reqs if q.get("met") is True)
+        return (1.0 if s and s.passed else 0.0, s.mean if s else 0.0, s.min if s else 0.0, float(met),
+                s.scores.get("product_clarity", 0.0) if s else 0.0, (s.product_hero or 0.0) if s else 0.0,
+                -len(self.fallbacks), float(self.n))
 
 
 class _Run:

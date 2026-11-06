@@ -88,6 +88,20 @@ def test_full_loop_repair_critique_revise_pass(env: dict[str, Any]) -> None:
     assert res.events[-1]["frac"] == 1.0
 
 
+def test_tied_versions_prefer_met_requirements_then_product(env: dict[str, Any]) -> None:
+    from showreel_core.director.engine import Version
+    from showreel_core.director.types import RoundScore
+    s = {k: 5.0 for k in ("product_clarity", "composition", "beauty_craft", "story_clarity", "legibility",
+                          "style_coherence", "transition_quality")}
+    v1 = Version(1, {}, {}, score=RoundScore(1, 1, dict(s, product_clarity=6.0), 5.1, 4.0, 1.0, False, 8),
+                 critique={"requirements": [{"met": False}, {"met": False}]})
+    v2 = Version(2, {}, {}, score=RoundScore(2, 2, dict(s, product_clarity=4.0), 5.1, 4.0, 0.8, False, 8),
+                 critique={"requirements": [{"met": True}, {"met": False}]})
+    assert max([v1, v2], key=Version.key) is v2                     # the user's direction honoured
+    v2.critique = {"requirements": [{"met": False}, {"met": False}]}
+    assert max([v1, v2], key=Version.key) is v1                     # then the product sells better
+
+
 def test_cut_off_scene_reply_is_repaired(env: dict[str, Any]) -> None:
     cut = "Here.\n```js\n" + GOOD_CODE[: len(GOOD_CODE) // 2]          # no closing fence: max_tokens hit
     llm = FakeLlm({"treatment": [TREATMENT], "film": [FILM], "scene": [cut, fenced(GOOD_CODE)],
