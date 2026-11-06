@@ -38,8 +38,11 @@ ARTIFACT_KINDS: dict[str, str] = {
     "pdf": "pdf",
     **dict.fromkeys(("md", "docx", "pptx", "rst", "odt", "epub"), "doc"),
     **dict.fromkeys(("csv", "xlsx", "parquet", "ipynb", "geojson", "sqlite"), "data"),
-    **dict.fromkeys(("zip", "exe", "apk", "dmg", "whl", "vsix", "rbxl", "rbxlx", "blend", "glb", "gltf", "stl"), "other"),
+    **dict.fromkeys(("zip", "exe", "apk", "dmg", "whl", "vsix", "rbxl", "rbxlx"), "other"),
+    **dict.fromkeys(("glb", "gltf", "blend", "fbx", "obj", "usdz", "usd", "usda", "usdc", "stl", "ply"), "model"),
 }
+#: model files a Blender scene can import, best first (a .blend keeps materials/lights; glTF is self-contained)
+MODEL_PREFERENCE = ("blend", "glb", "gltf", "usdz", "usd", "usdc", "usda", "fbx", "obj", "stl", "ply")
 ENTRY_NAMES = {"index.html", "main.py", "app.py", "server.py", "cli.py", "__main__.py", "main.js", "index.js",
                "server.js", "app.js", "main.ts", "index.ts", "main.rs", "main.go", "app.tsx", "main.tsx", "app.jsx",
                "game.js", "main.lua", "plugin.yaml", "manifest.json", "readme.md", "streamlit_app.py", "gradio_app.py"}
@@ -439,7 +442,8 @@ def _infer(events: list[Event], meta: dict[str, Any]) -> ProductReport:
         features=feats,
     )
     has_artifact = any(e.kind == "artifact" and e.data.get("exists") for e in events)
-    visual = any(e.kind == "artifact" and e.data.get("exists") and e.data.get("kind") in ("web", "image", "video", "audio", "pdf")
+    visual = any(e.kind == "artifact" and e.data.get("exists") and e.data.get("kind") in ("web", "image", "video", "audio", "pdf",
+                                                                                         "model")
                  for e in events)
     strong_name = bool(name_list) and name_list[0]["score"] >= 0.5
     conf = 0.0
@@ -468,7 +472,38 @@ def _infer(events: list[Event], meta: dict[str, Any]) -> ProductReport:
     product.hero_event_ids = [e.id for e in sorted(
         (e for e in events if (e.kind == "artifact" and e.data.get("exists") and e.data.get("kind") in ("web", "image", "video"))
          or e.data.get("product_shot")), key=lambda e: (-e.weight, -e.t))][:6]
+    models = pick_models([c for c in real if c["kind"] == "model" and c["exists"]])
+    if models:
+        product.model = models[0]
+        evidence["models"] = models[:6]
     return ProductReport(product=product, detected=detected, confidence=round(min(1.0, conf), 2), evidence=evidence)
+
+
+def _looks_like_obj_mesh(path: Path) -> bool:
+    """Wavefront .obj (text with vertex lines), not a compiler object file of the same extension."""
+    try:
+        head = path.read_bytes()[:8192]
+    except OSError:
+        return False
+    if b"\x00" in head:
+        return False
+    return any(line.startswith((b"v ", b"vn ", b"f ", b"mtllib", b"o ")) for line in head.splitlines())
+
+
+def pick_models(cands: list[dict[str, Any]]) -> list[str]:
+    """Existing 3D model artifacts, best first: delivered, then by format preference, newest, biggest.
+    A model beats its own rendered video/stills as the Blender hero (those stay recorded as 2D media)."""
+    ok: list[dict[str, Any]] = []
+    for c in cands:
+        p = resolve_local(c["path"])
+        if p is None or not p.is_file():
+            continue
+        ext = p.suffix.lower().lstrip(".")
+        if ext == "obj" and not _looks_like_obj_mesh(p):
+            continue
+        ok.append({**c, "_p": p, "_rank": MODEL_PREFERENCE.index(ext) if ext in MODEL_PREFERENCE else 99})
+    ok.sort(key=lambda c: (not c["delivered"], c["_rank"], -float(c.get("t") or 0), -int(c.get("bytes") or 0)))
+    return [str(c["_p"]) for c in ok]
 
 
 def _scan_key_file(ev_: _Evidence, name: str, path: str, lines: list[str], eid: str, read: bool = False) -> None:
@@ -512,7 +547,7 @@ def _guess_kind(counts: Counter[str], ev_: _Evidence, entry: list[str], urls: li
         votes["api"] += 2
     if re.search(r"\blove\b|pygame|godot", cmds):
         votes["game"] += 3
-    media = counts.get("video", 0) + counts.get("image", 0) + counts.get("audio", 0)
+    media = counts.get("video", 0) + counts.get("image", 0) + counts.get("audio", 0) + counts.get("model", 0)
     if media:
         votes["media"] += min(4, media)
     if counts.get("pdf") or counts.get("doc"):

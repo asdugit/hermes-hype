@@ -6,7 +6,8 @@ description: >-
   features and real output, plus a short "built with Hermes" proof beat made from the session's real diffs,
   terminal output, tests and numbers. Pick a style (launch, pixel, terminal, blueprint, cinematic), a length
   and 16:9 or 9:16, or just describe the film you want. /showreel, the showreel_render tool, the Desktop pane
-  or hermes showreel render. Renders locally with headless Chromium and ffmpeg.
+  or hermes showreel render. Renders locally with headless Chromium and ffmpeg. Optional: say "blender" (or set
+  engine_3d) to render 3D shots with YOUR installed Blender, run headless as a subprocess on files in the job folder.
 author: asdugit
 license: AGPL-3.0-or-later
 homepage: https://github.com/asdugit/hermes-showreel
@@ -58,3 +59,19 @@ config_schema:
     default: 0
     label: Max render workers
     description: 0 = automatic from free RAM (each worker is one headless Chromium, about 0.5-0.7 GB).
+  engine_3d:
+    type: str
+    choices: [browser, blender, auto]
+    default: browser
+    label: 3D engine
+    description: >-
+      browser = three.js in headless Chromium (no install). blender = render 3D shots with your Blender 4.2+
+      (headless subprocess on files in the job folder; much nicer camera work and real 3D products, slower).
+      auto = Blender when it is installed. Also per film: /showreel ... blender, or "use blender" in a direction.
+  blender_path:
+    type: str
+    default: ""
+    label: Blender executable (optional)
+    description: >-
+      Path to blender / blender.exe. Empty = SHOWREEL_BLENDER, PATH, then the usual install folders (incl. where
+      the Hermes blender plugin installs it). Showreel never downloads Blender.

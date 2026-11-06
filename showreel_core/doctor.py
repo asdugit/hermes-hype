@@ -99,12 +99,25 @@ def _services(ctx: Any) -> list[dict[str, Any]]:
     return out
 
 
+def _blender() -> list[dict[str, Any]]:
+    """Optional: the user's Blender for the ``blender`` 3D engine (never required)."""
+    from .blender.locate import locate
+    from .config import settings_from_hermes_config
+
+    found = locate(settings_from_hermes_config().blender_path or None)
+    if found.ok:
+        return [_check("blender", True, f"Blender {found.version_string} at {found.path} ({found.source})",
+                       required=False)]
+    return [_check("blender", False, "not found (optional: only for the 'blender' 3D engine)", found.message,
+                   required=False)]
+
+
 def doctor_report(ctx: Any = None) -> dict[str, Any]:
     """All checks as JSON; ``ok`` is False only when a required check fails."""
     checks: list[dict[str, Any]] = [
         _check("python", sys.version_info >= (3, 11), platform.python_version(), "Showreel needs Python 3.11+"),
     ]
-    for fn in (_ffmpeg, lambda: [_chromium()], _assets, _storage, lambda: _services(ctx)):
+    for fn in (_ffmpeg, lambda: [_chromium()], _assets, _storage, lambda: _services(ctx), _blender):
         try:
             checks += fn()
         except Exception as exc:  # noqa: BLE001 - a broken check is a failed check, not a crash

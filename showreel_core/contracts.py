@@ -54,6 +54,8 @@ class Product:
     run_commands: list[str] = field(default_factory=list)  # commands the session used to run/demo it
     features: list[str] = field(default_factory=list)      # <= 6 short feature names grounded in the session
     hero_event_ids: list[str] = field(default_factory=list)  # best visual evidence (captures/screenshots/artifacts)
+    model: str = ""                     # 3D model file the session made (glb/gltf/blend/fbx/obj/usdz...): the hero
+    #                                     for the Blender engine (2D renders/screenshots stay in hero_event_ids)
 
 
 @dataclass
