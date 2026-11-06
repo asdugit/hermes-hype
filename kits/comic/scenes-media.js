@@ -274,13 +274,16 @@ comicScene('kit:comic/SCREEN', {
     pn.el.appendChild(look.el);
     const tPush = clamp(dur * 0.28, 1.0, 1.6);
     const whole = { x: R.x + bx - 20, y: R.y, w: br.w + 40, h: by + br.h + 30 };
-    const focus = { x: R.x + Math.min(rr.x, lx) - 30, y: R.y + Math.min(rr.y - 40, ly) - 20, w: rr.w + 60 + Math.max(0, rr.x - lx), h: rr.h + 80 + Math.max(0, rr.y - ly) };
+    // focus keeps the LOOK! burst whole (it slams in oversized): 50 px headroom above it
+    const focus = { x: R.x + Math.min(rr.x, lx) - 30, y: R.y + Math.min(rr.y - 40, ly) - 50, w: rr.w + 60 + Math.max(0, rr.x - lx), h: rr.h + 110 + Math.max(0, rr.y - ly) };
     const cam = P.track([[0, whole], [tPush, whole], [tPush + 0.75, focus], [dur + 1, { ...focus, x: focus.x + 8, y: focus.y + 6 }]], 40, 2.4);
     const tRing = tPush + 0.6;
     return {
       cues: [{ t: 0.15, sfx: 'appear', gain_db: -12 }, { t: tPush + 0.05, sfx: 'move', gain_db: -12 }, { t: tRing + 0.4, sfx: 'hit', gain_db: -10 }],
       render(t) {
         cap.update(t, 0.05);
+        // the push-in crops the establishing caption: fade it out as the camera leaves the whole-panel framing
+        css(cap.el, { opacity: (Number(cap.el.style.opacity || 1) * (1 - seg(t, tPush - 0.05, tPush + 0.3))).toFixed(3) });
         br.shot.update(t, 0.15, 0.55);
         snapIn(br.el, t, -0.05, { rise: 50, from: 0.94 });
         ring.update(t, tRing);
@@ -309,10 +312,15 @@ comicScene('kit:comic/FEATURE', {
     const R1 = L ? { x: 40, y: 40, w: 600, h: 1000 } : { x: 40, y: 200, w: 1000, h: 420 };
     const R2 = L ? { x: 666, y: 40, w: 1214, h: 1000 } : { x: 40, y: 646, w: 1000, h: 1234 };
     const p1 = P.panel(R1, { bg: 'action', rays: L ? [0.5, 0.8] : [0.85, 0.6], seed: 23 });
+    // the push-in onto the feature crops panel 1: its lettering fades out as the camera leaves the page framing,
+    // so no word is ever cut by the frame edge (QA: 'TIMER/AND/PAUSE', 'New power!' off frame mid-push)
+    const words = h('div', 'cx-abs');
+    words.style.cssText = 'left:0;top:0;width:100%;height:100%;';
+    p1.el.appendChild(words);
     const cap = caption('New power!', { x: 30, y: 30 });
-    p1.el.appendChild(cap.el);
+    words.appendChild(cap.el);
     const head = headline((name || 'The feature').toUpperCase(), L ? { x: 36, y: 120, w: 520, lines: 4, max: 104, min: 64 } : { x: 36, y: 100, w: 620, lines: 3, max: 92, min: 60 });
-    p1.el.appendChild(head.el);
+    words.appendChild(head.el);
     const hero = L ? figure(agentSvg({ pose: 'point', rim: 'white', cape: 'blue' }), 30, 560, 470) : figure(agentSvg({ pose: 'bust', rim: 'white' }), 700, 120, 270);
     p1.el.appendChild(hero);
     const p2 = P.panel(R2, { bg: 'cyan' });
@@ -353,6 +361,7 @@ comicScene('kit:comic/FEATURE', {
         P.spinRays(t);
         cap.update(t, 0.1);
         head.update(t, 0.25, 0.1);
+        if (L) css(words, { opacity: (1 - seg(t, tPush - 0.05, tPush + 0.3)).toFixed(3) });
         const hu = seg(t, 0, 0.5, ease.outCubic);
         css(hero, { transform: `translate(${((1 - hu) * -60).toFixed(1)}px,0)` });
         br.shot.update(t, 0.2, 0.55);

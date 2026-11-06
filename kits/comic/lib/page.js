@@ -14,20 +14,6 @@ import { COMIC_CSS } from '../css.js';
 export const CCOMMON = { ...COMMON, theme: { type: 'string', default: 'comic', doc: 'theme tokens (comic)' } };
 
 const STATE = new WeakMap();
-const T3D = /translate3d\(\s*([^,()]+),\s*([^,()]+),\s*0(?:px)?\s*\)/g;
-
-/**
- * Keep the page one flat paint layer: kit:base blocks (terminal rows, scroll views, cursors) move with
- * translate3d, which promotes composited layers whose raster scale then depends on the seek history while the
- * camera zooms. Rewrite those (plain z = 0 translations only) to 2D translate after every render.
- */
-function flat2d(root) {
-  for (const el of root.querySelectorAll('[style*="translate3d"]')) {
-    const tf = el.style.transform;
-    if (tf && tf.includes('translate3d')) el.style.transform = tf.replace(T3D, 'translate($1, $2)');
-  }
-}
-
 /**
  * Register a kit:comic scene. def.build(ctx, p, F, P) gets the base frame F and a fresh page P and returns
  * {render(t), cues}. Frame size is reference px (short side 1080); P.W x P.H = the frame. Same contract as
@@ -58,11 +44,7 @@ export function comicScene(id, def) {
       const s = ensure(ctx, p);
       if (s.pending.length) await Promise.all(s.pending.splice(0));
     },
-    render(ctx, t, p) {
-      const s = ensure(ctx, p);
-      s.render(t);
-      flat2d(s.F.el);
-    },
+    render(ctx, t, p) { ensure(ctx, p).render(t); },
     cues(ctx, p) {
       const dur = Number(ctx.dur) || 1e9;
       const mute = new Set(Array.isArray(p && p._mute) ? p._mute : []);
@@ -167,7 +149,7 @@ export function makePage(F) {
     const [sx, sy] = pageShake(t, o.shakes || [], o.amp || 10);
     const [cx0, cy0, z] = clampView(cxyz[0], cxyz[1], cxyz[2]);
     const cx = cx0 - sx / z, cy = cy0 - sy / z;
-    // 2D transform on purpose (base flatCam uses translate3d): a composited camera layer keeps raster scales from
+    // 2D transforms only (like base flatCam): a composited camera layer keeps raster scales from
     // earlier frames when the zoom changes, so the same t could rasterise differently after a different seek path.
     const [dx, dy, dr] = drift(t, 7, o.drift ?? 1.4, 0.03);
     css(F.cam, { transform: `translate(${(W / 2).toFixed(2)}px,${(H / 2 - (o.lift || 0)).toFixed(2)}px) rotate(${dr.toFixed(4)}deg) scale(${z.toFixed(5)}) translate(${(-cx + dx).toFixed(2)}px,${(-cy + dy).toFixed(2)}px)` });

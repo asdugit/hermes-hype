@@ -4,7 +4,7 @@
 
 import { h, css } from '../../base/dom.js';
 import { seg, ease, clamp } from '../../base/motion.js';
-import { mediaOf, prettyUrl, browserBlock } from '../../base/media.js';
+import { mediaOf, addressText, browserBlock } from '../../base/media.js';
 import { contentBlock } from '../../base/scenes-media.js';
 import { flat, PENDING, svgEl, dotsPath } from './art.js';
 
@@ -110,8 +110,11 @@ export function comicBrowser(ctx, img, w, viewH, o = {}) {
     bar.style.cssText = 'height:64px;font-size:26px;';
     const dots = h('div', 'srb-dots', null, [h('i'), h('i'), h('i')]);
     const url = h('div', 'srb-url');
-    const meta = img && typeof img === 'object' ? img : {};
-    url.appendChild(h('b', '', { text: prettyUrl(meta.url || meta.page_title || '') || ' ' }));
+    url.dataset.qa = 'off';           // browser chrome: cropped by the push-ins by design, not copy to QA
+    const meta = img && typeof img === 'object' ? { ...img, ...(img.meta || {}) } : {};
+    // web URL without scheme, else page title, else a human file stem, else the film title (never a path)
+    const addr = addressText(meta, Math.max(12, Math.floor((w - 160) / 16)), (ctx.film && ctx.film.title) || '');
+    url.appendChild(h('b', '', { text: addr || ' ' }));
     bar.append(dots, url);
     el.appendChild(bar);
   }

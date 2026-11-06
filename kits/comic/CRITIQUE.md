@@ -49,3 +49,18 @@ Renders go through the real runtime (`showreel_core.film.preview`, 960x540 / 540
   close-up). DIFF centres the hunk and the hero points at it from below; CALLOUT gets a bigger balloon (min 820 px)
   and speaker; END centres its column above the hero; NEW ISSUE sits under the blurb, clear of the hero.
 - 9:16 r3: all four re-rendered pages read cleanly; no QA overlaps/clips outside the safe-area advisories.
+
+## Round 4 — determinism + push-in clipping (comic169_r4/r5, w4 re-check comic169_w4/_w4b, comic916_w4)
+- Determinism: BEFORE_AFTER / BEFORE_AFTER_img were NONDET (hash differs with seek history) while the camera zoomed:
+  kit:base blocks moved with translate3d -> composited layers rasterised at a seek-history-dependent scale. Fixed
+  in kit:base itself (2D transforms only, settled 3D panels drop to 2D); the comic-local `flat2d` rewrite is gone.
+- 16:9 FEATURE: the push-in onto the feature cut panel 1's lettering at the frame edge ("TIMER/AND/PAUSE",
+  "New power!") -> panel-1 lettering fades out as the camera leaves the page framing (tPush-0.05 .. tPush+0.3);
+  the address bar ("localhost:3000") is browser chrome (`data-qa="off"`, cropped by design). QA: 0 non-safe issues.
+- 16:9 SCREEN: the "Meanwhile, at ..." caption was cut by the push (QA clip at 2.75/4.4 s) -> fades out with the
+  push; the focus framing keeps 50 px headroom above the LOOK! burst (it slams in oversized and touched the top edge).
+- Address bars use kit:base `addressText()` (web URL without scheme, else page title, else a human file stem, else
+  the film title) -> never a filesystem path or a machine stem (ISSUES #24a).
+- 9:16 SCREEN / BEFORE_AFTER / FEATURE re-checked by eye: clean. Open (cosmetic): BEFORE_AFTER terminal rows
+  raise 17-32 % "overlap" QA flags (row boxes taller than the line pitch; rows read cleanly); in 9:16 the lower
+  half stays empty paper until the AFTER panel slams in (~40 % of the shot).
