@@ -104,9 +104,6 @@ _CUSTOM = _obj({"name": _S, "layer": _S, "describe": _S, "spec": _S, "params": _
 _VOICE = _arr(_obj({"t": _N, "text": _S}, ["t", "text"]))
 PLAN_SCHEMA = _obj({"shots": _arr(_PLAN_SHOT), "custom_scenes": _arr(_CUSTOM), "voiceover": _VOICE})
 FILM_SCHEMA = _obj({"film": FILM_DOC_SCHEMA, "plan": PLAN_SCHEMA}, ["film", "plan"])
-REVISE_FILM_SCHEMA = _obj({"film": FILM_DOC_SCHEMA, "plan": PLAN_SCHEMA, "changes": _arr(_S),
-                           "scene_notes": _arr(_obj({"name": _S, "notes": _S}, ["name", "notes"]))},
-                          ["film", "plan", "changes"])
 REVISE_PATCH_SCHEMA = _obj({
     "changes": _arr(_S),
     "shots": _arr(_obj({"id": _S, "t0": _N, "t1": _N, "scene": _S, "res": {"type": ["array", "null"], "items": _N},
@@ -517,37 +514,6 @@ Reply with one JSON object matching the schema."""
 
 
 # ------------------------------------------------------------------------------------ revisions
-
-def revise_film_prompt(brief: Brief, catalog: Catalog, treatment: dict[str, Any], film: dict[str, Any],
-                       plan: dict[str, Any], issues: list[dict[str, Any]], notes: str, *,
-                       max_custom: int, keep: list[str] | None = None, seen: bool = False) -> tuple[str, str]:
-    """Apply review fixes to the film script surgically (scene code is revised separately)."""
-    instructions = f"""\
-You are the Director of Showreel Studio revising your film script after review. Apply every fix below that can be
-made in film.json or the plan (timing, params, scene choice, transitions, music, cues, captions, overlays). Change
-ONLY what the fixes require: keep shot ids, keep shots and settings nobody criticised, keep the custom scenes'
-names.{" The attached contact sheet(s) show the current render (cells are listed in the review)." if seen else ""}
-Fixes that need a custom scene's drawing code changed are applied by an animator: pass them on, sharpened,
-in `scene_notes` (by custom scene name) and update that scene's `spec` if the plan changes. You may replace a
-weak custom scene with a kit scene, or add one custom scene (max {max_custom} in total) only when an issue demands it.
-
-{DOCTRINE}
-
-The same FILM.JSON and PLAN rules as before apply (back-to-back shots covering 0..dur, ids from the catalog,
-music on bar lines, >= 60 % product-visible runtime). List what you changed in `changes`.
-
-Reply with one JSON object: {{"film": {{...}}, "plan": {{...}}, "changes": [...], "scene_notes": [...]}}."""
-    parts = [_direction_block(brief)]
-    if issues:
-        parts.append("## Review issues and fixes\n" + _json(issues))
-    if keep:
-        parts.append("## What already works (keep it)\n" + "\n".join(f"- {k}" for k in keep))
-    if notes.strip():
-        parts.append("## The user's revision notes (highest priority, verbatim)\n" + notes.strip())
-    parts += ["## Current film.json\n" + _json(film), "## Current plan\n" + _json(plan),
-              "## Treatment\n" + _json(treatment), _bar_hint(catalog), catalog.full(kit_budget=5000)]
-    return instructions, "\n\n".join(parts)
-
 
 def revise_patch_prompt(brief: Brief, catalog: Catalog, treatment: dict[str, Any], film: dict[str, Any],
                         plan: dict[str, Any], issues: list[dict[str, Any]], notes: str, *, max_custom: int,

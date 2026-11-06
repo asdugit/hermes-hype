@@ -267,7 +267,7 @@ def _walk(schema: Any) -> list[str]:
 
 
 @pytest.mark.parametrize("schema", [prompts.TREATMENT_SCHEMA, prompts.FILM_SCHEMA, prompts.CRITIC_SCHEMA,
-                                    prompts.REVISE_FILM_SCHEMA])
+                                    prompts.REVISE_PATCH_SCHEMA])
 def test_transport_schemas_are_portable(schema: dict[str, Any]) -> None:
     banned = {"pattern", "minLength", "maxLength", "minimum", "maximum", "minItems", "maxItems", "format"}
     assert not banned & set(_walk(schema))
