@@ -1,0 +1,118 @@
+/* Showreel style "blueprint": the session drawn as an engineering drawing. Cyanotype sheet with a zoned border and a
+   title block, white object lines plotted on by a pen, cyan construction / dimension lines, one "redline" colour
+   reserved for revisions (clouds, REV deltas, strikes). Space Grotesk lettering + IBM Plex Mono listings/labels.
+   --sr-* tokens re-skin kit:base / kit:type scenes; .bp-* classes style the kit:blueprint drawings. */
+
+.sr-theme-blueprint {
+  --sheet: #0D3A66; --sheet-hi: #154C80; --sheet-lo: #082A4C;
+  --grid-fine: rgba(160,210,255,.085); --grid-major: rgba(160,210,255,.19);
+  --line: #EEF6FF; --line-2: rgba(238,246,255,.74); --line-3: rgba(238,246,255,.46);
+  --cyan: #79D3FF; --cyan-dim: rgba(121,211,255,.45); --redline: #FF8E6E; --plate: rgba(6,30,56,.86);
+  --sr-stage: var(--sheet);
+  --sr-stage-bg: radial-gradient(ellipse 85% 80% at 42% 40%, var(--sheet-hi) 0%, var(--sheet) 52%, var(--sheet-lo) 100%);
+  --sr-grid: transparent; --sr-grid-size: 20px;
+  --sr-vignette: radial-gradient(ellipse 80% 75% at 50% 48%, transparent 60%, rgba(2,14,30,.45) 100%);
+  --sr-fg: var(--line); --sr-fg-2: var(--line-2); --sr-fg-3: var(--line-3);
+  --sr-accent: var(--cyan); --sr-accent-ink: #062038; --sr-accent-hl: rgba(121,211,255,.18); --sr-accent-glow: rgba(121,211,255,.3);
+  --sr-paper: rgba(9,44,80,.92); --sr-paper-2: rgba(238,246,255,.05); --sr-rule: var(--line-3);
+  --sr-ink: var(--line); --sr-ink-2: var(--line-2); --sr-ink-3: var(--line-3); --sr-tone: var(--cyan);
+  --sr-term: rgba(6,30,56,.92); --sr-term-2: rgba(238,246,255,.05); --sr-term-rule: var(--line-3); --sr-term-ink: var(--line); --sr-term-dim: var(--line-3);
+  --sr-del-hl: rgba(255,142,110,.08); --sr-fail: var(--redline);
+  --sr-plate: var(--plate); --sr-plate-ink: var(--line);
+  --sr-scrim-rgb: 6 30 56;
+  --sr-f-sans: "Space Grotesk", sans-serif; --sr-f-mono: "IBM Plex Mono", monospace;
+  --sr-f-display: "Space Grotesk", sans-serif; --sr-f-em: "IBM Plex Mono", monospace;
+  --sr-w-display: 600; --sr-track-display: .01em; --sr-lead-display: .9; --sr-case-display: uppercase;
+  --sr-w-h1: 500; --sr-track-h1: -0.005em;
+  --sr-em-style: normal; --sr-em-weight: 500; --sr-em-scale: .9; --sr-em-color: var(--cyan); --sr-em-track: 0;
+  --sr-label-track: .16em; --sr-w-num: 500;
+  --sr-r-panel: 0; --sr-r-card: 0; --sr-r-pill: 0;
+  --sr-panel-edge: 0 0 0 2.4px var(--line); --sr-panel-shadow: none; --sr-term-edge: 0 0 0 2.4px var(--line); --sr-sheen: none;
+  --bp-f: "Space Grotesk", sans-serif; --bp-m: "IBM Plex Mono", monospace;
+}
+
+/* ── the sheet ─────────────────────────────────────────────────── */
+.sr-theme-blueprint .bp-sheet { position: absolute; overflow: hidden; background-color: var(--sheet);
+  background-image:
+    linear-gradient(var(--grid-major) 1.5px, transparent 1.5px), linear-gradient(90deg, var(--grid-major) 1.5px, transparent 1.5px),
+    linear-gradient(var(--grid-fine) 1px, transparent 1px), linear-gradient(90deg, var(--grid-fine) 1px, transparent 1px),
+    radial-gradient(ellipse 85% 80% at var(--lamp, 42% 40%), var(--sheet-hi) 0%, var(--sheet) 52%, var(--sheet-lo) 100%);
+  background-size: 100px 100px, 100px 100px, 20px 20px, 20px 20px, 100% 100%;
+  background-position: var(--gb, 56px) var(--gb, 56px), var(--gb, 56px) var(--gb, 56px), var(--gb, 56px) var(--gb, 56px), var(--gb, 56px) var(--gb, 56px), 0 0; }
+.sr-theme-blueprint .bp-mottle { position: absolute; inset: 0; opacity: .5; mix-blend-mode: soft-light; }
+.sr-theme-blueprint .bp-vig { position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(ellipse 80% 75% at 50% 48%, transparent 60%, rgba(2,14,30,.5) 100%); }
+.sr-theme-blueprint .bp-border-out { position: absolute; border: 1.2px solid var(--line-3); }
+.sr-theme-blueprint .bp-border-in { position: absolute; border: 2.4px solid var(--line); }
+.sr-theme-blueprint .bp-zone { position: absolute; font: 500 14px/1 var(--bp-m); color: var(--line-3); letter-spacing: .1em; transform: translate(-50%, -50%); }
+
+/* ── drawing layer (SVG) ───────────────────────────────────────── */
+.sr-theme-blueprint svg.bp-draw { position: absolute; left: 0; top: 0; overflow: visible; }
+.sr-theme-blueprint .obj    { fill: none; stroke: var(--line); stroke-width: 2.4px; stroke-linejoin: round; stroke-linecap: round; }
+.sr-theme-blueprint .thin   { fill: none; stroke: var(--line); stroke-width: 1.4px; stroke-linejoin: round; }
+.sr-theme-blueprint .hid    { fill: none; stroke: var(--line-3); stroke-width: 1.4px; }
+.sr-theme-blueprint .ctr    { fill: none; stroke: var(--cyan); stroke-width: 1px; }
+.sr-theme-blueprint .cons   { fill: none; stroke: var(--cyan-dim); stroke-width: 1px; }
+.sr-theme-blueprint .dim    { fill: none; stroke: var(--cyan); stroke-width: 1px; }
+.sr-theme-blueprint .lead   { fill: none; stroke: var(--cyan); stroke-width: 1.4px; }
+.sr-theme-blueprint .arrow  { fill: var(--cyan); stroke: none; }
+.sr-theme-blueprint .balloon{ fill: var(--sheet); stroke: var(--line); stroke-width: 1.4px; }
+.sr-theme-blueprint .cloud  { fill: none; stroke: var(--redline); stroke-width: 2.6px; stroke-linejoin: round; }
+.sr-theme-blueprint .red    { fill: none; stroke: var(--redline); stroke-width: 2.2px; stroke-linecap: round; }
+.sr-theme-blueprint .rev    { fill: var(--sheet); stroke: var(--redline); stroke-width: 2.2px; stroke-linejoin: round; }
+.sr-theme-blueprint .fillsheet { fill: var(--sheet); stroke: none; }
+.sr-theme-blueprint .pen    { fill: none; stroke: var(--line); stroke-width: 1.4px; }
+.sr-theme-blueprint .pendot { fill: var(--line); stroke: none; }
+.sr-theme-blueprint .penglow{ fill: rgba(238,246,255,.10); stroke: none; }
+.sr-theme-blueprint .bnum   { font: 600 20px var(--bp-m); fill: var(--line); text-anchor: middle; dominant-baseline: central; }
+.sr-theme-blueprint .revt   { font: 600 20px var(--bp-m); fill: var(--redline); text-anchor: middle; dominant-baseline: central; }
+
+/* ── lettering (HTML) ──────────────────────────────────────────── */
+.sr-theme-blueprint .bp-t { position: absolute; white-space: pre; color: var(--line); font-family: var(--bp-f); font-synthesis: none; }
+.sr-theme-blueprint .bp-kick { font: 500 20px/1 var(--bp-m); letter-spacing: .16em; color: var(--cyan); text-transform: uppercase; }
+.sr-theme-blueprint .bp-title { font-weight: 600; letter-spacing: .01em; line-height: .9; text-transform: uppercase; }
+.sr-theme-blueprint .bp-sub { font-weight: 400; color: var(--line-2); letter-spacing: -.005em; line-height: 1.2; white-space: normal; }
+.sr-theme-blueprint .bp-sub b { font-weight: 500; color: var(--line); }
+.sr-theme-blueprint .bp-part { font: 600 28px/1 var(--bp-f); letter-spacing: .06em; text-transform: uppercase; }
+.sr-theme-blueprint .bp-lbl { font: 500 20px/1.2 var(--bp-m); letter-spacing: .06em; color: var(--cyan); }
+.sr-theme-blueprint .bp-cap { font: 500 22px/1 var(--bp-m); letter-spacing: .16em; color: var(--line-2); text-transform: uppercase; }
+.sr-theme-blueprint .bp-note { font: 500 26px/1.25 var(--bp-f); color: var(--line); white-space: normal; }
+.sr-theme-blueprint .bp-note .tag { display: block; font: 500 16px/1 var(--bp-m); letter-spacing: .16em; color: var(--cyan); margin-bottom: 9px; text-transform: uppercase; }
+.sr-theme-blueprint .bp-note .m { font-family: var(--bp-m); font-size: .9em; }
+.sr-theme-blueprint .bp-num { font: 500 160px/1 var(--bp-m); letter-spacing: -.02em; color: var(--line); font-variant-numeric: tabular-nums; }
+.sr-theme-blueprint .bp-unit { font: 500 .36em/1 var(--bp-m); color: var(--cyan); margin-left: .2em; letter-spacing: .04em; }
+
+/* listing (CODE / DIFF / TERMINAL output) */
+.sr-theme-blueprint .bp-list { position: absolute; font: 400 24px/1 var(--bp-m); font-variant-ligatures: none; color: var(--line-2); }
+.sr-theme-blueprint .bp-row { position: absolute; left: 0; display: grid; align-items: center; white-space: pre; }
+.sr-theme-blueprint .bp-row .g { text-align: center; color: var(--line-3); font-weight: 500; }
+.sr-theme-blueprint .bp-row.add { color: var(--line); }
+.sr-theme-blueprint .bp-row.add .g, .sr-theme-blueprint .bp-row.del .g { color: var(--redline); font-weight: 600; }
+.sr-theme-blueprint .bp-row.del { color: var(--line-3); }
+.sr-theme-blueprint .bp-row.hunk { color: var(--cyan); opacity: .8; }
+.sr-theme-blueprint .bp-row.dimmed { color: var(--line-3); }
+.sr-theme-blueprint .bp-row .k { color: var(--line); font-weight: 600; }
+.sr-theme-blueprint .bp-row .s { color: var(--cyan); }
+.sr-theme-blueprint .bp-row .c { color: var(--line-3); }
+.sr-theme-blueprint .bp-row .n { color: var(--line); }
+.sr-theme-blueprint .bp-row.dimmed .k, .sr-theme-blueprint .bp-row.dimmed .s, .sr-theme-blueprint .bp-row.dimmed .n { color: var(--line-3); font-weight: 400; }
+.sr-theme-blueprint .bp-row.cmd { color: var(--line); font-weight: 500; }
+.sr-theme-blueprint .bp-row.cmd .p { color: var(--cyan); }
+
+/* title block + revision table */
+.sr-theme-blueprint .bp-tb { position: absolute; display: grid; border: 2.4px solid var(--line); background: var(--sheet); font-family: var(--bp-m); color: var(--line); }
+.sr-theme-blueprint .bp-tb > div { border-right: 1.2px solid var(--line-2); border-bottom: 1.2px solid var(--line-2); padding: 9px 14px 10px; min-width: 0; overflow: hidden; }
+.sr-theme-blueprint .bp-tb .k { display: block; font: 500 13px/1 var(--bp-m); letter-spacing: .16em; color: var(--line-3); text-transform: uppercase; margin-bottom: 8px; }
+.sr-theme-blueprint .bp-tb .v { display: block; font: 500 22px/1.1 var(--bp-m); color: var(--line); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sr-theme-blueprint .bp-tb .v.big { font: 600 30px/1 var(--bp-f); letter-spacing: .04em; text-transform: uppercase; }
+.sr-theme-blueprint .bp-tb .v.red { color: var(--redline); font-weight: 600; }
+.sr-theme-blueprint .bp-tb .nr { border-right: none; }
+.sr-theme-blueprint .bp-tb .nb { border-bottom: none; }
+
+/* media (screenshots on the sheet) */
+.sr-theme-blueprint .bp-media { position: absolute; overflow: hidden; }
+.sr-theme-blueprint .bp-media canvas { position: absolute; left: 0; top: 0; }
+.sr-theme-blueprint .bp-box { position: absolute; border: 1.4px solid var(--line); background: var(--plate); }
+.sr-theme-blueprint .bp-stamp { position: absolute; font: 600 30px/1 var(--bp-m); letter-spacing: .2em; color: var(--cyan);
+  border: 3px double var(--cyan); padding: 10px 16px 8px 20px; transform-origin: 50% 50%; }
+.sr-theme-blueprint .bp-stamp.red { color: var(--redline); border-color: var(--redline); }

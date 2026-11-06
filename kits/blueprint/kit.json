@@ -1,0 +1,38 @@
+{
+  "name": "blueprint",
+  "version": 1,
+  "entry": "kit.js",
+  "describe": "Signature Blueprint style: the session as an engineering drawing on a cyanotype sheet; line art plotted on at plotter cadence, dimensions, callouts with leaders, title blocks, revision clouds for diffs, dimensioned product views that develop like a cyanotype, sheet-slide cuts.",
+  "requires": ["base"],
+  "theme": "blueprint",
+  "scenes": ["HOOK", "TITLE", "PROBLEM", "PLAN", "CODE", "DIFF", "TERMINAL", "MONTAGE", "SCREEN", "STATS",
+             "BEFORE_AFTER", "CALLOUT", "END", "FEATURE", "SCROLL"],
+  "transitions_defined": ["kit:blueprint/sheet-slide", "kit:blueprint/plot-wipe"],
+  "fonts": [
+    {"family": "Space Grotesk", "src": "fonts/SpaceGrotesk-Variable.ttf", "weight": "300 700", "style": "normal"},
+    {"family": "IBM Plex Mono", "src": "fonts/IBMPlexMono-Regular.ttf", "weight": "400", "style": "normal"},
+    {"family": "IBM Plex Mono", "src": "fonts/IBMPlexMono-Medium.ttf", "weight": "500", "style": "normal"},
+    {"family": "IBM Plex Mono", "src": "fonts/IBMPlexMono-SemiBold.ttf", "weight": "600", "style": "normal"}
+  ],
+  "licenses": ["fonts/OFL-SpaceGrotesk.txt", "fonts/OFL-IBMPlexMono.txt"],
+  "finish": {"grain": 0.03, "vignette": 0.0},
+  "transitions": {"cut": null, "match": ["kit:blueprint/plot-wipe", 0.45], "push": ["kit:blueprint/sheet-slide", 0.55],
+                  "wipe": ["kit:blueprint/plot-wipe", 0.5]},
+  "caption_style": {"font": "Space Grotesk", "size": 44, "weight": 500, "color": "#EEF6FF", "bg": "rgba(6,30,56,0.88)"},
+  "background": "#082A4C",
+  "style": {
+    "id": "blueprint",
+    "name": "Blueprint",
+    "blurb": "Engineering drawing: plotted line art, dimensions, revision clouds",
+    "voice_speed": 1.0,
+    "palette": {"sheet": "#0D3A66", "sheet_hi": "#154C80", "sheet_lo": "#082A4C", "line": "#EEF6FF", "cyan": "#79D3FF",
+                "redline": "#FF8E6E", "plate": "rgba(6,30,56,.86)"},
+    "fonts": {"lettering": "Space Grotesk", "mono": "IBM Plex Mono"},
+    "bpm": [100, 112],
+    "music": ["blueprint_a", "blueprint_b"],
+    "sfx": {"cut": "paper", "move": "paper", "click": "click", "type": "plotter", "appear": "stamp", "pass": "chime",
+            "fail": "error", "hit": "stamp", "hero": "hit", "build": "reverse", "shot": "shutter"},
+    "post": "grain_vignette",
+    "post_params": {"grain_vignette": {"grain": 5, "vignette": 0.0}}
+  }
+}
