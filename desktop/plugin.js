@@ -23,7 +23,7 @@
  * react/jsx-runtime only. Colours come from the app theme's variables only.
  */
 import * as sdk from '@hermes/plugin-sdk'
-import { jsx, jsxs } from 'react/jsx-runtime'
+import { Fragment, jsx, jsxs } from 'react/jsx-runtime'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 const ID = 'showreel'
@@ -413,7 +413,7 @@ function Section({ label, aside, children, className }) {
 }
 
 // ── style previews ─────────────────────────────────────────────────────────────────────────────────
-const PH_ROT = { launch: 0, cinematic: 200, pixel: 290, terminal: 130, blueprint: 225, comic: 25, ink: 0, nature: 95 }
+const PH_ROT = { launch: 0, cinematic: 170, pixel: 290, terminal: 130, blueprint: 225, comic: 25, ink: 0, nature: 95 }
 
 /** A drawn stand-in for a style whose looping preview has not been generated yet (theme colours only). */
 function StylePlaceholder({ id, name }) {
@@ -451,12 +451,15 @@ function StylePreview({ style }) {
   const q = useApi(qk('preview', style.id), `/styles/${enc(style.id)}/preview`, { enabled: lazy, staleTime: Infinity })
   const url = style.preview_url || (q.data && q.data.url) || ''
   const kind = style.preview_url ? 'image' : (q.data && q.data.kind) || style.preview_kind
-  if (url && !failed) {
-    return kind === 'video'
-      ? jsx('video', { src: url, autoPlay: true, muted: true, loop: true, playsInline: true, onError: () => setFailed(true) })
-      : jsx('img', { src: url, alt: '', loading: 'lazy', onError: () => setFailed(true) })
-  }
-  return jsx(StylePlaceholder, { id: style.id, name: style.name })
+  // The drawn placeholder stays underneath; the real preview fades in over it once it has a frame, so a
+  // preview that is still decoding (or never does) is never an empty or broken box.
+  const [shown, setShown] = useState(false)
+  const media = url && !failed
+    ? kind === 'video'
+      ? jsx('video', { src: url, autoPlay: true, muted: true, loop: true, playsInline: true, 'data-shown': shown ? '1' : undefined, onLoadedData: () => setShown(true), onError: () => setFailed(true) }, 'm')
+      : jsx('img', { src: url, alt: '', loading: 'lazy', 'data-shown': shown ? '1' : undefined, onLoad: () => setShown(true), onError: () => setFailed(true) }, 'm')
+    : null
+  return jsxs(Fragment, { children: [jsx(StylePlaceholder, { id: style.id, name: style.name }, 'ph'), media] })
 }
 
 function StyleCard({ style, selected, onSelect }) {
@@ -1089,6 +1092,8 @@ function SceneCard({ s, i, thumb, dragging, over, onEdit, onMove, onDragStart, o
   const vo = String(s.vo || '')
   const n = words(vo)
   const labelWords = words(s.label)
+  const [badThumb, setBadThumb] = useState('')
+  const showThumb = thumb && badThumb !== thumb
   return jsxs('li', {
     className: 'srl-sb-card', 'data-drag': dragging ? 'self' : over ? 'over' : undefined, 'data-dropped': s._drop || undefined,
     draggable: true,
@@ -1102,7 +1107,7 @@ function SceneCard({ s, i, thumb, dragging, over, onEdit, onMove, onDragStart, o
         jsx('button', { type: 'button', className: 'srl-icon-btn', 'aria-label': `Move scene ${i + 1} up`, disabled: i === 0, onClick: () => onMove(-1), children: jsx(Icon, { name: 'arrow-up' }) }),
         jsx('button', { type: 'button', className: 'srl-icon-btn', 'aria-label': `Move scene ${i + 1} down`, disabled: last, onClick: () => onMove(1), children: jsx(Icon, { name: 'arrow-down' }) })
       ] }),
-      jsx('div', { className: 'srl-sb-thumb', children: thumb ? jsx('img', { src: thumb, alt: `Scene ${i + 1}` }) : jsx('span', { children: s.type }) }),
+      jsx('div', { className: 'srl-sb-thumb', children: showThumb ? jsx('img', { src: thumb, alt: `Scene ${i + 1}`, onError: () => setBadThumb(thumb) }) : jsx('span', { children: s.type }) }),
       jsxs('div', { className: 'srl-sb-body', children: [
         jsxs('div', { className: 'srl-sb-top', children: [
           jsx('span', { className: 'srl-type', children: s.type }),
@@ -1521,16 +1526,19 @@ const CSS = `
 .srl-make{display:grid;gap:16px;grid-template-columns:minmax(0,1fr)}
 .srl-make-main,.srl-make-side{display:flex;flex-direction:column;gap:16px;min-width:0}
 @container (min-width:760px){.srl-make{grid-template-columns:minmax(0,1.55fr) minmax(280px,1fr);align-items:start}.srl-make-side{position:sticky;top:0}}
-.srl-gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:9px}
+.srl-gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:9px;align-items:stretch}
 @container (min-width:760px){.srl-gallery{grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px}}
-.srl-card{position:relative;display:flex;flex-direction:column;width:100%;border-radius:8px;overflow:hidden;background:var(--srl-soft);box-shadow:inset 0 0 0 1px var(--srl-line);cursor:pointer;text-align:left;padding:0;border:0;color:inherit;font:inherit;transition:box-shadow .15s,transform .15s}
+.srl-card{position:relative;display:flex;flex-direction:column;width:100%;height:100%;justify-content:flex-start;border-radius:8px;overflow:hidden;background:var(--srl-soft);box-shadow:inset 0 0 0 1px var(--srl-line);cursor:pointer;text-align:left;padding:0;border:0;color:inherit;font:inherit;transition:box-shadow .15s,transform .15s}
 button.srl-card:hover{transform:translateY(-1px);box-shadow:inset 0 0 0 1px var(--ui-stroke-secondary,var(--srl-line)),0 6px 16px -10px color-mix(in srgb,var(--dt-background) 80%,transparent)}
 .srl-card[aria-pressed=true]{box-shadow:inset 0 0 0 2px var(--ui-accent)}
 .srl-card:focus-visible{outline:2px solid var(--ui-accent);outline-offset:2px}
 .srl-card-media{position:relative;aspect-ratio:16/9;overflow:hidden;background:color-mix(in srgb,var(--ui-text-primary) 6%,transparent)}
-.srl-card-media img,.srl-card-media video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+.srl-card-media img,.srl-card-media video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;z-index:1}
+.srl-gallery .srl-card-media img,.srl-gallery .srl-card-media video{opacity:0;transition:opacity .3s}
+.srl-gallery .srl-card-media [data-shown]{opacity:1}
+.srl-lib .srl-card-media img{opacity:1}
 .srl-card-check{position:absolute;right:6px;top:6px;width:18px;height:18px;border-radius:50%;display:grid;place-items:center;background:var(--ui-accent);color:var(--dt-background);font-size:11px;z-index:2}
-.srl-card-meta{padding:7px 9px 9px;display:flex;flex-direction:column;gap:3px;min-width:0}
+.srl-card-meta{padding:7px 9px 9px;display:flex;flex-direction:column;gap:3px;min-width:0;flex:1 1 auto}
 .srl-card-name{display:flex;align-items:center;gap:6px;font-weight:600;font-size:12.5px}
 .srl-card-blurb{color:var(--ui-text-tertiary);font-size:11.5px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .srl-soon{font-size:9.5px;font-weight:500;text-transform:uppercase;letter-spacing:.08em;color:var(--ui-text-tertiary);padding:0 5px;border-radius:7px;box-shadow:inset 0 0 0 1px var(--srl-line)}
@@ -1745,7 +1753,7 @@ button.srl-card:hover{transform:translateY(-1px);box-shadow:inset 0 0 0 1px var(
 .srl-sb-meta [data-warn]{color:var(--ui-text-primary);box-shadow:inset 0 -1.5px 0 var(--ui-yellow,var(--ui-accent))}
 .srl-refs{font-family:var(--srl-mono)}
 .srl-board-foot{position:sticky;bottom:-12px;display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:9px 0;background:linear-gradient(transparent,var(--dt-background) 30%)}
-@container (max-width:460px){.srl-sb-card{grid-template-columns:28px minmax(0,1fr)}.srl-sb-thumb{grid-column:2;max-width:220px}.srl-sb-body{grid-column:2}.srl-board-head{grid-template-columns:1fr}}
+@container (max-width:460px){.srl-sb-card{grid-template-columns:24px 88px minmax(0,1fr);gap:7px 8px}.srl-sb-grip{grid-column:1;grid-row:1/4}.srl-sb-thumb{grid-column:2;grid-row:1;align-self:start}.srl-sb-body{display:contents}.srl-sb-top{grid-column:3;grid-row:1;align-self:center}.srl-sb-body>:not(.srl-sb-top){grid-column:2/4}.srl-board-head{grid-template-columns:1fr}}
 .srl-shots{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
 .srl-shots li{display:grid;grid-template-columns:76px minmax(0,auto) minmax(0,1fr);gap:8px;align-items:baseline;font-size:12px}
 .srl-shots time{font:11px var(--srl-mono);color:var(--ui-text-tertiary)}

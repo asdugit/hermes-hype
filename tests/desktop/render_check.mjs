@@ -129,6 +129,16 @@ async function openTab(v, label) {
   await sleep(20)
 }
 
+
+/** SR_SNAPSHOT_DIR=<dir>: write the rendered markup of key screens for the screenshot harness (snapshot.py). */
+const SNAP = process.env.SR_SNAPSHOT_DIR || ''
+function snap(name, v, variant = 'pane') {
+  if (!SNAP) return
+  mkdirSync(SNAP, { recursive: true })
+  writeFileSync(path.join(SNAP, `${variant}-${name}.html`), v.div.innerHTML)
+}
+const pageRoute = () => registered.find(c => c.area === 'routes')
+
 async function mount(element) {
   const div = document.createElement('div')
   document.body.appendChild(div)
@@ -314,6 +324,8 @@ check(listeners.has('plugin.showreel.job.progress'), '1 listens to plugin.showre
   await waitFor(() => byText(v.div, 'button', 'Direct this film'), '3 a direction turns the button into "Direct this film"')
   click($(v.div, '[data-seg-opt=quick]'))
   await sleep(20)
+  snap('make', v)
+  if (SNAP) { const pg = await mount(pageRoute().render()); await openTab(pg, 'Make'); await sleep(150); snap('make', pg, 'page'); await pg.unmount() }
   click(byText(v.div, 'button', 'Direct this film'))
   await waitFor(() => calls('POST', '/jobs').length === 1, '3 POST /jobs')
   const sent = calls('POST', '/jobs')[0].body
@@ -338,6 +350,7 @@ check(listeners.has('plugin.showreel.job.progress'), '1 listens to plugin.showre
   check(st.join(',') === 'done,done,done,done,active,todo,todo', `4 stage list marks done / active / todo (${st})`)
   check($(v.div, '.srl-eta').textContent.includes('min left'), '4 an ETA is shown')
   check(v.div.textContent.includes('narration failed for 1 of 6 lines'), '4 warnings are listed')
+  snap('live-quick', v)
   check(!stub.calls.notify.some(n => String(n.message).includes('old failure')), '4 an old failure is not announced when the studio opens')
   click(byText(v.div, 'button', 'Cancel'))
   await waitFor(() => calls('POST', `/jobs/${job.id}/cancel`).length === 1, '4 Cancel posts /cancel')
@@ -347,6 +360,7 @@ check(listeners.has('plugin.showreel.job.progress'), '1 listens to plugin.showre
   // status chip while it runs
   const chip = await mount(reg('statusBar.right')[0].render())
   await waitFor(() => chip.div.textContent.includes('Showreel 90%'), '11 chip shows the running percent')
+  snap('chip', chip, 'bar')
   click($(chip.div, 'button'))
   check(stub.calls.navigate.includes('/showreel'), '11 the chip opens the studio')
   Object.assign(job, { stage: 'done', pct: 1, finished: Date.now() / 1000, outputs: { '16:9': 'C:/videos/tiny.mp4' }, duration_s: 30.5 })
@@ -379,6 +393,8 @@ check(listeners.has('plugin.showreel.job.progress'), '1 listens to plugin.showre
   await waitFor(() => v.div.textContent.includes('fixing 8 issue(s)'), '5 the live log gets the next line', 5000)
   check(S.dlogCalls[0] === 0 && S.dlogCalls.includes(5), `5 the log is read incrementally (${S.dlogCalls.slice(0, 4)})`)
   check($$(v.div, '.srl-feed li').length === 6, '5 no line is shown twice')
+  snap('live-directed', v)
+  if (SNAP) { const pg = await mount(pageRoute().render()); await openTab(pg, 'Live'); await sleep(400); snap('live-directed', pg, 'page'); await pg.unmount() }
   click(byText(v.div, '.srl-scene-chip', 'boss-fight'))
   await waitFor(() => $(v.div, '.srl-code')?.textContent.includes('defineScene'), '5 the code peek shows the scene')
   job.stage = 'failed'
@@ -413,6 +429,7 @@ check(listeners.has('plugin.showreel.job.progress'), '1 listens to plugin.showre
   await waitFor(() => $$(v.div, '.srl-type')[0].textContent === 'HOOK', '6 drag and drop reorders')
   click($(v.div, 'button[aria-label="Move scene 2 up"]'))
   await waitFor(() => $$(v.div, '.srl-type')[0].textContent === 'DIFF', '6 move back up')
+  snap('storyboard', v)
   click(byText(v.div, 'button', 'Save'))
   await waitFor(() => calls('PUT', `/jobs/${job.id}/storyboard`).length === 1, '6 Save PUTs the storyboard')
   const put = calls('PUT', `/jobs/${job.id}/storyboard`)[0].body.storyboard
@@ -437,6 +454,7 @@ check(listeners.has('plugin.showreel.job.progress'), '1 listens to plugin.showre
   click(byText(v.div, 'button', 'Reveal file'))
   await waitFor(() => revealed.includes('C:/Users/Some One/videos/Tiny Todo 16x9.mp4'), '7 Reveal file')
   await waitFor(() => $(v.div, '.srl-post')?.textContent.includes('#HermesAgent'), '7 the post text is shown')
+  snap('result', v)
   click(byText(v.div, 'button', 'Copy post text'))
   await waitFor(() => clip.some(t => t.includes('#HermesAgent')), '7 Copy post text')
   click(byText(v.div, 'button', 'Render 9:16'))
@@ -477,6 +495,7 @@ check(listeners.has('plugin.showreel.job.progress'), '1 listens to plugin.showre
   await openTab(v, 'Library')
   await waitFor(() => byText(v.div, '.srl-lib-card', 'boss-battle'), '8 a library card')
   check($(v.div, '.srl-lib-card img')?.getAttribute('src').startsWith('data:image/jpeg') && v.div.textContent.includes('boss_name'), '8 with its thumbnail and parameters')
+  snap('library', v)
   click(byText(v.div, 'button', 'Use in a film'))
   await waitFor(() => tabSelected(v.div, 'Make'), '8 "Use in a film" opens Make')
   await waitFor(() => $(v.div, 'textarea[aria-label=Direction]')?.value.includes('Use my boss-battle scene (lib:boss-battle).'), '8 and fills the Direction box')
@@ -499,6 +518,7 @@ check(listeners.has('plugin.showreel.job.progress'), '1 listens to plugin.showre
   const v = await mount(pane.render())
   await openTab(v, 'Make')
   await waitFor(() => v.div.textContent.includes('The Showreel backend is not running'), '9 a banner when the backend is off')
+  snap('backend-off', v)
   check($(v.div, '.srl-make-go button')?.disabled === true, '9 Make is disabled while it is off')
   await v.unmount()
   S.down = false
@@ -519,6 +539,7 @@ check(listeners.has('plugin.showreel.job.progress'), '1 listens to plugin.showre
 {
   const fallback = jsx('video', { 'data-fallback': 'core' })
   const v = await mount(toolCard.data.render({ file: { kind: 'video', path: 'C:/v/x.mp4', name: 'x.mp4' }, result: JSON.stringify({ job_id: '20261106-160000-7e7e', title: 'Tiny Todo', style: 'pixel', duration_s: 31 }), args: {}, sessionId: 's-res', fallback }))
+  snap('toolcard', v, 'card')
   check(Boolean($(v.div, 'video[data-fallback=core]')) && v.div.textContent.includes('Tiny Todo') && v.div.textContent.includes('pixel'), '12 a video gets the Showreel card around the core player')
   click(byText(v.div, 'button', 'Open in Showreel'))
   check(stub.calls.navigate.filter(p => p === '/showreel').length >= 2, '12 Open in Showreel')
