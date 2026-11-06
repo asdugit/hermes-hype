@@ -87,7 +87,7 @@ export function layout(ctx) {
   const L = Math.max(4, Math.round(sf.l || 0)), T = Math.max(4, Math.round(sf.t || 0));
   const R = W - Math.max(4, Math.round(sf.r || 0)), B = H - Math.max(4, Math.round(sf.b || 0));
   if (isVertical(ctx)) {
-    const pw = Math.min(200, W - 24), ph = Math.round(pw * 9 / 16), py = T + 70, px = Math.round((W - pw) / 2);
+    const pw = Math.min(200, W - 24), ph = Math.round(pw * 9 / 16), py = T + 50, px = Math.round((W - pw) / 2);
     const fy = py + ph + 62, cx = W / 2;
     return {
       V: true, floorY: py + ph + 6, msg: [L - 4, T - 3, R - L + 8, 40], pic: [px, py, pw, ph], braziers: [[16, py + ph + 10], [W - 16, py + ph + 10]],

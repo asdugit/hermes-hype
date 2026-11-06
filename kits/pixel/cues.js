@@ -6,19 +6,22 @@
 export const SFX = {
   blip: ['blip', -6],            // typewriter text (every 4th char)
   emote: ['blip', 0],
-  footstep: ['click', -12],      // MISSING dedicated 'footstep'
+  footstep: ['footstep', 0],
   menu_open: ['pop', -2],
-  menu_move: ['blip', 0],
-  menu_select: ['coin', 0],      // two-note up confirm
-  buy: ['level_up', -2],         // MISSING dedicated 'buy' (ka-ching chiptune)
-  slash: ['whoosh_short', -2],   // MISSING dedicated 'sword_slash'
-  throw: ['whoosh_short', 0],    // MISSING 'blade_spin'
+  menu_move: ['menu_move', 0],
+  menu_select: ['menu_confirm', 0],
+  buy: ['buy', 0],               // chiptune ka-ching
+  slash: ['sword_slash', 0],
+  throw: ['blade_spin', 0],
   charge: ['power_up', -4],      // boss winds up (engine rev + glow)
   hit: ['hit', 0],
-  damage: ['error', -6],         // MISSING 8-bit 'damage' buzz
-  door_rumble: ['sub_drop', -2], // MISSING 'door_rumble' (stone grind)
-  chains: ['glitch', -4],        // MISSING 'chain_break'
+  damage: ['damage', 0],         // 8-bit damage buzz
+  door_rumble: ['door_rumble', 0],
+  chains: ['chain_break', 0],
   door_open: ['whoosh_long', -2],
+  encounter: ['glitch', -4],      // battle-swirl flash (MISSING a dedicated encounter sting)
+  petal_burst: ['petal_burst', 0],
+  bloom_whoosh: ['switch_whoosh', -2],
   boss_appear: ['impact', -3],
   coin: ['coin', 0],
   item_get: ['level_up', 0],
@@ -31,7 +34,13 @@ export const SFX = {
   stamp: ['stamp', -2],
 };
 /** Intents still mapped to stand-ins (names requested from the SFX kit). */
-export const MISSING = ['footstep', 'sword_slash', 'blade_spin', 'damage', 'door_rumble', 'chain_break', 'buy', 'menu_confirm', 'petal_burst'];
+export const MISSING = ['encounter'];
+
+/** Transition cue {u (0..1 of the window), sfx, gain_db} from an intent (SDK transition cues()). */
+export function txCue(u, intent, extraDb = 0) {
+  const [sfx, db] = SFX[intent] || [intent, 0];
+  return { u, sfx, gain_db: db + extraDb };
+}
 
 /** Build an SDK cue {t, sfx, gain_db} from an intent. */
 export function cue(t, intent, extraDb = 0) {

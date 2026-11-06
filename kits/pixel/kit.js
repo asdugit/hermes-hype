@@ -15,7 +15,7 @@ import { chamber, brazier } from './bg/chamber.js';
 import * as worlds from './bg/worlds.js';
 import * as ui from './ui/ui.js';
 import * as panels from './ui/panels.js';
-import { SFX, MISSING, cue } from './cues.js';
+import { SFX, MISSING, cue, txCue } from './cues.js';
 import { screenOf, uiOf, present, say, withDefaults, isVertical, gameCtx, pixelScale } from './scenes/base.js';
 import * as camera from './core/camera.js';
 import { pickOrigin } from './scenes/boss-battle.js';
@@ -50,7 +50,7 @@ export const blocks = {
   // UI
   ui, panels,
   // sound
-  SFX, MISSING_SFX: MISSING, cue,
+  SFX, MISSING_SFX: MISSING, cue, txCue,
 };
 sr.defineKit('pixel', blocks);
 export default blocks;

@@ -5,6 +5,7 @@
 // blocks up to full resolution, with a light burst at the origin. Pure function of u (and the two surfaces).
 import { RGB, REMAP } from './../core/palette.js';
 import { hash32, rng } from './../core/motion.js';
+import { txCue } from './../cues.js';
 
 const PARAMS = {
   origin: { type: 'vec2', default: [0.5, 0.55], doc: 'burst centre in 0..1 of the frame (boss-battle BUY: kit pixelPickOrigin)' },
@@ -174,5 +175,7 @@ export const petalBloom = {
     describe: 'Pixel picture bursts into petals from `origin` (radial wave, blocks -> HD petals drifting on the wind) while the next shot blooms from coarse blocks to full resolution. 1.2-1.6 s.',
     params: PARAMS,
     render,
+    /** The burst sparkles as the wave leaves the origin; the petals whoosh away on the wind. */
+    cues: () => [txCue(0.02, 'petal_burst'), txCue(0.12, 'bloom_whoosh')],
   },
 };

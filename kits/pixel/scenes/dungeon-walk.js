@@ -17,7 +17,7 @@ const PARAMS = {
   caption: { type: 'string', default: '', doc: 'optional one-line message shown in a window while walking' },
   fade_in: { type: 'bool', default: true, doc: 'palette fade from black at the start' },
   camera: { type: 'string', default: 'follow', doc: 'follow (close on the party, pull back to reveal the door, push into it as it opens) | wide (locked off)' },
-  zoom: { type: 'number', default: 2, doc: 'close-up zoom while following (2 = 8 px pixels at 1080p on a film-size surface; game-res surfaces floor to 1 or 2)' },
+  zoom: { type: 'number', default: 2.5, doc: 'close-up zoom while following (2.5 = 10 px pixels at 1080p on a film-size surface, heroes ~22 % of the frame; game-res surfaces floor to 1 or 2)' },
 };
 
 function timeline(ctx, P) {
@@ -53,6 +53,8 @@ function render(ctx, t, p) {
   const openU = P.open ? ease.outCubic(seg(step(tq, 15), T.doorT0, T.doorT1)) : 0;
   const lights = torchLights(camX, torches, L.torchY - 4, tq, { floorY: L.floorY });
   lights.push({ x: doorWX - camX, y: L.floorY - 40, r: 96, k: 0.55 + openU * 0.2 });
+  // the party's lantern: a warm pool that travels with them, so the heroes always read
+  lights.push({ x: leadWX - camX - L.gap, y: L.feet - 14, r: 64, sy: 0.75, k: 0.62 });
   S.light(lights, DUNGEON_LEVELS, 0, 0, S.w, S.h);
   for (const wx of torches) torch(S, camX, wx, L.torchY, tq);
 
@@ -97,13 +99,13 @@ function render(ctx, t, p) {
  */
 function walkCam(t, P, L, T, leadX, doorX, W, H) {
   const tq = step(t, 15), Z = Math.max(1, P.zoom || 2);
-  const party = [leadX - L.gap + (L.V ? 10 : 36), L.feet - (L.V ? 70 : 44)];
-  const wide = [W / 2, H / 2], door = [doorX, L.floorY - (L.V ? 70 : 52)];
+  const party = [leadX - L.gap + (L.V ? 10 : 36), L.feet - (L.V ? 40 : 30)];
+  const wide = [W / 2, L.V ? H / 2 : H / 2 + 27], door = [doorX, L.floorY - (L.V ? 70 : 52)];
   const mid = [(party[0] + door[0]) / 2, (party[1] + door[1]) / 2];
   const r = ease.inOutCubic(seg(t, T.arrive - 1.2, T.arrive + 0.15));          // reveal
   const lean = ease.inOutCubic(seg(t, T.openAt - 0.15, T.openAt + 0.45));      // toward the door
   const dive = ease.inCubic(seg(t, T.doorT0, T.doorT1 + 0.5));                 // into the doorway
-  let zoom = lerp(Z, 1, r);
+  let zoom = lerp(Z, L.V ? 1.5 : 1.25, r);
   zoom = lerp(zoom, 1.25, lean);
   zoom = lerp(zoom, 2.25, dive);
   zoom += punch(tq, [T.chainsAt], 0.25, 0.3);

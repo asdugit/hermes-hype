@@ -1,6 +1,8 @@
 // simple.js — pixel-disciplined cut vocabulary: kit:pixel/iris, kit:pixel/screen-slide, kit:pixel/battle-swirl.
 // Canvas transitions: everything moves in whole game pixels (gp = film px per game px, from the pixel shot's res).
 
+import { txCue } from './../cues.js';
+
 // game px size: a hi-res pixel shot (res = film size) publishes it as canvas.dataset.gp; else from the upscale
 const gpOf = (tx) => { for (const s of [tx.from, tx.to]) { const g = s && s.dataset && Number(s.dataset.gp); if (g > 0) return g; } const s = tx.from || tx.to; return s ? Math.max(1, Math.round(tx.w / s.width)) : 4; };
 const snap = (v, q) => Math.round(v / q) * q;
@@ -88,4 +90,5 @@ function swirlRender(tx, u, p) {
 
 export const iris = { id: 'kit:pixel/iris', def: { kind: 'canvas', describe: 'Pixel iris: stair-stepped circle closes on `center`, holds, opens on the next shot.', params: { center: { type: 'vec2', default: [0.5, 0.5] }, hold: { type: 'number', default: 0.12 } }, render: irisRender } };
 export const screenSlide = { id: 'kit:pixel/screen-slide', def: { kind: 'canvas', describe: 'Next screen pushes the old one out in 4 stepped positions (dir left|right|up|down).', params: { dir: { type: 'string', default: 'left' }, steps: { type: 'number', default: 4 } }, render: slideRender } };
-export const battleSwirl = { id: 'kit:pixel/battle-swirl', def: { kind: 'canvas', describe: 'RPG encounter: three over-bright flashes of the old screen, blocks spiral in to black, stripes slide open on the battle (0.6-0.9 s).', params: { band: { type: 'number', default: 12 }, block: { type: 'number', default: 16 } }, render: swirlRender } };
+export const battleSwirl = { id: 'kit:pixel/battle-swirl', def: { kind: 'canvas', describe: 'RPG encounter: three over-bright flashes of the old screen, blocks spiral in to black, stripes slide open on the battle (0.6-0.9 s).', params: { band: { type: 'number', default: 12 }, block: { type: 'number', default: 16 } }, render: swirlRender,
+  cues: () => [txCue(0, 'encounter'), txCue(0.3, 'whoosh')] } };

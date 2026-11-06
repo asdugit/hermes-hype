@@ -161,7 +161,9 @@ T.FEATURE = (ctx, S, t, P, sy) => {
   if (c && t > 1.2) { const u = ease.inOutQuad(seg(t, 1.2, 1.7)), x = Math.round(px + pw * (0.9 - (0.9 - c[0]) * u)), y = Math.round(py + ph * (0.95 - (0.95 - c[1]) * u)), pressed = t > 1.75 && t < 1.95;
     S.blit(pressed ? CURSOR_PRESS : CURSOR, x, y); if (pressed) burst(S, x, y, 8, Math.floor((t - 1.75) * 16)); }
   const feat = String(d.feature || '');
-  if (feat && t > 0.6) dialog(S, I.L - 4, I.B - 32, I.R - I.L + 8, 36, fit(feat, I.R - I.L - 10, 'mono'), { t, t0: 0.65, cps: 34, say: sy });
+  // captions up (Quick mode `_captions`): lift the feature line clear of the caption band
+  const yb = P._captions ? Math.min(I.B, Math.round(ctx.h * (isVertical(ctx) ? 0.68 : 0.76))) : I.B;
+  if (feat && t > 0.6) dialog(S, I.L - 4, yb - 32, I.R - I.L + 8, 36, fit(feat, I.R - I.L - 10, 'mono'), { t, t0: 0.65, cps: 34, say: sy });
 };
 T.FEATURE.cues = () => [cue(0.15, 'whoosh'), cue(0.65, 'blip'), cue(1.75, 'menu_select')];
 // SCROLL — the capture pans down a tall page in steps
@@ -222,7 +224,8 @@ T.END = (ctx, S, t, P, sy) => {
   if (d.pb_display) { sy(`PB ${d.pb_display}`, ctx.w / 2, y, { font: 'caps', color: 'lime', outline: 'ink', diag: true, align: 'center' }); y += 18; }
   if (d.cta) { const lines = wrap(String(d.cta), I.R - I.L - 18, 'mono').slice(0, 3); codeWindow(S, I.L - 4, y, I.R - I.L + 8, 30 + lines.length * 14 - 14, lines.map((l, i) => ({ text: i ? l : `> ${l}`, color: 'lime' })), t, { cursor: true, say: sy }); y += 30 + lines.length * 14; }
   if (d.url) { sy(fit(String(d.url), I.R - I.L, 'mono'), ctx.w / 2, y, { font: 'mono', color: 'sky', outline: 'ink', diag: true, align: 'center' }); y += 16; }
-  if (d.credit) sy(fit(String(d.credit), I.R - I.L, 'tiny'), ctx.w / 2, I.B - 10, { font: 'tiny', color: 'silver', align: 'center', shadow: [1, 1, 'ink'] });
+  // the credit sits in the bottom band, or right under the stack when captions own the bottom band
+  if (d.credit) sy(fit(String(d.credit), I.R - I.L, 'tiny'), ctx.w / 2, P._captions ? y + 2 : I.B - 10, { font: 'tiny', color: 'silver', align: 'center', shadow: [1, 1, 'ink'] });
   ['knight', 'mage', 'rogue'].forEach((id, i) => { const F = heroFrames(id); S.blit((Math.floor(t * 3 + i) & 1) ? F.win0 : F.win1, ctx.w / 2 + (i - 1) * 26 - HERO_ANCHOR.x, I.B - 16 - HERO_ANCHOR.y); });
 };
 T.END.cues = () => [cue(0.2, 'level_up')];
