@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from showreel_core.audio.sfx import Kit, SfxSound, hero_times, place_cues
+from showreel_core.audio.sfx import Kit, SfxSound, hero_times, place_cues, sync_time
 from showreel_core.contracts import Cue
 
 
@@ -60,3 +60,16 @@ def test_head_trim_and_unknown_names():
                                _kit(), 30.0)
     assert len(placed) == 1 and placed[0].start == 0.0 and placed[0].skip == pytest.approx(0.28 + 1 / 30 - 0.1, abs=1e-4)
     assert any("unknown sfx 'nope'" in w for w in warns)
+
+
+def test_aliases_roles_and_designed_hit_sync():
+    k = _kit()
+    k.sounds["sting"] = SfxSound("sting", "hero", -4.0, "hit", [{"file": "s1.ogg", "dur": 5.0, "onset": 0.9, "peak": 1.72,
+                                                                  "end": 4.3, "hit": 1.7}])
+    k.aliases = {"slash": "whoosh_short", "transition": "@cut", "bloom": "sting"}
+    assert k.resolve("slash").name == "whoosh_short" and k.resolve("bloom").name == "sting"
+    assert k.resolve("transition", "launch").name == "whoosh_short" and k.resolve("transition", "nope").name == "whoosh_short"
+    placed, _ = place_cues([{"t": 10.0, "sfx": "bloom"}], k, 30.0)
+    assert placed[0].start == pytest.approx(10.0 - 1.7 - 1 / 30, abs=1e-4)          # impact (not the loud peak)
+    assert sync_time(k.sounds["sting"], k.sounds["sting"].variants[0], "end") == 4.3
+    assert sync_time(k.sounds["click"], k.sounds["click"].variants[0], "hit") == 0.0   # no hit point: natural sync

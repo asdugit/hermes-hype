@@ -24,7 +24,9 @@
    "hit": "hit",
    "hero": "impact",
    "build": "riser",
-   "shot": "shutter"
+   "shot": "shutter",
+   "buy": "cash",
+   "switch": "switch_whoosh"
   },
   "pixel": {
    "cut": "blip",
@@ -37,7 +39,9 @@
    "hit": "coin",
    "hero": "level_up",
    "build": "power_up",
-   "shot": "coin"
+   "shot": "coin",
+   "buy": "buy",
+   "switch": "bloom_riser"
   },
   "terminal": {
    "cut": "glitch",
@@ -50,7 +54,9 @@
    "hit": "relay",
    "hero": "sub_drop",
    "build": "riser",
-   "shot": "shutter"
+   "shot": "shutter",
+   "buy": "cash",
+   "switch": "switch_whoosh"
   },
   "blueprint": {
    "cut": "paper",
@@ -63,7 +69,9 @@
    "hit": "stamp",
    "hero": "hit",
    "build": "reverse",
-   "shot": "shutter"
+   "shot": "shutter",
+   "buy": "cash",
+   "switch": "switch_whoosh"
   },
   "cinematic": {
    "cut": "whoosh_long",
@@ -76,8 +84,129 @@
    "hit": "hit",
    "hero": "impact",
    "build": "riser",
-   "shot": "shutter"
+   "shot": "shutter",
+   "buy": "cash",
+   "switch": "switch_whoosh"
+  },
+  "pixel_boss": {
+   "cut": "blip",
+   "move": "power_up",
+   "click": "menu_move",
+   "type": "blip",
+   "appear": "coin",
+   "pass": "level_up",
+   "fail": "damage",
+   "hit": "coin",
+   "hero": "level_up",
+   "build": "power_up",
+   "shot": "coin",
+   "buy": "buy",
+   "switch": "bloom_riser"
+  },
+  "comic": {
+   "cut": "whoosh_short",
+   "move": "whoosh_long",
+   "click": "pop",
+   "type": "key",
+   "appear": "pop",
+   "pass": "chime",
+   "fail": "error",
+   "hit": "hit",
+   "hero": "impact",
+   "build": "riser",
+   "shot": "shutter",
+   "buy": "cash",
+   "switch": "switch_whoosh"
+  },
+  "ink": {
+   "cut": "paper",
+   "move": "paper",
+   "click": "click",
+   "type": "plotter",
+   "appear": "pop",
+   "pass": "chime",
+   "fail": "error",
+   "hit": "stamp",
+   "hero": "hit",
+   "build": "reverse",
+   "shot": "shutter",
+   "buy": "cash",
+   "switch": "switch_whoosh"
+  },
+  "newspaper": {
+   "cut": "paper",
+   "move": "paper",
+   "click": "click",
+   "type": "key",
+   "appear": "stamp",
+   "pass": "chime",
+   "fail": "error",
+   "hit": "stamp",
+   "hero": "hit",
+   "build": "reverse",
+   "shot": "shutter",
+   "buy": "cash",
+   "switch": "switch_whoosh"
+  },
+  "dream": {
+   "cut": "petal_burst",
+   "move": "whoosh_long",
+   "click": "click",
+   "type": "key",
+   "appear": "chime",
+   "pass": "chime",
+   "fail": "error",
+   "hit": "hit",
+   "hero": "bloom_riser",
+   "build": "reverse",
+   "shot": "shutter",
+   "buy": "cash",
+   "switch": "bloom_riser"
+  },
+  "nature": {
+   "cut": "petal_burst",
+   "move": "whoosh_long",
+   "click": "click",
+   "type": "key",
+   "appear": "chime",
+   "pass": "chime",
+   "fail": "error",
+   "hit": "hit",
+   "hero": "bloom_riser",
+   "build": "reverse",
+   "shot": "shutter",
+   "buy": "cash",
+   "switch": "bloom_riser"
   }
+ },
+ "aliases": {
+  "whoosh": "@cut",
+  "tick": "@type",
+  "split": "@appear",
+  "transition": "@cut",
+  "success": "@pass",
+  "slash": "sword_slash",
+  "sword": "sword_slash",
+  "throw": "blade_spin",
+  "chains": "chain_break",
+  "hurt": "damage",
+  "step": "footstep",
+  "door": "door_rumble",
+  "menu_select": "menu_confirm",
+  "confirm": "menu_confirm",
+  "cursor": "menu_move",
+  "purchase": "@buy",
+  "petals": "petal_burst",
+  "bloom": "bloom_riser",
+  "style_switch": "@switch",
+  "item_get": "level_up",
+  "press_start": "power_up",
+  "boss_appear": "impact",
+  "door_open": "whoosh_long",
+  "menu_open": "pop",
+  "emote": "blip",
+  "bloom_whoosh": "switch_whoosh",
+  "battle_start": "encounter"
  },
  "sounds": {
   "whoosh_short": {
@@ -605,6 +734,354 @@
      "onset": 0.0,
      "peak": 0.0465,
      "end": 1.134,
+     "st_lufs": -18.0
+    }
+   ]
+  },
+  "bloom_riser": {
+   "class": "hero",
+   "gain_db": -4.0,
+   "sync": "hit",
+   "tags": [
+    "sting",
+    "build",
+    "transition",
+    "dream"
+   ],
+   "variants": [
+    {
+     "file": "bloom_riser_1.ogg",
+     "dur": 5.12,
+     "onset": 1.2099,
+     "peak": 1.7146,
+     "end": 4.3266,
+     "st_lufs": -18.0,
+     "hit": 1.7,
+     "hit_measured": 1.7122,
+     "key": "C major"
+    },
+    {
+     "file": "bloom_riser_2.ogg",
+     "dur": 5.12,
+     "onset": 1.2421,
+     "peak": 1.7199,
+     "end": 4.342,
+     "st_lufs": -18.0,
+     "hit": 1.7,
+     "hit_measured": 1.7094,
+     "key": "G major"
+    }
+   ]
+  },
+  "switch_whoosh": {
+   "class": "foley",
+   "gain_db": -8.0,
+   "sync": "peak",
+   "tags": [
+    "transition",
+    "sting"
+   ],
+   "variants": [
+    {
+     "file": "switch_whoosh_1.ogg",
+     "dur": 1.22,
+     "onset": 0.1638,
+     "peak": 0.68,
+     "end": 1.1994,
+     "st_lufs": -18.0
+    },
+    {
+     "file": "switch_whoosh_2.ogg",
+     "dur": 1.22,
+     "onset": 0.1777,
+     "peak": 0.6914,
+     "end": 1.1992,
+     "st_lufs": -18.0
+    }
+   ]
+  },
+  "petal_burst": {
+   "class": "foley",
+   "gain_db": -10.0,
+   "sync": "peak",
+   "tags": [
+    "transition",
+    "dream"
+   ],
+   "variants": [
+    {
+     "file": "petal_burst_1.ogg",
+     "dur": 1.27,
+     "onset": 0.0831,
+     "peak": 0.3899,
+     "end": 1.2425,
+     "st_lufs": -18.0
+    },
+    {
+     "file": "petal_burst_2.ogg",
+     "dur": 1.27,
+     "onset": 0.1019,
+     "peak": 0.3783,
+     "end": 1.2386,
+     "st_lufs": -18.0
+    }
+   ]
+  },
+  "buy": {
+   "class": "hero",
+   "gain_db": -6.0,
+   "sync": "onset",
+   "tags": [
+    "pixel",
+    "success",
+    "buy"
+   ],
+   "variants": [
+    {
+     "file": "buy_1.ogg",
+     "dur": 0.78,
+     "onset": 0.0,
+     "peak": 0.0123,
+     "end": 0.4489,
+     "st_lufs": -18.0
+    }
+   ]
+  },
+  "cash": {
+   "class": "hero",
+   "gain_db": -6.0,
+   "sync": "onset",
+   "tags": [
+    "success",
+    "buy"
+   ],
+   "variants": [
+    {
+     "file": "cash_1.ogg",
+     "dur": 1.52,
+     "onset": 0.0,
+     "peak": 0.0795,
+     "end": 0.7649,
+     "st_lufs": -18.0
+    }
+   ]
+  },
+  "sword_slash": {
+   "class": "foley",
+   "gain_db": -9.0,
+   "sync": "peak",
+   "tags": [
+    "pixel",
+    "combat"
+   ],
+   "variants": [
+    {
+     "file": "sword_slash_1.ogg",
+     "dur": 0.52,
+     "onset": 0.0029,
+     "peak": 0.0336,
+     "end": 0.2464,
+     "st_lufs": -20.1
+    },
+    {
+     "file": "sword_slash_2.ogg",
+     "dur": 0.36,
+     "onset": 0.0,
+     "peak": 0.0206,
+     "end": 0.3338,
+     "st_lufs": -18.0
+    }
+   ]
+  },
+  "blade_spin": {
+   "class": "foley",
+   "gain_db": -10.0,
+   "sync": "peak",
+   "tags": [
+    "pixel",
+    "combat"
+   ],
+   "variants": [
+    {
+     "file": "blade_spin_1.ogg",
+     "dur": 0.97,
+     "onset": 0.0272,
+     "peak": 0.4919,
+     "end": 0.9435,
+     "st_lufs": -18.0
+    },
+    {
+     "file": "blade_spin_2.ogg",
+     "dur": 0.97,
+     "onset": 0.0241,
+     "peak": 0.467,
+     "end": 0.9384,
+     "st_lufs": -18.0
+    }
+   ]
+  },
+  "damage": {
+   "class": "foley",
+   "gain_db": -9.0,
+   "sync": "onset",
+   "tags": [
+    "pixel",
+    "combat"
+   ],
+   "variants": [
+    {
+     "file": "damage_1.ogg",
+     "dur": 0.32,
+     "onset": 0.0,
+     "peak": 0.0069,
+     "end": 0.293,
+     "st_lufs": -18.0
+    },
+    {
+     "file": "damage_2.ogg",
+     "dur": 0.32,
+     "onset": 0.0,
+     "peak": 0.0139,
+     "end": 0.2914,
+     "st_lufs": -18.0
+    }
+   ]
+  },
+  "footstep": {
+   "class": "foley",
+   "gain_db": -16.0,
+   "sync": "onset",
+   "tags": [
+    "pixel",
+    "foley"
+   ],
+   "variants": [
+    {
+     "file": "footstep_1.ogg",
+     "dur": 0.13,
+     "onset": 0.0,
+     "peak": 0.0103,
+     "end": 0.056,
+     "st_lufs": -18.0
+    },
+    {
+     "file": "footstep_2.ogg",
+     "dur": 0.13,
+     "onset": 0.0,
+     "peak": 0.0067,
+     "end": 0.0524,
+     "st_lufs": -18.0
+    },
+    {
+     "file": "footstep_3.ogg",
+     "dur": 0.13,
+     "onset": 0.0,
+     "peak": 0.0083,
+     "end": 0.0545,
+     "st_lufs": -18.0
+    },
+    {
+     "file": "footstep_4.ogg",
+     "dur": 0.13,
+     "onset": 0.0,
+     "peak": 0.0129,
+     "end": 0.058,
+     "st_lufs": -18.0
+    }
+   ]
+  },
+  "door_rumble": {
+   "class": "foley",
+   "gain_db": -8.0,
+   "sync": "onset",
+   "tags": [
+    "pixel",
+    "reveal"
+   ],
+   "variants": [
+    {
+     "file": "door_rumble_1.ogg",
+     "dur": 1.92,
+     "onset": 0.0493,
+     "peak": 0.627,
+     "end": 1.8809,
+     "st_lufs": -18.0
+    }
+   ]
+  },
+  "chain_break": {
+   "class": "foley",
+   "gain_db": -9.0,
+   "sync": "onset",
+   "tags": [
+    "pixel",
+    "reveal"
+   ],
+   "variants": [
+    {
+     "file": "chain_break_1.ogg",
+     "dur": 1.02,
+     "onset": 0.0,
+     "peak": 0.0029,
+     "end": 0.6376,
+     "st_lufs": -20.5
+    }
+   ]
+  },
+  "menu_move": {
+   "class": "foley",
+   "gain_db": -15.0,
+   "sync": "onset",
+   "tags": [
+    "pixel",
+    "ui"
+   ],
+   "variants": [
+    {
+     "file": "menu_move_1.ogg",
+     "dur": 0.065,
+     "onset": 0.0,
+     "peak": 0.0035,
+     "end": 0.0386,
+     "st_lufs": -18.0
+    }
+   ]
+  },
+  "menu_confirm": {
+   "class": "foley",
+   "gain_db": -12.0,
+   "sync": "onset",
+   "tags": [
+    "pixel",
+    "ui"
+   ],
+   "variants": [
+    {
+     "file": "menu_confirm_1.ogg",
+     "dur": 0.24,
+     "onset": 0.0,
+     "peak": 0.0582,
+     "end": 0.2209,
+     "st_lufs": -18.0
+    }
+   ]
+  },
+  "encounter": {
+   "class": "foley",
+   "gain_db": -9.0,
+   "sync": "onset",
+   "tags": [
+    "pixel",
+    "transition",
+    "sting"
+   ],
+   "variants": [
+    {
+     "file": "encounter_1.ogg",
+     "dur": 1.22,
+     "onset": 0.0,
+     "peak": 0.877,
+     "end": 1.1858,
      "st_lufs": -18.0
     }
    ]

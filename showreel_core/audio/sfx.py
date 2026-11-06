@@ -51,12 +51,18 @@ class Kit:
     root: Path
     sounds: dict[str, SfxSound]
     styles: dict[str, dict[str, str]]
+    aliases: dict[str, str] = field(default_factory=dict)
 
     def resolve(self, name: str, style: str | None = None) -> SfxSound | None:
-        """Sound by name, or by a style role alias (e.g. 'cut' -> 'whoosh_short' in Launch)."""
+        """Sound by name, by alias (``slash`` -> ``sword_slash``; ``@role`` aliases resolve per style), or by a
+        style role (e.g. 'cut' -> 'whoosh_short' in Launch; unknown styles use the Launch roles)."""
         if name in self.sounds:
             return self.sounds[name]
-        alias = self.styles.get(style or "", {}).get(name) or self.styles.get("launch", {}).get(name)
+        target = self.aliases.get(name, name)
+        if target in self.sounds:
+            return self.sounds[target]
+        role = target[1:] if target.startswith("@") else target
+        alias = self.styles.get(style or "", {}).get(role) or self.styles.get("launch", {}).get(role)
         return self.sounds.get(alias) if alias else None
 
 
@@ -69,7 +75,19 @@ def load_kit(assets: Path | None = None) -> Kit | None:
     data = json.loads(meta.read_text(encoding="utf-8"))
     sounds = {k: SfxSound(k, v["class"], float(v["gain_db"]), v["sync"], v["variants"], v.get("tags", []))
               for k, v in data.get("sounds", {}).items()}
-    return Kit(root, sounds, data.get("styles", {}))
+    return Kit(root, sounds, data.get("styles", {}), dict(data.get("aliases") or {}))
+
+
+SYNC_POINTS = ("onset", "peak", "end", "hit")
+
+
+def sync_time(sound: SfxSound, variant: dict[str, Any], align: str = "auto") -> float:
+    """Seconds into the file where the sound 'lands': the cue's ``align`` point, else the sound's natural sync
+    (onset transient, whoosh pass-by peak, riser end, or a designed sting impact ``hit``)."""
+    point = sound.sync if align in ("auto", "", "None") else align
+    if point not in SYNC_POINTS or point not in variant:
+        point = sound.sync if sound.sync in variant else "onset"
+    return float(variant.get(point, 0.0))
 
 
 def _cue_fields(c: Any) -> tuple[float, str, float, str]:
@@ -104,10 +122,7 @@ def place_cues(cues: Iterable[Any], kit: Kit, duration: float, *, style: str | N
         k = rr.get(snd.name, 0)
         rr[snd.name] = k + 1
         var = snd.variants[k % len(snd.variants)]
-        point = snd.sync if align in ("auto", "", "None") else align
-        if point not in ("onset", "peak", "end"):
-            point = snd.sync
-        sync_s = float(var.get(point, 0.0))
+        sync_s = sync_time(snd, var, align)
         lo, hi = CLASS_RANGE.get(snd.cls, (-18.0, 0.0))
         g = max(lo, min(hi, snd.gain_db + gain))
         start = t - sync_s - lead
