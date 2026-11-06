@@ -311,6 +311,10 @@ def test_narration_is_spoken_at_the_style_pace(env: dict[str, Any]) -> None:
                                         Clip(out, 1.8))[1])
     assert not warns and [ln["start"] for ln in lines] == [2.0, 25.0]
     assert "speed" not in calls[0] and calls[1]["speed"] == pytest.approx(1.13)
+    # the engine speaks a film at ONE pace: the style narrating the most words (tie -> the payoff line's style)
+    assert voice.film_pace(treatment, obj["plan"]["voiceover"]) == pytest.approx(1.13)
+    more_pixel = [{"t": 2.0, "text": "Every hero in this dungeon has a boss to beat."}, {"t": 25.0, "text": "Own it."}]
+    assert voice.film_pace(treatment, more_pixel) == pytest.approx(1.0)
     llm = FakeLlm({"treatment": [treatment], "film": [obj], "scene": [fenced(GOOD_CODE)], "critic": [critique(9.0)]})
     res = run(env["brief"], llm=llm, renderer=FakeRenderer(), job_dir=env["job"], library_dir=env["library"],
               catalog=env["catalog"], dispatch=None)

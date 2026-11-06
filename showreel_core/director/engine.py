@@ -1421,10 +1421,11 @@ def _narrate(r: _Run, best: Version) -> list[dict[str, Any]]:
     if r.dispatch is None:
         r.warn("voice", f"{len(lines)} narration line(s) planned but no text_to_speech tool: no voice")
         return []
-    from .voice import speed_for, synthesize
-    r.emit("voice", f"Recording {len(lines)} narration line(s)")
+    from .voice import film_pace, synthesize
+    speed = film_pace(r.treatment, lines, r.voice_speed)
+    r.emit("voice", f"Recording {len(lines)} narration line(s) at pace x{speed:g}")
     out, warns = synthesize(lines, dispatch=r.dispatch, out_dir=r.ddir / "voice", dur=float(best.film["dur"]),
-                            pace=lambda t: speed_for(r.treatment, t, r.voice_speed))
+                            pace=lambda _t: speed)
     for w in warns:
         r.warn("voice", w)
     return out

@@ -2,7 +2,8 @@
 
 The Director writes ``plan.voiceover = [{t, text}]`` (word budget checked against each line's window). After the
 best version is chosen, each line is spoken through Hermes ``text_to_speech`` (``audio.tts.synthesize``) at the
-pace of the style of the act it falls in (cinematic 1.13, everything else 1.0: the user's locked ear test), and
+pace of the film's narrating style (cinematic 1.13, everything else 1.0: the user's locked ear test; one pace
+per film, see :func:`film_pace`), and
 the clips become ``film["narration"] = [{path, start, duration, text}]``, which the pipeline mixes (ducking the
 music). Lines are never cut or time-stretched: a clip that cannot fit before the film ends is dropped.
 """
@@ -40,6 +41,26 @@ def speed_for(treatment: dict[str, Any], t: float, override: Any = None) -> floa
     try:
         from ..config import voice_speed
         return float(voice_speed(act_style_at(treatment, t), override))
+    except Exception:
+        return 1.0
+
+
+def film_pace(treatment: dict[str, Any], lines: list[dict[str, Any]], override: Any = None) -> float:
+    """ONE narrator pace for the whole film: the pace of the style that carries the most narrated words (ties: the
+    style of the last line, the payoff). A single voice must not speed up and slow down between acts."""
+    words: dict[str, int] = {}
+    last = ""
+    for ln in sorted(lines, key=lambda v: float(v.get("t", 0) or 0)):
+        style = act_style_at(treatment, float(ln.get("t", 0) or 0))
+        words[style] = words.get(style, 0) + len(str(ln.get("text") or "").split())
+        last = style
+    if not words:
+        return 1.0
+    top = max(words.values())
+    style = last if words.get(last) == top else max(words, key=lambda k: words[k])
+    try:
+        from ..config import voice_speed
+        return float(voice_speed(style, override))
     except Exception:
         return 1.0
 
