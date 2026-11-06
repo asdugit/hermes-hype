@@ -1,0 +1,37 @@
+{
+  "name": "comic",
+  "version": 1,
+  "entry": "kit.js",
+  "describe": "Motion comic: every scene is a page of ink-bordered panels with true halftone, sunbursts, speech balloons, captions and onomatopoeia; the camera moves panel to panel; page-turn transitions.",
+  "requires": ["base"],
+  "theme": "comic",
+  "scenes": ["HOOK", "TITLE", "PROBLEM", "PLAN", "CODE", "DIFF", "TERMINAL", "MONTAGE", "SCREEN", "STATS",
+             "BEFORE_AFTER", "CALLOUT", "END", "FEATURE", "SCROLL"],
+  "transitions_defined": ["kit:comic/page-turn", "kit:comic/splat-iris", "kit:comic/panel-glide"],
+  "fonts": [
+    {"family": "Bangers", "src": "fonts/Bangers-Regular.ttf", "weight": "400", "style": "normal"},
+    {"family": "Comic Neue", "src": "fonts/ComicNeue-Bold.ttf", "weight": "700", "style": "normal"},
+    {"family": "Comic Neue", "src": "fonts/ComicNeue-BoldItalic.ttf", "weight": "700", "style": "italic"},
+    {"family": "Space Mono", "src": "fonts/SpaceMono-Bold.ttf", "weight": "700", "style": "normal"}
+  ],
+  "licenses": ["fonts/OFL-Bangers.txt", "fonts/OFL-ComicNeue.txt", "fonts/OFL-SpaceMono.txt"],
+  "finish": {"grain": 0.02, "vignette": 0.0},
+  "transitions": {"cut": null, "match": ["kit:comic/panel-glide", 0.5], "push": ["kit:comic/page-turn", 0.7], "wipe": ["kit:comic/splat-iris", 0.5]},
+  "caption_style": {"font": "Comic Neue", "size": 44, "weight": 700, "color": "#14110F", "bg": "#FFD23A"},
+  "background": "#F4EAD2",
+  "style": {
+    "id": "comic",
+    "name": "Comic",
+    "blurb": "Motion comic: halftone panels, speech balloons, onomatopoeia",
+    "voice_speed": 1.0,
+    "palette": {"ink": "#14110F", "paper": "#F4EAD2", "white": "#FFFDF6", "cyan": "#29B6E3", "magenta": "#E33D7F",
+                "yellow": "#FFD23A", "red": "#E2392B", "blue": "#1D5FC2", "green": "#2FAE4F", "orange": "#F68B1F"},
+    "fonts": {"display": "Bangers", "lettering": "Comic Neue", "mono": "Space Mono"},
+    "bpm": [112, 126],
+    "music": ["comic_a", "comic_b"],
+    "sfx": {"cut": "whoosh_short", "move": "whoosh_long", "click": "pop", "type": "key", "appear": "pop", "pass": "chime",
+            "fail": "error", "hit": "hit", "hero": "impact", "build": "riser", "shot": "shutter", "buy": "cash", "switch": "switch_whoosh"},
+    "post": "grain_vignette",
+    "post_params": {"grain_vignette": {"grain": 4, "vignette": 0.0}}
+  }
+}
