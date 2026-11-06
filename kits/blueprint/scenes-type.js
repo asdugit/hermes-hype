@@ -62,7 +62,7 @@ bpScene('kit:blueprint/TITLE', {
     // exploded plate stack (the product's identity as parts): name, purpose, tagline
     const parts = [['NAME', title], ...(p.one_liner ? [['PURPOSE', p.one_liner]] : []), ...(tag ? [['TAGLINE', tag]] : [])];
     const ANG = L ? -18 : -16;
-    const ox = L ? 170 : 1010, oy = L ? 1290 : 800;
+    const ox = L ? 170 : 820, oy = L ? 1290 : 640;
     const g = el(S.svg, 'g', { transform: `translate(${ox} ${oy}) rotate(${ANG})` });
     const a = (Math.PI / 180) * ANG;
     const toSheet = (q) => [ox + q[0] * Math.cos(a) - q[1] * Math.sin(a), oy + q[0] * Math.sin(a) + q[1] * Math.cos(a)];
@@ -76,11 +76,13 @@ bpScene('kit:blueprint/TITLE', {
       P.add(line(g, [[pa, -pb], [pa, pb], [-pa, pb]].map(([u, v]) => OP(px + 7, u, v)), 'thin'));
       if (i === 0) P.add(line(g, [[-pa + 18, -pb + 22], [pa - 18, -pb + 22], [pa - 18, pb - 30], [-pa + 18, pb - 30], [-pa + 18, -pb + 22]].map(([u, v]) => OP(px, u, v)), 'thin'));
     });
-    const tPlates = P.plan(Math.max(0.6, tTitle - 0.5), { speed: 5200, gap: 0.015, maxDur: 0.9 });
+    const tPlates = P.plan(0.45, { speed: 6000, gap: 0.01, maxDur: 0.6 });
     parts.forEach(([k, v], i) => {
-      const from = toSheet(OP(xs[i], -20, -pb * 0.55));
-      const to = L ? [620, 1000 + i * 120] : [from[0] - 40 + i * 20, from[1] - 250];
-      const lead = line(S.svg, [from, to], 'lead');
+      // 9:16: a label column right of the stack; 16:9: balloons in a row on a line under the stack (clear of the
+      // title, tagline and the title block), vertical leaders from each plate's lower field
+      const from = L ? toSheet(OP(xs[i], -20, -pb * 0.55)) : toSheet(OP(xs[i], 0, pb * 0.62));
+      const to = L ? [620, 1000 + i * 120] : [from[0], Math.min(S.H - S.bd - 230, from[1] + 120)];
+      const lead = line(S.svg, [from, [to[0], to[1] - 21]], 'lead');
       P.add(lead);
       P.pop(el(S.svg, 'circle', { cx: f1(from[0]), cy: f1(from[1]), r: 4, class: 'arrow' }));
       const b = balloon(S.svg, to[0], to[1], i + 1);
@@ -90,7 +92,7 @@ bpScene('kit:blueprint/TITLE', {
       P.letter(nm, { x: to[0] + 34, y: to[1] - 24, w: 110, h: 28 });
       P.letter(vv, { x: to[0] + 34, y: to[1] + 8, w: Math.min(300, String(v).length * 12), h: 24 });
     });
-    const tEnd = P.plan(tPlates, { speed: 4200, gap: 0.02, maxDur: 0.9 });
+    const tEnd = P.plan(Math.max(tPlates, 0.9), { speed: 4200, gap: 0.02, maxDur: 0.7 });
     S.titleBlock({ title: `${fitS(title, 16)} \u00b7 GA`, rev: p.rev || 'A' }, Math.min(tEnd, (ctx.dur || 4) - 0.6));
     S.camera([[0, [S.W / 2, S.H / 2, 1.0]], [(ctx.dur || 4) + 1, [S.W / 2 - 8, S.H / 2, 1.018]]]);
     return { cues: [{ t: 0.05, sfx: 'build', gain_db: -14 }, { t: t1, sfx: 'type', gain_db: -12 }], render() {} };
@@ -369,7 +371,7 @@ bpScene('kit:blueprint/END', {
         P.letter(e, { x: x + 22, y: cy + 34, w: 220, h: 56 }, { at: [tl, tl + 0.3] });
         tl += 0.25;
       } else {
-        const c1 = W * (L ? 0.5 : 0.46), c2 = W * (L ? 0.82 : 0.84);
+        const c1 = W * (L ? 0.46 : (p.url ? 0.46 : 0.3)), c2 = W * (L ? 0.84 : 0.88);
         P.add(line(S.svg, [[x + c1, cy], [x + c1, cy + hh]], 'thin'), { at: [t0, t0 + 0.1] });
         P.add(line(S.svg, [[x + c2, cy], [x + c2, cy + hh]], 'thin'), { at: [t0, t0 + 0.1] });
         key('URL', x + 22, cy + 14);

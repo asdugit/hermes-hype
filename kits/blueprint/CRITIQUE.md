@@ -48,3 +48,21 @@ Renders clean: 0 scene errors, 0 page errors; cues: appear, build, click, cut, h
 - 9:16: every type stays inside the border; the TITLE plate labels ran off the right edge -> labels in a column at
   x 620 with leaders from each plate. SCREEN's detail zoom crops the capture's left edge on 9:16 (acceptable: it is
   a detail view).
+
+## Round 4 — 25 s Quick sample (story heuristic on the webapp fixture, 16:9, real renderer + bed + SFX)
+Film: HOOK → TITLE → FEATURE ×2 → SCROLL → STATS → END, `sheet-slide` between acts; 0 scene/page errors; −14.1 LUFS.
+- Reads as one coherent drawing set: same sheet, border, title block and REV through every shot; the HOOK trace
+  (line art inside the dimensioned frame at 0.6 s) is the strongest moment.
+- TITLE: the NAME / PURPOSE / TAGLINE balloon labels collided with the tagline and the title block (16:9) -> the
+  stack moved left/up (axis 820,640) and the labels now hang under each plate on vertical leaders, staggered, clear
+  of the title block.
+- FEATURE (3.3 s shots): the callout only started lettering in the last 0.4 s, the detail circle (default bbox
+  = 80 % of the page) was larger than the capture, and the circle / click marks were invisible: white object lines
+  over a white capture, and drawn on the sheet layer *under* the capture. Fixes: the shot clock scales with the
+  shot length (k = dur/4.5, ≥ 0.7) so trace, detail, click and callout all land by dur−0.5; a focus box > 36 % of
+  the page means "no focus" (FEATURE details the click point at 0.22×; SCREEN stays a calm full view); strokes over
+  media go on the top SVG with a dark 7 px halo drawn with them; the callout sits 175 px right of the view (clear of
+  the height dimension) on a plate. Re-check at 1080p: circle, balloon C, crosshair + rings and the FEATURE callout
+  all read; 9:16 puts the callout under the view.
+- SCROLL: the A section line now rides above the page (top layer).
+- END: signed sheet + RELEASED stamp land; the caption crosses the big frame line at the end (minor).

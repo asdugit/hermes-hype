@@ -52,7 +52,7 @@ function contentListing(S, c, R, t0, o = {}) {
 // --------------------------------------------------------------------------------------------- HOOK
 bpScene('kit:blueprint/HOOK', {
   describe: 'Scroll-stopper: the hero artefact is plotted fast as a dimensioned view (frame, real pixel size, line-art trace by the pen) and the real capture develops inside it like a cyanotype; a test run gets a PASS stamp; <= 6 word headline lettered on top.',
-  params: { hero: { type: 'content', default: null, doc: '{kind: image|terminal|diff|code, ...block data}' } },
+  params: { hero: { type: 'content', default: null, doc: '{kind: image|terminal|diff|code, ...block data}' }, product_scale: { type: 'number', default: 1, doc: 'multiplies the product capture size on screen (0.5-3)' } },
   build(ctx, p, F, S) {
     const dur = ctx.dur, L = S.L, bx = S.box, P = S.P;
     const hero = p.hero || {};
@@ -70,7 +70,8 @@ bpScene('kit:blueprint/HOOK', {
     const R = { x: bx.x + (L ? 0 : 60), y: top + 10, w: bx.w - (L ? 0 : 120 + 200), h: bx.y + bx.h - top - (L ? 140 : 60) };
     let v = null, cl = null, st = null;
     if (kind === 'image') {
-      v = view(ctx, F, S, hero, R);
+      const ps = clamp(Number(p.product_scale) || 1, 0.5, 3);
+      v = view(ctx, F, S, hero, { x: R.x + R.w * (1 - ps) / 2, y: R.y + R.h * (1 - ps) / 2, w: R.w * ps, h: R.h * ps });
       P.plan(0.05, { speed: 7000, gap: 0.01, maxDur: 0.6 });
     } else {
       const nr = kind === 'terminal' ? 1 + Math.min(8, (hero.output || []).length) : Math.min(8, (hero.lines || (hero.hunks || []).flatMap((x) => x.lines || [])).length);
@@ -101,72 +102,86 @@ function screenBuild(ctx, p, F, S, feature) {
   const dur = ctx.dur, L = S.L, bx = S.box, P = S.P;
   const img = p.image || {};
   header(S, `View A \u00b7 ${fitS(String(img.page_title || 'screen'), 40)}`, prettyUrl(img.url || ''), bx.x, bx.y + 4, { size: 26, w: bx.w * 0.6 });
-  const R = { x: bx.x + (L ? 0 : 40), y: bx.y + 110, w: bx.w - (L ? 0 : feature ? 560 : 280), h: bx.h - (L ? (feature ? 420 : 260) : 150) };
+  const ps = clamp(Number(p.product_scale) || 1, 0.5, 3);
+  const R0 = { x: bx.x + (L ? 0 : 40), y: bx.y + 110, w: bx.w - (L ? 0 : feature ? 560 : 280), h: bx.h - (L ? (feature ? 420 : 260) : 150) };
+  const R = { x: R0.x + R0.w * (1 - ps) / 2, y: R0.y + R0.h * (1 - ps) / 2, w: R0.w * ps, h: R0.h * ps };
   const v = view(ctx, F, S, img, R);
-  const tFrame = P.plan(0.08, { speed: 6000, gap: 0.01, maxDur: 0.6 });
-  const stages = { trace: [0.25, 0.85], develop: [0.9, 1.5] };
+  // the shot's clock scales with its length so short shots (Quick ~3.3 s) still land trace, detail and callout
+  const k = clamp(dur / 4.5, 0.7, 1);
+  const tFrame = P.plan(0.08, { speed: 6000, gap: 0.01, maxDur: 0.6 * k });
+  const stages = { trace: [0.25 * k, 0.85 * k], develop: [0.9 * k, 1.5 * k] };
   const bb = Array.isArray(p.bbox) && p.bbox.length === 4 ? p.bbox.map(Number) : [0.1, 0.1, 0.8, 0.8];
   const r = v.r;
-  const fx = r.x + (bb[0] + bb[2] / 2) * r.w, fy = r.y + (bb[1] + bb[3] / 2) * r.h;
-  const rad = Math.max(bb[2] * r.w, bb[3] * r.h) / 2 * 1.12 + 10;
-  const tC = Math.max(1.55, tFrame);
-  P.add(stroke(S.svg, circleD(fx, fy, rad, -Math.PI * 0.75), 'obj'), { at: [tC, tC + 0.45] });
+  const click = Array.isArray(p.click) && p.click.length === 2 ? p.click.map(Number) : [bb[0] + bb[2] / 2, bb[1] + bb[3] / 2];
+  // a focus box covering most of the page is "no focus": FEATURE details the click point, SCREEN stays a full view
+  const wide = bb[2] * bb[3] > 0.36;
+  const detail = !wide || feature;
+  let fx, fy, rad;
+  if (wide) { fx = r.x + click[0] * r.w; fy = r.y + click[1] * r.h; rad = 0.22 * Math.min(r.w, r.h) + 20; }
+  else { fx = r.x + (bb[0] + bb[2] / 2) * r.w; fy = r.y + (bb[1] + bb[3] / 2) * r.h; rad = Math.max(bb[2] * r.w, bb[3] * r.h) / 2 * 1.12 + 10; }
+  const tC = Math.max(1.55 * k, tFrame);
   const bpos = [fx + rad * 0.72 + 30, fy - rad * 0.72 - 30];
-  const lead = line(S.svg, [[fx + rad * 0.707, fy - rad * 0.707], [bpos[0] - 15, bpos[1] + 15]], 'lead');
-  P.add(lead, { at: [tC + 0.45, tC + 0.55] });
-  const b = balloon(S.svg, bpos[0], bpos[1], 'C');
-  P.add(b.ring, { at: [tC + 0.5, tC + 0.6] }); P.pop(b.disc); P.pop(b.num);
-  const dl = S.text('bp-part', 'Detail C', bpos[0] + 30, bpos[1] - 18);
-  dl.style.cssText += 'background:var(--plate);padding:4px 8px;';
-  P.letter(dl, { x: bpos[0] + 34, y: bpos[1] - 14, w: 120, h: 28 }, { at: [tC + 0.55, tC + 0.8] });
-  const tZ = Math.max(tC + 0.75, Math.min(dur - 1.4, tC + 0.9));
+  // object lines over a light capture get a dark halo drawn with them (white on white would vanish)
+  const haloed = (dd, cls, at) => { P.add(stroke(S.top, dd, 'halo'), { at, track: 'halo' }); P.add(stroke(S.top, dd, cls), { at }); };
+  if (detail) {
+    haloed(circleD(fx, fy, rad, -Math.PI * 0.75), 'obj', [tC, tC + 0.4 * k]);
+    P.add(line(S.top, [[fx + rad * 0.707, fy - rad * 0.707], [bpos[0] - 15, bpos[1] + 15]], 'lead'), { at: [tC + 0.4 * k, tC + 0.5 * k] });
+    const b = balloon(S.top, bpos[0], bpos[1], 'C');
+    P.add(b.ring, { at: [tC + 0.45 * k, tC + 0.55 * k] }); P.pop(b.disc); P.pop(b.num);
+    const dl = S.text('bp-part', 'Detail C', bpos[0] + 30, bpos[1] - 18);
+    dl.style.cssText += 'background:var(--plate);padding:4px 8px;';
+    P.letter(dl, { x: bpos[0] + 34, y: bpos[1] - 14, w: 120, h: 28 }, { at: [tC + 0.5 * k, tC + 0.75 * k] });
+  }
+  const tZ = Math.max(tC + 0.55 * k, Math.min(dur - 1.4, tC + 0.9 * k));
   const z = clamp(Math.min((bx.w * 0.78) / (2 * rad), (bx.h * 0.74) / (2 * rad)), 1.6, 2.8);
-  const cues = [{ t: 0.08, sfx: 'build', gain_db: -12 }, { t: stages.develop[0], sfx: 'appear', gain_db: -8 }, { t: tZ, sfx: 'move', gain_db: -12 }];
+  const cues = [{ t: 0.08, sfx: 'build', gain_db: -12 }, { t: stages.develop[0], sfx: 'appear', gain_db: -8 }, ...(detail ? [{ t: tZ, sfx: 'move', gain_db: -12 }] : [])];
   let feat = null;
   if (feature) {
-    const click = Array.isArray(p.click) && p.click.length === 2 ? p.click.map(Number) : [bb[0] + bb[2] / 2, bb[1] + bb[3] / 2];
     const qx = r.x + click[0] * r.w, qy = r.y + click[1] * r.h;
     const syncClick = Number(p._sync && p._sync.click);
-    const tClick = Number.isFinite(syncClick) && syncClick > tZ + 0.4 && syncClick < dur - 0.5 ? syncClick : Math.min(tZ + 1.0, dur - 0.8);
+    const latest = dur - 1.3;
+    const tClick = Number.isFinite(syncClick) && syncClick >= tC + 0.2 && syncClick <= latest ? syncClick : Math.max(tC + 0.2, Math.min(tZ + 0.6, latest));
     // click: a crosshair "pen-down" mark + two construction rings
-    const mk = [line(S.svg, [[qx - 16, qy], [qx + 16, qy]], 'obj'), line(S.svg, [[qx, qy - 16], [qx, qy + 16]], 'obj')];
-    mk.forEach((m) => P.add(m, { at: [tClick, tClick + 0.08] }));
-    P.add(stroke(S.svg, circleD(qx, qy, 14), 'lead'), { at: [tClick + 0.02, tClick + 0.15] });
-    const ring2 = stroke(S.svg, circleD(qx, qy, 30), 'cons');
-    P.add(ring2, { at: [tClick + 0.08, tClick + 0.3] });
-    // feature callout box near the detail circle, in the zoomed view's frame
+    haloed(`M${f1(qx - 16)} ${f1(qy)} L${f1(qx + 16)} ${f1(qy)}`, 'obj', [tClick, tClick + 0.08]);
+    haloed(`M${f1(qx)} ${f1(qy - 16)} L${f1(qx)} ${f1(qy + 16)}`, 'obj', [tClick + 0.04, tClick + 0.12]);
+    haloed(circleD(qx, qy, 14), 'lead', [tClick + 0.06, tClick + 0.18]);
+    haloed(circleD(qx, qy, 30), 'cons', [tClick + 0.1, tClick + 0.3]);
+    // the callout sits on the sheet beside the view (right column on 16:9 clear of the height dimension, below the
+    // view on 9:16), on a dark plate so it reads over the grid
     const name = String(p.feature || p.label || '').trim();
     const fsz = 30;
-    // the callout sits on the sheet beside the view (right column on 16:9, below on 9:16), on a plate
-    const boxW = L ? Math.min(bx.w, 80 + name.length * fsz * 0.56) : Math.min(470, Math.max(300, 60 + name.length * fsz * 0.56));
-    const nl = Math.ceil(name.length * fsz * 0.56 / (boxW - 40));
-    const fhB = 42 + nl * fsz * 1.25;
-    const cxB = L ? bx.x + (bx.w - boxW) / 2 : r.x + r.w + 60;
-    const cyB = L ? r.y + r.h + 90 : clamp(fy - fhB / 2, r.y, r.y + r.h - fhB);
+    const room = bx.x + bx.w - (r.x + r.w + 175);
+    const boxW = L ? Math.min(bx.w, 80 + name.length * fsz * 0.56) : clamp(60 + name.length * fsz * 0.56, 260, Math.max(260, Math.min(420, room)));
+    const nl = Math.max(1, Math.ceil(name.length * fsz * 0.56 / (boxW - 40)));
+    const fhB = 46 + nl * fsz * 1.25;
+    const cxB = L ? bx.x + (bx.w - boxW) / 2 : r.x + r.w + 175;
+    const cyB = L ? r.y + r.h + 90 : clamp(fy - fhB / 2, r.y + 40, r.y + r.h - fhB);
     const plate = S.text('bp-box', '', cxB, cyB);
     plate.style.cssText += `width:${boxW}px;height:${fhB}px;border:none;`;
-    P.pop(plate, P.add(stroke(S.svg, rectD(cxB, cyB, boxW, fhB), 'thin'), { at: [tClick + 0.25, tClick + 0.45] }));
+    P.pop(plate, P.add(stroke(S.top, rectD(cxB, cyB, boxW, fhB), 'thin'), { at: [tClick + 0.2, tClick + 0.38] }));
     S.html.insertBefore(plate, S.html.firstChild);
     const ft = S.text('bp-note', '', cxB + 20, cyB + 14, { html: `<span class="tag">Feature</span>${esc(name)}`, size: fsz, w: boxW - 36 });
-    P.letter(ft, { x: cxB + 20, y: cyB + 14, w: Math.min(boxW - 40, name.length * fsz * 0.5), h: fhB - 28 }, { at: [tClick + 0.35, tClick + 0.8] });
-    const fl = line(S.svg, L ? [[cxB + boxW / 2, cyB], [cxB + boxW / 2, (cyB + qy) / 2], [qx, (cyB + qy) / 2], [qx, qy]] : [[cxB, cyB + fhB / 2], [cxB - 30, cyB + fhB / 2], [qx, qy]], 'lead');
-    P.add(fl, { at: [tClick + 0.3, tClick + 0.45] });
+    P.letter(ft, { x: cxB + 20, y: cyB + 14, w: Math.min(boxW - 40, name.length * fsz * 0.5), h: fhB - 28 }, { at: [tClick + 0.3, tClick + 0.7] });
+    const fl = line(S.top, L ? [[cxB + boxW / 2, cyB], [cxB + boxW / 2, (cyB + qy) / 2], [qx, (cyB + qy) / 2], [qx, qy]] : [[cxB, cyB + fhB / 2], [cxB - 30, cyB + fhB / 2], [qx, qy]], 'lead');
+    P.add(fl, { at: [tClick + 0.25, tClick + 0.4] });
     cues.push({ t: tClick, sfx: 'click', gain_db: -4 });
     feat = { tClick, union: { x0: Math.min(fx - rad, cxB) - 30, y0: Math.min(fy - rad, cyB, bpos[1] - 40) - 30, x1: Math.max(fx + rad, cxB + boxW, bpos[0] + 200) + 30, y1: Math.max(fy + rad, cyB + fhB) + 30 } };
   }
   S.titleBlock({ title: fitS(String(img.page_title || 'VIEW A'), 18), rev: p.rev || 'A' }, stages.develop[1]);
-  // detail zoom: frame the detail circle, its balloon label and (FEATURE) the callout box together
-  const U = feat ? feat.union : { x0: fx - rad - 20, y0: Math.min(fy - rad, bpos[1] - 40) - 20, x1: Math.max(fx + rad, bpos[0] + 200) + 20, y1: fy + rad + 20 };
-  const zz = clamp(Math.min((S.W - 2 * S.bd - 60) / (U.x1 - U.x0), (S.H - 2 * S.bd - 60) / (U.y1 - U.y0)), 1.15, z);
-  const ux = (U.x0 + U.x1) / 2, uy = (U.y0 + U.y1) / 2;
   const cx0 = S.W / 2, cy0 = S.H / 2;
-  S.camera([[0, [cx0, cy0, 1.0]], [tZ, [cx0, cy0, 1.01]], [tZ + 0.8, [ux, uy, zz]], [dur + 1, [ux + 4, uy + 4, zz * 1.02]]]);
+  if (detail) {
+    // detail zoom: frame the detail circle, its balloon label and (FEATURE) the callout box together
+    const U = feat ? feat.union : { x0: fx - rad - 20, y0: Math.min(fy - rad, bpos[1] - 40) - 20, x1: Math.max(fx + rad, bpos[0] + 200) + 20, y1: fy + rad + 20 };
+    const zz = clamp(Math.min((S.W - 2 * S.bd - 60) / (U.x1 - U.x0), (S.H - 2 * S.bd - 60) / (U.y1 - U.y0)), 1.1, z);
+    const ux = (U.x0 + U.x1) / 2, uy = (U.y0 + U.y1) / 2;
+    S.camera([[0, [cx0, cy0, 1.0]], [tZ, [cx0, cy0, 1.01]], [tZ + 0.8 * k, [ux, uy, zz]], [dur + 1, [ux + 4, uy + 4, zz * 1.02]]]);
+  } else S.camera([[0, [cx0, cy0, 1.0]], [dur + 1, [cx0 - 10, cy0 - 6, 1.025]]]);
   return { cues, render(t) { v.update(t, stages); void feat; } };
 }
 
 bpScene('kit:blueprint/SCREEN', {
   describe: 'A capture as a dimensioned view: the frame plots with the real pixel size, the pen traces the page as line art, the real screenshot develops inside it; a DETAIL C circle draws on the focus box and the camera zooms into it (>= 1.6x).',
-  params: { image: IMAGE_DOC, bbox: { type: 'array', default: [0.1, 0.1, 0.8, 0.8], doc: 'focus box [x,y,w,h] as image fractions' } },
+  params: { image: IMAGE_DOC, bbox: { type: 'array', default: [0.1, 0.1, 0.8, 0.8], doc: 'focus box [x,y,w,h] as image fractions' }, product_scale: { type: 'number', default: 1, doc: 'multiplies the product capture size on screen (0.5-3)' } },
   build(ctx, p, F, S) { return screenBuild(ctx, p, F, S, false); },
 });
 
@@ -175,7 +190,7 @@ bpScene('kit:blueprint/FEATURE', {
   params: {
     image: IMAGE_DOC, feature: { type: 'string', default: '', doc: 'feature name (<= 6 words)' },
     bbox: { type: 'array', default: [0.1, 0.1, 0.8, 0.8], doc: 'feature region [x,y,w,h] (image fractions)' },
-    click: { type: 'array', default: [0.5, 0.5], doc: 'click point [x,y] (image fractions)' },
+    click: { type: 'array', default: [0.5, 0.5], doc: 'click point [x,y] (image fractions)' }, product_scale: { type: 'number', default: 1, doc: 'multiplies the product capture size on screen (0.5-3)' },
   },
   build(ctx, p, F, S) { return screenBuild(ctx, p, F, S, true); },
 });
@@ -209,7 +224,7 @@ bpScene('kit:blueprint/SCROLL', {
     const hl = S.text('bp-lbl', `${Math.round(ih)} px`, hx + 16, r.y + 40);
     P.letter(hl, { x: hx + 16, y: r.y + 40, w: 90, h: 24 }, { at: [0.7, 0.9] });
     // section marker A-A following the view centre
-    const secL = line(S.svg, [[r.x - 50, 0], [r.x + r.w + 30, 0]], 'ctr');
+    const secL = line(S.top, [[r.x - 50, 0], [r.x + r.w + 30, 0]], 'ctr');
     const ta = S.text('bp-part', 'A', r.x - 84, 0);
     const stages = { trace: [0.2, 0.7], develop: [0.75, 1.3] };
     const tS = 1.3, tE = Math.max(tS + 1, dur - 0.4);
