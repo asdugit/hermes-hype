@@ -33,7 +33,8 @@ MAX_BUMP = 2.6             # largest single size multiplier a repair applies
 # Nature kit flyer slots (kits/nature/lib/flyers.js SLOTS: depth m, width m) and camera (world.js: vertical
 # FOV 34 deg landscape / 58 deg portrait). Used only for the static estimate; the measurement is the truth.
 NATURE_SLOTS = {"descend": (20, 5.4), "rise": (70, 6.0), "drive-slope": (26, 5.2), "float": (36, 6.0),
-                "orbit": (44, 5.8), "arc": (90, 6.5), "cross": (52, 5.6), "hero": (16, 6.4)}
+                "orbit": (44, 5.8), "arc": (90, 6.5), "cross": (52, 5.6), "hero": (16, 6.4),
+                "pass": (4.2, 5.2)}     # pass: camera-relative, ends 4.2 m from the lens (d = end depth)
 NATURE_DEFAULT_PATHS = ("descend", "rise", "drive-slope", "float", "arc", "orbit")
 NATURE_FLYER_SCENES = ("kit:nature/flower-field", "kit:nature/sky-reveal")
 NATURE_HERO_SCENES = ("kit:nature/product-hero",)

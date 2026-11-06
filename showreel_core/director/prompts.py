@@ -211,14 +211,19 @@ HOW TO WORK
   knight is knocked back 12 px with a red flash and a floating -42" is useful.
 
 Reply with one JSON object matching the schema."""
-    parts = [_direction_block(brief), _product_text(brief), _film_frame(brief), recipes.overview(),
-             _recipe_hint(brief), catalog.overview(), catalog.recipes_text(budget=6000), _digest_block(brief)]
+    parts = [_direction_block(brief), _product_text(brief), _film_frame(brief),
+             recipes.overview(physical=_physical(brief)), _recipe_hint(brief), catalog.overview(),
+             catalog.recipes_text(budget=6000), _digest_block(brief)]
     return instructions, "\n\n".join(p for p in parts if p)
 
 
+def _physical(brief: Brief) -> bool:
+    """A physical product (video clip / cut-out) rather than a screen product (screenshots, captures)."""
+    return any(a.type == "video" or a.cutout for a in brief.assets if a.product)
+
+
 def _recipe_hint(brief: Brief) -> str:
-    physical = any(a.type == "video" for a in brief.assets if a.product)
-    ids = recipes.suggest(brief.direction, physical=physical)
+    ids = recipes.suggest(brief.direction, physical=_physical(brief))
     return f"Recipes whose words match this direction: {', '.join(ids)}" if ids else ""
 
 
@@ -287,15 +292,30 @@ Reply with one JSON object: {{"film": {{...}}, "plan": {{...}}}}."""
 
 
 def recipe_block(brief: Brief, catalog: Catalog, treatment: dict[str, Any]) -> str:
-    """The treatment's recipe laid out on this film (empty when the treatment chose `custom`)."""
+    """The treatment's recipe laid out on this film: its proven film when one exists (adapt it), else the recipe
+    template, plus a proven film of another recipe to borrow shots from when the acts share its kits."""
     rec = recipes.get(str(treatment.get("recipe") or ""))
-    if rec is None:
-        return ""
     product = next((a.name for a in brief.assets if a.product), "")
     name = (brief.product.name if brief.product and brief.product.name else str(treatment.get("title") or ""))
     tagline = brief.product.one_liner if brief.product and brief.product.one_liner else ""
-    return recipes.detail(rec, seconds=brief.seconds, product=product, name=name, cta=str(treatment.get("cta") or ""),
-                          tagline=tagline, available=set(catalog.scenes()) | catalog.transitions())
+    cta = str(treatment.get("cta") or "")
+    physical = _physical(brief)
+    ex = recipes.exemplar_for(rec.id, aspect=brief.aspect, physical=physical) if rec is not None else None
+    if ex is not None and rec is not None and product:
+        head = f"## Chosen recipe: `{rec.id}` ({rec.name})\n{rec.arc}.\n- Voice: {rec.voice}\n"
+        return head + "\n" + recipes.exemplar_text(ex, seconds=brief.seconds, product=product, name=name, cta=cta,
+                                                   tagline=tagline, whole=True, aspect=brief.aspect)
+    blocks = []
+    if rec is not None:
+        blocks.append(recipes.detail(rec, seconds=brief.seconds, product=product, name=name, cta=cta,
+                                     tagline=tagline, available=set(catalog.scenes()) | catalog.transitions()))
+    styles = {str(a.get("style") or "") for a in treatment.get("acts") or [] if isinstance(a, dict)}
+    for other in recipes.exemplars():
+        if product and other.physical == physical and other.kits() & styles and (rec is None or other.recipe != rec.id):
+            blocks.append(recipes.exemplar_text(other, seconds=brief.seconds, product=product, name=name, cta=cta,
+                                                tagline=tagline, whole=False, aspect=brief.aspect))
+            break
+    return "\n\n".join(blocks)
 
 
 # ------------------------------------------------------------------------------------ scene code
@@ -311,7 +331,6 @@ SELF-CHECK BEFORE ANSWERING
 - The product media is drawn from ctx.asset(<param value>) and is the hero when the spec says so.
 - All readable text goes through ctx.text inside ctx.safe; every pixel is painted every frame.
 - Params with defaults make the scene render sensibly even if a param is missing."""
-
 
 def scene_prompt(brief: Brief, catalog: Catalog, spec: dict[str, Any], shots: list[dict[str, Any]],
                  plan_shots: dict[str, dict[str, Any]]) -> tuple[str, str]:

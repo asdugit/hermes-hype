@@ -16,6 +16,7 @@ custom scene. ``--slots`` holds one of the dev machine's render slot files aroun
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import json
 import sys
 import time
@@ -86,6 +87,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--notes", default="")
     ap.add_argument("--render", default="", help="render the result (1080p + audio) to this MP4")
     ap.add_argument("--render-only", default="", help="job dir whose page to render (no model calls)")
+    ap.add_argument("--rounds", type=int, default=0, help="override the effort's critique rounds (1 = critique only)")
     args = ap.parse_args(argv)
 
     lock = (lambda: render_slot(Path(args.slots), who="w3-director")) if args.slots else None
@@ -121,12 +123,21 @@ def main(argv: list[str] | None = None) -> int:
         from .engine import Version, _finish, _produce
         cat = build_catalog(library_dir=lib, assets=assets, capabilities=brief.capabilities)
         r = _setup(brief, llm, renderer, args.effort, _print, None, job, lib, cat)
+        if args.rounds:
+            r.budget = dataclasses.replace(r.budget, rounds=args.rounds)
         r.dispatch = dispatch
         r.treatment = json.loads(Path(args.treatment).read_text(encoding="utf-8")) if args.treatment else {}
         r.save("treatment.json", r.treatment)
         fd = Path(args.film)
-        v1 = Version(1, json.loads((fd / "film.json").read_text(encoding="utf-8")),
-                     json.loads((fd / "plan.json").read_text(encoding="utf-8")))
+        from .checks import check_film
+        chk = check_film({"film": json.loads((fd / "film.json").read_text(encoding="utf-8")),
+                          "plan": json.loads((fd / "plan.json").read_text(encoding="utf-8"))},
+                         brief, cat, max_custom=r.budget.max_custom)
+        for w in chk.errors + chk.warnings:
+            print(f"  ! [film] {w}")
+        if chk.value is None:
+            return 1
+        v1 = Version(1, *chk.value)
         return _done(_finish(r, _produce(r, first=v1), True, t0), job, t0, args)
     if args.until == "all":
         res = run(brief, llm=llm, renderer=renderer, effort=args.effort, progress=_print, job_dir=job,

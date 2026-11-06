@@ -6,6 +6,7 @@ import copy
 import io
 import itertools
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -337,3 +338,29 @@ def test_cropped_product_is_reported() -> None:
     lines = pm.facts(pm.summarise(ms), {"shots": [{"id": "hero"}, {"id": "ui"}]}, ms)
     assert any("off the frame edge in hero (top, 1 frame(s))" in ln for ln in lines)
     assert not any("ui (" in ln for ln in lines)
+
+
+def test_proven_film_is_adapted_to_the_brief() -> None:
+    ex = recipes.exemplar_for("boss-battle", aspect="16:9", physical=True)
+    assert ex is not None and {"pixel", "nature"} <= ex.kits()
+    fitted = recipes.adapt(ex, seconds=30.0, product="bottle", name="Fizz", cta="Grab one", tagline="Pop.")
+    film = fitted["film"]
+    assert film["dur"] == 30.0 and film["shots"][-1]["t1"] == pytest.approx(30.0, abs=0.05)
+    boss = next(s for s in film["shots"] if s["id"] == "boss")
+    assert boss["params"]["boss_media"] == "bottle" and boss["params"]["boss_name"] == "FIZZ"
+    assert not re.search(r"\{[A-Za-z]+\}", json.dumps(film))           # every placeholder filled
+    assert "res" not in recipes.adapt(ex, seconds=30.0, product="b", name="F", aspect="9:16")["film"]["shots"][0]
+    beds = [m for m in film["music"] if "bed" in m]
+    assert beds[-1]["t1"] == pytest.approx(30.0, abs=0.05)
+    assert "PROVEN FILM available (boss-to-meadow" in recipes.overview(physical=True)
+    assert "PROVEN FILM" not in recipes.overview(physical=False)
+
+
+def test_film_prompt_adapts_the_proven_film(env: dict[str, Any]) -> None:
+    from showreel_core.director import prompts
+    _instr, text = prompts.film_prompt(env["brief"], env["catalog"], dict(TREATMENT, recipe="boss-battle"),
+                                       max_custom=2)
+    assert "ADAPT THIS FILM" in text and '"variant": "hero-a"' in text
+    _instr, text = prompts.film_prompt(env["brief"], env["catalog"], dict(TREATMENT, recipe="race-chase"),
+                                       max_custom=2)
+    assert "Chosen recipe: `race-chase`" in text and "BORROW FROM THIS FILM" in text

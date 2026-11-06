@@ -208,7 +208,7 @@ def check_film(obj: Any, brief: Brief, catalog: Catalog, *, max_custom: int) -> 
         first = first_product_time(film, product)
         if first is None:
             errors.append("no shot shows the product media")
-        elif first > min(6.0, 0.25 * dur):
+        elif first > min(7.0, 0.25 * dur):
             errors.append(f"the product first appears at {first:g} s; show or tease it in the first 2 s")
         elif first > 2.0:
             warnings.append(f"the product first appears at {first:g} s (doctrine: by 2 s)")

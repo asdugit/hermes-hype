@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 
@@ -346,14 +347,23 @@ def suggest(direction: str, *, physical: bool) -> list[str]:
     return [rid for s, rid in sorted(scored, key=lambda x: -x[0]) if s > 0][:3]
 
 
-def overview() -> str:
-    """One paragraph per recipe for the treatment step."""
+def overview(*, physical: bool | None = None) -> str:
+    """One paragraph per recipe for the treatment step (recipes with a proven film for this product type marked)."""
     lines = ["## Narrative recipes (proven structures; pick the one that fits and ADAPT it, or say `custom`)"]
+    proven = {e.recipe: e for e in exemplars() if physical is None or e.physical == physical}
     for r in RECIPES:
         scenes = ", ".join(dict.fromkeys(s.scene for s in r.shots))
+        ex = proven.get(r.id)
+        star = (f" **PROVEN FILM available ({ex.id}{f', critic {ex.critic:.1f}/10' if ex.critic else ''}): "
+                f"choosing this recipe starts the film from a hand-polished, critic-tested film.**" if ex else "")
         lines.append(f"- `{r.id}` - **{r.name}**: {r.arc}. Fits: {r.fits}. Turn at {r.turn:.0%}. "
                      f"Voice: {r.voice.split(':')[0]}. Built from: {scenes}."
-                     + (f" Needs: {r.custom_gap}." if r.custom_gap else ""))
+                     + (f" Needs: {r.custom_gap}." if r.custom_gap else "") + star)
+    if proven:
+        lines.append("A recipe with a PROVEN FILM gives the highest craft the kits reach today. When it fits the "
+                     "direction, prefer it and make the film bespoke through its story, words, worlds and colours; "
+                     "pick another structure only when the direction clearly asks for one. If you do, acts that use "
+                     "the proven film's kits still reuse its shots.")
     return "\n".join(lines)
 
 
@@ -411,3 +421,105 @@ def detail(recipe: Recipe, *, seconds: float, product: str, name: str, cta: str 
             + "Starting film (laid out on this film's length; keep its kit scenes and selling params, adapt timing,"
               " text and params to the treatment, fill every <...>):\n```json\n"
             + json.dumps(tpl, indent=1, ensure_ascii=False) + "\n```")
+
+
+# ------------------------------------------------------------------------------------ proven films (exemplars)
+#
+# A recipe tells the model the STRUCTURE; an exemplar is a whole film.json that was polished by hand over several
+# preview rounds and scored by the same vision critic. It is the highest craft the kits reach today: the film step
+# adapts it (names, text, worlds) instead of inventing camera moves, flyer depths and lockup layouts from scratch.
+
+EXEMPLAR_DIR = Path(__file__).with_name("exemplars")
+_TIME_KEYS = ("t", "t0", "t1")
+
+
+@dataclass(frozen=True)
+class Exemplar:
+    id: str
+    recipe: str
+    aspect: str
+    seconds: float
+    source: str
+    fits: str
+    why: tuple[str, ...]
+    film: dict[str, Any]
+    plan: dict[str, Any]
+    critic: float | None = None          # mean rubric score the Director's critic gave it (None = not measured)
+    physical: bool = True                # made for a physical product video/cutout
+
+    def kits(self) -> set[str]:
+        return {str(s.get("scene", "")).split("/")[0].removeprefix("kit:") for s in self.film.get("shots") or []
+                if str(s.get("scene", "")).startswith("kit:")}
+
+
+def exemplars() -> list[Exemplar]:
+    out = []
+    for p in sorted(EXEMPLAR_DIR.glob("*.json")):
+        try:
+            d = json.loads(p.read_text(encoding="utf-8"))
+            out.append(Exemplar(d["id"], d["recipe"], d.get("aspect", "16:9"), float(d["seconds"]),
+                                d.get("source", ""), d.get("fits", ""), tuple(d.get("why") or ()), d["film"],
+                                d.get("plan") or {}, d.get("critic"), bool(d.get("physical", True))))
+        except (OSError, ValueError, KeyError, TypeError):
+            continue
+    return out
+
+
+def exemplar_for(recipe_id: str, *, aspect: str = "16:9", physical: bool = True) -> Exemplar | None:
+    """The proven film for a recipe (same aspect preferred; physical/screen products must match)."""
+    cands = [e for e in exemplars() if e.recipe == recipe_id and e.physical == physical]
+    cands.sort(key=lambda e: (e.aspect != aspect, -(e.critic or 0)))
+    return cands[0] if cands else None
+
+
+def _scale_times(obj: Any, k: float, key: str = "") -> Any:
+    if isinstance(obj, dict):
+        out = {}
+        for kk, v in obj.items():
+            if kk in _TIME_KEYS and isinstance(v, (int, float)) and not isinstance(v, bool):
+                out[kk] = round(v * k, 2)
+            elif kk == "timings" and isinstance(v, dict):
+                out[kk] = {a: round(b * k, 2) if isinstance(b, (int, float)) else b for a, b in v.items()}
+            else:
+                out[kk] = _scale_times(v, k, kk)
+        return out
+    if isinstance(obj, list):
+        if key == "rack":
+            return [[round(x[0] * k, 2), *x[1:]] if isinstance(x, list) and x else x for x in obj]
+        return [_scale_times(v, k) for v in obj]
+    return obj
+
+
+def adapt(ex: Exemplar, *, seconds: float, product: str, name: str, cta: str = "", tagline: str = "",
+          aspect: str = "") -> dict[str, Any]:
+    """The exemplar's film + plan on this film's length with this product (placeholders filled)."""
+    values = {"product": product or "<product asset>", "name": name or "<product name>",
+              "NAME": (name or "<PRODUCT NAME>").upper()[:14], "cta": cta or "<call to action>",
+              "tagline": tagline or "<one-line benefit>"}
+    film = _fill(ex.film, values)
+    k = seconds / ex.seconds if ex.seconds else 1.0
+    if abs(k - 1.0) > 0.02:
+        film = _scale_times(film, k)
+    film["dur"] = round(seconds, 2)
+    if aspect and aspect != ex.aspect:                  # shot render sizes belong to the exemplar's aspect
+        for s in film.get("shots") or []:
+            s.pop("res", None)
+    return {"film": film, "plan": _fill(ex.plan, values)}
+
+
+def exemplar_text(ex: Exemplar, *, seconds: float, product: str, name: str, cta: str = "", tagline: str = "",
+                  whole: bool = True, aspect: str = "") -> str:
+    """Prompt block: the proven film to adapt (``whole``) or to borrow proven shots from."""
+    fitted = adapt(ex, seconds=seconds, product=product, name=name, cta=cta, tagline=tagline, aspect=aspect)
+    score = f"the critic scored it {ex.critic:.1f}/10 - " if ex.critic else ""
+    head = (f"## PROVEN FILM `{ex.id}` ({score}{ex.source})\n"
+            + ("ADAPT THIS FILM. It is the highest craft the kits reach: its camera moves, flyer depths/sizes/paths, "
+               "timings, transitions, lockup layout and music cue sheet were tuned by eye over many preview rounds. "
+               "Keep its shots, kit scenes and params unless the treatment explicitly needs something else; change "
+               "names, on-screen text, colours/time of day and the acts the treatment rewrites. Every change you make "
+               "must be an improvement you can name. Do not add custom scenes unless the treatment's signature moment "
+               "cannot be told with these shots.\n" if whole else
+               "BORROW FROM THIS FILM: for every act of your film that uses the same kit, start from its shots "
+               "(scene + params, verbatim where they fit) instead of inventing params - they are proven on screen.\n")
+            + "Why it works:\n" + "\n".join(f"- {w}" for w in ex.why))
+    return head + "\n```json\n" + json.dumps(fitted, indent=1, ensure_ascii=False) + "\n```"
