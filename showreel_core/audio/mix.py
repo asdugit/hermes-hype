@@ -15,7 +15,7 @@ from __future__ import annotations
 import json
 import re
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 from collections.abc import Sequence
@@ -50,6 +50,19 @@ class MixSettings:
     hero_release_s: float = 0.25
     voice_rms_db: float = -20.0            # level the TTS clips were normalised to
     captions_only_music_lu: float = -0.5   # music alone sits this far under the target before loudnorm
+
+
+#: Bed families whose speech band is dense (pulse leads, string/choir pads): a deeper mid-band duck keeps the
+#: speech-band SNR in the 12-16 dB aim (measured: pixel_boss_a 9.7 -> 12.2 dB, dream under narration
+#: 9.3 -> 12.1 dB at 12 dB instead of 9 dB).
+DUCK_MID_DB_BY_FAMILY = {"pixel": 12.0, "pixel_boss": 12.0, "dream": 12.0}
+
+
+def settings_for_families(families: Sequence[str], base: MixSettings | None = None) -> MixSettings:
+    """``base`` (default settings) with the deepest mid-band duck any of the bed ``families`` under speech needs."""
+    s = replace(base) if base else MixSettings()
+    s.duck_mid_db = max([s.duck_mid_db] + [DUCK_MID_DB_BY_FAMILY.get(f, 0.0) for f in families])
+    return s
 
 
 @dataclass
