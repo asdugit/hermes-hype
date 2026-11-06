@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from . import recipes
 from .catalog import Catalog
 from .types import RUBRIC_KEYS, SCORE_BAR, Brief
 
@@ -33,7 +34,13 @@ DIRECTOR'S DOCTRINE (non-negotiable; the engine checks these and the critic scor
 10. Craft over quantity: fewer elements, better made. Real depth (layers, parallax, atmosphere, light), real animation
    (anticipation, follow-through, easing, secondary motion, readable holds), one coherent palette per world.
 11. Truth: never invent product facts, specs, prices or numbers. Claims come only from the brief; otherwise sell with
-   images, emotion and benefit language that implies no specific fact."""
+   images, emotion and benefit language that implies no specific fact.
+12. Kit first. Kit scenes are polished and production-tested; a first-draft custom scene looks like stock. Build the
+   film from kit scenes and their proven recipes, tuned through params. Write a custom scene only for a genuine gap
+   (no kit scene can show it), and compose it from kit building blocks (ctx.kit(...)) instead of drawing from scratch.
+13. The product reads as the hero: in product shots it spans >= 35 % of the frame width at least once and is never a
+   speck. The engine MEASURES the product's on-screen size in every keyframe and sends small or missing products
+   back."""
 
 
 # ------------------------------------------------------------------------------------ schemas
@@ -56,6 +63,7 @@ _FREE = {"type": "object"}
 
 TREATMENT_SCHEMA = _obj({
     "title": _S, "logline": _S, "audience": _S, "selling_point": _S,
+    "recipe": _S,
     "requirements": _arr(_obj({"text": _S, "how": _S}, ["text", "how"])),
     "signature_moment": _S,
     "hook": _obj({"t": _N, "what": _S}, ["t", "what"]),
@@ -65,37 +73,52 @@ TREATMENT_SCHEMA = _obj({
     "transitions": _arr(_obj({"from_act": _S, "to_act": _S, "idea": _S, "motivation": _S})),
     "music_plan": _arr(_obj({"bed": _S, "from_s": _N, "to_s": _N, "why": _S})),
     "stings": _arr(_obj({"sting": _S, "t": _N, "why": _S})),
+    "voice": _obj({"mode": _S, "tone": _S}),
     "asset_plan": _arr(_obj({"asset": _S, "use": _S})),
     "payoff": _S, "cta": _S,
     "risks": _arr(_S),
-}, ["logline", "selling_point", "requirements", "hook", "acts", "music_plan", "asset_plan", "payoff", "cta"])
+}, ["logline", "selling_point", "recipe", "requirements", "hook", "acts", "music_plan", "asset_plan", "payoff",
+    "cta"])
 
 _SHOT = _obj({"id": _S, "t0": _N, "t1": _N, "scene": _S, "res": {"type": ["array", "null"], "items": _N},
               "params": _FREE, "z": _N, "upscale": _S}, ["id", "t0", "t1", "scene", "params"])
+_LISTS = {
+    "transitions": _arr(_obj({"from": _S, "to": _S, "type": _S, "t": _N, "dur": _N, "params": _FREE},
+                             ["from", "to", "type", "t", "dur"])),
+    "overlays": _arr(_obj({"id": _S, "t0": _N, "t1": _N, "scene": _S, "params": _FREE}, ["id", "t0", "t1", "scene"])),
+    "cues": _arr(_obj({"t": _N, "sfx": _S, "gain_db": _N}, ["t", "sfx"])),
+    "music": _arr(_obj({"bed": _S, "t0": _N, "t1": _N, "sting": _S, "t": _N})),
+    "captions": _arr(_obj({"t0": _N, "t1": _N, "text": _S}, ["t0", "t1", "text"])),
+}
 FILM_DOC_SCHEMA = _obj({
     "version": _N, "fps": _N, "size": _arr(_N), "dur": _N, "seed": _N, "title": _S, "background": _S,
     "assets": _FREE,
     "shots": _arr(_SHOT),
-    "transitions": _arr(_obj({"from": _S, "to": _S, "type": _S, "t": _N, "dur": _N, "params": _FREE},
-                             ["from", "to", "type", "t", "dur"])),
-    "overlays": _arr(_obj({"id": _S, "t0": _N, "t1": _N, "scene": _S, "params": _FREE}, ["id", "t0", "t1", "scene"])),
+    **_LISTS,
     "finish": _FREE,
-    "cues": _arr(_obj({"t": _N, "sfx": _S, "gain_db": _N}, ["t", "sfx"])),
-    "music": _arr(_obj({"bed": _S, "t0": _N, "t1": _N, "sting": _S, "t": _N})),
-    "captions": _arr(_obj({"t0": _N, "t1": _N, "text": _S}, ["t0", "t1", "text"])),
 }, ["dur", "shots", "music"])
-PLAN_SCHEMA = _obj({
-    "shots": _arr(_obj({"id": _S, "intent": _S, "product_visible": _B,
-                        "beats": _arr(_obj({"t": _N, "what": _S}))}, ["id", "intent", "product_visible"])),
-    "custom_scenes": _arr(_obj({"name": _S, "layer": _S, "describe": _S, "spec": _S, "params": _FREE,
-                                "kits": _arr(_S), "fallback": _S}, ["name", "layer", "describe", "spec", "params"])),
-})
+_PLAN_SHOT = _obj({"id": _S, "intent": _S, "product_visible": _B, "beats": _arr(_obj({"t": _N, "what": _S}))},
+                  ["id", "intent", "product_visible"])
+_CUSTOM = _obj({"name": _S, "layer": _S, "describe": _S, "spec": _S, "params": _FREE, "kits": _arr(_S),
+                "fallback": _S}, ["name", "layer", "describe", "spec", "params"])
+_VOICE = _arr(_obj({"t": _N, "text": _S}, ["t", "text"]))
+PLAN_SCHEMA = _obj({"shots": _arr(_PLAN_SHOT), "custom_scenes": _arr(_CUSTOM), "voiceover": _VOICE})
 FILM_SCHEMA = _obj({"film": FILM_DOC_SCHEMA, "plan": PLAN_SCHEMA}, ["film", "plan"])
 REVISE_FILM_SCHEMA = _obj({"film": FILM_DOC_SCHEMA, "plan": PLAN_SCHEMA, "changes": _arr(_S),
                            "scene_notes": _arr(_obj({"name": _S, "notes": _S}, ["name", "notes"]))},
                           ["film", "plan", "changes"])
+REVISE_PATCH_SCHEMA = _obj({
+    "changes": _arr(_S),
+    "shots": _arr(_obj({"id": _S, "t0": _N, "t1": _N, "scene": _S, "res": {"type": ["array", "null"], "items": _N},
+                        "params": _FREE, "params_replace": _FREE, "remove": _B}, ["id"])),
+    **_LISTS,
+    "finish": _FREE, "title": _S,
+    "plan_shots": _arr(_PLAN_SHOT), "custom_scenes": _arr(_CUSTOM), "voiceover": _VOICE,
+    "scene_notes": _arr(_obj({"name": _S, "notes": _S}, ["name", "notes"])),
+}, ["changes"])
 CRITIC_SCHEMA = _obj({
     "scores": _obj({k: _N for k in RUBRIC_KEYS}, list(RUBRIC_KEYS)),
+    "shots": _arr(_obj({"id": _S, "score": _N, "note": _S}, ["id", "score"])),
     "frames": _arr(_obj({"cell": _N, "product_visible": _B, "product_size": _N, "note": _S},
                         ["cell", "product_visible", "product_size"])),
     "requirements": _arr(_obj({"text": _S, "met": _B, "note": _S}, ["text", "met"])),
@@ -103,7 +126,7 @@ CRITIC_SCHEMA = _obj({
                                  ["shot", "target", "severity", "issue", "fix"])),
     "strengths": _arr(_S),
     "verdict": _S,
-}, ["scores", "frames", "per_shot_issues", "verdict"])
+}, ["scores", "shots", "per_shot_issues", "verdict"])
 
 
 # ------------------------------------------------------------------------------------ helpers
@@ -176,18 +199,30 @@ HOW TO WORK
 - Choose worlds the engine can make beautiful. Kit scenes are polished, production-tested and look better than a
   first-draft custom scene: when a kit scene (or a library scene) expresses an idea of yours, build that part of
   the film from it and tune it through its params. Spend custom scenes on what only this film needs (the
-  signature moment, a world no kit offers), at most 2-3 of them.
+  signature moment, a world no kit offers), at most 1-2 of them, and only where no kit scene fits.
+- Pick the narrative recipe that fits the direction best (`recipe`: its id, or `custom` when none fits) and adapt
+  it: recipes are proven structures (pacing, turn, music, product role per act) laid out on kit scenes. Adapting
+  means changing worlds, words, timing and params to this direction, not throwing the structure away.
 - Plan the music: one bed per act (ids from the catalog only), with the turn landing on a bar line, plus stings.
+- Plan the voice (`voice.mode`: `none` | `sparse` (2-4 short lines) | `narrated` (a narrator carries the film);
+  `voice.tone`: who speaks and how). Narrate when the direction implies a narrator (documentary, story, explainer);
+  stay silent when the pictures and in-world text carry it (games, music-video energy).
 - Plan every product asset's use. The product media is real footage/images: show it, frame it, light it; you may
-  stylise it (pixelate, paint over, put it in a world) but it must stay recognisable.
+  stylise it (pixelate, paint over, put it in a world) but it must stay recognisable and LARGE.
 - Name the risks (what could look cheap) and how to avoid them.
 - Be specific and visual. "Epic battle" is useless; "the boss winds up for 0.6 s, a curved blade flies left, the
   knight is knocked back 12 px with a red flash and a floating -42" is useful.
 
 Reply with one JSON object matching the schema."""
-    parts = [_direction_block(brief), _product_text(brief), _film_frame(brief), catalog.overview(),
-             _digest_block(brief)]
+    parts = [_direction_block(brief), _product_text(brief), _film_frame(brief), recipes.overview(),
+             _recipe_hint(brief), catalog.overview(), catalog.recipes_text(budget=6000), _digest_block(brief)]
     return instructions, "\n\n".join(p for p in parts if p)
+
+
+def _recipe_hint(brief: Brief) -> str:
+    physical = any(a.type == "video" for a in brief.assets if a.product)
+    ids = recipes.suggest(brief.direction, physical=physical)
+    return f"Recipes whose words match this direction: {', '.join(ids)}" if ids else ""
 
 
 # ------------------------------------------------------------------------------------ film
@@ -218,26 +253,52 @@ FILM.JSON RULES (validated by code; violations are sent back to you)
 - Cues: sound effects on visible actions only (hits, clicks, bursts, whooshes), ids from the SFX list; one hero
   impact per film.
 - Captions: optional, few, <= 8 words, 1.5-3.5 s each, never two at once. Overlays: end on the product name and the
-  CTA (e.g. a `kit:type/...` title overlay) for the last 3-5 s.
+  CTA (e.g. a `kit:type/...` title overlay) for the last 3-5 s; never put an end card over the product itself
+  (use the scene's `title` param / reserved area, or a lockup with a scrim).
 - Do not set `assets`, `size`, `fps`, `seed`, `version`: the engine fills them.
+
+PRODUCT SIZE (the engine measures it in every keyframe; < 25 % of the frame width = too small, the target is 35 %+)
+- Pass the product asset to every product shot's media param (`product`, `boss_media`, `media`, `image`, `hero`...).
+- Nature flyers are sized in metres at a depth in metres; the camera sees ~1.09 x depth metres across (16:9). A
+  flyer reads as the hero only near the camera: e.g. `{{"path": "hero"}}` (6.4 m at 16 m = 37 %), `descend` 5.4 m at
+  20 m = 25 %, `float` 6 m at 36 m = 15 %, `rise`/`arc` at 70-90 m = specks. In a product shot give the lead flyer
+  `size` >= 9 at d <= 24 (or path `hero`), keep 1-2 smaller ones behind it for depth; never 4+ default specks.
+- If a kit scene declares `product_scale`, use >= 1.2 in product shots.
 
 PLAN RULES
 - plan.shots: one entry per shot: `intent` (what the viewer must see and feel, one sentence), `product_visible`
   (true only if the product media is clearly on screen for most of the shot), `beats` (shot-local times).
   At least 60 % of the runtime must be product-visible shots, and the product must appear by 2 s or be teased then.
-- plan.custom_scenes: for each custom scene: `name` (slug), `layer` ('2d' for pixel art and painterly 2D, 'three'
-  only when real 3D is essential), `describe` (one line), `params` (name -> {{type, default, doc}}; asset params have
-  type 'asset'), `kits` (kit building blocks it should reuse, by kit name), `fallback` (the closest kit scene id, used
-  if the code fails), and `spec`: a precise, self-contained animation brief: surface size, palette hexes, layers
-  back to front, where the product sits in frame and how big, every beat with shot-local start/end times and easing,
-  exact on-screen text strings, sound cue times, and the quality bar (what would make it look cheap and must be
-  avoided). The animator has not read the treatment: put everything they need in the spec.
+- plan.voiceover (only when the treatment's voice mode is not `none`): narration lines [{{t, text}}] at absolute
+  seconds, in the treatment's tone. Budget: <= 2.4 words per second of the gap until the next line (or the end);
+  never two lines at once; leave >= 0.4 s of air between lines; the first line not before 0.5 s. Each line is a
+  complete sentence (lines are never cut). Narration and on-screen text must not say the same thing.
+- plan.custom_scenes (only for genuine gaps): for each custom scene: `name` (slug), `layer` ('2d' for pixel art and
+  painterly 2D, 'three' only when real 3D is essential), `describe` (one line), `params` (name -> {{type, default,
+  doc}}; asset params have type 'asset'), `kits` (kit building blocks it MUST reuse, by kit name), `fallback` (the
+  closest kit scene id, used if the code fails), and `spec`: a precise, self-contained animation brief: surface size,
+  palette hexes, layers back to front (name the kit blocks that draw them), where the product sits in frame and how
+  big, every beat with shot-local start/end times and easing, exact on-screen text strings, sound cue times, and the
+  quality bar (what would make it look cheap and must be avoided). The animator has not read the treatment: put
+  everything they need in the spec.
 
 Reply with one JSON object: {{"film": {{...}}, "plan": {{...}}}}."""
     parts = [_direction_block(brief), _product_text(brief), _film_frame(brief),
-             "## Approved treatment\n" + _json(treatment), _bar_hint(catalog), catalog.full(),
-             "## Scene SDK reference\n" + catalog.sdk]
+             "## Approved treatment\n" + _json(treatment), recipe_block(brief, catalog, treatment),
+             _bar_hint(catalog), catalog.full(), catalog.recipes_text(), "## Scene SDK reference\n" + catalog.sdk]
     return instructions, "\n\n".join(p for p in parts if p)
+
+
+def recipe_block(brief: Brief, catalog: Catalog, treatment: dict[str, Any]) -> str:
+    """The treatment's recipe laid out on this film (empty when the treatment chose `custom`)."""
+    rec = recipes.get(str(treatment.get("recipe") or ""))
+    if rec is None:
+        return ""
+    product = next((a.name for a in brief.assets if a.product), "")
+    name = (brief.product.name if brief.product and brief.product.name else str(treatment.get("title") or ""))
+    tagline = brief.product.one_liner if brief.product and brief.product.one_liner else ""
+    return recipes.detail(rec, seconds=brief.seconds, product=product, name=name, cta=str(treatment.get("cta") or ""),
+                          tagline=tagline, available=set(catalog.scenes()) | catalog.transitions())
 
 
 # ------------------------------------------------------------------------------------ scene code
@@ -263,6 +324,10 @@ def scene_prompt(brief: Brief, catalog: Catalog, spec: dict[str, Any], shots: li
 You are a senior creative coder and motion designer (demoscene precision, feature-animation taste). Write ONE scene
 module for Showreel's runtime, exactly to the spec. The scene is rendered frame by frame, out of order, at the shot's
 surface size, then composited into the film. It must look finished: this is a commercial, not a prototype.
+
+Compose it from the kit building blocks listed below (ctx.kit('<kit>').<block>): worlds, skies, sprites, product
+presentation, UI, type and motion helpers there are polished and production-tested, and they keep this shot in the
+same visual language as the kit shots around it. Draw by hand only what no block provides.
 
 Scene id: `{sid}`
 
@@ -338,6 +403,54 @@ Reply with the complete revised JavaScript file in ONE ```js fenced block and no
     return instructions, "\n\n".join(parts)
 
 
+PATCH_FORMAT = """\
+OUTPUT FORMAT: edit blocks only (no full file). Each block replaces one exact, unique run of lines:
+<<<<<<< SEARCH
+(lines copied EXACTLY from the current code: enough lines to be unique, usually 2-12)
+=======
+(the new lines)
+>>>>>>> REPLACE
+Use as many blocks as the fixes need, in file order. Change nothing else: every line you do not touch stays
+byte-identical (that is the point: no regressions). A one-line sentence before the blocks may say what you changed."""
+
+
+def scene_patch_prompt(brief: Brief, catalog: Catalog, spec: dict[str, Any], code: str, *,
+                       issues: list[dict[str, Any]] | None = None, errors: list[str] | None = None, notes: str = "",
+                       keep: list[str] | None = None, cells: list[str] | None = None,
+                       failures: list[str] | None = None) -> tuple[str, str]:
+    """Targeted scene edits (search/replace blocks) for review fixes or runtime/lint errors."""
+    sid = f"custom:{spec.get('name')}"
+    seen = ("" if not cells else
+            " The attached contact sheet(s) show what the current code renders; this scene is in cells "
+            + ", ".join(cells) + ". Look at them before changing anything.")
+    job = ("fix the errors below at their root cause" if errors else
+           "apply each review fix below precisely and visibly")
+    instructions = f"""\
+You are a senior creative coder making SURGICAL edits to a Showreel scene module (`{sid}`):{' ' + job}.{seen}
+Keep everything the review did not criticise; regressions are worse than an unfixed polish issue. Prefer kit
+building blocks (ctx.kit(...)) over hand-drawn code when a fix needs new drawing.
+
+{_SCENE_SELF_CHECK}
+
+{PATCH_FORMAT}"""
+    parts = []
+    if errors:
+        parts.append("## Errors (from lint and from rendering the scene)\n" + "\n".join(f"- {e}" for e in errors))
+    if issues:
+        parts.append("## Review: issues and fixes for this scene\n" + _json(issues))
+    if keep:
+        parts.append("## What already works (keep it)\n" + "\n".join(f"- {k}" for k in keep))
+    if notes.strip():
+        parts.append("## Director's notes for this scene\n" + notes.strip())
+    if failures:
+        parts.append("## Your previous edit blocks did NOT apply (nothing was changed); fix them\n"
+                     + "\n".join(f"- {f}" for f in failures))
+    parts += ["## Current code\n```js\n" + code + "\n```", "## Scene spec\n" + _json(spec), catalog.assets_text(),
+              "## Kit building blocks\n" + catalog.kit_docs([str(k) for k in spec.get("kits") or []], budget=6000),
+              "## Scene SDK reference\n" + catalog.sdk]
+    return instructions, "\n\n".join(parts)
+
+
 # ------------------------------------------------------------------------------------ critic
 
 RUBRIC_TEXT = """\
@@ -366,13 +479,16 @@ design you know. Be specific, be harsh where it is deserved, and never praise to
 {RUBRIC_TEXT}
 
 ALSO
-- frames: for every cell say whether the product (the real product media, recognisable) is visible, and
-  `product_size`: the share of the frame WIDTH it spans (0.0-1.0; 0 when not visible). Measure, do not guess.
+- shots: one entry per shot id with `score` (1-10: how well THAT shot is crafted and sells, judged on its cells;
+  the engine keeps the best version of every shot across revisions, so score shots independently and honestly).
+- frames (optional): notes on single cells. The product's visibility and on-screen width are MEASURED by the engine
+  (pixel-exact, see the engine measurements); trust those numbers over your impression.
 - requirements: check every requirement of the user's direction (listed below) against the frames.
 - per_shot_issues: at most 8, most important first. Each names the shot id, a `target` ("scene" if fixing it needs
   the custom scene's drawing code changed, "film" if it is timing, params, captions, overlays, transitions, music or
   scene choice), a `severity` (3 = ruins the film, 2 = clearly hurts, 1 = polish), the `issue` as seen, and a
-  concrete `fix` an animator can implement (positions, sizes, colours, timings, what to add or remove).
+  concrete `fix` an animator can implement (positions, sizes, colours, timings, params, what to add or remove).
+  Kit scenes are fixed through their params (see each shot's params), never by asking for new drawing code.
 - verdict: "pass" only if every score is >= {SCORE_BAR:g} and nothing has severity 3; otherwise "revise".
 
 Reply with one JSON object matching the schema."""
@@ -392,6 +508,9 @@ Reply with one JSON object matching the schema."""
             f"- cell {f['cell']}: shot `{f['shot']}` at {f['t']:.2f}s (shot-local {f['local']:.2f}s of {f['dur']:.2f}s)"
             f"{' [transition ' + f['transition'] + ']' if f.get('transition') else ''}" for f in frame_index),
     ]
+    if plan.get("voiceover"):
+        parts.append("## Narration (spoken over the film, not on screen)\n" + "\n".join(
+            f"- {v.get('t')}s: {v.get('text')}" for v in plan["voiceover"] if isinstance(v, dict)))
     if checks:
         parts.append("## Engine measurements (facts)\n" + "\n".join(f"- {c}" for c in checks))
     return instructions, "\n\n".join(parts)
@@ -428,6 +547,57 @@ Reply with one JSON object: {{"film": {{...}}, "plan": {{...}}, "changes": [...]
     parts += ["## Current film.json\n" + _json(film), "## Current plan\n" + _json(plan),
               "## Treatment\n" + _json(treatment), _bar_hint(catalog), catalog.full(kit_budget=5000)]
     return instructions, "\n\n".join(parts)
+
+
+def revise_patch_prompt(brief: Brief, catalog: Catalog, treatment: dict[str, Any], film: dict[str, Any],
+                        plan: dict[str, Any], issues: list[dict[str, Any]], notes: str, *, max_custom: int,
+                        keep: list[str] | None = None, seen: bool = False, facts: list[str] | None = None
+                        ) -> tuple[str, str]:
+    """Film-level revision as a PATCH: only the shots/lists that change come back (untouched shots stay exact)."""
+    instructions = f"""\
+You are the Director of Showreel Studio revising your film after review. Fix what the review (and the user's
+notes, if any: they come first) asks for that can be fixed in film.json or the plan: timing, kit-scene params,
+scene choice, transitions, music, cues, captions, overlays, narration.{" The attached contact sheet(s) show the "
+"current render (cells are listed in the review)." if seen else ""}
+
+ANSWER WITH A PATCH, NOT A FILM. Return only what changes:
+- `shots`: one entry per shot you change, by `id`: `params` is DEEP-MERGED into the shot's params (a key set to
+  null is removed; lists are replaced whole), `params_replace` replaces them entirely, `t0`/`t1`/`scene`/`res`
+  overwrite; `{{"id": ..., "remove": true}}` deletes a shot; a new id with t0, t1, scene, params adds one. Shots stay
+  back to back and cover 0..dur: when you retime one shot, retime its neighbour too.
+- `transitions` | `overlays` | `captions` | `cues` | `music`: the FULL new list, only when that list changes.
+- `plan_shots` (changed intents), `custom_scenes` (changed/new specs, max {max_custom} custom scenes in the film),
+  `voiceover` (the full new narration list, only when it changes).
+- `scene_notes`: fixes that need a custom scene's drawing code changed, sharpened for the animator, by scene name.
+- `changes`: one line per change.
+Everything you do not mention stays exactly as it is: keep what works (regressions are worse than an unfixed polish
+issue). Kit scenes are fixed through their params (see the catalog); when the product reads small, raise its size
+params (see PRODUCT SIZE). Prefer replacing a weak custom scene by a kit scene over rewriting it.
+
+{DOCTRINE}
+
+Reply with one JSON object matching the schema."""
+    parts = [_direction_block(brief)]
+    if notes.strip():
+        parts.append("## The user's revision notes (highest priority, verbatim)\n" + notes.strip())
+    if issues:
+        parts.append("## Review issues and fixes\n" + _json(issues))
+    if facts:
+        parts.append("## Engine measurements (facts)\n" + "\n".join(f"- {f}" for f in facts))
+    if keep:
+        parts.append("## What already works (keep it)\n" + "\n".join(f"- {k}" for k in keep))
+    parts += ["## Current film.json\n" + _json(film), "## Current plan\n" + _json(plan),
+              "## Treatment\n" + _json(treatment), PRODUCT_SIZE_NOTE, _bar_hint(catalog),
+              catalog.full(kit_budget=5000)]
+    return instructions, "\n\n".join(parts)
+
+
+PRODUCT_SIZE_NOTE = """\
+## PRODUCT SIZE (measured by the engine; < 25 % of the frame width = too small, target 35 %+)
+- Nature flyers: metres at a depth in metres; the camera sees ~1.09 x depth metres across (16:9). `hero` path 6.4 m
+  at 16 m = 37 %; `descend` 5.4 m at 20 m = 25 %; `float` 6 m at 36 m = 15 %; `rise`/`arc` = specks. Make the lead
+  flyer `size` >= 9 at d <= 24 (or path `hero`); 1-2 smaller ones behind it for depth.
+- Kit scenes that declare `product_scale`: >= 1.2 in product shots."""
 
 
 def repair_text(previous: Any, errors: list[str]) -> str:
