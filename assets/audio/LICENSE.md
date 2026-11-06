@@ -9,6 +9,9 @@ audio** in these files: every sound is synthesized from oscillators, noise and f
   true peak ≤ −1.5 dBTP. `beds/<style>/bars.json` holds the bar map (bpm, sections, drop/end bars) used by
   the runtime bar-fitter (`showreel_core/audio/music.py`).
 - `sfx/*.ogg` + `sfx/sfx.json` — the SFX kit, loudness-normalised (−18 LUFS short-term max), with sync points.
+- The acoustic/band voices of the dream, pixel_boss, comic and ink beds (piano, strings, choir, glockenspiel,
+  harp, marimba, brass, slap bass, ukulele, pizzicato) are additive/subtractive/physical models in
+  `tools/compose/orchestra.py` — synthesized like everything else, no sampled instruments.
 
 Licence: same as the repository (see `LICENSE`), © the Showreel authors.
 

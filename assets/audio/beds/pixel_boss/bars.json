@@ -1,0 +1,194 @@
+{
+ "style": "pixel_boss",
+ "beds": [
+  {
+   "id": "pixel_boss_a",
+   "style": "pixel_boss",
+   "title": "Final Phase",
+   "file": "pixel_boss_a.ogg",
+   "sr": 48000,
+   "bpm": 160.0,
+   "beats_per_bar": 4,
+   "bar_s": 1.5,
+   "key": "A minor",
+   "total_bars": 35,
+   "tail_s": 3.0,
+   "duration_s": 55.5,
+   "drop_bar": 16,
+   "end_bar": 34,
+   "sections": [
+    {
+     "name": "intro",
+     "start_bar": 0,
+     "bars": 4,
+     "energy": 0.3
+    },
+    {
+     "name": "A",
+     "start_bar": 4,
+     "bars": 8,
+     "energy": 0.55
+    },
+    {
+     "name": "build",
+     "start_bar": 12,
+     "bars": 4,
+     "energy": 0.75
+    },
+    {
+     "name": "drop",
+     "start_bar": 16,
+     "bars": 8,
+     "energy": 1.0
+    },
+    {
+     "name": "B",
+     "start_bar": 24,
+     "bars": 8,
+     "energy": 0.8
+    },
+    {
+     "name": "outro",
+     "start_bar": 32,
+     "bars": 2,
+     "energy": 0.45
+    },
+    {
+     "name": "end",
+     "start_bar": 34,
+     "bars": 1,
+     "energy": 0.2
+    }
+   ],
+   "loop_unit_bars": 2,
+   "lufs": -16.0,
+   "true_peak_db": -2.42,
+   "phone_band": 0.702,
+   "lr_corr": 0.986,
+   "notes": "Boss battle chiptune: pedal-tone riff, Andalusian-descent drop theme, Neapolitan twist, chromatic bass run into the drop, bVI-bVII victory cadence to a Picardy A major fanfare.",
+   "family": "pixel_boss",
+   "mood": "tense",
+   "cadence_to": "C major",
+   "pairs_with": "dream_a",
+   "decoded_samples_match": true,
+   "bytes": 780576,
+   "bands": {
+    "sub": 0.022,
+    "bass": 0.206,
+    "presence": 0.02
+   },
+   "mono_fold_db": -0.04,
+   "section_lufs": {
+    "intro": -17.8,
+    "A": -16.4,
+    "build": -15.5,
+    "drop": -15.4,
+    "B": -16.2,
+    "outro": -15.8,
+    "end": -17.3
+   },
+   "lowshelf_db": 0.0,
+   "section_lift_db": {},
+   "render_s": {
+    "compose": 0.64,
+    "mix_master": 6.04,
+    "encode": 0.51
+   }
+  },
+  {
+   "id": "pixel_boss_b",
+   "style": "pixel_boss",
+   "title": "Last Stand",
+   "file": "pixel_boss_b.ogg",
+   "sr": 48000,
+   "bpm": 168.0,
+   "beats_per_bar": 4,
+   "bar_s": 1.428571,
+   "key": "E minor",
+   "total_bars": 35,
+   "tail_s": 3.0,
+   "duration_s": 53.0,
+   "drop_bar": 16,
+   "end_bar": 34,
+   "sections": [
+    {
+     "name": "intro",
+     "start_bar": 0,
+     "bars": 4,
+     "energy": 0.3
+    },
+    {
+     "name": "A",
+     "start_bar": 4,
+     "bars": 8,
+     "energy": 0.55
+    },
+    {
+     "name": "build",
+     "start_bar": 12,
+     "bars": 4,
+     "energy": 0.75
+    },
+    {
+     "name": "drop",
+     "start_bar": 16,
+     "bars": 8,
+     "energy": 1.0
+    },
+    {
+     "name": "B",
+     "start_bar": 24,
+     "bars": 8,
+     "energy": 0.8
+    },
+    {
+     "name": "outro",
+     "start_bar": 32,
+     "bars": 2,
+     "energy": 0.45
+    },
+    {
+     "name": "end",
+     "start_bar": 34,
+     "bars": 1,
+     "energy": 0.2
+    }
+   ],
+   "loop_unit_bars": 2,
+   "lufs": -16.0,
+   "true_peak_db": -2.92,
+   "phone_band": 0.529,
+   "lr_corr": 0.984,
+   "notes": "Galloping last-boss chiptune: heroic-minor loop, triplet-feel gallop bass, soaring drop theme with a raised-seventh climb, bVI-bVII victory cadence to a Picardy E major fanfare.",
+   "family": "pixel_boss",
+   "mood": "tense",
+   "cadence_to": "G major",
+   "pairs_with": "dream_b",
+   "decoded_samples_match": true,
+   "bytes": 738841,
+   "bands": {
+    "sub": 0.024,
+    "bass": 0.335,
+    "presence": 0.026
+   },
+   "mono_fold_db": -0.05,
+   "section_lufs": {
+    "intro": -18.6,
+    "A": -15.9,
+    "build": -15.7,
+    "drop": -15.6,
+    "B": -16.2,
+    "outro": -15.8,
+    "end": -17.9
+   },
+   "lowshelf_db": -2.0,
+   "section_lift_db": {},
+   "render_s": {
+    "compose": 0.6,
+    "mix_master": 6.43,
+    "encode": 0.51
+   }
+  }
+ ],
+ "generator": "tools/compose (procedural, original; regenerate with python -m tools.compose --all)"
+}

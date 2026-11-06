@@ -1,0 +1,194 @@
+{
+ "style": "ink",
+ "beds": [
+  {
+   "id": "ink_a",
+   "style": "ink",
+   "title": "Sketchbook",
+   "file": "ink_a.ogg",
+   "sr": 48000,
+   "bpm": 104.0,
+   "beats_per_bar": 4,
+   "bar_s": 2.307692,
+   "key": "G major",
+   "total_bars": 35,
+   "tail_s": 3.5,
+   "duration_s": 84.269,
+   "drop_bar": 16,
+   "end_bar": 34,
+   "sections": [
+    {
+     "name": "intro",
+     "start_bar": 0,
+     "bars": 4,
+     "energy": 0.3
+    },
+    {
+     "name": "A",
+     "start_bar": 4,
+     "bars": 8,
+     "energy": 0.55
+    },
+    {
+     "name": "build",
+     "start_bar": 12,
+     "bars": 4,
+     "energy": 0.75
+    },
+    {
+     "name": "drop",
+     "start_bar": 16,
+     "bars": 8,
+     "energy": 1.0
+    },
+    {
+     "name": "B",
+     "start_bar": 24,
+     "bars": 8,
+     "energy": 0.8
+    },
+    {
+     "name": "outro",
+     "start_bar": 32,
+     "bars": 2,
+     "energy": 0.45
+    },
+    {
+     "name": "end",
+     "start_bar": 34,
+     "bars": 1,
+     "energy": 0.2
+    }
+   ],
+   "loop_unit_bars": 2,
+   "lufs": -16.1,
+   "true_peak_db": -1.9,
+   "phone_band": 0.694,
+   "lr_corr": 0.939,
+   "notes": "Warm explainer bed: island-strum ukulele, marimba hook, pizzicato bass, kalimba in B, shaker, snaps and soft claps; friendly and unhurried.",
+   "family": "ink",
+   "mood": "warm",
+   "decoded_samples_match": true,
+   "bytes": 1306227,
+   "bands": {
+    "sub": 0.017,
+    "bass": 0.26,
+    "presence": 0.007
+   },
+   "mono_fold_db": -0.15,
+   "section_lufs": {
+    "intro": -19.7,
+    "A": -16.5,
+    "build": -20.0,
+    "drop": -14.3,
+    "B": -16.1,
+    "outro": -17.5,
+    "end": -13.5
+   },
+   "lowshelf_db": 0.0,
+   "section_lift_db": {
+    "intro": 1.07
+   },
+   "render_s": {
+    "compose": 21.47,
+    "mix_master": 21.59,
+    "encode": 1.96
+   }
+  },
+  {
+   "id": "ink_b",
+   "style": "ink",
+   "title": "Margin Notes",
+   "file": "ink_b.ogg",
+   "sr": 48000,
+   "bpm": 112.0,
+   "beats_per_bar": 4,
+   "bar_s": 2.142857,
+   "key": "D major",
+   "total_bars": 35,
+   "tail_s": 3.5,
+   "duration_s": 78.5,
+   "drop_bar": 16,
+   "end_bar": 34,
+   "sections": [
+    {
+     "name": "intro",
+     "start_bar": 0,
+     "bars": 4,
+     "energy": 0.3
+    },
+    {
+     "name": "A",
+     "start_bar": 4,
+     "bars": 8,
+     "energy": 0.55
+    },
+    {
+     "name": "build",
+     "start_bar": 12,
+     "bars": 4,
+     "energy": 0.75
+    },
+    {
+     "name": "drop",
+     "start_bar": 16,
+     "bars": 8,
+     "energy": 1.0
+    },
+    {
+     "name": "B",
+     "start_bar": 24,
+     "bars": 8,
+     "energy": 0.8
+    },
+    {
+     "name": "outro",
+     "start_bar": 32,
+     "bars": 2,
+     "energy": 0.45
+    },
+    {
+     "name": "end",
+     "start_bar": 34,
+     "bars": 1,
+     "energy": 0.2
+    }
+   ],
+   "loop_unit_bars": 2,
+   "lufs": -16.19,
+   "true_peak_db": -1.9,
+   "phone_band": 0.599,
+   "lr_corr": 0.941,
+   "notes": "Playful pizzicato explainer: staccato string ostinato, marimba tune, glockenspiel and kalimba sparkle, brushes, woodblock and claps; light on its feet.",
+   "family": "ink",
+   "mood": "warm",
+   "decoded_samples_match": true,
+   "bytes": 1207354,
+   "bands": {
+    "sub": 0.017,
+    "bass": 0.334,
+    "presence": 0.006
+   },
+   "mono_fold_db": -0.15,
+   "section_lufs": {
+    "intro": -19.4,
+    "A": -16.5,
+    "build": -19.7,
+    "drop": -14.0,
+    "B": -16.8,
+    "outro": -16.7,
+    "end": -13.9
+   },
+   "lowshelf_db": 0.0,
+   "section_lift_db": {
+    "intro": 0.98
+   },
+   "render_s": {
+    "compose": 19.5,
+    "mix_master": 27.23,
+    "encode": 2.17
+   }
+  }
+ ],
+ "generator": "tools/compose (procedural, original; regenerate with python -m tools.compose --all)"
+}

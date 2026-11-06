@@ -21,6 +21,8 @@ ASSETS = Path(__file__).resolve().parents[2] / "assets" / "audio"
 XFADE_S = 0.030
 PRE_S = 0.005
 MIN_RING_S = 1.2
+#: styles without beds of their own -> the bed family that fits them (before the launch fallback)
+STYLE_FALLBACK = {"nature": "dream", "newspaper": "ink"}
 
 
 @dataclass
@@ -39,6 +41,9 @@ class Bed:
     tail_s: float
     key: str = ""
     lufs: float = -16.0
+    family: str = ""              # bed family (= style folder unless bars.json says otherwise), e.g. "dream"
+    cadence_to: str = ""          # key the outro resolves into when another bed follows (e.g. "C major")
+    title: str = ""
 
     def section(self, name: str) -> tuple[int, int]:
         """(start_bar, bars) of a named section (0, 0 if absent)."""
@@ -95,19 +100,66 @@ def load_beds(style: str, assets: Path | None = None) -> list[Bed]:
         out.append(Bed(id=b["id"], style=b.get("style", style), path=root / b["file"], bpm=float(b["bpm"]),
                        beats_per_bar=int(b.get("beats_per_bar", 4)), bar_s=float(b["bar_s"]), sections=b["sections"],
                        drop_bar=int(b["drop_bar"]), end_bar=int(b["end_bar"]), total_bars=int(b["total_bars"]),
-                       tail_s=float(b.get("tail_s", 4.0)), key=b.get("key", ""), lufs=float(b.get("lufs") or -16.0)))
+                       tail_s=float(b.get("tail_s", 4.0)), key=b.get("key", ""), lufs=float(b.get("lufs") or -16.0),
+                       family=str(b.get("family") or style), cadence_to=str(b.get("cadence_to") or ""),
+                       title=str(b.get("title") or "")))
     return sorted(out, key=lambda b: b.id)
 
 
+def all_beds(assets: Path | None = None) -> list[Bed]:
+    """Every shipped bed across all ``beds/<folder>/bars.json`` (sorted by id)."""
+    root = (assets or ASSETS) / "beds"
+    if not root.is_dir():
+        return []
+    out: list[Bed] = []
+    for meta in sorted(root.glob("*/bars.json")):
+        try:
+            out += load_beds(meta.parent.name, assets)
+        except (OSError, ValueError, KeyError):
+            continue
+    return sorted(out, key=lambda b: b.id)
+
+
+def _same_key(a: str, b: str) -> bool:
+    return bool(a) and a.strip().lower() == b.strip().lower()
+
+
+def resolve_bed(ref: str, seed: int = 0, *, prefer_key: str | None = None, assets: Path | None = None) -> Bed | None:
+    """A bed by exact id (``dream_a``), or by family/style name (``dream``, ``pixel_boss``, ``nature``).
+
+    For a family, a variant in ``prefer_key`` wins (so a pixel_boss outro resolves into the dream bed in the key
+    it cadences to); otherwise the choice is deterministic from ``seed``. ``None`` if nothing matches.
+    """
+    beds = all_beds(assets)
+    ref = (ref or "").strip()
+    for b in beds:
+        if b.id == ref:
+            return b
+    fam = STYLE_FALLBACK.get(ref, ref)
+    cands = [b for b in beds if b.family == fam or b.style == fam]
+    if not cands:
+        return None
+    if prefer_key:
+        keyed = [b for b in cands if _same_key(b.key, prefer_key)]
+        if keyed:
+            cands = keyed
+    return cands[zlib.crc32(f"{fam}:{seed}".encode()) % len(cands)]
+
+
 def pick_bed(style: str, seed: int, bed_id: str | None = None, assets: Path | None = None) -> Bed | None:
-    """Deterministic bed choice for a style (explicit ``bed_id`` wins; falls back to the launch beds)."""
-    beds = load_beds(style, assets) or load_beds("launch", assets)
+    """Deterministic bed choice for a style (explicit ``bed_id`` wins, searched across every bed family;
+    styles without beds use :data:`STYLE_FALLBACK`, then the launch beds)."""
+    if bed_id:
+        found = next((b for b in load_beds(style, assets) if b.id == bed_id), None) or resolve_bed(bed_id, seed,
+                                                                                                    assets=assets)
+        if found:
+            return found
+    beds = load_beds(style, assets)
+    if not beds and style in STYLE_FALLBACK:
+        beds = load_beds(STYLE_FALLBACK[style], assets)
+    beds = beds or load_beds("launch", assets)
     if not beds:
         return None
-    if bed_id:
-        for b in beds:
-            if b.id == bed_id:
-                return b
     return beds[zlib.crc32(f"{style}:{seed}".encode()) % len(beds)]
 
 
@@ -155,7 +207,7 @@ def plan_bars(bed: Bed, duration: float, drop_time: float | None = None, last_wo
     kd = max(1, min(n - 1, kd))
     # ---- before the drop: intro tail -> A loop -> build tail
     pre = kd
-    nb = min(len(build), pre, 2 if pre < 8 else 4)
+    nb = min(len(build), pre, max(1, pre // 2), 2 if pre < 8 else 4)    # short spans keep an intro before the build
     rest = pre - nb
     ni = min(len(intro), rest, 2 if rest < 8 else len(intro))
     na = rest - ni
@@ -168,7 +220,7 @@ def plan_bars(bed: Bed, duration: float, drop_time: float | None = None, last_wo
     seq += [(b, "build") for b in _tail_cycle(build, nb)]
     # ---- from the drop: drop -> (B, drop) loop -> outro tail
     post = n - kd
-    no = min(len(outro), post - 1) if post >= 3 else 0
+    no = min(len(outro), post - 1, len(outro) if post >= 6 else 1) if post >= 3 else 0   # short spans: more drop
     mid = post - no
     cyc = [(b, "drop") for b in drop] + [(b, "B") for b in b_bars] + [(b, "drop") for b in drop] + [(b, "B") for b in b_bars]
     while len(cyc) < mid:
@@ -194,17 +246,32 @@ def _runs(source_bars: list[int]) -> list[tuple[int, int, int]]:
 
 def render_plan(src: array, bed: Bed, plan: BarPlan, duration: float) -> array:
     """Assemble interleaved stereo float32 for ``duration`` seconds from the planned bars (pure Python)."""
+    return render_bars(src, bed.bar_s, plan.source_bars, int(round(duration * SR)), end_bar=bed.end_bar,
+                       n_bars=plan.n_bars)
+
+
+def render_bars(src: array, bar_s: float, source_bars: list[int], n_out: int, *, end_bar: int | None = None,
+                n_bars: int | None = None) -> array:
+    """Splice whole source bars into ``n_out`` stereo frames (pure Python).
+
+    Closed mode (``end_bar`` given): the end bar plays at film bar ``n_bars`` (default ``len(source_bars)``) and
+    rings to the end, with a quarter-sine fade if it is still sounding. Open mode (``end_bar=None``): only
+    ``source_bars`` play; the caller supplies enough bars to cover ``n_out`` and shapes the ending itself.
+    """
     ch = 2
-    n_out = int(round(duration * SR))
     out = array("f", bytes(4 * ch * n_out))
     n_src = len(src) // ch
-    bar = bed.bar_s
+    bar = bar_s
     xf, pre = int(round(XFADE_S * SR)), int(round(PRE_S * SR))
-    runs = _runs(plan.source_bars)
-    if runs and runs[-1][1] + runs[-1][2] == bed.end_bar:
-        runs[-1] = (runs[-1][0], runs[-1][1], 10 ** 6)      # outro flows straight into the end hit: no splice
-    else:
-        runs.append((plan.n_bars, bed.end_bar, 10 ** 6))
+    runs = _runs(source_bars)
+    nb = len(source_bars) if n_bars is None else n_bars
+    if end_bar is not None:
+        if runs and runs[-1][1] + runs[-1][2] == end_bar:
+            runs[-1] = (runs[-1][0], runs[-1][1], 10 ** 6)      # outro flows straight into the end hit: no splice
+        else:
+            runs.append((nb, end_bar, 10 ** 6))
+    if not runs:
+        return out
 
     def put(o0: int, o1: int, s0: int, gain_fn=None, add: bool = False) -> None:  # noqa: ANN001
         o0, o1 = max(o0, 0), min(o1, n_out)
@@ -251,7 +318,9 @@ def render_plan(src: array, bed: Bed, plan: BarPlan, duration: float) -> array:
         g = k / fi
         out[k * ch] *= g
         out[k * ch + 1] *= g
-    end_src = int(round(bed.end_bar * bar * SR)) + (n_out - int(round(plan.n_bars * bar * SR)))
+    if end_bar is None:
+        return out
+    end_src = int(round(end_bar * bar * SR)) + (n_out - int(round(nb * bar * SR)))
     if end_src < n_src - int(0.05 * SR):
         fo = min(int(0.6 * SR), n_out)
         for k in range(fo):

@@ -1,0 +1,190 @@
+{
+ "style": "comic",
+ "beds": [
+  {
+   "id": "comic_a",
+   "style": "comic",
+   "title": "Splash Page",
+   "file": "comic_a.ogg",
+   "sr": 48000,
+   "bpm": 116.0,
+   "beats_per_bar": 4,
+   "bar_s": 2.068966,
+   "key": "F mixolydian",
+   "total_bars": 35,
+   "tail_s": 3.5,
+   "duration_s": 75.914,
+   "drop_bar": 16,
+   "end_bar": 34,
+   "sections": [
+    {
+     "name": "intro",
+     "start_bar": 0,
+     "bars": 4,
+     "energy": 0.3
+    },
+    {
+     "name": "A",
+     "start_bar": 4,
+     "bars": 8,
+     "energy": 0.55
+    },
+    {
+     "name": "build",
+     "start_bar": 12,
+     "bars": 4,
+     "energy": 0.75
+    },
+    {
+     "name": "drop",
+     "start_bar": 16,
+     "bars": 8,
+     "energy": 1.0
+    },
+    {
+     "name": "B",
+     "start_bar": 24,
+     "bars": 8,
+     "energy": 0.8
+    },
+    {
+     "name": "outro",
+     "start_bar": 32,
+     "bars": 2,
+     "energy": 0.45
+    },
+    {
+     "name": "end",
+     "start_bar": 34,
+     "bars": 1,
+     "energy": 0.2
+    }
+   ],
+   "loop_unit_bars": 2,
+   "lufs": -16.03,
+   "true_peak_db": -1.9,
+   "phone_band": 0.549,
+   "lr_corr": 0.892,
+   "notes": "Brassy cartoon funk: slap bass, clav 16ths, horn-section stabs and a blues lick in the drop, slide whistle into the drop, big brass button ending.",
+   "family": "comic",
+   "mood": "playful",
+   "decoded_samples_match": true,
+   "bytes": 965802,
+   "bands": {
+    "sub": 0.009,
+    "bass": 0.382,
+    "presence": 0.036
+   },
+   "mono_fold_db": -0.29,
+   "section_lufs": {
+    "intro": -19.0,
+    "A": -16.7,
+    "build": -16.6,
+    "drop": -14.0,
+    "B": -16.9,
+    "outro": -18.2,
+    "end": -13.0
+   },
+   "lowshelf_db": -4.0,
+   "section_lift_db": {},
+   "render_s": {
+    "compose": 9.34,
+    "mix_master": 11.68,
+    "encode": 1.66
+   }
+  },
+  {
+   "id": "comic_b",
+   "style": "comic",
+   "title": "Kapow!",
+   "file": "comic_b.ogg",
+   "sr": 48000,
+   "bpm": 122.0,
+   "beats_per_bar": 4,
+   "bar_s": 1.967213,
+   "key": "D dorian",
+   "total_bars": 35,
+   "tail_s": 3.5,
+   "duration_s": 72.352,
+   "drop_bar": 16,
+   "end_bar": 34,
+   "sections": [
+    {
+     "name": "intro",
+     "start_bar": 0,
+     "bars": 4,
+     "energy": 0.3
+    },
+    {
+     "name": "A",
+     "start_bar": 4,
+     "bars": 8,
+     "energy": 0.55
+    },
+    {
+     "name": "build",
+     "start_bar": 12,
+     "bars": 4,
+     "energy": 0.75
+    },
+    {
+     "name": "drop",
+     "start_bar": 16,
+     "bars": 8,
+     "energy": 1.0
+    },
+    {
+     "name": "B",
+     "start_bar": 24,
+     "bars": 8,
+     "energy": 0.8
+    },
+    {
+     "name": "outro",
+     "start_bar": 32,
+     "bars": 2,
+     "energy": 0.45
+    },
+    {
+     "name": "end",
+     "start_bar": 34,
+     "bars": 1,
+     "energy": 0.2
+    }
+   ],
+   "loop_unit_bars": 2,
+   "lufs": -16.03,
+   "true_peak_db": -1.9,
+   "phone_band": 0.532,
+   "lr_corr": 0.9,
+   "notes": "Caper funk: quartal brass hits, popping slap bass, bongos and woodblock, dorian vamp with a #9 build, sly brass licks and a final 'kapow' stab.",
+   "family": "comic",
+   "mood": "playful",
+   "decoded_samples_match": true,
+   "bytes": 933645,
+   "bands": {
+    "sub": 0.011,
+    "bass": 0.401,
+    "presence": 0.03
+   },
+   "mono_fold_db": -0.27,
+   "section_lufs": {
+    "intro": -18.8,
+    "A": -16.6,
+    "build": -16.6,
+    "drop": -14.0,
+    "B": -17.0,
+    "outro": -18.3,
+    "end": -14.1
+   },
+   "lowshelf_db": -3.0,
+   "section_lift_db": {},
+   "render_s": {
+    "compose": 24.1,
+    "mix_master": 13.98,
+    "encode": 1.14
+   }
+  }
+ ],
+ "generator": "tools/compose (procedural, original; regenerate with python -m tools.compose --all)"
+}

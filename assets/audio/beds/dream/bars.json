@@ -1,0 +1,194 @@
+{
+ "style": "dream",
+ "beds": [
+  {
+   "id": "dream_a",
+   "style": "dream",
+   "title": "Meadow Light",
+   "file": "dream_a.ogg",
+   "sr": 48000,
+   "bpm": 80.0,
+   "beats_per_bar": 4,
+   "bar_s": 3.0,
+   "key": "C major",
+   "total_bars": 23,
+   "tail_s": 7.0,
+   "duration_s": 76.0,
+   "drop_bar": 8,
+   "end_bar": 22,
+   "sections": [
+    {
+     "name": "intro",
+     "start_bar": 0,
+     "bars": 2,
+     "energy": 0.3
+    },
+    {
+     "name": "A",
+     "start_bar": 2,
+     "bars": 4,
+     "energy": 0.5
+    },
+    {
+     "name": "build",
+     "start_bar": 6,
+     "bars": 2,
+     "energy": 0.7
+    },
+    {
+     "name": "drop",
+     "start_bar": 8,
+     "bars": 8,
+     "energy": 1.0
+    },
+    {
+     "name": "B",
+     "start_bar": 16,
+     "bars": 4,
+     "energy": 0.75
+    },
+    {
+     "name": "outro",
+     "start_bar": 20,
+     "bars": 2,
+     "energy": 0.45
+    },
+    {
+     "name": "end",
+     "start_bar": 22,
+     "bars": 1,
+     "energy": 0.2
+    }
+   ],
+   "loop_unit_bars": 2,
+   "lufs": -16.0,
+   "true_peak_db": -2.81,
+   "phone_band": 0.684,
+   "lr_corr": 0.639,
+   "notes": "Anime meadow bed: felt-piano arpeggios, grand-piano tune, warm strings, soft choir, glockenspiel; the chorus blooms with soaring violins on the royal-road progression.",
+   "family": "dream",
+   "mood": "uplifting",
+   "decoded_samples_match": true,
+   "bytes": 1000829,
+   "bands": {
+    "sub": 0.011,
+    "bass": 0.225,
+    "presence": 0.007
+   },
+   "mono_fold_db": -0.86,
+   "section_lufs": {
+    "intro": -20.8,
+    "A": -17.3,
+    "build": -18.1,
+    "drop": -14.3,
+    "B": -15.7,
+    "outro": -18.2,
+    "end": -17.4
+   },
+   "lowshelf_db": 0.0,
+   "section_lift_db": {
+    "intro": 0.1
+   },
+   "render_s": {
+    "compose": 47.76,
+    "mix_master": 9.82,
+    "encode": 0.78
+   }
+  },
+  {
+   "id": "dream_b",
+   "style": "dream",
+   "title": "Paper Sky",
+   "file": "dream_b.ogg",
+   "sr": 48000,
+   "bpm": 88.0,
+   "beats_per_bar": 4,
+   "bar_s": 2.727273,
+   "key": "G major",
+   "total_bars": 23,
+   "tail_s": 7.0,
+   "duration_s": 69.727,
+   "drop_bar": 8,
+   "end_bar": 22,
+   "sections": [
+    {
+     "name": "intro",
+     "start_bar": 0,
+     "bars": 2,
+     "energy": 0.3
+    },
+    {
+     "name": "A",
+     "start_bar": 2,
+     "bars": 4,
+     "energy": 0.5
+    },
+    {
+     "name": "build",
+     "start_bar": 6,
+     "bars": 2,
+     "energy": 0.7
+    },
+    {
+     "name": "drop",
+     "start_bar": 8,
+     "bars": 8,
+     "energy": 1.0
+    },
+    {
+     "name": "B",
+     "start_bar": 16,
+     "bars": 4,
+     "energy": 0.75
+    },
+    {
+     "name": "outro",
+     "start_bar": 20,
+     "bars": 2,
+     "energy": 0.45
+    },
+    {
+     "name": "end",
+     "start_bar": 22,
+     "bars": 1,
+     "energy": 0.2
+    }
+   ],
+   "loop_unit_bars": 2,
+   "lufs": -16.0,
+   "true_peak_db": -1.9,
+   "phone_band": 0.773,
+   "lr_corr": 0.623,
+   "notes": "Bright flowing dream bed: grand-piano ostinato, celesta, canon-like bass walking down under a soaring violin line, choir 'ah' in the chorus, harp glissandi.",
+   "family": "dream",
+   "mood": "uplifting",
+   "decoded_samples_match": true,
+   "bytes": 961481,
+   "bands": {
+    "sub": 0.009,
+    "bass": 0.175,
+    "presence": 0.014
+   },
+   "mono_fold_db": -0.87,
+   "section_lufs": {
+    "intro": -22.2,
+    "A": -18.6,
+    "build": -17.7,
+    "drop": -13.9,
+    "B": -16.4,
+    "outro": -18.8,
+    "end": -16.8
+   },
+   "lowshelf_db": 0.0,
+   "section_lift_db": {
+    "intro": 0.74
+   },
+   "render_s": {
+    "compose": 47.15,
+    "mix_master": 8.8,
+    "encode": 0.63
+   }
+  }
+ ],
+ "generator": "tools/compose (procedural, original; regenerate with python -m tools.compose --all)"
+}
