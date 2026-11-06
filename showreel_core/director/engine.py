@@ -555,9 +555,17 @@ def _structured_patch(r: _Run, purpose: str, instr: str, text: str, base: Versio
 
 
 def _static_bumps(r: _Run, v: Version) -> None:
-    """Before any render: product flyers that would be specks in product shots are enlarged."""
+    """Before any render: product flyers that would be specks in product shots are enlarged; screenshots flying
+    in nature scenes are never chroma-keyed (the kit's auto-key eats light UI backgrounds -> a ghosted card)."""
     if not r.product:
         return
+    screens = {a.name for a in r.brief.assets if a.product and a.type == "image" and not a.cutout}
+    for s in v.film["shots"]:
+        scene = str(s.get("scene", ""))
+        if screens and scene in pm.NATURE_FLYER_SCENES + pm.NATURE_HERO_SCENES:
+            for f in (s.get("params") or {}).get("flyers") or []:
+                if isinstance(f, dict) and f.get("media") in screens and "key" not in f:
+                    f["key"] = False
     intents = {p["id"]: p for p in v.plan.get("shots") or []}
     for s in v.film["shots"]:
         if not references(s.get("params") or {}, r.product) or not (intents.get(s["id"]) or {}).get("product_visible"):
