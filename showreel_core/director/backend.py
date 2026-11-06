@@ -35,12 +35,13 @@ class ShotError:
 
 @dataclass
 class Preview:
-    """Result of one dry run (+ optional captures)."""
+    """Result of one dry run (+ optional captures, and the same captures of the product-flipped mirror)."""
     ok: bool
     load_error: str = ""
     errors: list[ShotError] = field(default_factory=list)
     qa: list[dict[str, Any]] = field(default_factory=list)
     images: list[bytes] = field(default_factory=list)
+    mask_images: list[bytes] = field(default_factory=list)
     seconds: float = 0.0
 
 
@@ -56,7 +57,7 @@ class Renderer(Protocol):
 
     def preview(self, page_dir: Path, *, probe_times: Sequence[float], capture_times: Sequence[float],
                 size: tuple[int, int], film_size: tuple[int, int], shots: list[dict[str, Any]],
-                determinism_times: Sequence[float] = ()) -> Preview: ...
+                determinism_times: Sequence[float] = (), mask_page: Path | None = None) -> Preview: ...
 
 
 def write_scenes(page_dir: Path, scenes: dict[str, str]) -> None:
@@ -104,9 +105,10 @@ class RuntimeRenderer:
     """
 
     def __init__(self, *, lock: Callable[[], contextlib.AbstractContextManager[Any]] | None = None,
-                 timeout_s: float = 90.0, kits_root: Path | None = None) -> None:
+                 timeout_s: float = 90.0, kits_root: Path | None = None, gpu: bool = False) -> None:
         self.lock = lock
         self.timeout_s = timeout_s
+        self.gpu = gpu          # keyframes on the GPU look like the final render (software GL picks low tiers)
         self.build_kwargs: dict[str, Any] = {"kits_root": kits_root} if kits_root else {}
 
     # ------------------------------------------------------------------ film layer (optional modules)
@@ -156,16 +158,16 @@ class RuntimeRenderer:
     # ------------------------------------------------------------------ dry run + keyframes
     def preview(self, page_dir: Path, *, probe_times: Sequence[float], capture_times: Sequence[float],
                 size: tuple[int, int], film_size: tuple[int, int], shots: list[dict[str, Any]],
-                determinism_times: Sequence[float] = ()) -> Preview:
+                determinism_times: Sequence[float] = (), mask_page: Path | None = None) -> Preview:
         from ..render.errors import RenderError
         from ..render.workers import _run_sync, page_session
 
         t_start = time.monotonic()
         dpr = size[0] / float(film_size[0])
 
-        async def go() -> Preview:
+        async def go(gpu: bool) -> Preview:
             out = Preview(ok=True)
-            async with page_session(page_dir, "stage.html?lenient=1", w=size[0], h=size[1], dpr=dpr,
+            async with page_session(page_dir, "stage.html?lenient=1", w=size[0], h=size[1], dpr=dpr, gpu=gpu,
                                     timeout_s=self.timeout_s) as p:
                 seen = 0
 
@@ -206,19 +208,31 @@ class RuntimeRenderer:
                     await p.seek(t)
                     out.images.append(await p.capture("png"))
                     await harvest(t)
+            if mask_page is not None and capture_times and not out.errors:
+                async with page_session(mask_page, "stage.html?lenient=1", w=size[0], h=size[1], dpr=dpr, gpu=gpu,
+                                        timeout_s=self.timeout_s) as m:
+                    for t in capture_times:
+                        await m.seek(t)
+                        out.mask_images.append(await m.capture("png"))
             return out
 
-        try:
-            with self.lock() if self.lock else contextlib.nullcontext():
-                prev = _run_sync(go)
-        except RenderError as e:
-            detail = "; ".join(str(x) for x in (e.details.get("errors") or [])[:6]) if hasattr(e, "details") else ""
-            prev = Preview(ok=False, load_error=f"{e.message}{' | ' + detail if detail else ''}")
-            for msg in (getattr(e, "details", {}) or {}).get("errors") or []:
-                sid, et = attribute(str(msg), shots)
-                prev.errors.append(ShotError(sid, et, str(msg), "load"))
-        except Exception as e:  # noqa: BLE001 - any other failure is a load failure for the engine
-            prev = Preview(ok=False, load_error=f"{type(e).__name__}: {e}")
+        def attempt(gpu: bool) -> Preview:
+            try:
+                with self.lock() if self.lock else contextlib.nullcontext():
+                    return _run_sync(lambda: go(gpu))
+            except RenderError as e:
+                detail = "; ".join(str(x) for x in (e.details.get("errors") or [])[:6]) if hasattr(e, "details") else ""
+                prev = Preview(ok=False, load_error=f"{e.message}{' | ' + detail if detail else ''}")
+                for msg in (getattr(e, "details", {}) or {}).get("errors") or []:
+                    sid, et = attribute(str(msg), shots)
+                    prev.errors.append(ShotError(sid, et, str(msg), "load"))
+                return prev
+            except Exception as e:  # noqa: BLE001 - any other failure is a load failure for the engine
+                return Preview(ok=False, load_error=f"{type(e).__name__}: {e}")
+
+        prev = attempt(self.gpu)
+        if self.gpu and not prev.ok and not prev.errors:      # GPU launch trouble: software GL still works
+            prev = attempt(False)
         prev.seconds = round(time.monotonic() - t_start, 2)
         return prev
 
