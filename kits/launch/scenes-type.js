@@ -2,7 +2,7 @@
 // The lockups reuse kit:base layouts (TITLE_DEF, ...) on a screen-space type layer; the table, light pool,
 // converging connectors and pulses live in the 3D world underneath (slightly defocused so type stays crisp).
 
-import { launchScene, camTrack, fitRect, nodeIn, hubWires, panelWires } from './stage.js';
+import { launchScene, camTrack, fitRect, nodeIn, hubWires, panelWires, productScale } from './stage.js';
 import { h, css } from '../base/dom.js';
 import { clamp, lerp, seg, ease } from '../base/motion.js';
 import { TITLE_DEF, STATS_DEF, CALLOUT_DEF, END_DEF } from '../base/scenes-titles.js';
@@ -67,7 +67,7 @@ launchScene('kit:launch/TITLE', {
     const R = L ? { x: 30, y: 170, w: F.W - 60, h: 660 } : { x: 960, y: 80, w: F.W - 960 - 50, h: F.H - 160 };
     const shift = [R.x + R.w / 2 - F.W / 2, R.y + R.h / 2 - F.H / 2];
     const c = W.nodePoint(n, b.w / 2, b.h / 2);
-    const d = fitRect(W, F, b.w, b.h, 10, 0.92 * R.w / F.W, 0.86 * R.h / F.H);
+    const d = fitRect(W, F, b.w, b.h, 10, 0.92 * R.w / F.W, 0.86 * R.h / F.H) / productScale(p);
     const cam = camTrack([
       [0, { target: [c[0], c[1] + 40, c[2]], dist: d * 1.22, yaw: 22, pitch: 36, roll: -3 }],
       [Math.min(1.2, dur * 0.4), { target: c, dist: d * 1.02, yaw: 10, pitch: 46, roll: -1.6 }],

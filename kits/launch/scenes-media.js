@@ -1,6 +1,6 @@
 // Showreel kit "launch" — product media scenes on the table: HOOK, SCREEN, FEATURE, SCROLL, BEFORE_AFTER, MONTAGE.
 
-import { launchScene, camTrack, fitRect, nodeIn, pushTrack, panelWires } from './stage.js';
+import { launchScene, camTrack, fitRect, nodeIn, pushTrack, panelWires, productScale } from './stage.js';
 import { h, css, fitSize } from '../base/dom.js';
 import { clamp, lerp, seg, ease } from '../base/motion.js';
 import { browserBlock, cursorBlock, ringBlock } from '../base/media.js';
@@ -61,7 +61,7 @@ launchScene('kit:launch/HOOK', {
     const R = mediaRegion(F, !!label);
     const c = W.nodePoint(n, b.w / 2, b.h / 2);
     const wide = hero.kind === 'image' || (!hero.kind && (hero.asset || hero.path));
-    const d = fitRect(W, F, b.w, b.h, 12, (L && wide ? 1.45 : 0.98) * R.w / F.W, 0.92 * R.h / F.H);
+    const d = fitRect(W, F, b.w, b.h, 12, (L && wide ? 1.45 : 0.98) * R.w / F.W, 0.92 * R.h / F.H) / productScale(p);
     const shift = [R.x + R.w / 2 - F.W / 2, R.y + R.h / 2 - F.H / 2];
     const cam = camTrack([
       [0, { target: [c[0], c[1] + 40, c[2] - 30], dist: d * 1.14, yaw: -9, pitch: 40, roll: -2 }],
@@ -98,7 +98,7 @@ launchScene('kit:launch/SCREEN', {
     const wires = panelWires(W, n, b, b.h * 0.3, { outAt: 1.2 });
     const tPush = clamp(dur * 0.28, 1.0, 1.6);
     const cam = pushTrack(W, F, n, b, b.rect(p.bbox || [0.1, 0.1, 0.8, 0.8]), { tPush, dur, yaw0: 9, pitchWide: 26, pitchPush: 14,
-      pushFillH: L ? 0.62 : 0.86, pushFillW: L ? 1.7 : 0.9, maxPush: L ? 2.6 : 2.1, keepLeft: false });
+      pushFillH: L ? 0.62 : 0.86, pushFillW: L ? 1.7 : 0.9, maxPush: L ? 2.6 : 2.1, keepLeft: false, scale: productScale(p) });
     return {
       cues: [{ t: tPush + 0.05, sfx: 'move', gain_db: -12 }],
       render(t) {
@@ -133,7 +133,7 @@ launchScene('kit:launch/FEATURE', {
     const press = Number.isFinite(sync) && sync > tPush + 0.8 && sync < dur - 0.6 ? sync : clamp(dur * 0.45, tPush + 1.2, Math.max(tPush + 1.2, dur - 1.4));
     const R = mediaRegion(F, !!name);
     const cam = pushTrack(W, F, n, b, b.rect(bbox), { tPush, dur, yaw0: 8, pitchWide: 26, pitchPush: 14, region: R, pushFillH: 0.8,
-      pushFillW: L ? 1.35 : 0.9, keepLeft: false, maxPush: L ? 2.8 : 2.4 });
+      pushFillW: L ? 1.35 : 0.9, keepLeft: false, maxPush: L ? 2.8 : 2.4, scale: productScale(p) });
     const ring = ringBlock();
     const [px, py] = b.pt(click[0], click[1]);
     const cur = cursorBlock({ from: [px + b.w * 0.2, py + b.h * 0.24], to: [px, py], arrive: press - 0.62, press, travel: 0.75, size: 1.5 });
@@ -171,7 +171,7 @@ launchScene('kit:launch/SCROLL', {
     const foot = W.nodePoint(n, 0, b.h);
     const wire = W.wire([[foot[0] - 20, foot[1] + 40], [foot[0] - 300, foot[1] + 40], [foot[0] - 300, foot[1] + 1200], [foot[0] - 3400, foot[1] + 1200]], { pulseStart: 0.5, every: 1.3, reverse: true });
     const c = W.nodePoint(n, b.w / 2, b.h / 2);
-    const d = fitRect(W, F, b.w, b.h, 6, 0.8, 0.84);
+    const d = fitRect(W, F, b.w, b.h, 6, 0.8, 0.84) / productScale(p);
     const cam = camTrack([
       [0, { target: c, dist: d * 1.06, yaw: -7, pitch: 64, roll: -1 }],
       [dur + 0.5, { target: [c[0], c[1], c[2] - 10], dist: d * 0.96, yaw: 6, pitch: 70, roll: 0.8 }],
@@ -215,7 +215,7 @@ launchScene('kit:launch/BEFORE_AFTER', {
     const mid = [(cB[0] + cA[0]) / 2, (cB[1] + cA[1]) / 2, 30];
     const dAll = L ? fitRect(W, F, width, bb.h + ab.h + gap, 18, 0.86, 0.82) : fitRect(W, F, width * 2 + gap, Math.max(bb.h, ab.h), 18, 0.9, 0.8);
     const dOne = L ? fitRect(W, F, width, ab.h, 14, 0.9, 0.5) : fitRect(W, F, width, ab.h, 14, 0.62, 0.8);
-    const dClose = Math.max(dOne, dAll * 0.62);
+    const dClose = Math.max(dOne, dAll * 0.62) / productScale(p);
     const toward = (a, b, k) => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, 30];
     const cam = camTrack([
       [0, { target: toward(cB, cA, 0.12), dist: dClose * 1.06, yaw: -4, pitch: 20, roll: -1 }],

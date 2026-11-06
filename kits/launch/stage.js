@@ -8,7 +8,16 @@ import { COMMON } from '../base/scenes-panels.js';
 import { makeWorld } from './world.js';
 import { LAUNCH_CSS } from './css.js';
 
-export const LCOMMON = { ...COMMON, theme: { type: 'string', default: 'launch', doc: 'theme tokens (launch by default)' } };
+export const LCOMMON = {
+  ...COMMON, theme: { type: 'string', default: 'launch', doc: 'theme tokens (launch by default)' },
+  product_scale: { type: 'number', default: 1.0, doc: "multiplies the product media's on-screen size (camera moves closer; 0.5-3, cap 3)" },
+};
+
+/** The product_scale param, clamped to 0.5..3 (1 when absent or invalid). */
+export function productScale(p) {
+  const v = Number(p && p.product_scale);
+  return Number.isFinite(v) && v > 0 ? clamp(v, 0.5, 3) : 1;
+}
 
 /**
  * Register a kit:launch scene. build(ctx, p, F, W) gets the frame and a fresh table world;
@@ -71,9 +80,11 @@ export function pushTrack(W, F, n, b, rect, o) {
   const shift = [R.x + R.w / 2 - F.W / 2, R.y + R.h / 2 - F.H / 2];
   const relW = o.pitchWide ?? 20, relP = o.pitchPush ?? 12;
   const cW = W.nodePoint(n, b.w / 2, b.h / 2);
-  const dW = fitRect(W, F, b.w, b.h, relW, 0.88 * fx, 0.82 * fy) * (o.wideMul ?? 1.0);
+  let dW = fitRect(W, F, b.w, b.h, relW, 0.88 * fx, 0.82 * fy) * (o.wideMul ?? 1.0);
   let dP = fitRect(W, F, rect.w, rect.h, relP, (o.pushFillW ?? 0.9) * fx, (o.pushFillH ?? 0.62) * fy);
   dP = clamp(dP, dW / (o.maxPush ?? 2.1), dW / 1.4);
+  const ps = o.scale || 1;          // product_scale: the whole move happens closer
+  dW /= ps; dP /= ps;
   const c = rectCenter(W, n, rect);
   let target = [c[0], c[1], c[2]];
   if (o.keepLeft !== false) {
