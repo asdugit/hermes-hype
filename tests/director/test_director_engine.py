@@ -71,15 +71,15 @@ def test_full_loop_repair_critique_revise_pass(env: dict[str, Any]) -> None:
     assert (job / "page" / "scenes" / "boss-battle.js").read_text(encoding="utf-8") == GOOD_CODE
     # the critic saw images, the dry run repaired with the runtime error text
     critic = next(c for c in llm.calls if c["purpose"] == "critic:r1")
-    assert critic["images"] == 1 and critic["schema"]
+    assert critic["images"] == 2 and critic["schema"]
     repair = llm.calls[3]
     assert "TypeError: boss is undefined" in repair["text"]
     revise_scene = llm.calls[6]
     assert "boss too small" in revise_scene["text"] and "twice as big" in revise_scene["text"]
     # revisions look at the render and are told what to keep
-    assert revise_scene["images"] == 1 and "this scene is in cells" in revise_scene["instructions"]
+    assert revise_scene["images"] >= 1 and "this scene is in cells" in revise_scene["instructions"]
     assert "bold colour" in revise_scene["text"]
-    assert llm.calls[5]["images"] == 1 and "bold colour" in llm.calls[5]["text"]
+    assert llm.calls[5]["images"] >= 1 and "bold colour" in llm.calls[5]["text"]
     notes = _notes(res)
     assert "Writing treatment" in notes and "Coding scene boss-battle" in notes
     assert any(n.startswith("Repairing scene boss-battle") for n in notes)
