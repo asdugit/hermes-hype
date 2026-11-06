@@ -147,10 +147,11 @@ def placeholder(monkeypatch):
     monkeypatch.setenv("SHOWREEL_BLENDER_PLACEHOLDER", "1")
 
 
-def test_quick_maps_product_shots_to_blender_and_reverts(tmp_path, placeholder):
+def test_quick_maps_product_shots_to_blender_and_reverts(tmp_path, placeholder, monkeypatch):
     from PIL import Image
 
     from showreel_core.film import quick
+    monkeypatch.setattr(quick, "BLENDER_QUICK", {})          # placeholder rows only (hermetic vs. kit changes)
     img = tmp_path / "shot.png"
     Image.new("RGB", (64, 36), (200, 30, 30)).save(img)
     model = tmp_path / "car.glb"
@@ -275,3 +276,36 @@ def test_frames_kit_index_matches_host_rounding(tmp_path):
     want = [f - 1 for t in (0.5, 1.0333, 2.0) for f in frames_for_times({"t0": 0.0}, [t], 30, 0.1, 100) if f != 1]
     assert idx == want
     assert shim is not None
+
+
+def test_quick_table_substitutes_tokens(tmp_path, monkeypatch):
+    from PIL import Image
+
+    from showreel_core.film import quick
+    monkeypatch.delenv("SHOWREEL_BLENDER_PLACEHOLDER", raising=False)
+    monkeypatch.setattr(quick, "BLENDER_QUICK", {"FEATURE": {"screen": {"scene": "blender:_test/hello", "params": {
+        "image": "{media}", "feature": "{label}", "bbox": "{data:bbox}", "click": "{data:click}", "accent": "{accent}"}}}})
+    img = tmp_path / "shot.png"
+    Image.new("RGB", (64, 36), (20, 30, 200)).save(img)
+    tl = _timeline(img)
+    tl["accent"] = "#E5484D"
+    tl["scenes"][2] = {"type": "FEATURE", "t0": 4, "t1": 6, "data": {"image": {"path": str(img), "w": 64, "h": 36},
+                                                                    "feature": "Dark mode", "bbox": [0.1, 0.2, 0.3, 0.4]}}
+    film = quick.film_from_timeline(tl, job_dir=tmp_path, blender=True)["film"]
+    feat = next(s for s in film["shots"] if s["id"] == "s02_feature")
+    assert feat["scene"] == "blender:_test/hello"
+    p = feat["params"]
+    assert p["image"].startswith("m0_") and p["feature"] == "Dark mode" and p["bbox"] == [0.1, 0.2, 0.3, 0.4]
+    assert "click" not in p and p["accent"] == "#E5484D" and p["product"] == p["image"]
+    assert [o["scene"] for o in film["overlays"] if o["id"] == "blx_s02_feature"] == ["kit:type/lower-third"]
+    # only FEATURE is mapped: HOOK/TITLE/END stay browser shots
+    assert sum(s["scene"].startswith("blender:") for s in film["shots"]) == 1
+
+
+def test_quick_table_names_real_scenes():
+    from showreel_core.blender.film import SCENE_RE
+    from showreel_core.film import quick
+    for typ, row in quick.BLENDER_QUICK.items():
+        assert typ in quick.BLENDER_TYPES
+        for kind, entry in row.items():
+            assert kind in ("model", "screen") and SCENE_RE.match(entry["scene"])

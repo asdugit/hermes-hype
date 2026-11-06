@@ -247,8 +247,24 @@ def _transition(kind: str, kit: Mapping[str, Any]) -> tuple[str, float] | None:
 #: Quick mode x Blender ("Quick mapping" in BLENDER.md; B2 fills the scene names). storyboard type ->
 #: {"model": entry for 3D products, "screen": entry for software products}; entry = {"scene": "blender:<kit>/<s>",
 #: "params": {...}}. Param strings "{product}" -> the product asset (3D model or product image), "{media}" -> the
-#: shot's own image asset (else the product image), "{label}" -> the shot's headline text.
-BLENDER_QUICK: dict[str, dict[str, dict[str, Any]]] = {}
+#: shot's own image asset (else the product image), "{label}" -> the shot's headline text, "{accent}" -> the
+#: project accent, "{data:<key>}" -> that storyboard data value (FEATURE bbox/click, SCROLL scroll).
+#: Scene names/params from B2's blender_kits/device + studio (BLENDER.md "Quick mapping").
+BLENDER_QUICK: dict[str, dict[str, dict[str, Any]]] = {
+    "HOOK": {"model": {"scene": "blender:studio/product_hero", "params": {"model": "{product}", "accent": "{accent}"}},
+             "screen": {"scene": "blender:device/device_hero",
+                        "params": {"media": "{media}", "accent": "{accent}", "side": "left"}}},
+    "TITLE": {"model": {"scene": "blender:studio/product_float", "params": {"model": "{product}", "accent": "{accent}"}},
+              "screen": {"scene": "blender:device/device_hero",
+                         "params": {"media": "{product}", "accent": "{accent}", "side": "right"}}},
+    "FEATURE": {"screen": {"scene": "blender:device/device_feature",
+                           "params": {"image": "{media}", "feature": "{label}", "bbox": "{data:bbox}",
+                                      "click": "{data:click}", "accent": "{accent}", "side": "left"}}},
+    "SCROLL": {"screen": {"scene": "blender:device/device_scroll",
+                          "params": {"image": "{media}", "scroll": "{data:scroll}", "accent": "{accent}"}}},
+    "END": {"model": {"scene": "blender:studio/product_float", "params": {"model": "{product}", "accent": "{accent}"}},
+            "screen": {"scene": "blender:device/device_end", "params": {"media": "{product}", "accent": "{accent}"}}},
+}
 BLENDER_TYPES = ("HOOK", "TITLE", "FEATURE", "SCROLL", "END")
 #: dev placeholder (SHOWREEL_BLENDER_PLACEHOLDER=1): every product type -> the hello scene
 PLACEHOLDER_ENTRY = {"scene": "blender:_test/hello", "params": {"color": "#E5484D", "spin": 120}}
@@ -278,7 +294,7 @@ def blender_quick_table(kits_root: Path | None = None) -> dict[str, dict[str, di
     return table
 
 
-def _fill(x: Any, subs: Mapping[str, str]) -> Any:
+def _fill(x: Any, subs: Mapping[str, Any]) -> Any:
     if isinstance(x, str):
         return subs.get(x, x) if x.startswith("{") and x.endswith("}") else x
     if isinstance(x, dict):
@@ -304,7 +320,7 @@ def _type_overlay(typ: str, data: Mapping[str, Any], theme: str) -> tuple[str, d
 
 
 def apply_blender(film: dict[str, Any], datas: list[tuple[str, dict[str, Any]]], *, product_model: str | None,
-                  product_image: str | None, assets: dict[str, dict[str, Any]], theme: str,
+                  product_image: str | None, assets: dict[str, dict[str, Any]], theme: str, accent: str = "",
                   kits_root: Path | None = None) -> list[str]:
     """Turn Quick product shots into ``blender:`` shots per the Quick mapping (in place); returns the shot ids.
     The browser originals are kept in ``film.meta.blender_fallback`` (see :func:`revert_blender`)."""
@@ -324,10 +340,14 @@ def apply_blender(film: dict[str, Any], datas: list[tuple[str, dict[str, Any]]],
             continue
         own = next((d["asset"] for d in _image_dicts(data)), None)
         label = str(data.get("title") or data.get("feature") or data.get("label") or "")
-        subs = {"{product}": str(product), "{media}": str(own or product_image or product), "{label}": label}
+        subs: dict[str, Any] = {"{product}": str(product), "{media}": str(own or product_image or product),
+                                "{label}": label, "{accent}": accent or None}
+        subs.update({f"{{data:{k}}}": v for k, v in data.items() if not isinstance(v, dict)})
         fallback[shot["id"]] = {"scene": shot["scene"], "params": shot["params"], "res": shot.get("res")}
         shot["scene"] = str(entry["scene"])
-        shot["params"] = {**_fill(dict(entry.get("params") or {}), subs), "product": str(product)}
+        params = _fill(dict(entry.get("params") or {}), subs)
+        params = {k: v for k, v in params.items() if v is not None and not (isinstance(v, str) and v.startswith("{"))}
+        shot["params"] = {**params, "product": str(product)}
         shot.pop("res", None)
         ov = _type_overlay(typ, data, theme)
         if ov:
@@ -517,7 +537,8 @@ def film_from_timeline(timeline: Any, *, style: str | None = None, aspect: str |
         model = str(product_model or getattr(product, "model", "")
                     or (product.get("model") if isinstance(product, Mapping) else "") or "")
         apply_blender(film, datas, product_model=model if model and Path(model).is_file() else None,
-                      product_image=(product_image or {}).get("asset"), assets=media.assets, theme=theme)
+                      product_image=(product_image or {}).get("asset"), assets=media.assets, theme=theme,
+                      accent=readable_accent(tl.get("accent", "")))
     return {"film": film, "assets": media.assets, "scenes": {}}
 
 
