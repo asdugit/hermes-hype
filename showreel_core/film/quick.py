@@ -253,17 +253,18 @@ def _transition(kind: str, kit: Mapping[str, Any]) -> tuple[str, float] | None:
 BLENDER_QUICK: dict[str, dict[str, dict[str, Any]]] = {
     "HOOK": {"model": {"scene": "blender:studio/product_hero", "params": {"model": "{product}", "accent": "{accent}"}},
              "screen": {"scene": "blender:device/device_hero",
-                        "params": {"media": "{media}", "accent": "{accent}", "side": "left"}}},
+                        "params": {"media": "{media}", "accent": "{accent}", "side": "left", "space": "left"}}},
     "TITLE": {"model": {"scene": "blender:studio/product_float", "params": {"model": "{product}", "accent": "{accent}"}},
               "screen": {"scene": "blender:device/device_hero",
-                         "params": {"media": "{product}", "accent": "{accent}", "side": "right"}}},
+                         "params": {"media": "{product}", "accent": "{accent}", "side": "right", "space": "left"}}},
     "FEATURE": {"screen": {"scene": "blender:device/device_feature",
                            "params": {"image": "{media}", "feature": "{label}", "bbox": "{data:bbox}",
                                       "click": "{data:click}", "accent": "{accent}", "side": "left"}}},
     "SCROLL": {"screen": {"scene": "blender:device/device_scroll",
                           "params": {"image": "{media}", "scroll": "{data:scroll}", "accent": "{accent}"}}},
     "END": {"model": {"scene": "blender:studio/product_float", "params": {"model": "{product}", "accent": "{accent}"}},
-            "screen": {"scene": "blender:device/device_end", "params": {"media": "{product}", "accent": "{accent}"}}},
+            "screen": {"scene": "blender:device/device_end",
+                       "params": {"media": "{product}", "accent": "{accent}", "space": "left"}}},
 }
 BLENDER_TYPES = ("HOOK", "TITLE", "FEATURE", "SCROLL", "END")
 #: dev placeholder (SHOWREEL_BLENDER_PLACEHOLDER=1): every product type -> the hello scene
@@ -306,8 +307,9 @@ def _fill(x: Any, subs: Mapping[str, Any]) -> Any:
 
 def _type_overlay(typ: str, data: Mapping[str, Any], theme: str) -> tuple[str, dict[str, Any]] | None:
     """The words a browser type scene would have shown, as a kit:type overlay above the Blender picture."""
-    if typ == "TITLE" and data.get("title"):
-        return "kit:type/title", {"text": str(data["title"]), "sub": str(data.get("tagline") or ""), "theme": theme}
+    if typ == "TITLE" and data.get("title"):     # left: Blender scenes keep the left third clean ("space": "left")
+        return "kit:type/title", {"text": str(data["title"]), "sub": str(data.get("tagline") or ""), "theme": theme,
+                                  "align": "left"}
     if typ == "END":
         return "kit:type/end-lockup", {"title": str(data.get("title") or ""), "cta": str(data.get("cta") or ""),
                                        "url": str(data.get("url") or ""), "credit": str(data.get("credit") or ""),
@@ -315,7 +317,7 @@ def _type_overlay(typ: str, data: Mapping[str, Any], theme: str) -> tuple[str, d
     if typ == "FEATURE" and data.get("feature"):
         return "kit:type/lower-third", {"title": str(data["feature"]), "theme": theme}
     if typ == "HOOK" and data.get("label"):
-        return "kit:type/title", {"text": str(data["label"]), "theme": theme}
+        return "kit:type/title", {"text": str(data["label"]), "theme": theme, "align": "left"}
     return None
 
 

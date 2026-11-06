@@ -312,7 +312,8 @@ def run_job(job: dict[str, Any], blender: BlenderFound | Path | str, *, progress
     blender_path = blender.path if isinstance(blender, BlenderFound) else Path(blender)
     cmd = command or blender_command(blender_path, job_path, entry)
     with (lock() if lock else nullcontext()):
-        _spawn_and_watch(cmd, run, todo, res, progress, cancel, log_path, stall_s, timeout_s, t_start)
+        # the time limit counts Blender's own run time, not the wait for locks / free memory
+        _spawn_and_watch(cmd, run, todo, res, progress, cancel, log_path, stall_s, timeout_s, time.monotonic())
     res.elapsed_s = round(time.monotonic() - t_start, 3)
     return res
 
