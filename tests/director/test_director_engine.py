@@ -113,10 +113,10 @@ def test_cut_off_scene_reply_is_repaired(env: dict[str, Any]) -> None:
 
 
 def test_small_product_fails_the_gate_and_becomes_a_film_issue(env: dict[str, Any]) -> None:
-    # every score passes, but the critic measured the car at 10 % of the frame width everywhere
+    # nothing measurable (no measurement captures): the critic's estimate (10 % of the width) decides
     llm = FakeLlm({"treatment": [TREATMENT], "film": [FILM], "scene": [fenced(GOOD_CODE)],
                    "critic": [critique(8.6, size=0.1), critique(8.6, size=0.5)], "revise-film": [revised_film()]})
-    res = _run(env, llm)
+    res = _run(env, llm, FakeRenderer(product_width=None))
     assert res.ok and [s.passed for s in res.scores] == [False, True] and res.version == 2
     assert res.scores[0].product_hero == 0.0 and res.scores[1].product_hero == 1.0
     rev = next(c for c in llm.calls if c["purpose"] == "revise-film")

@@ -216,13 +216,19 @@ class FakeLlm:
 
 
 class FakeRenderer:
-    """Scripted runtime: scenes whose code contains /*THROW*/ raise at their shots; captures are solid PNGs."""
+    """Scripted runtime: scenes whose code contains /*THROW*/ raise at their shots; captures are solid PNGs.
 
-    def __init__(self, *, load_error: str = "", build_errors: list[str] | None = None) -> None:
+    With a measurement mirror (``mask_page``) the "flipped" captures differ from the normal ones in a centred box
+    whose width is ``product_width(shot)`` of the frame (0 = the product is not drawn).
+    """
+
+    def __init__(self, *, load_error: str = "", build_errors: list[str] | None = None,
+                 product_width: Any = 0.45) -> None:
         self.load_error = load_error
         self.build_errors = build_errors or []
         self.builds: list[dict[str, Any]] = []
         self.previews: list[dict[str, Any]] = []
+        self.product_width = product_width
 
     def validate_film(self, film: dict[str, Any]) -> list[str]:
         return []
@@ -234,12 +240,22 @@ class FakeRenderer:
               library_dir: Path | None) -> list[str]:
         write_scenes(page_dir, scenes)
         (page_dir / "film.json").write_text(json.dumps(film), encoding="utf-8")
+        for name in film.get("assets") or {}:
+            d = page_dir / "assets" / name
+            d.mkdir(parents=True, exist_ok=True)
+            (d / "000001.png").write_bytes(png())
         self.builds.append({"film": copy.deepcopy(film), "scenes": dict(scenes)})
         return list(self.build_errors)
 
+    def _width(self, shot: dict[str, Any], page_dir: Path) -> float:
+        w = self.product_width
+        return float(w(shot, page_dir) if callable(w) else w)
+
     def preview(self, page_dir: Path, *, probe_times: Any, capture_times: Any, size: tuple[int, int],
-                film_size: tuple[int, int], shots: list[dict[str, Any]], determinism_times: Any = ()) -> Preview:
-        self.previews.append({"probe": list(probe_times), "capture": list(capture_times), "size": size})
+                film_size: tuple[int, int], shots: list[dict[str, Any]], determinism_times: Any = (),
+                mask_page: Path | None = None) -> Preview:
+        self.previews.append({"probe": list(probe_times), "capture": list(capture_times), "size": size,
+                              "mask": mask_page is not None})
         if self.load_error:
             return Preview(ok=False, load_error=self.load_error)
         errors = []
@@ -247,5 +263,23 @@ class FakeRenderer:
             m = re.match(r"custom:(.+)$", s["scene"])
             if m and "/*THROW*/" in (page_dir / "scenes" / f"{m.group(1)}.js").read_text(encoding="utf-8"):
                 errors.append(ShotError(s["id"], float(s["t0"]) + 0.5, "TypeError: boss is undefined"))
-        return Preview(ok=True, errors=errors, images=[png((30, 30 + i % 200, 90)) for i, _ in
-                                                       enumerate(capture_times)])
+        images = [png((30, 30 + i % 200, 90), size) for i, _ in enumerate(capture_times)]
+        masks = []
+        if mask_page is not None and not errors and self.product_width is not None:
+            for i, t in enumerate(capture_times):
+                shot = next((s for s in shots if float(s["t0"]) <= t < float(s["t1"])), shots[-1])
+                masks.append(boxed(images[i], self._width(shot, page_dir)))
+        return Preview(ok=True, errors=errors, images=images, mask_images=masks)
+
+
+def boxed(img: bytes, width: float) -> bytes:
+    """``img`` with a white centred box ``width`` of the frame wide (the fake product)."""
+    from PIL import Image, ImageDraw
+    im = Image.open(io.BytesIO(img)).convert("RGB")
+    if width > 0:
+        w = round(im.width * width)
+        x0 = (im.width - w) // 2
+        ImageDraw.Draw(im).rectangle((x0, im.height // 3, x0 + w - 1, im.height * 2 // 3), fill=(255, 255, 255))
+    buf = io.BytesIO()
+    im.save(buf, "PNG")
+    return buf.getvalue()
