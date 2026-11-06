@@ -22,7 +22,7 @@
   "caption_style": {"font": "IBM Plex Mono", "size": 42, "weight": 500, "color": "#FFB13B", "bg": "rgba(12,8,5,0.9)",
                     "letterSpacing": "0"},
   "background": "#050302",
-  "render": {"post": "crt", "post_params": {"crt": {"glow": 0.6, "scanline": 0.0, "curvature": 0.055, "vignette": 0.42}}},
+  "render": {"post": "crt", "post_params": {"crt": {"glow": 0.5, "scanline": 0.0, "curvature": 0.055, "vignette": 0.42}}},
   "style": {
     "id": "terminal",
     "name": "Terminal",
@@ -39,6 +39,6 @@
     "sfx": {"cut": "glitch", "move": "glitch", "click": "relay", "type": "key", "appear": "beep", "pass": "beep",
             "fail": "error", "hit": "relay", "hero": "sub_drop", "build": "riser", "shot": "shutter"},
     "post": "crt",
-    "post_params": {"crt": {"glow": 0.6, "scanline": 0.0, "curvature": 0.055, "vignette": 0.42}}
+    "post_params": {"crt": {"glow": 0.5, "scanline": 0.0, "curvature": 0.055, "vignette": 0.42}}
   }
 }

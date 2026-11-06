@@ -76,7 +76,7 @@ export function phosphorMedia(ctx, F, img, w, h0, o = {}) {
     gR.drawImage(m.image, src[0], src[1], src[2], src[3], 0, 0, cR.width, cR.height);
     // a colour tube, not a monitor: paper whites go warm and a touch darker so the page sits in the glass
     gR.globalCompositeOperation = 'multiply';
-    gR.fillStyle = o.warm || '#F2DEC4';
+    gR.fillStyle = o.warm || '#EAD5B8';
     gR.fillRect(0, 0, cR.width, cR.height);
     gR.globalCompositeOperation = 'source-over';
     // dither plate: phosphor dots on glass

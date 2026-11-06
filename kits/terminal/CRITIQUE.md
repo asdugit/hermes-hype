@@ -40,3 +40,16 @@ Look (TITLE, DIFF, TERMINAL pass, MONTAGE, END, END speedrun, HOOK term, PLAN af
 - HOOK terminal: pane had empty rows under PASS (rows reserved for a final prompt it never shows) -> trimmed.
 - 9:16 (late keyframe per shot): layouts hold inside the 120..960 x 232..1500 band; CODE/DIFF are small (22 px, long
   lines) and the lower band is sparse on short content -> acceptable, revisit after blueprint.
+
+## Round 3 — 25 s Quick sample (story heuristic on the webapp fixture, 16:9, CRT post + bed + SFX)
+Film: HOOK → TITLE → FEATURE ×2 → SCROLL → STATS → END; `channel-switch` between acts, `persist` cuts inside;
+0 scene/page errors; render 1.3–1.8× realtime at 1080p with the `crt` chain; −14.1 LUFS.
+- Coherent amber film: the boot log + block-letter FOCUSFOX (frame A), odometer drums, `$ exit` → tube-off END.
+- The HOOK never powered on: `power_on` defaulted to `false` in the shared params, so `p.power_on ?? def.powerOn`
+  never reached the scene default -> defaults are `null` now (HOOK on, END off). Re-check: dot → line → raster at
+  0.2 s, the capture is up by 1.5 s.
+- HOOK stages were too slow for a 2.3 s shot (real image only at the very end) -> ASCII from the first frame,
+  dither at 0.22, real at 0.5 of the shot.
+- Light captures in the real stage glare in the CRT glow -> warm multiply `#EAD5B8` and post glow 0.6 -> 0.5. They
+  still read as the brightest thing on screen (intended: the product is the hero), but no longer clip.
+- `product_scale` (ISSUES #13) honoured by HOOK / SCREEN / FEATURE.

@@ -14,8 +14,8 @@ export const TCOMMON = {
   ...COMMON,
   theme: { type: 'string', default: 'terminal', doc: 'theme (terminal: amber P3 tokens; kit:base scenes re-skin with it too)' },
   phosphor: { type: 'string', default: 'p3', doc: 'p3 (amber, default) | p1 (green); one phosphor per film' },
-  power_on: { type: 'bool', default: false, doc: 'tube powers on at the start of the shot (HOOK does by default)' },
-  power_off: { type: 'bool', default: false, doc: 'tube switches off in the last 0.45 s (END does by default)' },
+  power_on: { type: 'bool', default: null, doc: 'tube powers on at the start of the shot (null = scene default: HOOK on)' },
+  power_off: { type: 'bool', default: null, doc: 'tube switches off in the last 0.45 s (null = scene default: END on)' },
 };
 
 /** Content box (reference px) that clears the tube curvature, the safe area and (when up) the caption band. */

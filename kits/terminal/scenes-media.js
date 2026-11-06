@@ -95,7 +95,7 @@ function contentPane(ctx, F, T, c, o) {
 tubeScene('kit:terminal/HOOK', {
   describe: 'Scroll-stopper: the tube powers on (dot -> line -> picture, degauss wobble), the hero artefact appears in a pane (a product capture resolves ASCII -> dither -> real; a test run prints with its PASS block) and a <= 6 word headline types in VT323.',
   powerOn: true,
-  params: { hero: { type: 'content', default: null, doc: '{kind: image|terminal|diff|code, ...block data}' } },
+  params: { hero: { type: 'content', default: null, doc: '{kind: image|terminal|diff|code, ...block data}' }, product_scale: { type: 'number', default: 1, doc: 'multiplies the product capture size on screen (0.5-3)' } },
   build(ctx, p, F, T) {
     const L = F.portrait, B = contentBox(F, T);
     const hero = p.hero || {};
@@ -108,7 +108,8 @@ tubeScene('kit:terminal/HOOK', {
     const ty = typing(labLines.join('\n'), 0.55, { cps: 32, maxDur: 1.0, seed: 1 });
     const kind = hero.kind || (hero.w ? 'image' : 'code');
     const fs = kind === 'image' ? (L ? 22 : 24) : L ? 30 : 40;
-    const avail = { w: B.w, h: B.h - labH };
+    const ps = clamp(Number(p.product_scale) || 1, 0.5, 3);
+    const avail = { w: B.w * (kind === 'image' ? ps : 1), h: (B.h - labH) * (kind === 'image' ? ps : 1) };
     const pane = contentPane(ctx, F, T, hero, { fs, maxW: avail.w, maxH: avail.h, cx: F.W / 2, cy: B.y + labH + avail.h / 2,
       t0: 0.45, fast: true, phosphor: p.phosphor, maxRows: L ? 14 : 10 });
     T.bar('', '');
@@ -131,14 +132,15 @@ function screenBuild(ctx, p, F, T, feature) {
   const dur = ctx.dur, L = F.portrait, B = contentBox(F, T);
   const img = p.image || {};
   const fs = L ? 22 : 24;
-  const mp = mediaPane(ctx, F, T, img, { fs, maxW: B.w, maxH: B.h, cx: F.W / 2, cy: B.y + B.h / 2, phosphor: p.phosphor, parent: T.clip(B) });
-  const st = { ascii: 0.12, dither: 0.42, real: 0.72, scan: 0.16 };
+  const ps = clamp(Number(p.product_scale) || 1, 0.5, 3);
+  const mp = mediaPane(ctx, F, T, img, { fs, maxW: B.w * ps, maxH: B.h * ps, cx: F.W / 2, cy: B.y + B.h / 2, phosphor: p.phosphor, parent: T.clip(B) });
+  const st = { ascii: -0.2, dither: 0.22, real: 0.5, scan: 0.16 };
   const bb = Array.isArray(p.bbox) && p.bbox.length === 4 ? p.bbox.map(Number) : [0.1, 0.1, 0.8, 0.8];
   const A = mp.area;
   const bx = A.x + bb[0] * A.w, by = A.y + bb[1] * A.h, bw = bb[2] * A.w, bh = bb[3] * A.h;
   const fx = bx + bw / 2, fy = by + bh / 2;
   const cx = F.W / 2, cy = B.y + B.h / 2;
-  const z = clamp(Math.min((B.w * 0.86) / bw, (B.h * 0.8) / bh), 1.4, 2.0);
+  const z = clamp(Math.min((B.w * 0.86) / bw, (B.h * 0.8) / bh), ps > 1.2 ? 1.0 : 1.4, 2.0);
   const tz = clamp(dur * 0.32, 1.25, 1.9);
   const cues = [{ t: st.ascii, sfx: 'appear', gain_db: -12 }, { t: tz, sfx: 'move', gain_db: -12 }];
   const P = phosphorOf(p);
@@ -191,7 +193,7 @@ function screenBuild(ctx, p, F, T, feature) {
 
 tubeScene('kit:terminal/SCREEN', {
   describe: 'Real screenshot in a box-drawn pane: it resolves ASCII -> phosphor dither -> the real image with a raster sweep, then zooms to the focus box in discrete font-size steps (>= 1.4x).',
-  params: { image: IMAGE_DOC, bbox: { type: 'array', default: [0.1, 0.1, 0.8, 0.8], doc: 'focus box [x,y,w,h] as image fractions' } },
+  params: { image: IMAGE_DOC, bbox: { type: 'array', default: [0.1, 0.1, 0.8, 0.8], doc: 'focus box [x,y,w,h] as image fractions' }, product_scale: { type: 'number', default: 1, doc: 'multiplies the product capture size on screen (0.5-3)' } },
   build(ctx, p, F, T) { return screenBuild(ctx, p, F, T, false); },
 });
 
@@ -200,7 +202,7 @@ tubeScene('kit:terminal/FEATURE', {
   params: {
     image: IMAGE_DOC, feature: { type: 'string', default: '', doc: 'feature name (<= 6 words), typed as the tag' },
     bbox: { type: 'array', default: [0.1, 0.1, 0.8, 0.8], doc: 'feature region [x,y,w,h] (image fractions)' },
-    click: { type: 'array', default: [0.5, 0.5], doc: 'click point [x,y] (image fractions)' },
+    click: { type: 'array', default: [0.5, 0.5], doc: 'click point [x,y] (image fractions)' }, product_scale: { type: 'number', default: 1, doc: 'multiplies the product capture size on screen (0.5-3)' },
   },
   build(ctx, p, F, T) { return screenBuild(ctx, p, F, T, true); },
 });
