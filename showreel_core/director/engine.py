@@ -564,8 +564,10 @@ def _static_bumps(r: _Run, v: Version) -> None:
         scene = str(s.get("scene", ""))
         if screens and scene in pm.NATURE_FLYER_SCENES + pm.NATURE_HERO_SCENES:
             for f in (s.get("params") or {}).get("flyers") or []:
-                if isinstance(f, dict) and f.get("media") in screens and "key" not in f:
-                    f["key"] = False
+                if isinstance(f, dict) and f.get("media") in screens:
+                    f.setdefault("key", False)
+                    if "facing" not in f and pm.flyer_direction(f) < 0:
+                        f["facing"] = "left"        # the kit mirrors left-moving cards: UI text would read backwards
     intents = {p["id"]: p for p in v.plan.get("shots") or []}
     for s in v.film["shots"]:
         if not references(s.get("params") or {}, r.product) or not (intents.get(s["id"]) or {}).get("product_visible"):
@@ -900,11 +902,18 @@ def _prominence_failures(r: _Run, v: Version) -> list[tuple[dict[str, Any], floa
             continue
         wanted = bool((intents.get(s["id"]) or {}).get("product_visible"))
         refs = bool(references(s.get("params") or {}, r.product))
+        ghost = 0 < float(d.get("clarity", 1.0)) < pm.FAINT and _fragmented(v, s["id"])
         if wanted and d["visible"] == 0:
             out.append((s, 0.0))
-        elif refs and d["max_width"] < PRODUCT_HERO_SIZE and (not film_ok or wanted):
-            out.append((s, d["max_width"]))
+        elif refs and d["max_width"] < PRODUCT_HERO_SIZE and (not film_ok or wanted) and not ghost:
+            out.append((s, d["max_width"]))     # a ghosted, fragmented product measures narrow: never grow it blind
     return out
+
+
+def _fragmented(v: Version, shot: str) -> bool:
+    """The product breaks into several regions in most of the shot's keyframes (keyed/ghosted UI cards)."""
+    ms = [m for m in v.measures if m.shot == shot and m.visible]
+    return bool(ms) and sum(m.regions >= 3 for m in ms) * 2 >= len(ms)
 
 
 def _prominence_pass(r: _Run, v: Version) -> None:

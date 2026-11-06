@@ -590,7 +590,11 @@ PRODUCT_SIZE_NOTE = """\
 - Nature flyers: metres at a depth in metres; the camera sees ~1.09 x depth metres across (16:9). `hero` path 6.4 m
   at 16 m = 37 %; `descend` 5.4 m at 20 m = 25 %; `float` 6 m at 36 m = 15 %; `rise`/`arc` = specks. Make the lead
   flyer `size` >= 9 at d <= 24 (or path `hero`); 1-2 smaller ones behind it for depth.
-- Kit scenes that declare `product_scale`: >= 1.2 in product shots."""
+- Kit scenes that declare `product_scale`: >= 1.2 in product shots.
+- SCREEN products (UI screenshots) in nature scenes fly as cards: give every such flyer `key: false` (the kit's
+  auto-key ghosts light UI) and keep it within ~60 % of the width (it is a 16:10 card: taller than a car). The
+  nature `product-hero` cannot un-key a screenshot (it reads as a ghost): show the UI close and crisp with
+  `kit:cinematic/screen-push` or `kit:launch/SCREEN|FEATURE` instead, and let the meadow carry the mood."""
 
 
 def repair_text(previous: Any, errors: list[str]) -> str:

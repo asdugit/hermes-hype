@@ -39,6 +39,7 @@ NATURE_DEFAULT_PATHS = ("descend", "rise", "drive-slope", "float", "arc", "orbit
 NATURE_FLYER_SCENES = ("kit:nature/flower-field", "kit:nature/sky-reveal")
 NATURE_HERO_SCENES = ("kit:nature/product-hero",)
 HERO_SIZE_M, HERO_DIST_M = 5.0, 19.0     # product-hero defaults (one product on the hilltop)
+HERO_BUMP = 1.6            # one hilltop product grows at most this much per repair (b2: x2.1 overshot into the sky)
 SCALE_PARAMS = ("product_scale", "productScale", "hero_scale")
 FAINT = 0.56               # clarity below this reads as ghosted (b1/a1 keyframes: ghost cards 0.32-0.54, clear 0.6-1.0)
 
@@ -82,6 +83,19 @@ def nature_flyers(params: dict[str, Any]) -> list[dict[str, Any]]:
     except (TypeError, ValueError):
         n = 4
     return [{"media": prod, "path": p} for p in NATURE_DEFAULT_PATHS[:max(0, min(n, 6))]]
+
+
+# default screen direction of each path's slot (kits/nature/lib/flyers.js SLOTS x0 -> x1; +1 = moving right)
+_PATH_DIR = {"rise": -1, "cross": -1, "pass": -1}
+
+
+def flyer_direction(spec: dict[str, Any]) -> int:
+    """+1 when the flyer moves screen-right (or holds), -1 when it moves left (the kit mirrors those)."""
+    try:
+        x0, x1 = float(spec["x0"]), float(spec["x1"])
+        return -1 if x1 < x0 else 1
+    except (KeyError, TypeError, ValueError):
+        return _PATH_DIR.get(str(spec.get("path") or ""), 1)
 
 
 def flyer_width(spec: dict[str, Any], aspect: str, scale: float = 1.0) -> float:
@@ -172,7 +186,7 @@ def bump(shot: dict[str, Any], factor: float, declared: Iterable[str] = ()) -> s
     scene = str(shot.get("scene", ""))
     if scene in NATURE_HERO_SCENES and not (isinstance(params.get("flyers"), list) and params["flyers"]):
         old = float(params.get("size") or HERO_SIZE_M)          # ONE hilltop product: grow it, never add flyers
-        params["size"] = round(min(old * factor, 24.0), 2)
+        params["size"] = round(min(old * min(factor, HERO_BUMP), 24.0), 2)
         return f"hero size {old:g} -> {params['size']:g} m"
     if scene in NATURE_FLYER_SCENES or scene in NATURE_HERO_SCENES:
         flyers = [dict(f) for f in nature_flyers(params)] or ([{"media": params.get("product"), "path": "hero"}]
