@@ -6,6 +6,8 @@ import time
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 from showreel_core.config import Options
 from showreel_core.llm import Host
 from showreel_core.pipeline import (
@@ -403,3 +405,36 @@ def test_post_plan_moves_the_finish_to_ffmpeg_and_keeps_style_chains() -> None:
                                    "stage.html?finish=page")
     assert page == "stage.html?finish=post" and post == "crt+grain_vignette" and params["crt"] == {"glow": 0.6}
     assert post_plan({"finish": {}})[1] == "none"
+
+
+def test_directed_cue_sheet_narration_and_gpu_reach_the_back_half(env: dict[str, Any]) -> None:
+    store, rec = env["store"], Recorder()
+    seen: dict[str, Any] = {}
+    vo = Path(env["tmp"]) / "vo.wav"
+    vo.write_bytes(b"RIFFvo")
+
+    def director(*, job_dir: Path, gpu: Any = None, voice_speed: Any = None, **_: Any) -> dict:
+        seen.update(gpu=gpu, voice_speed=voice_speed)
+        film = {"version": 1, "fps": 30, "size": [1920, 1080], "dur": 20.0, "title": "Red Car",
+                "shots": [{"id": "a", "t0": 0, "t1": 10, "scene": "kit:pixel/x"},
+                          {"id": "b", "t0": 10, "t1": 20, "scene": "kit:nature/y"}],
+                "music": [{"bed": "pixel_b", "t0": 0, "t1": 10}, {"bed": "dream_a", "t0": 10, "t1": 20},
+                          {"sting": "riser", "t": 9.5}],
+                "narration": [{"path": str(vo), "start": 12.0, "duration": 4.5, "text": "Now it is real."}]}
+        return {"ok": True, "status": "done", "film": film, "job_dir": str(job_dir)}
+
+    fits: list[dict[str, Any]] = []
+
+    def fit_music(bed: Any, duration: float, out: Path, drop: Any, last: Any) -> Any:
+        fits.append({"dur": duration, "drop": drop, "last": last})
+        out.write_bytes(b"RIFFmusic")
+        return type("Fitted", (), {"path": out, "bed_id": bed.id, "bpm": bed.bpm, "warnings": []})()
+
+    job = _job(store, seconds=30, direction="pixel boss fight then a meadow", voice_speed=1.1)
+    final = run_job(job["id"], _host()[0], store=store, deps=make_deps(rec, director=director, fit_music=fit_music))
+    assert final["stage"] == "done", final.get("error")
+    assert seen == {"gpu": True, "voice_speed": 1.1}
+    assert [round(f["dur"], 2) for f in fits] == [10.6, 10.0]           # first segment carries the crossfade
+    assert fits[-1]["last"] == pytest.approx(6.5)                        # last word 16.5 s, in the 2nd segment
+    assert rec.calls["join_music"] == [{"parts": 2, "xfade": 0.6}]
+    assert any("music cue sheet" in str(e.get("msg", "")) for e in final.get("log", []))

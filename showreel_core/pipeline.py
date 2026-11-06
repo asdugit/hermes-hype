@@ -359,6 +359,34 @@ def _d_fit_music(bed: Any, duration: float, out_path: Path, drop_time: float | N
     return fit_bed(bed, duration, out_path, drop_time=drop_time, last_word_time=last_word_time)
 
 
+def _d_join_music(parts: list[Path], xfade: float, out_path: Path) -> Path:
+    """Concatenate fitted bed segments with equal-power-ish triangular crossfades (ffmpeg ``acrossfade``)."""
+    import subprocess
+
+    from .render.ffmpeg import resolve_ffmpeg
+    if len(parts) == 1:
+        shutil.copy2(parts[0], out_path)
+        return out_path
+    cmd = [resolve_ffmpeg().path, "-y", "-v", "error"]
+    for p in parts:
+        cmd += ["-i", str(p)]
+    chain, last = [], "[0:a]"
+    for k in range(1, len(parts)):
+        chain.append(f"{last}[{k}:a]acrossfade=d={xfade:.3f}:c1=tri:c2=tri[x{k}]")
+        last = f"[x{k}]"
+    cmd += ["-filter_complex", ";".join(chain), "-map", last, "-c:a", "pcm_f32le", str(out_path)]
+    subprocess.run(cmd, check=True, capture_output=True, timeout=120)
+    return out_path
+
+
+def _d_gpu_ok(cache: Path) -> bool | None:
+    """The cached GPU probe decision for the first usable browser (``None`` when it cannot be probed)."""
+    from .render.chromium import browser_candidates
+    from .render.probe import probe_gpu
+    cands = browser_candidates()
+    return bool(probe_gpu(cands[0], cache_path=cache).use_gpu) if cands else None
+
+
 #: Legacy cue names (story timing before wave 3, older saved timelines / Director films) -> SFX kit roles.
 #: The story timing now emits role names directly (cut, build, appear, type, ...).
 SFX_ALIASES = {"whoosh": "cut", "tick": "type", "split": "appear", "riser": "build"}
@@ -451,6 +479,8 @@ class Deps:
     layout_qa: Callable[..., Any] | None = _d_layout_qa
     render: Callable[..., Any] = _d_render
     fit_music: Callable[..., Any] = _d_fit_music
+    join_music: Callable[..., Any] = _d_join_music
+    gpu_ok: Callable[[Path], bool | None] | None = _d_gpu_ok
     place_sfx: Callable[..., Any] = _d_place_sfx
     mix: Callable[..., Any] = _d_mix
     audio_report: Callable[..., Any] | None = _d_audio_report
@@ -1003,6 +1033,17 @@ def _out_size(film: dict[str, Any], w: int, h: int) -> tuple[int, int] | None:
     return None
 
 
+def _gpu_ok(run: _Run) -> bool | None:
+    """GPU decision from the (cached) render probe, for the Director's keyframe previews. Never raises."""
+    if run.deps.gpu_ok is None:
+        return None
+    try:
+        return run.deps.gpu_ok(run.store.root / "gpu_probe.json")
+    except Exception as exc:  # noqa: BLE001
+        run.info(f"GPU probe for previews failed: {exc}")
+        return None
+
+
 def _directed(run: _Run) -> list[Built] | None:
     """Directed mode: the Director writes film.json; ``None`` means fall back to Quick mode."""
     director = run.deps.director()
@@ -1026,11 +1067,13 @@ def _directed(run: _Run) -> list[Built] | None:
                "session_id": run.job.get("session_id", ""), "digest": getattr(run.bundle, "digest", ""),
                "product": getattr(run.bundle, "product", None), "seconds": run.opts.seconds, "aspect": aspect,
                "fps": fps, "size": (w, h), "seed": run.seed, "notes": run.opts.notes, "style": run.opts.style,
-               "hints": run.opts.hints}
+               "hints": run.opts.hints, "voice_speed": run.opts.voice_speed}
     try:
         params = inspect.signature(director).parameters
-        kwargs = offered if any(p.kind is inspect.Parameter.VAR_KEYWORD for p in params.values()) \
-            else {k: v for k, v in offered.items() if k in params}
+        takes_all = any(p.kind is inspect.Parameter.VAR_KEYWORD for p in params.values())
+        if takes_all or "gpu" in params:
+            offered["gpu"] = _gpu_ok(run)        # previews on the GPU like the final render (ISSUES #17)
+        kwargs = offered if takes_all else {k: v for k, v in offered.items() if k in params}
         result = director(**kwargs)
     except Cancelled:
         raise
@@ -1069,8 +1112,10 @@ def _directed(run: _Run) -> list[Built] | None:
     cues += [{"t": m["t"], "sfx": m["sting"]} for m in film.get("music") or [] if isinstance(m, dict) and "sting" in m]
     voices = [v for v in film.get("narration") or [] if isinstance(v, dict) and v.get("path")]
     page, post, post_params = post_plan(film, page)
+    last_word = max((float(v.get("start", 0)) + float(v.get("duration", 0)) for v in voices), default=None)
+    drop = next((float(c["t"]) for c in cues if str(c.get("sfx")) in ("hit", "hero", "impact")), None)
     run.built = [Built(aspect=aspect, page_dir=page_dir, page=page, w=w, h=h, fps=fps, dur=dur, film=film,
-                       post=post, post_params=post_params,
+                       post=post, post_params=post_params, last_word_time=last_word, drop_time=drop,
                        cues=cues, voices=voices, style=run.opts.style,
                        scene_times=[round((float(s.get("t0", 0)) + float(s.get("t1", 0))) / 2, 3) for s in shots],
                        scene_labels=[str(s.get("id", "")) for s in shots])]
@@ -1212,12 +1257,47 @@ def _audio_all(run: _Run, videos: dict[str, Path]) -> dict[str, Path]:
     return finals
 
 
+MUSIC_XFADE_S = 0.6
+
+
+def _cue_sheet(run: _Run, b: Built, plan: list[dict[str, Any]], out: Path) -> Path:
+    """Multi-bed music (``film.music = [{bed, t0, t1}, ...]``, beds of any style): each bed is bar-fitted to its
+    segment (the drop / last word land in the segment that holds them) and the segments are joined with
+    ``MUSIC_XFADE_S`` crossfades; the total length equals the film. Raises on any failure (caller falls back)."""
+    segs = sorted(plan, key=lambda m: float(m.get("t0", 0)))
+    bounds = [max(0.0, float(m.get("t0", 0))) for m in segs] + [b.dur]
+    bounds[0] = 0.0
+    parts: list[Path] = []
+    ids = []
+    for i, m in enumerate(segs):
+        t0, t1 = bounds[i], min(b.dur, bounds[i + 1])
+        if t1 - t0 < 1.0:
+            continue
+        bed = run.deps.pick_bed(b.style, run.seed, str(m["bed"]))
+        if bed is None:
+            raise RuntimeError(f"bed {m['bed']!r} not found")
+        seg = t1 - t0 + (MUSIC_XFADE_S if i < len(segs) - 1 else 0.0)
+        drop = b.drop_time - t0 if b.drop_time is not None and t0 <= b.drop_time < t1 else None
+        last = b.last_word_time - t0 if b.last_word_time is not None and i == len(segs) - 1 and b.last_word_time > t0 else None
+        fitted = run.deps.fit_music(bed, seg, out.parent / f"music_{i}.wav", drop, last)
+        parts.append(Path(getattr(fitted, "path", out.parent / f"music_{i}.wav")))
+        ids.append(getattr(bed, "id", str(m["bed"])))
+    if not parts:
+        raise RuntimeError("no usable music segment")
+    run.deps.join_music(parts, MUSIC_XFADE_S, out)
+    run.info(f"music cue sheet: {' -> '.join(ids)} ({len(parts)} segment(s), {MUSIC_XFADE_S}s crossfades)")
+    return out
+
+
 def _music_track(run: _Run, b: Built, out: Path) -> Path | None:
     """Fit the film's bed(s) to its length; ``None`` (with a warning) when no music can be made."""
     plan = [m for m in (b.film.get("music") or []) if isinstance(m, dict) and m.get("bed")]
     bed_id = str(plan[0]["bed"]) if len(plan) >= 1 else None
     if len(plan) > 1:
-        run.info("multi-bed music plans use the first bed for the whole film (v1)")
+        try:
+            return _cue_sheet(run, b, plan, out)
+        except Exception as exc:  # noqa: BLE001 - fall back to one bed for the whole film
+            run.warn(f"multi-bed music failed ({exc}); the first bed plays the whole film")
     bed = None
     if bed_id:
         with contextlib.suppress(Exception):
