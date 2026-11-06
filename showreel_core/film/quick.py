@@ -313,9 +313,11 @@ def film_from_timeline(timeline: Any, *, style: str | None = None, aspect: str |
         if kit.get("params") == "wrapped" and not sid.startswith(f"kit:{BASE_KIT}/"):
             shots.append(_wrapped_shot(k, typ, t0, t1, sid, data, kit, aspect or tl.get("aspect"),
                                        media=(product_image or {}).get("asset")))
-            if sc.get("captions"):
+            caps = [c for c in sc.get("captions") or [] if str(c.get("text", "")).strip()]
+            if caps:
+                shots[-1]["params"]["_captions"] = True      # the kit may lift content clear of the caption band
                 captions += [{"t0": round(float(c["t0"]), 3), "t1": round(float(c["t1"]), 3), "text": str(c["text"])}
-                             for c in sc["captions"] if str(c.get("text", "")).strip()]
+                             for c in caps]
             continue
         params = data
         params["theme"] = theme
