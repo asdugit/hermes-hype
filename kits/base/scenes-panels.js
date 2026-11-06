@@ -14,6 +14,7 @@ export const COMMON = {
   _mute: { type: 'array', default: [], doc: 'sfx roles this shot must not emit (the timeline already places them)' },
   _sync: { type: 'object', default: null, doc: 'beat-aligned moments from the timeline cues (shot-local s): {click, pass}' },
   _captions: { type: 'bool', default: false, doc: 'captions are up in this shot: content lifts clear of the caption band' },
+  backdrop: { type: 'content', default: null, doc: "the film's product image {kind:'image', asset, w, h} (Quick mode, type scenes): shown as a soft product echo behind the type" },
 };
 
 /** Panel entrance (tilt up out of a soft blur), starting before t=0 so frame 0 is already in motion. */

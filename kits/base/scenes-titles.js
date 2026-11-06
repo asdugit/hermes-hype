@@ -6,6 +6,26 @@ import { seg, ease, lerp, clamp } from './motion.js';
 import { kineticLine, kineticLetters, riseIn, statsBlock, ctaPill, whoLabel } from './type.js';
 import { COMMON, panelIn } from './scenes-panels.js';
 import { contentBlock } from './scenes-media.js';
+import { mediaOf } from './media.js';
+
+/**
+ * The film's product image (params.backdrop, from Quick mode) as a soft full-frame backdrop in F.bg: cover-fit,
+ * blurred and dimmed (theme token --sr-backdrop-op, default .3), slow push. Returns {update(t)} or null.
+ */
+export function backdropLayer(ctx, F, p) {
+  const m = p && p.backdrop && (p.backdrop.asset || p.backdrop.path) ? mediaOf(ctx, p.backdrop) : null;
+  if (!m || !m.image) return null;
+  const cv = h('canvas', 'srb-backdrop');
+  const k = Math.max(F.W / m.w, F.H / m.h) * 1.12;
+  cv.width = Math.max(1, Math.round(Math.min(1600, m.w * k * 0.5)));
+  cv.height = Math.max(1, Math.round(cv.width * m.h / m.w));
+  cv.getContext('2d').drawImage(m.image, 0, 0, cv.width, cv.height);
+  const w = m.w * k, hh = m.h * k;
+  cv.style.cssText = `position:absolute;left:${((F.W - w) / 2).toFixed(1)}px;top:${((F.H - hh) / 2).toFixed(1)}px;width:${w.toFixed(1)}px;` +
+    `height:${hh.toFixed(1)}px;filter:blur(16px) saturate(1.1);opacity:var(--sr-backdrop-op,.3);transform-origin:50% 50%;`;
+  F.bg.appendChild(cv);
+  return { update(t) { css(cv, { transform: `scale(${(1 + 0.05 * seg(t, 0, ctx.dur)).toFixed(4)})` }); } };
+}
 
 /** Display size for a title so it fits maxW on one line (Geist 600, tight tracking). */
 export function titleSize(text, maxW, max = 220, min = 96) {
@@ -27,7 +47,8 @@ export const TITLE_DEF = {
     const title = String(p.title || p.product || '').trim();
     const tagline = String(p.tagline || '').trim();
     const heroElsewhere = !!p._hero_elsewhere;
-    const hasHero = heroElsewhere || !!(p.hero && (p.hero.asset || p.hero.kind));
+    const heroData = p.hero && (p.hero.asset || p.hero.kind) ? p.hero : (p.backdrop && p.backdrop.asset ? p.backdrop : null);
+    const hasHero = heroElsewhere || !!heroData;
     const centered = L || !hasHero;
     const maxW = L ? 840 : hasHero ? 860 : 1500;
     const ts = titleSize(title, maxW, L ? 200 : 220, L ? 90 : 110);
@@ -45,7 +66,7 @@ export const TITLE_DEF = {
     if (tg) box.appendChild(tg.el);
     box.appendChild(rule);
     if (centered) {
-      box.style.cssText = `left:0;right:0;text-align:center;display:flex;flex-direction:column;align-items:center;top:${L ? (hasHero ? 330 : 700) : 330}px;`;
+      box.style.cssText = `left:0;right:0;text-align:center;display:flex;flex-direction:column;align-items:center;top:${p._title_top ?? (L ? (hasHero ? 330 : 700) : 330)}px;`;
       if (tg) tg.el.style.textAlign = 'center';
     } else {
       box.style.cssText = `left:${F.safe.l + 20}px;top:${F.H / 2 - ts * 0.9 - 60}px;width:${maxW}px;`;
@@ -54,7 +75,7 @@ export const TITLE_DEF = {
     let hero = null;
     if (hasHero && !heroElsewhere) {
       const hw = L ? 900 : 900;
-      hero = contentBlock(ctx, p.hero, { width: hw, maxH: L ? 760 : 700, fast: true, t0: 0 });
+      hero = contentBlock(ctx, heroData, { width: hw, maxH: L ? 760 : 700, fast: true, t0: 0 });
       const hx = L ? (F.W - hw) / 2 : F.W - F.safe.r - hw + 40;
       const hy = L ? 1020 : (F.H - hero.h) / 2;
       place(hero.el, hx, hy);
@@ -90,6 +111,7 @@ export const STATS_DEF = {
   },
   build(ctx, p, F) {
     const L = F.portrait;
+    const bd = backdropLayer(ctx, F, p);
     const sb = statsBlock(p.stats || [], { portrait: L, landAt: 0.12 });
     const label = String(p.label || '').trim();
     const eb = label ? h('div', 'srb-eyebrow', null, [h('i'), label]) : null;
@@ -105,6 +127,7 @@ export const STATS_DEF = {
       cues: sb.cues,
       render(t) {
         sb.update(t);
+        if (bd) bd.update(t);
         if (eb) riseIn(eb, t, 0.05);
         const u = seg(t, 0, ctx.dur, ease.outCubic);
         flatCam(F, t, F.W / 2, F.H / 2, lerp(1.04, 1.0, u), { lift: F.caps ? 40 : 0 });
@@ -125,6 +148,7 @@ export const CALLOUT_DEF = {
   build(ctx, p, F) {
     const L = F.portrait;
     const text = String(p.text || '').trim();
+    const bd = backdropLayer(ctx, F, p);
     const maxW = L ? 840 : 1380;
     const fs = fitSize(text, maxW, L ? 6 : 3, L ? 92 : 104, 54, 0.42);
     const box = h('div', 'srb-abs');
@@ -144,6 +168,7 @@ export const CALLOUT_DEF = {
     return {
       cues: [],
       render(t) {
+        if (bd) bd.update(t);
         riseIn(qm, t, 0.0, { rise: 20 });
         q.update(t, 0.12, { stagger, dur: 0.6, blur: 8 });
         css(rule, { transform: `scaleX(${seg(t, 0.3 + nW * stagger, 0.9 + nW * stagger, ease.outQuint).toFixed(4)})` });
@@ -168,6 +193,7 @@ export const END_DEF = {
   build(ctx, p, F) {
     const L = F.portrait;
     const title = String(p.title || '').trim();
+    const bd = backdropLayer(ctx, F, p);
     const ts = titleSize(title, L ? 840 : 1400, L ? 190 : 200, 90);
     const col = centerBox(F, L ? -60 : -30);
     let pb = null;
@@ -215,6 +241,7 @@ export const END_DEF = {
     return {
       cues: [...(pill ? [{ t: pillAt + 0.05, sfx: 'appear', gain_db: -10 }] : []), ...(pb ? [{ t: 0.1, sfx: 'pass', gain_db: -6 }] : [])],
       render(t) {
+        if (bd) bd.update(t);
         if (pb) riseIn(pb, t, 0.0, { rise: 30 });
         tl.update(t, pb ? 0.25 : 0.05);
         if (tg) tg.update(t, 0.45);

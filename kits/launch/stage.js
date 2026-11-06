@@ -51,7 +51,8 @@ export function fitRect(W, F, w, hh, relPitch = 20, fill = 0.84, fillH = 0.78) {
  * (keeps type columns clear without tilting the camera).
  */
 export function lensShift(W, F, ax, ay, lift = 0) {
-  css(W.view, { transform: `translate3d(${(ax - F.W / 2).toFixed(2)}px,${(ay - F.H / 2 - lift).toFixed(2)}px,0)` });
+  W.curShift = [ax - F.W / 2, ay - F.H / 2 - lift];
+  W.applyShift(W.curShift);
 }
 
 /** Panel entrance for nodes: rise from the table (z) + unblur, starting before t=0 so frame 0 is in motion. */
@@ -71,7 +72,7 @@ export function pushTrack(W, F, n, b, rect, o) {
   const relW = o.pitchWide ?? 20, relP = o.pitchPush ?? 12;
   const cW = W.nodePoint(n, b.w / 2, b.h / 2);
   const dW = fitRect(W, F, b.w, b.h, relW, 0.88 * fx, 0.82 * fy) * (o.wideMul ?? 1.0);
-  let dP = fitRect(W, F, rect.w, rect.h, relP, 0.9 * fx, (o.pushFillH ?? 0.62) * fy);
+  let dP = fitRect(W, F, rect.w, rect.h, relP, (o.pushFillW ?? 0.9) * fx, (o.pushFillH ?? 0.62) * fy);
   dP = clamp(dP, dW / (o.maxPush ?? 2.1), dW / 1.4);
   const c = rectCenter(W, n, rect);
   let target = [c[0], c[1], c[2]];

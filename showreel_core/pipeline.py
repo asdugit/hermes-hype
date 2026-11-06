@@ -970,13 +970,30 @@ def _build_aspect(run: _Run, aspect: str, style: str) -> Built:
               for sc in tl.scenes if int(sc.data.get("story_index", -1)) in run.clips]
     last_word = max((v["start"] + v["duration"] for v in voices), default=None)
     drop = next((float(sc.t0) for sc in tl.scenes if getattr(sc.type, "value", sc.type) == "STATS"), None)
+    page, post, post_params = post_plan(film, page)
     return Built(aspect=aspect, page_dir=page_dir, page=page, w=w, h=h, fps=fps, dur=float(tl.dur),
-                 out_size=_out_size(film, w, h), post=str((film.get("render") or {}).get("post") or "none"),
-                 post_params=dict((film.get("render") or {}).get("post_params") or {}), film=film,
+                 out_size=_out_size(film, w, h), post=post, post_params=post_params, film=film,
                  cues=[{"t": c.t, "sfx": c.sfx, "gain_db": c.gain_db, "align": c.align} for c in tl.cues],
                  voices=voices, scene_times=[round((sc.t0 + sc.t1) / 2, 3) for sc in tl.scenes],
                  scene_labels=[getattr(sc.type, "value", str(sc.type)) for sc in tl.scenes],
                  drop_time=drop, last_word_time=last_word, style=style)
+
+
+def post_plan(film: dict[str, Any], page: str = "stage.html") -> tuple[str, str, dict[str, Any]]:
+    """(page, post chain, post_params) for a final render: the film's ``finish`` (grain/vignette/bloom) moves to
+    ffmpeg post (``?finish=post``; in-page grain costs +40-60 % per frame in software mode) and is appended to a
+    style's own ``film.render.post`` chain (e.g. terminal's ``crt``)."""
+    from .film.render import post_for_finish
+    render = film.get("render") if isinstance(film.get("render"), dict) else {}
+    chains = [c for c in str(render.get("post") or "none").split("+") if c and c != "none"]
+    params = dict(render.get("post_params") or {})
+    fin_chain, fin_params = post_for_finish(film.get("finish"))
+    for c in (x for x in fin_chain.split("+") if x and x != "none"):
+        if c not in chains:
+            chains.append(c)
+            params.setdefault(c, fin_params.get(c, {}))
+    base = page.split("?", 1)[0]
+    return f"{base}?finish=post", ("+".join(chains) or "none"), params
 
 
 def _out_size(film: dict[str, Any], w: int, h: int) -> tuple[int, int] | None:
@@ -1051,7 +1068,9 @@ def _directed(run: _Run) -> list[Built] | None:
     cues = [c for c in film.get("cues") or [] if isinstance(c, dict)]
     cues += [{"t": m["t"], "sfx": m["sting"]} for m in film.get("music") or [] if isinstance(m, dict) and "sting" in m]
     voices = [v for v in film.get("narration") or [] if isinstance(v, dict) and v.get("path")]
+    page, post, post_params = post_plan(film, page)
     run.built = [Built(aspect=aspect, page_dir=page_dir, page=page, w=w, h=h, fps=fps, dur=dur, film=film,
+                       post=post, post_params=post_params,
                        cues=cues, voices=voices, style=run.opts.style,
                        scene_times=[round((float(s.get("t0", 0)) + float(s.get("t1", 0))) / 2, 3) for s in shots],
                        scene_labels=[str(s.get("id", "")) for s in shots])]

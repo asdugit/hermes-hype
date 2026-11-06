@@ -212,10 +212,19 @@ export function makeWorld(F, o = {}) {
       css(world, { transform: cssM(M) });
       const sh = cam.shift || api.shift || [0, 0];
       api.curShift = [sh[0], sh[1] - (cam.lift || 0)];
-      css(view, { transform: api.curShift[0] || api.curShift[1] ? `translate3d(${api.curShift[0].toFixed(2)}px,${api.curShift[1].toFixed(2)}px,0)` : 'none' });
+      api.applyShift(api.curShift);
       return M;
     },
-    /** Lens shift [dx, dy] (frame px): the image centre moves without re-aiming the camera. */
+    /**
+     * Lens shift [dx, dy] (frame px): the image centre moves without re-aiming the camera. Done by moving the
+     * world origin AND the perspective origin together (an exact 2D shift of the projected image) rather than
+     * translating the view, so the frame edge never uncovers the stage behind the table.
+     */
+    applyShift([dx, dy]) {
+      const x = (F.W / 2 + dx).toFixed(2), y = (F.H / 2 + dy).toFixed(2);
+      css(view, { perspectiveOrigin: `${x}px ${y}px`, transform: 'none' });
+      css(world, { left: `${x}px`, top: `${y}px` });
+    },
     shift: null,
     curShift: [0, 0],
     /** World point -> frame px [x, y, scale] (matches Chromium's projection of the CSS world). */

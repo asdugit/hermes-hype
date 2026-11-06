@@ -116,9 +116,19 @@ def test_captions_flag_their_shots():
     assert film["caption_style"]["font"] == "Geist" and film["caption_style"]["size"] >= 42
 
 
-def test_base_fallback_styles_reskin_base_scenes():
+def _base_only_kits(tmp_path: Path) -> Path:
+    """A kits root with only base/launch/type (style kits for the base themes may or may not exist yet)."""
+    import shutil
+    root = tmp_path / "kits"
+    for k in ("base", "launch", "type"):
+        shutil.copytree(ROOT / "kits" / k, root / k)
+    return root
+
+
+def test_base_fallback_styles_reskin_base_scenes(tmp_path):
+    kits = _base_only_kits(tmp_path)
     for style in ("terminal", "blueprint", "comic", "ink"):
-        film = film_from_timeline(_timeline(style=style), media_map=MEDIA_MAP)["film"]
+        film = film_from_timeline(_timeline(style=style), media_map=MEDIA_MAP, kits_root=kits)["film"]
         assert errors_of(validate_film(film)) == []
         assert all(s["scene"].startswith("kit:base/") for s in film["shots"]), style
         assert all(s["params"]["theme"] == style for s in film["shots"])
@@ -164,9 +174,50 @@ def test_dict_timeline_accepted():
     assert len(film["shots"]) == 7
 
 
-def test_scene_id_rules():
+def test_scene_id_rules(tmp_path):
     assert scene_id("launch", "SCROLL") == "kit:launch/SCROLL"
-    assert scene_id("terminal", "SCROLL") == "kit:base/SCROLL"
+    assert scene_id("terminal", "SCROLL", _base_only_kits(tmp_path)) == "kit:base/SCROLL"
     assert scene_id("base", "HOOK") == "kit:base/HOOK"
     assert kit_meta("launch")["accent"] == "project"
     assert set(CLAIMS) <= {t.value for t in SceneType}
+
+
+def test_type_scenes_get_the_product_image_as_backdrop():
+    film = film_from_timeline(_timeline(), media_map=MEDIA_MAP)["film"]
+    shots = {s["id"]: s for s in film["shots"]}
+    hero = shots["s00_hook"]["params"]["hero"]
+    for sid in ("s01_title", "s05_stats", "s06_end"):
+        bd = shots[sid]["params"]["backdrop"]
+        assert bd["kind"] == "image" and bd["asset"] == hero["asset"]
+    assert "backdrop" not in shots["s04_feature"]["params"]         # has its own image
+    assert "backdrop" not in shots["s02_code"]["params"]            # not a type scene
+
+
+def test_kits_without_backdrop_opt_in_get_none(tmp_path):
+    import json
+    kits = _base_only_kits(tmp_path)
+    meta = json.loads((kits / "launch" / "kit.json").read_text(encoding="utf-8"))
+    meta.pop("backdrop", None)
+    (kits / "launch" / "kit.json").write_text(json.dumps(meta), encoding="utf-8")
+    film = film_from_timeline(_timeline(), media_map=MEDIA_MAP, kits_root=kits)["film"]
+    assert not any("backdrop" in s["params"] for s in film["shots"])
+
+
+def test_wrapped_kits_get_asset_names_and_the_product_media():
+    film = film_from_timeline(_timeline(style="pixel"), media_map=MEDIA_MAP)["film"]
+    shots = {s["id"]: s for s in film["shots"]}
+    assets = set(film["assets"])
+    assert shots["s04_feature"]["params"]["image"] in assets               # names, never paths
+    assert all(s["params"]["media"] in assets for s in film["shots"])
+    assert all(s.get("res") == [480, 270] for s in film["shots"])
+
+
+def test_kit_render_block_reaches_the_film(tmp_path):
+    import json
+    kits = _base_only_kits(tmp_path)
+    meta = json.loads((kits / "launch" / "kit.json").read_text(encoding="utf-8"))
+    meta["render"] = {"post": "crt", "post_params": {"crt": {"glow": 0.5}}}
+    (kits / "launch" / "kit.json").write_text(json.dumps(meta), encoding="utf-8")
+    film = film_from_timeline(_timeline(), media_map=MEDIA_MAP, kits_root=kits)["film"]
+    assert film["render"] == {"post": "crt", "post_params": {"crt": {"glow": 0.5}}}
+    assert "render" not in film_from_timeline(_timeline(), media_map=MEDIA_MAP)["film"]

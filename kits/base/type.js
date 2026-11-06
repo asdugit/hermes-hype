@@ -83,8 +83,29 @@ export function countText(display, value, u) {
 }
 
 /**
- * STATS numerals: 1-3 {key,label,value,display}. Values count up (quantised per frame: never blur two
- * digits together), labels rise, an accent rule draws under the hero number.
+ * Count-up progress for a stat so every frame reads as a real number: small targets (< 20) don't count at all
+ * (they punch in at their final value), larger ones count from the first value with the same digit count
+ * ("100 -> 516", never "1"), quantised to 15 Hz so digits never strobe. Returns the display string.
+ */
+export function countFrame(display, value, t, t0, dur = 0.7) {
+  const disp = String(display ?? value ?? '');
+  const m = /^([^0-9]*)([0-9][0-9,]*(\.[0-9]+)?)(.*)$/.exec(disp);
+  const hm = /^(\d+) h (\d+) min$/.exec(disp);
+  if (!m && !hm) return disp;
+  const target = hm ? Number(hm[1]) * 60 + Number(hm[2]) : Number(m[2].replace(/,/g, ''));
+  if (!(target >= 20)) return disp;
+  const tq = Math.floor((t - t0) * 15) / 15;            // 15 Hz steps
+  const u = clamp(tq / dur);
+  if (u >= 1) return disp;
+  const digits = String(Math.floor(target)).length;
+  const lo = Math.pow(10, digits - 1);
+  const frac = lo / target;                              // start where the digit count already matches
+  return countText(disp, value, frac + (1 - frac) * ease.outCubic(u));
+}
+
+/**
+ * STATS numerals: 1-3 {key,label,value,display}. Values count up (see countFrame: same digit count, 15 Hz,
+ * small numbers punch in), labels rise, an accent rule draws under the hero number.
  * o: {portrait, size, landAt, gap}
  */
 export function statsBlock(stats, o = {}) {
@@ -92,8 +113,8 @@ export function statsBlock(stats, o = {}) {
   const el = h('div', 'srb-stats');
   const portrait = !!o.portrait;
   const n = Math.max(1, list.length);
-  const size = o.size || (portrait ? (n === 1 ? 300 : 230) : n === 1 ? 300 : n === 2 ? 250 : 210);
-  el.style.cssText = `position:absolute;display:flex;${portrait ? 'flex-direction:column;align-items:flex-start;' : 'align-items:flex-end;'}gap:${o.gap ?? (portrait ? 90 : 120)}px;`;
+  const size = o.size || (portrait ? (n === 1 ? 300 : n === 2 ? 230 : 196) : n === 1 ? 300 : n === 2 ? 250 : 210);
+  el.style.cssText = `position:absolute;display:flex;${portrait ? 'flex-direction:column;align-items:flex-start;' : 'align-items:flex-end;'}gap:${o.gap ?? (portrait ? (n === 3 ? 56 : 90) : 120)}px;`;
   const items = list.map((s, i) => {
     const col = h('div', '');
     col.style.cssText = 'display:flex;flex-direction:column;align-items:flex-start;';
@@ -121,10 +142,11 @@ export function statsBlock(stats, o = {}) {
     items.forEach((it, i) => {
       const t0 = landAt + i * 0.18;
       const st = entrance(t, t0, 0.55, 34, 10);
-      const cu = seg(t, t0 + 0.05, t0 + 1.1, ease.outExpo);
+      const punch = 1 + 0.14 * (1 - seg(t, t0, t0 + 0.45, ease.outQuint));
       css(it.col, { opacity: st.op.toFixed(3), transform: `translate3d(0,${st.y.toFixed(2)}px,0)`,
         filter: st.blur > 0.05 ? `blur(${st.blur.toFixed(2)}px)` : 'none' });
-      const txt = countText(it.s.display, it.s.value, cu >= 0.999 ? 1 : cu);
+      css(it.num, { transform: `scale(${punch.toFixed(4)})`, transformOrigin: '0 85%' });
+      const txt = countFrame(it.s.display, it.s.value, t, t0 + 0.05);
       if (it.num.__t !== txt) { it.num.__t = txt; it.num.textContent = txt; }
       if (it.rule) css(it.rule, { transform: `scaleX(${seg(t, t0 + 0.7, t0 + 1.3, ease.outQuint).toFixed(4)})` });
       riseIn(it.lab, t, t0 + 0.35, { rise: 14 });

@@ -392,3 +392,14 @@ def test_internal_errors_are_caught_and_logged(env: dict[str, Any]) -> None:
     assert final["stage"] == "failed"
     assert final["error"]["message"]
     assert FakeRender(True).ok
+
+
+def test_post_plan_moves_the_finish_to_ffmpeg_and_keeps_style_chains() -> None:
+    from showreel_core.pipeline import post_plan
+
+    page, post, params = post_plan({"finish": {"grain": 0.035, "vignette": 0.22}})
+    assert page == "stage.html?finish=post" and post == "grain_vignette" and params["grain_vignette"]["vignette"] == 0.22
+    page, post, params = post_plan({"finish": {"grain": 0.03}, "render": {"post": "crt", "post_params": {"crt": {"glow": 0.6}}}},
+                                   "stage.html?finish=page")
+    assert page == "stage.html?finish=post" and post == "crt+grain_vignette" and params["crt"] == {"glow": 0.6}
+    assert post_plan({"finish": {}})[1] == "none"

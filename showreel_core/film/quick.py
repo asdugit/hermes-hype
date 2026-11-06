@@ -176,10 +176,47 @@ def _asset_of(x: Any) -> str | None:
     return x.get("asset") if isinstance(x, dict) and x.get("asset") else None
 
 
+#: scene types that may carry the film's product image as ``params.backdrop`` (kits opt in with kit.json
+#: ``"backdrop": true``): type-led scenes would otherwise be words on an empty stage.
+BACKDROP_TYPES = ("TITLE", "STATS", "END", "CALLOUT", "PROBLEM", "PLAN")
+_BACKDROP_ORDER = ("HOOK", "SCREEN", "FEATURE", "SCROLL", "BEFORE_AFTER")
+
+
+def _image_dicts(x: Any) -> list[dict[str, Any]]:
+    """Registered image dicts (with an ``asset``) inside scene data, depth first."""
+    if isinstance(x, dict):
+        out = [x] if x.get("asset") and str(x.get("kind", "image")) == "image" else []
+        for v in x.values():
+            out += _image_dicts(v)
+        return out
+    if isinstance(x, list):
+        return [d for v in x for d in _image_dicts(v)]
+    return []
+
+
+def pick_backdrop(datas: list[tuple[str, dict[str, Any]]]) -> dict[str, Any] | None:
+    """The film's product image for type-scene backdrops: the HOOK's image, else SCREEN/FEATURE/... (landscape
+    images preferred: they read as a product screen), as ``{kind: 'image', asset, w, h, url?, page_title?}``."""
+    found: list[tuple[int, int, dict[str, Any]]] = []
+    for k, (typ, data) in enumerate(datas):
+        rank = _BACKDROP_ORDER.index(typ) if typ in _BACKDROP_ORDER else len(_BACKDROP_ORDER)
+        for d in _image_dicts(data):
+            found.append((rank, k, d))
+    if not found:
+        return None
+    found.sort(key=lambda r: (r[0], 0 if float(r[2].get("w") or 16) >= float(r[2].get("h") or 9) else 1, r[1]))
+    d = found[0][2]
+    keep = {k: d[k] for k in ("asset", "w", "h", "url", "page_title") if d.get(k) not in (None, "")}
+    return {"kind": "image", **keep}
+
+
 def _wrapped_shot(k: int, typ: str, t0: float, t1: float, sid: str, data: dict[str, Any], kit: Mapping[str, Any],
-                  aspect: str | None) -> dict[str, Any]:
-    """Shot for kits whose Quick types take {data, image, image2, media} (pixel)."""
+                  aspect: str | None, media: str | None = None) -> dict[str, Any]:
+    """Shot for kits whose Quick types take {data, image, image2, media} (pixel). Every image is an ASSET NAME;
+    ``media`` is the film's product image (scenes without their own image can still show the product)."""
     params: dict[str, Any] = {"data": data}
+    if media:
+        params["media"] = media
     first = _asset_of(data.get("image")) or _asset_of(data.get("hero")) or _asset_of(data.get("before"))
     if first:
         params["image"] = first
@@ -259,20 +296,29 @@ def film_from_timeline(timeline: Any, *, style: str | None = None, aspect: str |
     shots: list[dict[str, Any]] = []
     transitions: list[dict[str, Any]] = []
     captions: list[dict[str, Any]] = []
+    datas = []
+    for sc in scenes:
+        d = media.walk(dict(sc.get("data") or {}))
+        d.pop("story_index", None)
+        datas.append((_type_name(sc["type"]), d))
+    product_image = pick_backdrop(datas)
+    backdrop = product_image if kit.get("backdrop") else None
     for k, sc in enumerate(scenes):
         typ = _type_name(sc["type"])
         t0, t1 = float(sc["t0"]), float(sc["t1"])
-        data = media.walk(dict(sc.get("data") or {}))
-        data.pop("story_index", None)
+        data = datas[k][1]
         sid = scene_id(style, typ, kits_root)
         if kit.get("params") == "wrapped" and not sid.startswith(f"kit:{BASE_KIT}/"):
-            shots.append(_wrapped_shot(k, typ, t0, t1, sid, data, kit, aspect or tl.get("aspect")))
+            shots.append(_wrapped_shot(k, typ, t0, t1, sid, data, kit, aspect or tl.get("aspect"),
+                                       media=(product_image or {}).get("asset")))
             if sc.get("captions"):
                 captions += [{"t0": round(float(c["t0"]), 3), "t1": round(float(c["t1"]), 3), "text": str(c["text"])}
                              for c in sc["captions"] if str(c.get("text", "")).strip()]
             continue
         params = data
         params["theme"] = theme
+        if backdrop and typ in BACKDROP_TYPES and not _image_dicts(params):
+            params["backdrop"] = dict(backdrop)
         if sc.get("label") and not params.get("label"):
             params["label"] = sc["label"]
         if accent:
@@ -335,6 +381,10 @@ def film_from_timeline(timeline: Any, *, style: str | None = None, aspect: str |
                  "aspect": aspect or tl.get("aspect"), "accent": accent, "claimed_cues": claimed,
                  "warnings": media.warnings},
     }
+    render = kit.get("render")
+    if isinstance(render, Mapping) and render.get("post"):
+        # style post chain (e.g. terminal's CRT) -> pipeline RenderSpec(post=, post_params=)
+        film["render"] = {"post": str(render["post"]), "post_params": dict(render.get("post_params") or {})}
     return {"film": film, "assets": media.assets, "scenes": {}}
 
 

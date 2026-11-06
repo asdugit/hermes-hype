@@ -41,7 +41,7 @@ function headline(F, text, o = {}) {
 /** Frame region for media beside a headline column / above a band. */
 function mediaRegion(F, withHead) {
   if (!withHead) return { x: F.safe.l - 40, y: F.safe.t - 20, w: F.W - F.safe.l - F.safe.r + 80, h: F.H - F.safe.t - F.safe.b + 40 };
-  return F.portrait ? { x: 50, y: F.safe.t - 40, w: F.W - 100, h: F.H - F.safe.t - F.safe.b - 300 }
+  return F.portrait ? { x: 50, y: F.safe.t + 40, w: F.W - 100, h: F.H - F.safe.t - F.safe.b - 320 }
     : { x: 790, y: 70, w: F.W - 790 - 60, h: F.H - 140 };
 }
 
@@ -60,7 +60,8 @@ launchScene('kit:launch/HOOK', {
     const wires = panelWires(W, n, b, b.h * 0.85, { outAt: 0.8 });
     const R = mediaRegion(F, !!label);
     const c = W.nodePoint(n, b.w / 2, b.h / 2);
-    const d = fitRect(W, F, b.w, b.h, 12, 0.98 * R.w / F.W, 0.92 * R.h / F.H);
+    const wide = hero.kind === 'image' || (!hero.kind && (hero.asset || hero.path));
+    const d = fitRect(W, F, b.w, b.h, 12, (L && wide ? 1.45 : 0.98) * R.w / F.W, 0.92 * R.h / F.H);
     const shift = [R.x + R.w / 2 - F.W / 2, R.y + R.h / 2 - F.H / 2];
     const cam = camTrack([
       [0, { target: [c[0], c[1] + 40, c[2] - 30], dist: d * 1.14, yaw: -9, pitch: 40, roll: -2 }],
@@ -96,7 +97,8 @@ launchScene('kit:launch/SCREEN', {
     W.light(0, 0, b.w * 1.15, b.h * 1.4);
     const wires = panelWires(W, n, b, b.h * 0.3, { outAt: 1.2 });
     const tPush = clamp(dur * 0.28, 1.0, 1.6);
-    const cam = pushTrack(W, F, n, b, b.rect(p.bbox || [0.1, 0.1, 0.8, 0.8]), { tPush, dur, yaw0: 9, pitchWide: 26, pitchPush: 14, pushFillH: 0.86, keepLeft: false });
+    const cam = pushTrack(W, F, n, b, b.rect(p.bbox || [0.1, 0.1, 0.8, 0.8]), { tPush, dur, yaw0: 9, pitchWide: 26, pitchPush: 14,
+      pushFillH: L ? 0.62 : 0.86, pushFillW: L ? 1.7 : 0.9, maxPush: L ? 2.6 : 2.1, keepLeft: false });
     return {
       cues: [{ t: tPush + 0.05, sfx: 'move', gain_db: -12 }],
       render(t) {
@@ -130,7 +132,8 @@ launchScene('kit:launch/FEATURE', {
     const sync = Number(p._sync && p._sync.click);
     const press = Number.isFinite(sync) && sync > tPush + 0.8 && sync < dur - 0.6 ? sync : clamp(dur * 0.45, tPush + 1.2, Math.max(tPush + 1.2, dur - 1.4));
     const R = mediaRegion(F, !!name);
-    const cam = pushTrack(W, F, n, b, b.rect(bbox), { tPush, dur, yaw0: 8, pitchWide: 26, pitchPush: 14, region: R, pushFillH: 0.8, keepLeft: false, maxPush: 2.4 });
+    const cam = pushTrack(W, F, n, b, b.rect(bbox), { tPush, dur, yaw0: 8, pitchWide: 26, pitchPush: 14, region: R, pushFillH: 0.8,
+      pushFillW: L ? 1.35 : 0.9, keepLeft: false, maxPush: L ? 2.8 : 2.4 });
     const ring = ringBlock();
     const [px, py] = b.pt(click[0], click[1]);
     const cur = cursorBlock({ from: [px + b.w * 0.2, py + b.h * 0.24], to: [px, py], arrive: press - 0.62, press, travel: 0.75, size: 1.5 });

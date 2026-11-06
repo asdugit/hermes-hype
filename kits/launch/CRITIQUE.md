@@ -86,3 +86,16 @@ Everything renders, no page errors, CSS module scripts load fine over the loopba
   the next one peeking in.
 - Remaining `clip` QA flags are by design: partially typed rows (width reveal) and pushed-in long code lines
   running off the frame edge.
+
+## W3 integration, look 1 — first real Quick film through the pipeline (Showreel session, LLM storyboard, 30 s)
+Real pipeline: capture (6 media shots) -> hermes-cli storyboard (8 scenes, repaired) -> edge TTS -> launch, both
+aspects. Rendered fine (0 page errors, video QA ok). 16:9 ~6.5/10, 9:16 ~5.5/10.
+- Browser chrome shows local file paths as the URL ("~/showreel-work/research/wp-k1-pixel/rend...", ".../board_1.png")
+  -> clip + safe QA flags and it reads like a dev screenshot. Show a host/title, never a filesystem path.
+- 9:16: big dark voids above/below every panel (HOOK, TITLE, SCREEN, END); the table world is mostly an empty
+  dark plane. END lockup is a small island in a black frame; credit tiny.
+- 9:16 FEATURE: headline sits on top of the bottom edge of the media; STATS stack runs past the bottom safe line.
+- 16:9 STATS reads well now (516 / 29 / 12) but static; END/TITLE are word + wires on a dark table: template feel.
+- SCREEN (product image) is the strongest frame: full-bleed product. More of the product, bigger, everywhere.
+- Backgrounds: flat graphite + thin lime wires on every type scene -> needs depth (light pool, haze, bokeh,
+  product echo) so type scenes don't feel empty.

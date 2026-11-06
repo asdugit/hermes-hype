@@ -23,6 +23,21 @@ export function prettyUrl(u) {
   return s;
 }
 
+const LOCAL_PATH = /^(?:~|\/|[a-z]:[\\/]|file:)|\\/i;
+
+/**
+ * Address-bar text for a screenshot: a web URL (no scheme), else the page title, else the file name — never a
+ * filesystem path (local captures and session screenshots carry paths) — cut to `maxChars` with an ellipsis.
+ */
+export function addressText(meta, maxChars = 60) {
+  const m = meta || {};
+  const raw = String(m.url || '').trim();
+  let s = raw && !LOCAL_PATH.test(raw) ? prettyUrl(raw) : '';
+  if (!s && m.page_title) s = String(m.page_title).trim().replace(/\.(png|jpe?g|webp|gif|avif|bmp)$/i, '');
+  if (!s && (raw || m.path)) s = String(raw || m.path).split(/[\\/]/).pop().replace(/\.(png|jpe?g|webp|gif|avif|bmp)$/i, '');
+  return s.length > maxChars ? `${s.slice(0, Math.max(4, maxChars - 1))}\u2026` : s;
+}
+
 /**
  * Browser frame showing a screenshot. o: {width, viewH (viewport height px; default from image aspect,
  * capped by maxViewH), maxViewH, scroll:[from,to] fractions (full-page captures), chrome (bool)}.
@@ -41,8 +56,10 @@ export function browserBlock(ctx, img, o = {}) {
     const bar = h('div', 'srb-urlbar');
     const dots = h('div', 'srb-dots', null, [h('i'), h('i'), h('i')]);
     const url = h('div', 'srb-url');
-    const pu = prettyUrl(m.meta.url || m.meta.page_title || '');
-    const slash = pu.indexOf('/');
+    url.dataset.qa = 'off';           // browser chrome: cropped by push-ins by design, not content to QA
+    // ~16 px per mono char at 27 px; dots + padding + lock take ~190 px
+    const pu = addressText(m.meta, Math.max(12, Math.floor((width - 200) / 17)));
+    const slash = /^[\w.-]+(:\d+)?\//.test(pu) ? pu.indexOf('/') : -1;
     url.appendChild(h('span', '', { html: ICONS.lock }));
     if (slash > 0) { url.appendChild(h('b', '', { text: pu.slice(0, slash) })); url.append(pu.slice(slash)); }
     else url.appendChild(h('b', '', { text: pu || ' ' }));
