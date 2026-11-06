@@ -47,6 +47,7 @@ class KitInfo:
     path: str
     summary: str = ""
     doc: str = ""                    # KIT.md text
+    recipes: str = ""                # RECIPES.md text (proven param recipes from the kit owner)
     scenes: list[SceneInfo] = field(default_factory=list)
     transitions: list[str] = field(default_factory=list)
 
@@ -172,6 +173,15 @@ class Catalog:
         per = max(2000, budget // len(chosen))
         return "\n\n".join(f"### ctx.kit('{k.name}')\n{_clip(k.doc, per)}" for k in chosen)
 
+    def recipes_text(self, *, budget: int = 12000) -> str:
+        """Every kit's RECIPES.md (proven, measured param recipes: copy them before inventing params)."""
+        kits = [k for k in self.kits if k.recipes.strip()]
+        if not kits:
+            return ""
+        per = max(1500, budget // len(kits))
+        body = "\n\n".join(f"### `{k.name}` recipes\n{_clip(k.recipes, per)}" for k in kits)
+        return "## Kit recipes (proven params from the kit authors: start from these)\n" + body
+
     def music_text(self) -> str:
         lines = ["## Music beds (film.json music[].bed) - all original, bar-fitted automatically"]
         for b in self.beds:
@@ -247,7 +257,7 @@ def load_kits(kits_dir: Path) -> list[KitInfo]:
 def parse_kit(d: Path) -> KitInfo:
     """One kit directory -> :class:`KitInfo` (ids from ``defineScene``/``defineTransition`` and KIT.md)."""
     doc = _read(d / "KIT.md") or _blocks_doc(d)
-    info = KitInfo(name=d.name, path=str(d), doc=doc, summary=_summary(doc))
+    info = KitInfo(name=d.name, path=str(d), doc=doc, summary=_summary(doc), recipes=_read(d / "RECIPES.md"))
     scenes: dict[str, SceneInfo] = {}
     transitions: list[str] = []
     for js in sorted(d.rglob("*.js")):
