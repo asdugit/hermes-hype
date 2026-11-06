@@ -160,7 +160,7 @@ def test_speedrun_splits(name):
         assert on_grid(sp.film_t, beat) and len(sp.label) <= 18 and 0 <= sp.film_t <= tl.dur
     end = next(sc for sc in tl.scenes if sc.type == T.END)
     assert end.data["pb_display"] and tl.splits[-1].session_t >= SESSIONS[name]()[1].duration_s - EPS
-    assert any(c.sfx == "split" for c in tl.cues)
+    assert sum(c.sfx == "appear" for c in tl.cues) >= len(tl.splits)
     _, product_tl, _ = solve(name, 60, "product")
     assert product_tl.splits == []
 

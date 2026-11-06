@@ -237,6 +237,24 @@ def _d_read_session(session_id: str, *, assets_dir: Path, redact: bool) -> Any:
     return analyze_session(sid, assets_dir=assets_dir, redact=redact)
 
 
+def _d_capture(product: Any, events: list[Any], out_dir: Path, *, budget_s: float,
+               progress: Callable[[int, int, str], None] | None, cancel: threading.Event | None) -> list[Any]:
+    """Screenshots of the running product (local URLs / HTML files / media artifacts only; never starts servers)."""
+    from .capture import capture_product
+    return capture_product(product, events, out_dir, allow_network=False, budget_s=budget_s, progress=progress,
+                           cancel=cancel)
+
+
+def _d_digest(bundle: Any) -> str:
+    """Rebuild the storyboard digest after product captures were added to the events."""
+    from .session.digest import build_digest
+    from .session.product import ProductReport
+    report = ProductReport(bundle.product, bool(getattr(bundle, "product_detected", False)),
+                           float(getattr(bundle, "product_confidence", 0.0) or 0.0),
+                           dict(getattr(bundle, "product_evidence", None) or {}))
+    return build_digest(bundle.events, bundle.stats, getattr(bundle, "meta", None) or {}, product=report)
+
+
 def _d_storyboard(llm_call: Any, bundle: Any, story_opts: Any, product: Any) -> Any:
     from .story import generate_storyboard_report
     return generate_storyboard_report(llm_call, bundle.digest, bundle.events, bundle.stats, story_opts, product)
@@ -341,9 +359,24 @@ def _d_fit_music(bed: Any, duration: float, out_path: Path, drop_time: float | N
     return fit_bed(bed, duration, out_path, drop_time=drop_time, last_word_time=last_word_time)
 
 
-#: Cue names the story timing emits that the SFX kit has no sound for -> the style role that fits
-#: (roles resolve per style in assets/audio/sfx/sfx.json, e.g. cut -> whoosh_short in Launch).
-SFX_ALIASES = {"whoosh": "cut", "tick": "type", "split": "appear"}
+#: Legacy cue names (story timing before wave 3, older saved timelines / Director films) -> SFX kit roles.
+#: The story timing now emits role names directly (cut, build, appear, type, ...).
+SFX_ALIASES = {"whoosh": "cut", "tick": "type", "split": "appear", "riser": "build"}
+
+
+def sfx_for_style(name: str, style: str, roles: dict[str, dict[str, str]], sounds: set[str]) -> str:
+    """The sound a cue name plays in ``style``: a style ROLE wins over a same-named sound (``hit``/``click``
+    are both, and pixel's ``hit`` role is ``coin``), then a sound name, then a legacy alias, then the Launch
+    role table (styles without their own SFX map). Unknown names are returned unchanged."""
+    table = roles.get(style) or {}
+    if name in table:
+        return table[name]
+    if name in sounds:
+        return name
+    alias = SFX_ALIASES.get(name)
+    if alias:
+        return table.get(alias) or (roles.get("launch") or {}).get(alias) or alias
+    return (roles.get("launch") or {}).get(name, name)
 
 
 def _d_place_sfx(cues: list[Any], duration: float, style: str, fps: int) -> tuple[list[Any], list[str]]:
@@ -351,12 +384,11 @@ def _d_place_sfx(cues: list[Any], duration: float, style: str, fps: int) -> tupl
     kit = load_kit()
     if kit is None:
         return [], ["SFX kit missing; no sound effects"]
+    sounds = set(kit.sounds)
     mapped = []
     for c in cues:
         c = dict(c) if isinstance(c, dict) else {"t": c.t, "sfx": c.sfx, "gain_db": c.gain_db, "align": c.align}
-        name = str(c.get("sfx") or "")
-        if kit.resolve(name, style) is None and name in SFX_ALIASES:
-            c["sfx"] = SFX_ALIASES[name]
+        c["sfx"] = sfx_for_style(str(c.get("sfx") or ""), style, kit.styles, sounds)
         mapped.append(c)
     return place_cues(mapped, kit, duration, style=style, fps=fps)
 
@@ -407,6 +439,8 @@ def _d_director() -> Any:
 class Deps:
     """Stage implementations (swap any of them in tests)."""
     read_session: Callable[..., Any] = _d_read_session
+    capture: Callable[..., Any] | None = _d_capture
+    digest: Callable[[Any], str] | None = _d_digest
     storyboard: Callable[..., Any] = _d_storyboard
     tts: Callable[..., Any] = _d_tts
     speed_check: Callable[[float], str | None] | None = _d_speed_check
@@ -627,6 +661,9 @@ def _read(run: _Run) -> None:
             run.info(f"re-render: reusing the evidence of job {parent}")
     if bundle is None:
         bundle = run.deps.read_session(sid, assets_dir=run.job_dir / "assets", redact=run.opts.redact)
+        fresh = True
+    else:
+        fresh = False
     for w in (getattr(bundle, "warnings", None) or [])[:8]:
         run.info(f"session: {w}")
     brief = run.opts.brief
@@ -636,11 +673,56 @@ def _read(run: _Run) -> None:
     if brief:
         _merge_brief(bundle, brief)
     run.bundle = bundle
+    if fresh:
+        _capture(run)
     with contextlib.suppress(Exception):
         save_session(bundle, run.job_dir / "session.json")
     run.store.update(run.job_id, session_id=getattr(bundle, "session_id", sid) or sid,
                      product=_product_dict(getattr(bundle, "product", None)))
     run.rep.progress(1.0, f"{len(bundle.events)} events")
+
+
+CAPTURE_BUDGET_S = 45.0
+
+
+def _capture(run: _Run) -> None:
+    """Product capture: own screenshots of the product (local only), appended as ``product_capture`` events.
+
+    Skipped when no product was detected. Failures and an empty result only log; the film then uses the
+    session's own screenshots. New events go to the front of ``product.hero_event_ids`` and the digest is
+    rebuilt so the storyboard can cite them.
+    """
+    b = run.bundle
+    prod = getattr(b, "product", None)
+    if run.deps.capture is None or prod is None or not (getattr(b, "product_detected", False) or run.opts.brief):
+        return
+    run.rep.progress(0.3, "capturing the product")
+    t0 = time.monotonic()
+
+    def progress(done: int, total: int, label: str = "") -> None:
+        run.rep.progress(0.3 + 0.7 * done / max(1, total), f"capturing the product: {label}"[:120])
+
+    try:
+        new = list(run.deps.capture(prod, b.events, run.job_dir / "capture", budget_s=CAPTURE_BUDGET_S,
+                                    progress=progress, cancel=run.cancel.event) or [])
+    except Exception as exc:  # noqa: BLE001 - capture is optional
+        run.warn(f"product capture failed ({type(exc).__name__}: {exc}); using the session's screenshots")
+        return
+    run.cancel.check()
+    new = [e for e in new if getattr(e, "kind", "") == "product_capture"]
+    run.info(f"product capture: {len(new)} shot(s) in {time.monotonic() - t0:.1f}s",
+             kinds=sorted({str((e.data or {}).get("kind", "")) for e in new}))
+    if not new:
+        return
+    b.events.extend(new)
+    ids = [e.id for e in sorted(new, key=lambda e: -float(getattr(e, "weight", 0.0) or 0.0))]
+    with contextlib.suppress(AttributeError):
+        prod.hero_event_ids = list(dict.fromkeys(ids[:4] + list(prod.hero_event_ids or [])))[:8]
+    if run.deps.digest is not None:
+        try:
+            b.digest = run.deps.digest(b)
+        except Exception as exc:  # noqa: BLE001
+            run.info(f"digest rebuild after capture failed: {exc}", level="warn")
 
 
 def _merge_brief(bundle: Any, brief: dict[str, Any]) -> None:

@@ -145,11 +145,15 @@ def make_deps(rec: Recorder, *, bundle: SavedSession | None = None, render_fail:
         contact_sheet.write_bytes(b"\x89PNGfake")
         return {"ok": True, "issues": [], "contact_sheet": str(contact_sheet), "frames": frames}
 
+    def capture(product: Any, events: list[Any], out_dir: Path, *, budget_s: float, progress: Any, cancel: Any) -> list:
+        rec.add("capture", {"product": getattr(product, "name", ""), "events": len(events), "budget_s": budget_s})
+        return []
+
     deps = Deps(read_session=read_session, tts=tts, pick_bed=lambda style, seed, bed_id=None: FakeBed(),
                 quick_film=quick_film, build_page=build_page, layout_qa=layout_qa, render=render,
                 fit_music=fit_music, place_sfx=place_sfx, mix=mix, audio_report=lambda *a, **k: {"ok": True},
                 mux=mux, check_video=check_video, speed_check=lambda speed: None,
-                director=(lambda: director))
+                director=(lambda: director), capture=capture)
     for k, v in overrides.items():
         if hasattr(deps, k):
             setattr(deps, k, v)

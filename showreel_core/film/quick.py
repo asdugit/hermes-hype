@@ -45,7 +45,7 @@ IMAGE_EXT = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".avif"}
 CLAIMS: dict[str, set[str]] = {
     "CODE": {"type"}, "PROBLEM": {"type"}, "DIFF": {"type"},
     "TERMINAL": {"pass", "fail"}, "HOOK": {"type", "pass", "fail"}, "BEFORE_AFTER": {"pass", "fail"},
-    "FEATURE": {"click"}, "PLAN": {"tick"}, "MONTAGE": {"tick"}, "END": {"pass"},
+    "FEATURE": {"click"}, "PLAN": {"appear"}, "MONTAGE": {"type"}, "END": {"pass"},
 }
 # timeline cues that win over the scene's own (music-synced): the scene emits nothing for these
 TIMELINE_WINS: dict[str, set[str]] = {"STATS": {"hit"}}

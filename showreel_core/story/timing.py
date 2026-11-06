@@ -605,12 +605,14 @@ def _grid(t: float, beat: float) -> float:
 
 
 def _cues(scenes: list[TimelineScene], beat: float, dur: float, mode: str, splits: list[Split]) -> list[Cue]:
+    """Beat-gridded SFX cues. Names are SFX-kit ROLES (assets/audio/sfx/sfx.json ``styles``: cut, move, click,
+    type, appear, pass, fail, hit, hero, build, shot), resolved to a sound per style at mix time."""
     cues: list[Cue] = []
     hero_hit = False
     for k, sc in enumerate(scenes):
         span = sc.t1 - sc.t0
         if sc.transition_in == "push" and k > 0:
-            cues.append(Cue(sc.t0, "whoosh", -8.0, "peak"))
+            cues.append(Cue(sc.t0, "cut", -8.0, "peak"))
         if sc.type in (T.CODE, T.PROBLEM):
             n = 8 if sc.type == T.CODE else 6
             t = sc.t0 + beat
@@ -623,25 +625,25 @@ def _cues(scenes: list[TimelineScene], beat: float, dur: float, mode: str, split
             cues.append(Cue(_grid(sc.t0 + span * 0.6, beat), "pass", -6.0, "onset"))
         elif sc.type == T.STATS and not hero_hit:
             if k > 0:
-                cues.append(Cue(sc.t0, "riser", -10.0, "end"))
+                cues.append(Cue(sc.t0, "build", -10.0, "end"))
             cues.append(Cue(sc.t0, "hit", -3.0, "onset"))
             hero_hit = True
         elif sc.type == T.PLAN:
             for j in range(min(PLAN_ITEMS, len(sc.data.get("items", [])))):
                 t = sc.t0 + beat * (j + 1)
                 if t < sc.t1 - beat / 2:
-                    cues.append(Cue(_grid(t, beat), "tick", -12.0, "onset"))
+                    cues.append(Cue(_grid(t, beat), "appear", -12.0, "onset"))
         elif sc.type == T.FEATURE:
             cues.append(Cue(_grid(sc.t0 + span * 0.45, beat), "click", -10.0, "onset"))
         elif sc.type == T.MONTAGE:
             n = len(sc.data.get("items", []))
             step = span / max(1, n)
             for j in range(n):
-                cues.append(Cue(_grid(sc.t0 + j * step, beat), "tick", -18.0, "onset"))
+                cues.append(Cue(_grid(sc.t0 + j * step, beat), "type", -18.0, "onset"))
         elif sc.type == T.END and mode == "speedrun":
             cues.append(Cue(_grid(sc.t0 + beat, beat), "pass", -4.0, "onset"))
     for sp in splits:
-        cues.append(Cue(sp.film_t, "split", -8.0, "onset"))
+        cues.append(Cue(sp.film_t, "appear", -8.0, "onset"))
     cues = [c for c in cues if 0 <= c.t < dur - EPS]
     cues.sort(key=lambda c: (c.t, c.sfx))
     return cues

@@ -276,7 +276,56 @@ def test_rerender_reuses_the_storyboard_and_evidence_without_a_model_call(env: d
                     deps=make_deps(rec2))
     assert final["stage"] == "done" and final["storyboard_source"] == "reused"
     assert rec2.n("read_session") == 0 and not calls
+    assert rec2.n("capture") == 0                         # captures come back with the saved evidence
     assert any(c["text"] == "An edited first line." for c in rec2.calls["tts"])
+
+
+def _with_product() -> Any:
+    from showreel_core.contracts import Product
+
+    b = load_bundle()
+    b.product = Product(name="Focusfox", kind="web_app", urls=["http://localhost:3000/"])
+    b.product_detected = True
+    return b
+
+
+def test_product_capture_events_join_the_evidence(env: dict[str, Any]) -> None:
+    from showreel_core.contracts import Event
+
+    store, rec = env["store"], Recorder()
+    shot = Path(env["tmp"]) / "cap.png"
+    shot.write_bytes(b"\x89PNGfake")
+
+    def capture(product: Any, events: list[Any], out_dir: Path, **kw: Any) -> list[Any]:
+        rec.add("capture", len(events))
+        assert kw["budget_s"] > 0 and kw["cancel"] is not None
+        kw["progress"](1, 2, "desktop")
+        return [Event("e900", 1.0, "product_capture", "showreel_capture", "Focusfox home", "captured",
+                      {"path": str(shot), "url": "http://localhost:3000/", "viewport": [1920, 1080],
+                       "full_page": False, "page_title": "Focusfox", "kind": "viewport"}, True, 0.95)]
+
+    digests: list[int] = []
+    deps = make_deps(rec, bundle=_with_product(), capture=capture,
+                     digest=lambda b: digests.append(len(b.events)) or "DIGEST+CAPTURE")
+    final = run_job(_job(store, seconds=30)["id"], _host()[0], store=store, deps=deps)
+    assert final["stage"] == "done" and rec.n("capture") == 1
+    assert final["product"]["hero_event_ids"][0] == "e900"
+    assert digests and digests[0] == rec.calls["capture"][0] + 1
+    saved = json.loads((store.job_dir(final["id"]) / "session.json").read_text(encoding="utf-8"))
+    assert saved["digest"] == "DIGEST+CAPTURE" and any(e["kind"] == "product_capture" for e in saved["events"])
+    assert any("product capture: 1 shot" in str(e.get("msg", "")) for e in final.get("log", []))
+
+
+def test_product_capture_failure_only_warns(env: dict[str, Any]) -> None:
+    store, rec = env["store"], Recorder()
+
+    def capture(*a: Any, **k: Any) -> list[Any]:
+        raise RuntimeError("no chromium")
+
+    final = run_job(_job(store, seconds=30)["id"], _host()[0], store=store,
+                    deps=make_deps(rec, bundle=_with_product(), capture=capture))
+    assert final["stage"] == "done"
+    assert any("product capture failed" in str(e.get("msg", "")) for e in final.get("log", []))
 
 
 def test_style_voice_speed_reaches_tts_and_wpm_is_logged(env: dict[str, Any]) -> None:

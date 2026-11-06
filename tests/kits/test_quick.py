@@ -33,8 +33,8 @@ def _timeline(mode="product", style="launch", aspect="16:9", accent="") -> Timel
         _scene(5, "STATS", 19.0, 22.0, {"stats": [{"key": "t", "value": 12, "label": "tests", "display": "12"}]}),
         _scene(6, "END", 22.0, 25.0, {"title": "Focusfox", "cta": "npx serve focusfox", "url": ""}, tr="push"),
     ]
-    cues = [Cue(2.0, "whoosh", -8, "peak"), Cue(6.0, "type", -16, "onset"), Cue(12.4, "pass", -6, "onset"),
-            Cue(16.25, "click", -10, "onset"), Cue(19.0, "riser", -10, "end"), Cue(19.0, "hit", -3, "onset")]
+    cues = [Cue(2.0, "cut", -8, "peak"), Cue(6.0, "type", -16, "onset"), Cue(12.4, "pass", -6, "onset"),
+            Cue(16.25, "click", -10, "onset"), Cue(19.0, "build", -10, "end"), Cue(19.0, "hit", -3, "onset")]
     splits = [Split("tests green", "e3", 1650.0, 12.4), Split("shipped", "e9", 2843.0, 21.0)] if mode == "speedrun" else []
     return Timeline(style=style, aspect=aspect, fps=30, w=w, h=h, dur=25.0, bpm=120.0, seed=3, scenes=scenes,
                     cues=cues, title="Focusfox", accent=accent, mode=mode, splits=splits)
@@ -92,7 +92,7 @@ def test_cues_claimed_by_scenes_and_synced():
     film = film_from_timeline(tl, media_map=MEDIA_MAP)["film"]
     kept = {(c["t"], c["sfx"]) for c in film["cues"]}
     assert (16.25, "click") not in kept and (6.0, "type") not in kept and (12.4, "pass") not in kept
-    assert {(2.0, "whoosh"), (19.0, "hit"), (19.0, "riser")} <= kept
+    assert {(2.0, "cut"), (19.0, "hit"), (19.0, "build")} <= kept
     shots = {s["id"]: s for s in film["shots"]}
     assert shots["s04_feature"]["params"]["_sync"] == {"click": 2.25}
     assert shots["s03_terminal"]["params"]["_sync"] == {"pass": 2.4}
