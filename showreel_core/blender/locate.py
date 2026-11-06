@@ -38,7 +38,7 @@ class BlenderFound:
     path: Path
     version: tuple[int, int, int]
     version_string: str
-    source: str                    # env | config | path | standard
+    source: str                    # env, config, path or standard
     ok: bool = True
 
     def to_dict(self) -> dict[str, Any]:

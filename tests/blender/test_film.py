@@ -142,7 +142,10 @@ def test_keyframe_times_render_only_needed_frames(tmp_path, media):
     assert bfilm.frames_for_times({"t0": 2.2}, [2.5], 30, 0.1, 27) == [1, 13]
 
 
-def test_failure_and_missing_blender(tmp_path, media):
+def test_failure_and_missing_blender(tmp_path, media, monkeypatch):
+    monkeypatch.delenv("SHOWREEL_BLENDER", raising=False)       # hermetic: never find (and run) a real Blender
+    monkeypatch.setattr("showreel_core.blender.locate.standard_locations", lambda environ=None: [])
+    monkeypatch.setattr("showreel_core.blender.locate.shutil.which", lambda name: None)
     film = make_film()
     film["shots"][1]["params"]["_fake"] = "crash_exit0"
     bp, _ = run_pass(tmp_path, film, media)

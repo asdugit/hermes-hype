@@ -12,6 +12,7 @@ import time
 from pathlib import Path
 from typing import Any
 
+from .blender.trigger import blender_requested
 from .commands import HELP, Command, describe, parse, styles_text
 from .config import (
     MAX_SECONDS,
@@ -71,6 +72,9 @@ RENDER_SCHEMA: dict[str, Any] = {
                 },
             },
             "preview": {"type": "boolean", "description": "Fast 540p preview instead of the 1080p final."},
+            "engine_3d": {"type": "string", "enum": ["browser", "blender", "auto"],
+                          "description": "3D shots: browser (default, no install) or the user's installed Blender "
+                                         "(nicer 3D, slower; set when the user asks for Blender)."},
             "wait_seconds": {"type": "integer", "minimum": 0, "maximum": int(TOOL_WAIT_MAX_S),
                              "description": "How long to wait for the film before returning a job id "
                                             f"(default {int(TOOL_WAIT_S)})."},
@@ -251,6 +255,11 @@ def _tool_options(ctx: Any, args: dict[str, Any]) -> Options:
         opts.preview = args["preview"]
     if args.get("direction"):
         opts.direction = str(args["direction"])
+        wants = blender_requested(opts.direction)
+        if wants is not None and not args.get("engine_3d"):
+            opts.engine_3d = "blender" if wants else "browser"
+    if args.get("engine_3d"):
+        opts.engine_3d = str(args["engine_3d"])
     if isinstance(args.get("product"), dict):
         opts.brief = {k: v for k, v in args["product"].items() if v}
     return opts.normalised()
