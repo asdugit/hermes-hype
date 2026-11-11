@@ -12,6 +12,7 @@ the plugin wraps ``ctx.llm`` with :func:`hermes_llm`. The flow never raises:
 from __future__ import annotations
 
 import logging
+import re
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -188,6 +189,7 @@ def _attempt(llm: Callable[..., LlmReply], kind: str, instructions: str, input_t
                 problems.append(f"$: {err}; return exactly one JSON object")
     result: ValidationResult | None = None
     if obj is not None:
+        trim_overlong(obj)                    # a 43-char CTA must not throw a whole working storyboard away
         schema_errors = validate_schema(obj)
         problems += [str(e) for e in schema_errors]
         if not schema_errors:
@@ -200,6 +202,38 @@ def _attempt(llm: Callable[..., LlmReply], kind: str, instructions: str, input_t
     accepted = result is not None and result.viable and not result.errors
     attempts.append(Attempt(kind, accepted, problems, reply.model, reply.usage, round(elapsed, 2)))
     return _Candidate(kind, obj if obj is not None else reply.text, problems, result)
+
+
+_LEN_RE = re.compile(r"^is (\d+) characters; max (\d+)$")
+_PATH_RE = re.compile(r"\.([A-Za-z_]\w*)|\[(\d+)\]")
+
+
+def trim_overlong(obj: Any) -> list[str]:
+    """Cut strings that are only TOO LONG (schema maxLength) at a word boundary, in place; return what was cut.
+    Small models overflow one_liner/cta by a few characters; the storyboard checker then shortens, scrubs or
+    replaces those fields itself, so only structural errors may reject a reply."""
+    done: list[str] = []
+    for err in validate_schema(obj):
+        m = _LEN_RE.match(err.message)
+        if not m:
+            continue
+        limit = int(m.group(2))
+        parts = _PATH_RE.findall(err.path)
+        parent: Any = obj
+        try:
+            for name, idx in parts[:-1]:
+                parent = parent[name] if name else parent[int(idx)]
+            name, idx = parts[-1]
+            key: Any = name if name else int(idx)
+            value = str(parent[key])
+        except (KeyError, IndexError, TypeError, ValueError):
+            continue
+        cut = value[:limit]
+        if len(value) > limit and " " in cut and not value[limit].isspace():
+            cut = cut.rsplit(" ", 1)[0]
+        parent[key] = cut.rstrip(" ,;:-")
+        done.append(f"{err.path} {len(value)}->{len(parent[key])} chars")
+    return done
 
 
 def _minimal_storyboard(options: StoryOptions, product: Product | None) -> Storyboard:

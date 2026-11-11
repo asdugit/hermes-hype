@@ -131,3 +131,16 @@ def test_library_film_shows_the_readme_usage_block() -> None:
     assert codes[0].refs == ["e2"] and codes[0].extra["focus_lines"] == [10, 14]   # the python block, not bash
     win = _code_window(facts.by_id["e2"], [10, 14], 12)
     assert win["lang"] == "python" and "@retry(attempts=3, backoff=2.0)" in win["lines"]
+
+
+def test_overlong_strings_are_trimmed_not_rejected() -> None:
+    """E18: a 43-char CTA (the session's real run command) threw away a working haiku storyboard twice."""
+    from showreel_core.story.generate import trim_overlong
+    from showreel_core.story.schema import validate_schema
+    obj = {"mode": "product", "title": "Tempo", "tagline": "Focus", "cta": "python -m http.server 8765 --bind 127.0.0.1",
+           "product": {"name": "Tempo", "one_liner": "A focus timer " * 12, "kind": "web_app", "urls": [],
+                       "entry_files": [], "run_commands": [], "features": [], "hero_event_ids": []},
+           "scenes": [{"type": "TITLE", "refs": [], "vo": "", "label": ""}, {"type": "END", "refs": [], "vo": "", "label": ""}]}
+    done = trim_overlong(obj)
+    assert len(done) == 2 and not [e for e in validate_schema(obj) if "characters" in e.message]
+    assert len(obj["cta"]) <= 40 and not obj["cta"].endswith(" ")

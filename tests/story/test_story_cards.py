@@ -75,8 +75,10 @@ def test_junk_refs_are_swapped_for_real_shots(game_session: list[Event]) -> None
     ])
     res = validate_storyboard(sb, facts, 30, "product")
     refs = {s.type: s.refs for s in res.storyboard.scenes}
-    assert refs[T.HOOK][0] in ("e1", "e4") and refs[T.FEATURE][0] in ("e1", "e4")
-    assert refs[T.HOOK][0] != refs[T.FEATURE][0]                     # a swap never repeats a picture
+    # the swapped-in shot is not what "Twelve authored suspects" described: a plain SCREEN, no claim (E1)
+    assert T.FEATURE not in refs and all(s.label == "" for s in res.storyboard.scenes if s.type == T.SCREEN)
+    assert refs[T.HOOK][0] in ("e1", "e4") and refs[T.SCREEN][0] in ("e1", "e4")
+    assert refs[T.HOOK][0] != refs[T.SCREEN][0]                      # a swap never repeats a picture
     assert any(i.code == "debug_media" for i in res.issues)
     assert image_of(game_session[2]) is None and image_of(game_session[3]) is None
 

@@ -478,6 +478,16 @@ def _best_unused_picture(st: SceneType, ctx: _Ctx) -> str:
     return best
 
 
+def _unclaim(scene: StoryScene, st: SceneType) -> None:
+    """A swapped-in picture is not what the model's words were about: a FEATURE becomes a plain SCREEN and a
+    SCREEN loses its label (E1: "FEATURE  Timer" over a 2x2 terminal grid). The hook keeps its line."""
+    if st == T.FEATURE:
+        scene.type = T.SCREEN
+        scene.extra.pop("feature", None)
+    if st in (T.FEATURE, T.SCREEN):
+        scene.label = ""
+
+
 def _check_primary(scene: StoryScene, path: str, ctx: _Ctx) -> bool:
     """Generic rule: the first ref must be a usable event of an accepted kind."""
     st = SceneType(scene.type)
@@ -494,6 +504,7 @@ def _check_primary(scene: StoryScene, path: str, ctx: _Ctx) -> bool:
             scene.extra.pop("bbox", None)
             scene.extra.pop("click", None)
             usable = [swap]
+            _unclaim(scene, st)
     if usable and st in (T.SCREEN, T.FEATURE) and _shown_before(usable[0], ctx):
         swap = _best_unused_picture(st, ctx)       # the same picture twice reads as padding: show another real one
         if swap:
@@ -503,6 +514,7 @@ def _check_primary(scene: StoryScene, path: str, ctx: _Ctx) -> bool:
             scene.extra.pop("bbox", None)
             scene.extra.pop("click", None)
             usable = [swap]
+            _unclaim(scene, st)
     if usable and st in (T.HOOK, T.SCREEN, T.FEATURE, T.SCROLL):
         ctx.used_pictures.add(usable[0])
         ev0 = facts.get(usable[0])
@@ -716,6 +728,8 @@ def _check_screen(scene: StoryScene, path: str, ctx: _Ctx) -> bool:
 def _check_feature(scene: StoryScene, path: str, ctx: _Ctx) -> bool:
     if not _check_primary(scene, path, ctx):
         return False
+    if scene.type != T.FEATURE:          # its picture was swapped: a plain SCREEN now
+        return True
     _clamp_box(scene, "bbox", path, ctx)
     _clamp_pair(scene, "click", path, ctx)
     feat = trim_label(normalize_ws(str(scene.extra.get("feature") or scene.label or "")), LABEL_WORDS)
