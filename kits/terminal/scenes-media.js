@@ -2,7 +2,7 @@
 // in box-drawn panes as phosphor ASCII -> ordered dither -> the real image (raster-scan resolve); zoom happens in
 // discrete steps (terminal zoom), the pointer is a pixel-art hardware sprite, the click is an inverse-video flash.
 
-import { h, css } from '../base/dom.js';
+import { h, css, visLen } from '../base/dom.js';
 import { prettyUrl, isCard } from '../base/media.js';
 import { seg, ease, clamp, lerp } from '../base/motion.js';
 import { tubeScene } from './tube.js';
@@ -102,7 +102,8 @@ tubeScene('kit:terminal/HOOK', {
     const hero = p.hero || {};
     const label = String(p.label || '').trim();
     const labZ = L ? 84 : 92;
-    const labLines = label ? wrap('> ' + label, Math.floor((B.w) / (labZ * 0.42)), '  ') : [];
+    const labEm = 0.42 * visLen(label, 2.2) / Math.max(1, [...label].length || 1);   // CJK / emoji ~2.2 cells
+    const labLines = label ? wrap('> ' + label, Math.floor((B.w) / (labZ * labEm)), '  ') : [];
     const labH = labLines.length * labZ * 1.0 + (label ? 30 : 0);
     const lab = label ? T.disp(B.x, B.y + (L ? 10 : -6), labZ, 'h') : null;
     if (lab) { lab.style.width = `${B.w}px`; lab.style.whiteSpace = 'pre'; }

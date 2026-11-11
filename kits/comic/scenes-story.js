@@ -1,7 +1,7 @@
 // Hype kit "comic" — story pages: TITLE (cover), PROBLEM, PLAN, STATS, CALLOUT, END (back cover).
 
 import { comicScene, snapIn } from './lib/page.js';
-import { h, css, fitSize } from '../base/dom.js';
+import { h, css, fitSize, visLen } from '../base/dom.js';
 import { seg, ease, clamp, lerp } from '../base/motion.js';
 import { countText, whoLabel } from '../base/type.js';
 import { TITLE_DEF, STATS_DEF, CALLOUT_DEF, END_DEF } from '../base/scenes-titles.js';
@@ -29,10 +29,14 @@ const bangersFit = (text, width, max, min) => Math.round(clamp(width / (Math.max
 /** Masthead text + size: one line when it fits `width` at >= min px, else two balanced lines ("\n"; masthead breaks
  * there), else (one long word) smaller: a 40-character product name used to run ~2x off the 9:16 frame. */
 function mastFit(text, width, max, min) {
-  const one = width / (Math.max(3, String(text).length) * 0.6);
+  const one = width / (Math.max(3, visLen(text, 1.7)) * 0.6);     // CJK / emoji: ~1 em, Bangers caps ~0.6 em
   if (one >= min) return { text, size: Math.round(Math.min(max, one)), lines: 1 };
-  const ls = twoLines(text);
-  const n = Math.max(...ls.map((x) => x.length));
+  let ls = twoLines(text);
+  if (ls.length < 2 && visLen(text, 1.7) > String(text).length + 1) {     // CJK without spaces breaks anywhere
+    const a = Array.from(String(text)), k = Math.ceil(a.length / 2);
+    ls = [a.slice(0, k).join(''), a.slice(k).join('')];
+  }
+  const n = Math.max(...ls.map((x) => visLen(x, 1.7)));
   return { text: ls.join('\n'), size: Math.round(Math.min(max, width / (Math.max(3, n) * 0.6))), lines: ls.length };
 }
 

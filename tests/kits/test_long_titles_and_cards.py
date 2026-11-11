@@ -90,6 +90,16 @@ def test_a_40_char_title_stays_inside_the_frame(style, aspect, tmp_path):
 
 
 @pytest.mark.slow
+@pytest.mark.parametrize("style", ["launch", "comic", "ink", "terminal"])
+def test_a_cjk_title_stays_inside_the_9x16_frame(style, tmp_path):
+    """CJK glyphs are ~1 em wide (the kits' size models assumed Latin ~0.5 em) and a CJK name has no spaces."""
+    film, job = _film(style, "9:16", "東京会計リコンシリエーション・スタジオ", False, tmp_path)
+    looks, _ = asyncio.run(_look(job, film, [_mid(film, "TITLE"), _mid(film, "END")]))
+    bad = [(t, q) for t, qa, _ in looks for q in qa if q.get("kind") in ("clip", "overlap")]
+    assert bad == [], bad[:6]
+
+
+@pytest.mark.slow
 @pytest.mark.parametrize("style,aspect", [("comic", "16:9"), ("comic", "9:16"), ("terminal", "16:9"),
                                           ("blueprint", "16:9"), ("ink", "16:9")])
 def test_a_card_picture_gets_no_web_framing(style, aspect, tmp_path):

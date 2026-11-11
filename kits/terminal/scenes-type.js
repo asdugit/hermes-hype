@@ -1,7 +1,7 @@
 // Hype kit "terminal" — type scenes: TITLE (boot log + block-letter logo), STATS (odometer drums),
 // CALLOUT (one hot `# comment` line), END ($ exit -> logout -> lockup -> tube switches off).
 
-import { css } from '../base/dom.js';
+import { css, visLen } from '../base/dom.js';
 import { seg, ease, clamp } from '../base/motion.js';
 import { tubeScene } from './tube.js';
 import { contentBox } from './scenes-panes.js';
@@ -28,9 +28,13 @@ export function logoBlock(title, w, maxFs = 20, minFs = 10, maxLines = 2) {
 /** VT323 title that fits `lines` word-wrapped lines of width w: {z, n, text} (text pre-wrapped with "\n", so the
  * block height below is exact). A 40-character name used to wrap to 3 lines over the tagline / CTA. */
 const dispFit = (s, w, max, min = 48, lines = 1) => {
-  const at = (z) => wrap(s, Math.max(4, Math.floor(w / (z * 0.46))));
+  const em = 0.46 * visLen(s, 2.2) / Math.max(1, len(s));         // CJK / emoji glyphs are ~2.2 VT323 cells wide
+  const cols = (z) => Math.max(4, Math.floor(w / (z * em)));
+  const at = (z) => wrap(s, cols(z));
+  // wrap() keeps continuation lines >= 8 cells: check the widths too, not only the line count
+  const ok = (z) => { const ls = at(z); return ls.length <= lines && ls.every((l) => len(l) <= cols(z)); };
   let z = max;
-  while (z > min && at(z).length > lines) z -= 4;
+  while (z > min && !ok(z)) z -= 4;
   z = Math.max(min, z);
   const ls = at(z);
   return { z, n: ls.length, text: ls.join('\n') };

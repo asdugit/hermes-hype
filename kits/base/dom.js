@@ -169,6 +169,16 @@ export function pickEmphasis(str) {
   return ws.length - 1;
 }
 
+// CJK / Hangul / full-width forms / emoji are ~1 em wide where Latin display type is ~0.45-0.6 em
+const WIDE_CH = /[\u1100-\u115F\u2E80-\uA4CF\uAC00-\uD7A3\uF900-\uFAFF\uFE30-\uFE4F\uFF00-\uFF60\uFFE0-\uFFE6\u{1F300}-\u{1FAFF}]/u;
+
+/** Length of `s` in Latin-character units: every wide (CJK, emoji) character counts as `wide`. */
+export function visLen(s, wide = 1.8) {
+  let n = 0;
+  for (const ch of Array.from(String(s))) n += WIDE_CH.test(ch) ? wide : 1;
+  return n;
+}
+
 /** Fit a font size so `str` (rough char-width model) fits `lines` lines of `width` px. */
 export function fitSize(str, width, lines, max, min, charW = 0.52) {
   const n = Math.max(1, String(str).length);

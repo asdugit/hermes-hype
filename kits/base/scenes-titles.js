@@ -1,7 +1,7 @@
 // Hype kits/base — type-led scenes: TITLE, STATS, CALLOUT, END.
 
 import { defineDomScene, flatCam, place, centerBox } from './scene.js';
-import { h, css, fitSize } from './dom.js';
+import { h, css, fitSize, visLen } from './dom.js';
 import { seg, ease, lerp, clamp } from './motion.js';
 import { kineticLine, kineticLetters, riseIn, statsBlock, ctaPill, whoLabel } from './type.js';
 import { COMMON, panelIn } from './scenes-panels.js';
@@ -41,23 +41,17 @@ export function titleFit(text, maxW, max = 220, min = 96) {
   const s = String(text).trim().replace(/\s+/g, ' ');
   const one = maxW / (Math.max(3, visLen(s)) * 0.56);
   if (one >= min) return { text: s, size: Math.round(Math.min(max, one)), lines: 1 };
-  const words = s.split(' ');
+  const cjk = !s.includes(' ') && visLen(s) > s.length + 1;      // CJK without spaces breaks between any characters
+  const words = cjk ? Array.from(s) : s.split(' ');
+  const sep = cjk ? '' : ' ';
   let best = { n: visLen(s), text: s, lines: 1 };
   for (let i = 1; i < words.length; i++) {
-    const a = words.slice(0, i).join(' '), b = words.slice(i).join(' ');
+    const a = words.slice(0, i).join(sep), b = words.slice(i).join(sep);
     const n = Math.max(visLen(a), visLen(b));
     if (n < best.n) best = { n, text: `${a}\n${b}`, lines: 2 };
   }
   // 0.6 em/char (a little wider than the one-line estimate): headroom for wide glyphs and upper-case themes
   return { text: best.text, size: Math.round(Math.min(max, maxW / (Math.max(3, best.n) * 0.6))), lines: best.lines };
-}
-
-// CJK / Hangul / full-width forms / emoji are ~1 em wide: they count as ~1.8 Latin characters
-const WIDE = /[\u1100-\u115F\u2E80-\uA4CF\uAC00-\uD7A3\uF900-\uFAFF\uFE30-\uFE4F\uFF00-\uFF60\uFFE0-\uFFE6\u{1F300}-\u{1FAFF}]/u;
-function visLen(s) {
-  let n = 0;
-  for (const ch of Array.from(s)) n += WIDE.test(ch) ? 1.8 : 1;
-  return n;
 }
 
 // ------------------------------------------------------------------------------------- TITLE

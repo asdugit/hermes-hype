@@ -1,7 +1,7 @@
 // Hype kit "ink" — story pages: TITLE (style frame A), PROBLEM, PLAN (style frame B / V), STATS, CALLOUT, END.
 
 import { inkScene } from './lib/page.js';
-import { h, css } from '../base/dom.js';
+import { h, css, visLen } from '../base/dom.js';
 import { seg, ease, clamp, lerp } from '../base/motion.js';
 import { countFrame } from '../base/type.js';
 import { pickEmphasis } from '../base/dom.js';
@@ -67,14 +67,16 @@ inkScene('kit:ink/TITLE', {
     let y = L ? 236 : S.t + 10;
     let kicker = null;
     if (p.eyebrow) { kicker = text(P, 'ik-kicker', p.eyebrow, bx + 8, y); y += 44; }
-    const ts = fitText(title, bw, 1, L ? 184 : 170, 92, CW.display);
-    const lines2 = ts <= 92 && title.length * ts * CW.display > bw;
-    const tsz = lines2 ? fitText(title, bw, 2, 140, 72, CW.display) : ts;
+    const cwT = CW.display * visLen(title, 1.8) / Math.max(1, title.length);   // CJK / emoji glyphs ~1 em
+    const oneWord = !/\s/.test(title);                                       // no space: it cannot wrap
+    const ts = fitText(title, bw, 1, L ? 184 : 170, oneWord ? 40 : 92, cwT);
+    const lines2 = !oneWord && ts <= 92 && title.length * ts * cwT > bw;
+    const tsz = lines2 ? fitText(title, bw, 2, 140, 72, cwT) : ts;
     const tEl = text(P, 'ik-title', '', bx, y, `font-size:${tsz}px;width:${bw}px;`);
     const letters = charSpans(tEl, title);
     const tH = tsz * 0.92 * (lines2 ? 2 : 1);
     y += tH + 26;
-    const ulW = Math.min(bw - 20, Math.max(260, Math.min(title.length * tsz * CW.display, bw) * 0.95));
+    const ulW = Math.min(bw - 20, Math.max(260, Math.min(title.length * tsz * cwT, bw) * 0.95));
     const UL = svgBox(P.doc, bx, y - 18, ulW + 20, 40, underline(6, 20, ulW, 'ti:ul', { draw: 'ul' }));
     P.content.appendChild(UL.el);
     const ulPaths = UL.el.querySelectorAll('[data-d="ul"]');
@@ -417,10 +419,12 @@ inkScene('kit:ink/END', {
     const update = film.bind(A.el);
     const bx = L ? 1030 : S.l - 30, bw = L ? W - 1030 - S.r + 20 : W - 2 * (S.l - 30);
     let y = L ? S.t + 70 : S.t + 10;
-    const ts1 = fitText(title, bw, 1, L ? 150 : 140, 80, CW.display);
+    const cwT = CW.display * visLen(title, 1.8) / Math.max(1, title.length);   // CJK / emoji glyphs ~1 em
+    const oneWord = !/\s/.test(title);                                       // no space: it cannot wrap
+    const ts1 = fitText(title, bw, 1, L ? 150 : 140, oneWord ? 40 : 80, cwT);
     // a long product name wraps to two lines (word boundaries: charSpans keeps words whole) instead of running off
-    const lines2 = ts1 <= 80 && title.length * ts1 * CW.display > bw;
-    const ts = lines2 ? fitText(title, bw, 2, 120, 60, CW.display) : ts1;
+    const lines2 = !oneWord && ts1 <= 80 && title.length * ts1 * cwT > bw;
+    const ts = lines2 ? fitText(title, bw, 2, 120, 60, cwT) : ts1;
     const tEl = text(P, 'ik-title', '', bx, y, lines2 ? `font-size:${ts}px;width:${bw}px;` : `font-size:${ts}px;width:${bw + 40}px;white-space:nowrap;`);
     const letters = charSpans(tEl, title);
     y += ts * 0.95 * (lines2 ? 2 : 1) + 20;
