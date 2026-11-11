@@ -9,7 +9,10 @@ splines (position, velocity and acceleration continuous; frame 1 is already movi
 texture colourspace matches the view (`lib.materials.screen`, re-synced by `studio.finalize`). Measured on a
 24-patch UI chart (EEVEE): Standard Δ = 0.0/255 (exact); AgX would shift white to 197 and saturated accents by up
 to 141, so never switch a device scene to AgX. Screens have no glossy coat by default (`glare` 0): a reflection
-on a Standard-view screen clips to magenta/white. Captures are cover-fit top-aligned, never mirrored, never keyed.
+on a Standard-view screen clips to magenta/white. Captures fill the screen when the shapes nearly match (cover,
+<= 12 % trimmed; long pages show their top and scroll), otherwise they are shown WHOLE, letterboxed in the
+capture's own page colour: never magnified past the bezel, never mirrored, never keyed. Phones get the mobile
+capture (the host adds the capture stage's `mobile_<w>x<h>.png` to every device job that lacks one).
 
 Media resolution (every scene): explicit param (asset name, path or the story's `{asset|path,w,h,...}` image dict)
 → job asset named `desktop*`/`screen*`/`capture*`/`image*`/`hero*` (wide) or `mobile*` (portrait) or `full*`
