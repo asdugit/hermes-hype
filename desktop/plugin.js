@@ -180,6 +180,8 @@ function useApi(key, path, { enabled = true, refetchInterval = false, staleTime 
 
 /** React Query passes (query) in v5 and (data, query) in v4: read the data either way. */
 const dataOf = (a, b) => (a && a.state ? a.state.data : b && b.state ? b.state.data : a)
+/** The last fetch failed (the data kept is from before): poll the health probe fast so recovery shows soon. */
+const healthFailed = (a, b) => Boolean(((a && a.state) || (b && b.state) || {}).status === 'error')
 
 function invalidate(...parts) {
   try {
@@ -1481,7 +1483,7 @@ function Studio({ variant }) {
     setTabState(t)
     storageSet(`tab.${variant}`, t)
   }
-  const health = useApi(qk('health'), '/health', { staleTime: 30000, refetchInterval: (a, b) => (dataOf(a, b) ? 120000 : 15000) })
+  const health = useApi(qk('health'), '/health', { staleTime: 30000, refetchInterval: (a, b) => (dataOf(a, b) && !healthFailed(a, b) ? 120000 : 15000) })
   const backendDown = Boolean(health.error)
   const jobsQ = useApi(qk('jobs', sid), sid ? `/jobs?session_id=${enc(sid)}&limit=12` : '', {
     enabled: Boolean(sid) && !backendDown,
@@ -1618,7 +1620,8 @@ function ReelCard(props) {
   const copyPost = async () => {
     try {
       const p = await api(`/jobs/${jobId}/post-text`)
-      notify((await copyText(p.text)) ? 'success' : 'error', 'Post text copied')
+      const ok = await copyText(p.text)
+      notify(ok ? 'success' : 'error', ok ? 'Post text copied' : 'Could not reach the clipboard')
     } catch (e) {
       notify('error', `No post text: ${e.message}`)
     }
