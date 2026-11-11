@@ -222,9 +222,16 @@ class Redactor:
             h = str(home) if home is not None else str(Path.home())
             if len(h) > 3:
                 homes += [h, h.replace("\\", "/"), h.replace("\\", "\\\\"), h.replace("/", "\\")]
+                if re.match(r"^[A-Za-z]:[\\/]", h):       # git-bash/MSYS and WSL spell C:\Users\X as /c/Users/X
+                    rest = h[3:].replace("\\", "/")
+                    homes += [f"/{h[0].lower()}/{rest}", f"/mnt/{h[0].lower()}/{rest}"]
         except (RuntimeError, OSError):
             pass
         self._homes = sorted({x for x in homes if x}, key=len, reverse=True)
+        # case-insensitive and in every spelling: the generic home patterns stop at a space, so a folder such as
+        # "Alice Smith" would otherwise leave "~ Smith" on screen
+        self._home_re = re.compile("|".join(map(re.escape, self._homes)), re.I) if self._homes else None
+        self._home_tail = re.split(r"[\\/]", h.rstrip("\\/"))[-1].lower() if len(h) > 3 else ""
         names = [u for u in usernames if u and len(u) >= 3]
         self._user_re = re.compile(r"(?<![\w])(?:" + "|".join(map(re.escape, names)) + r")(?![\w])") if names else None
         # the login name only where it identifies the user (``jane@host``, a ``whoami`` line), never as a
@@ -320,10 +327,8 @@ class Redactor:
             s = self._sub(_GIT_CONFIG_NAME_RE, lambda m: m.group(1) + USER, s, "user")
         if self.redact_phones and any(c.isdigit() for c in s):
             s = self._sub(_PHONE_RE, self._phone_repl, s, "phone")
-        for h in self._homes:
-            if h in s:
-                self.counts["home"] += s.count(h)
-                s = s.replace(h, "~")
+        if self._home_re is not None and self._home_tail and self._home_tail in s.lower():
+            s = self._sub(self._home_re, "~", s, "home")
         low = s.lower()
         if "users" in low or "/home/" in low:
             for rx in _HOME_RES:
