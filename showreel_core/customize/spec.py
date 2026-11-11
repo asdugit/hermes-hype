@@ -365,9 +365,13 @@ def keywords(text: str, shots: list[dict[str, Any]] | None = None, *, style: str
             break
     if theme:
         spec["theme"] = theme
-    if re.search(_FASTER, t):
+    # "a punchier ending" is about the end, not the whole film's energy
+    end_punch = re.search(r"\b(punch\w*|bigger|stronger|harder|louder)\W+(\w+\W+){0,2}(ending|end|finale|outro)\b|"
+                          r"\b(ending|finale|outro)\W+(\w+\W+){0,2}(punch\w*)", t)
+    t_energy = t.replace(end_punch.group(0), " ") if end_punch else t
+    if re.search(_FASTER, t_energy):
         spec["energy"] = "high"
-    elif re.search(_SLOWER, t):
+    elif re.search(_SLOWER, t_energy):
         spec["energy"] = "calm"
     for mood in sorted(V.MOODS, key=len, reverse=True):
         if re.search(rf"\b{mood}\b", t):
