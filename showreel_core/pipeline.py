@@ -51,6 +51,7 @@ log = logging.getLogger(__name__)
 STAGE_WEIGHTS: dict[str, float] = {"reading": 0.04, "storyboard": 0.14, "voice": 0.08, "layout": 0.07,
                                    "render": 0.55, "mix": 0.07, "qa": 0.05}
 ASSUMED_RENDER_FPS = 14.0       # e2e frames/s of a software render on a mid laptop (WP-A bench), for the ETA
+TTS_RETRY_DELAYS_S: tuple[float, ...] = (1.5, 4.0)     # transient TTS failures (Edge NoAudioReceived)
 TTS_WORKERS = 3
 #: Pre-render stage durations for the ETA, seconds (real E2E on a busy 16 GB Windows laptop, 2026-11-11: reading incl.
 #: product capture 19-62, storyboard via the model 35-102, voice 7-18, layout 13-120, mix 26-50, qa 27-66).
@@ -1024,7 +1025,9 @@ def _voice(run: _Run) -> None:
 
     The pace comes from the style's ``voice_speed`` (or the ``narration_speed`` setting) and is passed to
     ``text_to_speech`` as ``speed``; audio is never time-stretched afterwards. A clip that fails with a
-    speed is retried once at the provider's normal pace.
+    speed is retried once at the provider's normal pace. A failed line is retried after 1.5 s and 4 s (Edge
+    answers ``NoAudioReceived`` transiently: a real customized film lost 4 of its 6 lines) unless TTS looks down
+    (nothing succeeded and a line already failed every retry), so a film without TTS is barely delayed.
     """
     run.clips = {}
     if not run.opts.voice:
@@ -1050,6 +1053,7 @@ def _voice(run: _Run) -> None:
     failures = 0
     unpaced = 0
     lock = threading.Lock()
+    seen = {"ok": 0, "dead": 0}       # dead: lines that failed every retry
 
     def one(item: tuple[int, str]) -> tuple[int, Any]:
         nonlocal unpaced
@@ -1062,6 +1066,23 @@ def _voice(run: _Run) -> None:
             if clip is not None:
                 with lock:
                     unpaced += 1
+        if clip is not None:
+            with lock:
+                seen["ok"] += 1
+        for delay in TTS_RETRY_DELAYS_S:
+            with lock:
+                down = seen["ok"] == 0 and seen["dead"] >= 1
+            if clip is not None or down or run.cancel.is_set():
+                break
+            time.sleep(delay)
+            clip = run.deps.tts(run.host.dispatch, text, vdir / f"vo_{i:02d}.wav", tts_speed)
+            if clip is not None:
+                with lock:
+                    seen["ok"] += 1
+                run.info(f"narration line {i}: worked on a retry")
+        if clip is None:
+            with lock:
+                seen["dead"] += 1
         return i, clip
 
     with ThreadPoolExecutor(max_workers=TTS_WORKERS, thread_name_prefix=f"showreel-tts-{run.job_id[-4:]}") as pool:

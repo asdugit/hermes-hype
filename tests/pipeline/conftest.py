@@ -169,4 +169,6 @@ def env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     data, videos = tmp_path / "data", tmp_path / "videos"
     monkeypatch.setenv("SHOWREEL_DATA_DIR", str(data))
     monkeypatch.setenv("SHOWREEL_VIDEOS_DIR", str(videos))
+    from showreel_core import pipeline as _p
+    monkeypatch.setattr(_p, "TTS_RETRY_DELAYS_S", (0.01, 0.01))
     return {"store": JobStore(data), "videos": videos, "tmp": tmp_path}

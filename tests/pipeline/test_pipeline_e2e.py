@@ -102,6 +102,25 @@ def test_tts_failure_degrades_to_captions_only(env: dict[str, Any]) -> None:
     assert rec.calls["mix"][0]["voices"] == 0
 
 
+def test_transient_tts_failures_are_retried(env: dict[str, Any]) -> None:
+    """Edge answers NoAudioReceived now and then: a real customized film lost 4 of its 6 lines without a retry."""
+    store, rec = env["store"], Recorder()
+    deps = make_deps(rec)
+    real, tried = deps.tts, set()
+
+    def flaky(dispatch: Any, text: str, out_path: Path, speed: float | None = None) -> Any:
+        if text not in tried:            # every line fails once
+            tried.add(text)
+            rec.add("tts_fail", text)
+            return None
+        return real(dispatch, text, out_path, speed)
+    deps.tts = flaky
+    final = run_job(_job(store, seconds=30)["id"], _host()[0], store=store, deps=deps)
+    assert final["stage"] == "done" and rec.n("tts_fail") >= 1
+    assert not any("narration failed" in w for w in final["warnings"]), final["warnings"]
+    assert rec.calls["mix"][0]["voices"] == rec.n("tts_fail")
+
+
 def test_no_tts_service_and_voice_off(env: dict[str, Any]) -> None:
     store, rec = env["store"], Recorder()
     final = run_job(_job(store, seconds=30)["id"], Host(), store=store, deps=make_deps(rec))
