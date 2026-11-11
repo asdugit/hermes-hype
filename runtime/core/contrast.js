@@ -108,7 +108,7 @@ function backdropAt(el, x, y, stageEl, base, scope) {
     opCache.set(e, v);
     return v;
   };
-  let R = 0, G = 0, B = 0, rem = 1;
+  let R = 0, G = 0, B = 0, rem = 1, pic = 0;
   const add = (c, a) => { if (a <= 0) return; R += c[0] * a * rem; G += c[1] * a * rem; B += c[2] * a * rem; rem *= 1 - a; };
   for (let k = i + 1; k < stack.length && rem > 0.02; k++) {
     const e = stack[k];
@@ -120,7 +120,7 @@ function backdropAt(el, x, y, stageEl, base, scope) {
     const cs = getComputedStyle(e);
     if (e.tagName === 'IMG' || e.tagName === 'CANVAS' || e.tagName === 'VIDEO') {
       const c = samplePixels(e, x, y);
-      if (c) add(c, c[3] * op);
+      if (c) { pic += c[3] * op * rem; add(c, c[3] * op); }
       continue;
     }
     const g = gradientColour(cs.backgroundImage);
@@ -129,33 +129,37 @@ function backdropAt(el, x, y, stageEl, base, scope) {
     if (bg[3] > 0) add(bg, bg[3] * op);
   }
   add(base, 1);
-  return [R, G, B];
+  const out = [R, G, B];
+  out.pic = pic;
+  return out;
 }
 
 /**
  * Find display text below `minRatio` against its backdrop. Returns [{el, ratio, text, colour}] (worst sample of
  * each element). minSize: only text at least this big (film px).
  */
-export function lowContrast(root, stage, { W, H, minSize = 22, base = [0, 0, 0], minRatio = MIN_RATIO, scope = null } = {}) {
+export function lowContrast(root, stage, { W, H, minSize = 22, picSize = 0, base = [0, 0, 0], minRatio = MIN_RATIO, scope = null } = {}) {
   const out = new Map();
   const sr = stage.el.getBoundingClientRect();
   const sc = stage.scale || 1;
   for (const b of domTextBoxes(root, stage, { id: 'contrast', kind: 'shot' })) {
     const [x, y, w, h] = b.rect;
-    if (b.size < minSize || w < 4 || h < 4) continue;
+    // headline type everywhere; smaller body type only where it sits over a picture (captures, renders)
+    if (b.size < Math.min(minSize, picSize || minSize) || w < 4 || h < 4) continue;
+    const onlyPic = b.size < minSize;
     if (x + w < 0 || y + h < 0 || x > W || y > H) continue;
     const cs = getComputedStyle(b.el);
     const fill = cs.webkitTextFillColor && !/currentcolor/i.test(cs.webkitTextFillColor) ? cs.webkitTextFillColor : cs.color;
     const tc = rgbaOf(fill);
     if (tc[3] < 0.3) continue;                         // outlined / knocked-out display type: not measurable here
     if (cs.backgroundClip === 'text' || cs.webkitBackgroundClip === 'text') continue;
-    if (/mono|courier|consol/i.test(cs.fontFamily)) continue;    // code/terminal type: curated panels
     let worst = Infinity, wbd = null;
     for (const [fx, fy] of [[0.5, 0.55], [0.2, 0.55], [0.8, 0.55], [0.35, 0.3], [0.65, 0.8]]) {
       const px = x + w * fx, py = y + h * fy;
       if (px < 0 || py < 0 || px > W || py > H) continue;
       const bd = backdropAt(b.el, sr.left + px * sc, sr.top + py * sc, stage.el, base, scope);
       const c = [tc[0] * tc[3] + bd[0] * (1 - tc[3]), tc[1] * tc[3] + bd[1] * (1 - tc[3]), tc[2] * tc[3] + bd[2] * (1 - tc[3])];
+      if (onlyPic && !(bd.pic > 0.3)) continue;
       const r = ratio(c, bd);
       if (r < worst) { worst = r; wbd = bd; }
     }
