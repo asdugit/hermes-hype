@@ -483,3 +483,25 @@ def test_a_page_that_cannot_load_still_fails(env: dict[str, Any]) -> None:
     _stalling_layout(deps, [{"code": "page_load", "message": "ReferenceError: __sr is not defined"}])
     final = run_job(_job(store, seconds=30)["id"], _host()[0], store=store, deps=deps)
     assert final["stage"] == "failed" and final["error"]["code"] == "page_broken"
+
+
+def test_initial_eta_reflects_length_aspects_and_the_director() -> None:
+    """Real E2E: a Directed film said '~2 min left' while the Director still had ~14 min to go."""
+    from showreel_core.pipeline import DIRECTOR_ESTIMATE_S, FIXED_STAGE_S, initial_estimates
+    render, story = initial_estimates(Options(seconds=30, aspects=["16:9", "9:16"]).normalised())
+    assert render == 2 * 30 * 30 / 14.0 and story == FIXED_STAGE_S["storyboard"]
+    render_p, _ = initial_estimates(Options(seconds=30, preview=True).normalised())
+    assert render_p == 30 * 15 / 14.0
+    _, story_d = initial_estimates(Options(seconds=30, direction="an Apple keynote", effort="quick").normalised())
+    assert story_d == DIRECTOR_ESTIMATE_S["quick"] >= 600
+
+
+def test_directed_job_reports_a_long_eta_while_planning(env: dict[str, Any]) -> None:
+    from showreel_core.pipeline import Reporter
+    store = env["store"]
+    job = _job(store, seconds=30, direction="an Apple keynote", effort="quick")
+    rep = Reporter(store, job["id"], Host())
+    rep.storyboard_estimate_s = 840.0
+    rep.stage("storyboard", "the Director is planning the film")
+    rep.progress(0.1, "treatment", force=True)
+    assert store.load(job["id"])["eta_s"] > 600

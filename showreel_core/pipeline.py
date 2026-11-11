@@ -51,6 +51,20 @@ STAGE_WEIGHTS: dict[str, float] = {"reading": 0.04, "storyboard": 0.14, "voice":
                                    "render": 0.55, "mix": 0.07, "qa": 0.05}
 ASSUMED_RENDER_FPS = 14.0       # e2e frames/s of a software render on a mid laptop (WP-A bench), for the ETA
 TTS_WORKERS = 3
+#: Pre-render stage durations for the ETA, seconds (real E2E on a busy 16 GB Windows laptop, 2026-11-11: reading incl.
+#: product capture 19-62, storyboard via the model 35-102, voice 7-18, layout 13-120, mix 26-50, qa 27-66).
+FIXED_STAGE_S: dict[str, float] = {"reading": 30.0, "storyboard": 50.0, "voice": 12.0, "layout": 20.0, "mix": 35.0,
+                                   "qa": 35.0}
+#: The Director's planning/coding/critique time per effort (it reports inside the storyboard stage).
+DIRECTOR_ESTIMATE_S: dict[str, float] = {"quick": 840.0, "standard": 1500.0, "max": 2400.0}
+
+
+def initial_estimates(opts: Options) -> tuple[float, float]:
+    """(render seconds, storyboard seconds) to show before the renderer and the Director report their own."""
+    fps = PREVIEW_FPS if opts.preview else FINAL_FPS
+    render = sum(opts.seconds * fps / ASSUMED_RENDER_FPS for _ in opts.aspects)
+    story = DIRECTOR_ESTIMATE_S.get(opts.effort, 1500.0) if opts.directed else FIXED_STAGE_S["storyboard"]
+    return render, story
 ASPECT_TAG = {"16:9": "16x9", "9:16": "9x16", "1:1": "1x1"}
 
 _RENDER_LOCK = threading.Lock()                 # one heavy render per process (RAM)
@@ -134,6 +148,7 @@ class Reporter:
         self.t_job = time.monotonic()
         self.stage_times: dict[str, float] = {}
         self.render_estimate_s = 60.0
+        self.storyboard_estimate_s = FIXED_STAGE_S["storyboard"]
         self._last_write = self._last_edit = 0.0
         self._last_text = ""
 
@@ -192,7 +207,7 @@ class Reporter:
         if self.stage_name not in order:
             return None
         rest = order[order.index(self.stage_name) + 1:]
-        fixed = {"reading": 3.0, "storyboard": 25.0, "voice": 12.0, "layout": 8.0, "mix": 8.0, "qa": 5.0}
+        fixed = {**FIXED_STAGE_S, "storyboard": self.storyboard_estimate_s}
         left = sum(self.render_estimate_s if s == "render" else fixed[s] for s in rest)
         cur = self.render_estimate_s if self.stage_name == "render" else fixed.get(self.stage_name, 5.0)
         return left + cur * (1.0 - frac)
@@ -594,6 +609,7 @@ def run_job(job_id: str, host: Host | None = None, *, store: JobStore | None = N
         _RUNNING[job_id] = token
     rep = Reporter(store, job_id, host, handle=handle)
     opts = Options.from_dict(job.get("options"))
+    rep.render_estimate_s, rep.storyboard_estimate_s = initial_estimates(opts)
     run = _Run(job_id, job, opts, host, store, deps, rep, token, store.job_dir(job_id),
                seed=job_seed(job.get("session_id", ""), opts.style, opts.mode))
     store.update(job_id, pid=os.getpid(), started=time.time())
