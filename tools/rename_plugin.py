@@ -4,6 +4,15 @@
     python tools/rename_plugin.py --name auteur --title Auteur --dry-run     # list every change
     python tools/rename_plugin.py --name auteur --title Auteur               # apply to this tree
     python tools/rename_plugin.py --name auteur --title Auteur --catalog ../catalog
+    python tools/rename_plugin.py --from auteur --name hype --title Hype --repo-slug hermes-hype --catalog ../catalog
+
+``--from NAME`` (default ``showreel``) is the plugin's current name, so an already renamed tree can be renamed
+again; ``--from-title`` is its brand (default: NAME capitalised). The rules below say ``showreel``; with ``--from``
+they apply to that name instead (``hermes-<from>`` is the repo slug, ``<FROM>_*`` the env vars, the catalog key is
+the name itself). The internal names (``showreel_core``, ``runtime/showreel.js``, dev paths, the other author's
+plugin, the agent trigger phrases) stay whatever the source name. The common-noun rule only applies to
+``showreel`` (a showreel *is* a film; an auteur is not), and ``an <Vowel title>`` becomes ``a <Title>`` when the
+new title starts with a consonant.
 
 What changes (all text files of the tree, plus file and folder names):
 
@@ -47,6 +56,32 @@ OLD_TITLE = "Showreel"
 OLD_UPPER = "SHOWREEL"
 OLD_CATALOG_KEY = "showreel-studio"
 OLD_CATALOG_TITLE = "Showreel Studio"
+
+
+@dataclass(frozen=True)
+class Source:
+    """The name being replaced (``--from``): ``showreel`` for the original tree, or a previous rename."""
+    name: str = OLD
+    title: str = OLD_TITLE
+
+    @property
+    def upper(self) -> str:
+        return self.name.upper()
+
+    @property
+    def repo_re(self) -> str:
+        return rf"hermes-{re.escape(self.name)}"
+
+    @property
+    def catalog_key(self) -> str:
+        return OLD_CATALOG_KEY if self.name == OLD else self.name
+
+    @property
+    def catalog_title(self) -> str:
+        return OLD_CATALOG_TITLE if self.name == OLD else self.title
+
+
+SHOWREEL = Source()
 
 #: Kept verbatim (internal names, other people's plugin, dev paths, generic trigger phrases), as regexes.
 PROTECTED = (
@@ -100,34 +135,45 @@ def _show(text: str, kept: list[str]) -> str:
     return re.sub(r"\x00(\d+)\x00", lambda m: kept[int(m.group(1))], text)
 
 
-def rewrite(text: str, name: str, title: str, *, repo_slug: str = "", catalog: bool = False) -> str:
+def rewrite(text: str, name: str, title: str, *, repo_slug: str = "", catalog: bool = False,
+            src: Source = SHOWREEL) -> str:
     """The renamed text (pure function; idempotent for a fixed ``name``/``title``)."""
     if catalog:
         text = CONFLICT_BLOCK.sub("", text)
         text = "".join(ln for ln in text.splitlines(keepends=True) if not CONFLICT_LINE.search(ln.rstrip("\r\n")))
-        text = text.replace(OLD_CATALOG_KEY, name).replace(OLD_CATALOG_TITLE, title)
-    text, kept = _hide(text, PROTECTED + (() if repo_slug else (REPO_RE,)))
+        if src.catalog_key != src.name:
+            text = text.replace(src.catalog_key, name).replace(src.catalog_title, title)
+    text, kept = _hide(text, PROTECTED + (() if repo_slug else (src.repo_re,)))
     if repo_slug:
-        text = re.sub(REPO_RE, repo_slug, text)
-    text = re.sub(r"\b([Tt]he|[Aa]) showreel plugin\b", lambda m: f"{m.group(1)} {name} plugin", text)
-    text = NOUN_RE.sub(lambda m: f"{ {'an': 'a', 'An': 'A'}.get(m.group(1), m.group(1))} film{m.group(2)}", text)
-    text = text.replace(OLD_UPPER, name.upper()).replace(OLD_TITLE, title).replace(OLD, name)
+        text = re.sub(src.repo_re, repo_slug, text)
+    old = re.escape(src.name)
+    def _plugin(m: re.Match) -> str:
+        art = m.group(1)
+        if art.lower() in ("a", "an"):
+            art = art[0] + ("n" if name[:1] in "aeiou" else "")
+        return f"{art} {name} plugin"
+    text = re.sub(rf"\b([Tt]he|[Aa]n?) {old} plugin\b", _plugin, text)
+    if src.name == OLD:
+        text = NOUN_RE.sub(lambda m: f"{ {'an': 'a', 'An': 'A'}.get(m.group(1), m.group(1))} film{m.group(2)}", text)
+    if src.title[:1].lower() in "aeiou" and title[:1].lower() not in "aeiou":
+        text = re.sub(rf"\b([Aa])n {re.escape(src.title)}\b", lambda m: f"{m.group(1)} {title}", text)
+    text = text.replace(src.upper, name.upper()).replace(src.title, title).replace(src.name, name)
     if title[:1].lower() in "aeiou":
         text = re.sub(rf"\b([Aa]) {re.escape(title)}\b", lambda m: f"{m.group(1)}n {title}", text)
     return _show(text, kept)
 
 
-def new_path(rel: str, name: str, *, catalog: bool = False) -> str:
+def new_path(rel: str, name: str, *, catalog: bool = False, src: Source = SHOWREEL) -> str:
     """A path with the plugin's name in it, renamed (internal module paths stay)."""
     parts = rel.replace("\\", "/").split("/")
     out = []
     for part in parts:
         if part in ("showreel_core", "showreel.js") or part in KEEP_FILES:
             out.append(part)
-        elif catalog and part.startswith(OLD_CATALOG_KEY):
-            out.append(name + part[len(OLD_CATALOG_KEY):])
+        elif catalog and part.startswith(src.catalog_key):
+            out.append(name + part[len(src.catalog_key):])
         else:
-            out.append(re.sub(r"(?<![a-z])showreel(?![a-z_])", name, part))
+            out.append(re.sub(rf"(?<![a-z]){re.escape(src.name)}(?![a-z_])", name, part))
     return "/".join(out)
 
 
@@ -151,33 +197,34 @@ def iter_files(root: Path):
             yield p
 
 
-def plan(root: Path, name: str, title: str, *, repo_slug: str = "", catalog: bool = False) -> list[Change]:
+def plan(root: Path, name: str, title: str, *, repo_slug: str = "", catalog: bool = False,
+         src: Source = SHOWREEL) -> list[Change]:
     changes: list[Change] = []
     for p in iter_files(root):
         rel = p.relative_to(root).as_posix()
         data = p.read_bytes()
         if _is_text(data):
             before = data.decode("utf-8")
-            after = rewrite(before, name, title, repo_slug=repo_slug, catalog=catalog)
+            after = rewrite(before, name, title, repo_slug=repo_slug, catalog=catalog, src=src)
             if after != before:
                 b_lines, a_lines = before.splitlines(), after.splitlines()
                 samples = [f"- {b.strip()[:110]}\n  + {a.strip()[:110]}" for b, a in zip(b_lines, a_lines)
                            if a != b][:3]
                 n = sum(1 for b, a in zip(b_lines, a_lines) if a != b) + abs(len(b_lines) - len(a_lines))
                 changes.append(Change(rel, "edit", count=n, samples=samples))
-        target = new_path(rel, name, catalog=catalog)
+        target = new_path(rel, name, catalog=catalog, src=src)
         if target != rel:
             changes.append(Change(rel, "move", detail=target))
     return changes
 
 
 def apply(root: Path, changes: list[Change], name: str, title: str, *, repo_slug: str = "",
-          catalog: bool = False) -> None:
+          catalog: bool = False, src: Source = SHOWREEL) -> None:
     for c in changes:
         if c.kind == "edit":
             p = root / c.path
             text = p.read_bytes().decode("utf-8")
-            p.write_bytes(rewrite(text, name, title, repo_slug=repo_slug, catalog=catalog).encode("utf-8"))
+            p.write_bytes(rewrite(text, name, title, repo_slug=repo_slug, catalog=catalog, src=src).encode("utf-8"))
     for c in changes:
         if c.kind == "move":
             src, dst = root / c.path, root / c.detail
@@ -191,16 +238,16 @@ def apply(root: Path, changes: list[Change], name: str, title: str, *, repo_slug
                 d = d.parent
 
 
-def leftovers(root: Path) -> list[str]:
-    """``file:line: text`` for every remaining 'showreel' outside the protected names (should be empty)."""
+def leftovers(root: Path, src: Source = SHOWREEL) -> list[str]:
+    """``file:line: text`` for every remaining old name outside the protected names (should be empty)."""
     out = []
     for p in iter_files(root):
         data = p.read_bytes()
         if not _is_text(data):
             continue
         for i, line in enumerate(data.decode("utf-8").splitlines(), 1):
-            hidden, _ = _hide(line, PROTECTED + (REPO_RE,))
-            if re.search("showreel", hidden, re.I):
+            hidden, _ = _hide(line, PROTECTED + (src.repo_re,))
+            if re.search(re.escape(src.name), hidden, re.I):
                 out.append(f"{p.relative_to(root).as_posix()}:{i}: {line.strip()[:140]}")
     return out
 
@@ -208,17 +255,25 @@ def leftovers(root: Path) -> list[str]:
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
     ap.add_argument("--name", required=True, help="new plugin id: lowercase letters/digits, e.g. auteur")
+    ap.add_argument("--from", dest="src", default=OLD, help="current plugin id (default: showreel)")
+    ap.add_argument("--from-title", default="", help="current brand title (default: --from capitalised)")
     ap.add_argument("--title", default="", help="new brand title (default: Name capitalised)")
     ap.add_argument("--root", default=str(Path(__file__).resolve().parents[1]), help="plugin tree (default: repo)")
-    ap.add_argument("--repo-slug", default="", help="also rename the GitHub repo slug hermes-showreel to this")
+    ap.add_argument("--repo-slug", default="", help="also rename the GitHub repo slug hermes-<from> to this")
     ap.add_argument("--catalog", default="", help="also rewrite the catalog drafts in this folder")
     ap.add_argument("--dry-run", action="store_true", help="list every change, write nothing")
     ap.add_argument("--json", action="store_true", help="machine-readable plan")
     args = ap.parse_args(argv)
 
     name, title = args.name.strip(), (args.title.strip() or args.name.strip().capitalize())
-    if not NAME_RE.match(name) or name == OLD:
-        print(f"--name must match {NAME_RE.pattern} and differ from {OLD!r}", file=sys.stderr)
+    src_name = args.src.strip()
+    src = Source(src_name, args.from_title.strip() or (OLD_TITLE if src_name == OLD else src_name.capitalize()))
+    if not NAME_RE.match(src.name) or not re.match(r"^[A-Z][A-Za-z0-9 ]{1,40}$", src.title):
+        print(f"--from must match {NAME_RE.pattern} (and --from-title start with a capital)", file=sys.stderr)
+        return 2
+    if not NAME_RE.match(name) or name == src.name or name in src.name or src.name in name:
+        print(f"--name must match {NAME_RE.pattern} and differ from (not contain / be part of) {src.name!r}",
+              file=sys.stderr)
         return 2
     if not re.match(r"^[A-Z][A-Za-z0-9 ]{1,40}$", title):
         print("--title must start with a capital letter (letters, digits, spaces)", file=sys.stderr)
@@ -234,7 +289,7 @@ def main(argv: list[str] | None = None) -> int:
         if not root.is_dir():
             print(f"not a folder: {root}", file=sys.stderr)
             return 2
-        changes = plan(root, name, title, repo_slug=args.repo_slug, catalog=is_cat)
+        changes = plan(root, name, title, repo_slug=args.repo_slug, catalog=is_cat, src=src)
         report[str(root)] = [c.__dict__ for c in changes]
         if not args.json:
             edits = [c for c in changes if c.kind == "edit"]
@@ -249,10 +304,10 @@ def main(argv: list[str] | None = None) -> int:
                     for s in c.samples if args.dry_run else []:
                         print("        " + s.replace("\n", "\n        "))
         if not args.dry_run:
-            apply(root, changes, name, title, repo_slug=args.repo_slug, catalog=is_cat)
-            rest = leftovers(root)
+            apply(root, changes, name, title, repo_slug=args.repo_slug, catalog=is_cat, src=src)
+            rest = leftovers(root, src)
             if rest and not args.json:
-                print(f"  {len(rest)} line(s) still say 'showreel' (protected names excluded):")
+                print(f"  {len(rest)} line(s) still say {src.name!r} (protected names excluded):")
                 for line in rest[:40]:
                     print("    " + line)
     if args.json:

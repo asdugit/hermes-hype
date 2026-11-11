@@ -135,3 +135,52 @@ def test_cli_runs_standalone(tmp_path: Path) -> None:
                         str(root), "--dry-run", "--json"], capture_output=True, text=True, encoding="utf-8")
     assert r.returncode == 0, r.stderr
     assert '"kind": "move"' in r.stdout and "skills/trailer/SKILL.md" in r.stdout
+
+
+HYPE = R.Source("auteur", "Auteur")
+
+
+def test_rename_again_from_a_previous_name() -> None:
+    t = R.rewrite
+    assert t("/auteur lore and auteur_render, hermes auteur, AUTEUR_BLENDER, plugin-data/auteur",
+             "hype", "Hype", src=HYPE) == "/hype lore and hype_render, hermes hype, HYPE_BLENDER, plugin-data/hype"
+    assert t("an Auteur film. An Auteur scene. the Auteur pane", "hype", "Hype", src=HYPE) == \
+        "a Hype film. A Hype scene. the Hype pane"
+    assert t("Enable the auteur plugin. An auteur plugin.", "hype", "Hype", src=HYPE) == \
+        "Enable the hype plugin. A hype plugin."
+    # internal names, the other author's plugin and the trigger phrases stay, whatever the source name
+    kept = "from showreel_core import x; runtime/showreel.js; Duffey234/hermes-showreel; demo reel or showreel"
+    assert t(kept, "hype", "Hype", src=HYPE) == kept
+    # the repo slug: kept unless asked, then hermes-auteur -> hermes-hype
+    assert t("asdugit/hermes-auteur", "hype", "Hype", src=HYPE) == "asdugit/hermes-auteur"
+    assert t("asdugit/hermes-auteur", "hype", "Hype", src=HYPE, repo_slug="hermes-hype") == "asdugit/hermes-hype"
+    # no common-noun rule for a name that isn't a word for a film
+    assert t("Your auteur", "hype", "Hype", src=HYPE) == "Your hype"
+    assert R.new_path("skills/auteur/SKILL.md", "hype", src=HYPE) == "skills/hype/SKILL.md"
+    assert R.new_path("auteur.template.yaml", "hype", catalog=True, src=HYPE) == "hype.template.yaml"
+    assert R.new_path("showreel_core/x.py", "hype", src=HYPE) == "showreel_core/x.py"
+
+
+def test_cli_from_auteur(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    root = _tree(tmp_path)
+    assert R.main(["--name", "auteur", "--title", "Auteur", "--root", str(root), "--repo-slug", "hermes-auteur"]) == 0
+    assert R.main(["--from", "auteur", "--name", "hype", "--title", "Hype", "--root", str(root),
+                   "--repo-slug", "hermes-hype"]) == 0
+    out = capsys.readouterr().out
+    assert "still say" not in out
+    assert (root / "plugin.yaml").read_text(encoding="utf-8") == \
+        "name: hype\nprovides_tools: [hype_render, hype_status]\nhomepage: https://github.com/asdugit/hermes-hype\n"
+    skill = (root / "skills" / "hype" / "SKILL.md").read_text(encoding="utf-8")
+    assert "name: hype" in skill and "demo reel or showreel" in skill and "\nA Hype film." in skill
+    js = (root / "desktop" / "plugin.js").read_text(encoding="utf-8")
+    assert "const ID = 'hype'" in js and "runtime/showreel.js" in js and "Enable the hype plugin" in js
+    assert '"HYPE_BLENDER"' in (root / "showreel_core" / "env.py").read_text(encoding="utf-8")
+    assert not (root / "skills" / "auteur").exists()
+    assert R.main(["--from", "auteur", "--name", "hype", "--root", str(root)]) == 0
+    assert "0 file(s) to edit (0 lines), 0 to move" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("args", [["--from", "auteur", "--name", "auteur"], ["--from", "Auteur", "--name", "hype"],
+                                  ["--from", "hype", "--name", "hyper"]])
+def test_bad_from(args: list[str], tmp_path: Path) -> None:
+    assert R.main([*args, "--root", str(tmp_path), "--dry-run"]) == 2
