@@ -112,7 +112,9 @@ export function tapedShot(ctx, doc, img, w, hh, o = {}) {
 /** Luggage tag with a string, mono text (URL / CTA). Returns {el, w, h}. */
 export function luggageTag(doc, text, o = {}) {
   const key = o.key || 'tag';
-  const fs = o.size || 28;
+  // a long command / URL shrinks to fit the widest tag instead of being cut mid-word by the tag edge
+  const room = (o.maxW || 760) - 96, n = Math.max(1, String(text).length);
+  const fs = Math.max(20, Math.min(o.size || 28, Math.floor(room / (n * 0.6))));
   const S = 64;      // the string sits inside the box (left of the tag): no SVG overflow
   const tw = Math.round(Math.min(o.maxW || 760, Math.max(160, String(text).length * fs * 0.6 + 96)));
   const hh = Math.round(fs * 2.3);

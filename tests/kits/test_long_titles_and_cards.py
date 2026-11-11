@@ -20,12 +20,14 @@ import pytest
 from showreel_core.contracts import Caption, Cue, SceneType, Timeline, TimelineScene
 from showreel_core.film.page import build_job
 from showreel_core.film.quick import film_from_timeline
-from showreel_core.story.schema import TITLE_CHARS
+from showreel_core.story.schema import CTA_CHARS, TITLE_CHARS
 
 from tests.kits.test_quick import MEDIA_MAP
 
 LONG = "Northwind Ledger Reconciliation Studio X"
 assert len(LONG) == TITLE_CHARS
+CTA = "npx northwind-ledger-reconciliation-app2"          # CTA_CHARS long (ink cut it mid-word inside its tag)
+assert len(CTA) == CTA_CHARS
 
 
 def _scene(i, typ, t0, t1, data):
@@ -47,7 +49,7 @@ def _timeline(style: str, aspect: Any, title: str, card: bool) -> Timeline:
         _scene(2, "FEATURE", 7.0, 12.0, {"image": {**img, "path": "assets/capture_dark.png"}, "feature": "Auto match",
                                          "bbox": [0.1, 0.1, 0.8, 0.8], "click": [0.5, 0.5]}),
         _scene(3, "SCREEN", 12.0, 16.0, {"image": dict(img), "bbox": [0.2, 0.2, 0.6, 0.6]}),
-        _scene(4, "END", 16.0, 20.0, {"title": title, "cta": "npx northwind-ledger", "url": ""}),
+        _scene(4, "END", 16.0, 20.0, {"title": title, "cta": CTA, "url": ""}),
     ]
     return Timeline(style=style, aspect=aspect, fps=30, w=w, h=h, dur=20.0, bpm=120.0, seed=3, scenes=scenes,
                     cues=[Cue(3.0, "cut", -8, "peak")], title=title, accent="", mode="product", splits=[])
