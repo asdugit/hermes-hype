@@ -528,9 +528,13 @@ def test_earlier_films_of_the_session_are_not_evidence(env: dict[str, Any]) -> N
     ]
     bundle.events = list(bundle.events) + extra
     bundle.product.hero_event_ids = ["x2", *bundle.product.hero_event_ids]
+    build_s = max(e.t for e in bundle.events[:n0])
+    bundle.stats.duration_s = build_s + 1500.0          # later chat turns asked for and polled films
     final = run_job(_job(store, seconds=30)["id"], _host()[0], store=store, deps=make_deps(rec, bundle=bundle))
     assert final["stage"] == "done", final.get("error")
     assert any("left out 5 event(s)" in e["msg"] for e in final["log"])
+    assert any("build time ends at the first Showreel call" in e["msg"] for e in final["log"])
+    assert bundle.stats.duration_s <= 900.0             # active time up to the first showreel_render call
     saved = json.loads((store.job_dir(final["id"]) / "session.json").read_text(encoding="utf-8"))
     ids = {e["id"] for e in saved["events"]}
     assert not ids & {"x1", "x2", "x3", "x4", "x5"} and len(ids) >= n0

@@ -817,6 +817,7 @@ def _drop_own_outputs(run: _Run, bundle: Any) -> None:
         return
     gone = {getattr(e, "id", "") for e in dropped}
     bundle.events = keep
+    _cap_duration(run, bundle, events, first)
     prod = getattr(bundle, "product", None)
     if prod is not None:
         with contextlib.suppress(AttributeError):
@@ -828,6 +829,20 @@ def _drop_own_outputs(run: _Run, bundle: Any) -> None:
             run.info(f"digest rebuild after dropping earlier films failed: {exc}", level="warn")
     run.info(f"left out {len(dropped)} event(s) about earlier Showreel films of this session",
              dropped=sorted(gone)[:40])
+
+
+def _cap_duration(run: _Run, bundle: Any, events: list[Any], first: int) -> None:
+    """The build's active time ends where the first Showreel call starts: later turns (asking for films, polling
+    them) are not build time. Real E2E: a STATS card said 21 min for a 10-minute build after a chat-turn film."""
+    stats = getattr(bundle, "stats", None)
+    if first >= len(events) or stats is None or not getattr(stats, "duration_s", 0):
+        return
+    from .session.stats import active_duration
+    cut = float(getattr(events[first], "t", 0.0) or 0.0)
+    dur = round(active_duration([float(getattr(e, "t", 0.0) or 0.0) for e in events[:first]] + [cut]), 1)
+    if 0 < dur < float(stats.duration_s):
+        run.info(f"build time ends at the first Showreel call: {stats.duration_s:.0f} s -> {dur:.0f} s")
+        stats.duration_s = dur
 
 
 def _videos_dir() -> Path | None:
