@@ -41,7 +41,7 @@ SCHEMA: dict[str, Any] = {
         "theme": {"type": "object", "additionalProperties": False, "properties": {
             "accent": {"type": "string"}, "accent2": {"type": "string"}, "accent3": {"type": "string"},
             "bg": {"type": "string"}, "text": {"type": "string"}, "palette": {"type": "string"},
-            "font": {"type": "string"}}},
+            "font": {"type": "string"}, "motion": {"type": "string", "enum": ["smooth", "bouncy"]}}},
         "energy": {"type": "string", "enum": list(V.ENERGIES)},
         "music": {"type": "string"},
         "transitions": {"type": "string", "enum": list(V.TRANSITION_FAMILIES)},
@@ -186,6 +186,11 @@ def validate(raw: Any, shots: list[dict[str, Any]], *, catalog: dict[str, list[s
                 theme.update({kk: vv for kk, vv in V.palette(v).items() if kk not in theme})
             else:
                 fixes.append(f"theme.palette {v!r} unknown; dropped")
+        elif k == "motion":
+            if str(v).lower() in ("bouncy", "smooth"):
+                theme["motion"] = str(v).lower()
+            else:
+                fixes.append(f"theme.motion {v!r} not bouncy|smooth; dropped")
         elif k == "font":
             f = V.font(v) or V.font(V.FONT_MOODS.get(V._key(v), ""))
             if f:
@@ -363,6 +368,11 @@ def keywords(text: str, shots: list[dict[str, Any]] | None = None, *, style: str
         if re.search(rf"\b{mood}\s+(font|type|typeface|lettering|titles?)\b", t):
             theme["font"] = fam
             break
+    # playful: type springs in (bouncy motion) and, without a named palette, the candy palette carries the colour
+    if re.search(r"\b(playful|bouncy|bubbly|fun|cute|cheerful|whimsical|joyful)\b", t):
+        theme["motion"] = "bouncy"
+        if "palette" not in theme and "bg" not in theme:
+            theme["palette"] = "candy"
     if theme:
         spec["theme"] = theme
     # "a punchier ending" is about the end, not the whole film's energy
@@ -416,6 +426,8 @@ def describe(spec: dict[str, Any]) -> str:
             bits.append(f"{k} {th[k]}")
     if th.get("font"):
         bits.append(f"font {th['font']}")
+    if th.get("motion"):
+        bits.append(f"{th['motion']} motion")
     for k in ("energy", "music", "transitions", "captions"):
         if spec.get(k):
             bits.append(f"{k} {spec[k]}")

@@ -141,7 +141,17 @@ export function shake(t, t0, amp = 10, freq = 18, decay = 6, seed = 3) {
  * Standard entrance (render-tech C2): rise + opacity + blur over `dur` (0.4-0.6 s) with outQuint.
  * Returns {u, op, y, blur}; u = eased progress. Never a bare fade.
  */
+/** Film-wide motion feel (customization theme ``motion``): 'bouncy' = type entrances overshoot and settle
+ * (playful), crisp (no blur). Set once per scene build from ctx.film.theme (every shot of a film shares it). */
+export const MOTION = { bouncy: false };
+export function setMotion(theme) { MOTION.bouncy = Boolean(theme && theme.motion === 'bouncy'); }
+const springy = (u) => { const c1 = 2.6, c3 = c1 + 1; return 1 + c3 * Math.pow(u - 1, 3) + c1 * Math.pow(u - 1, 2); };
+
 export function entrance(t, t0, dur = 0.5, rise = 18, blur = 6) {
+  if (MOTION.bouncy) {      // pops past its place and springs back
+    const b = seg(t, t0, t0 + dur * 1.35, springy);
+    return { u: clamp(b), op: clamp(seg(t, t0, t0 + dur * 0.3)), y: (1 - b) * rise * 1.7, blur: 0 };
+  }
   const u = seg(t, t0, t0 + dur, ease.outQuint);
   return { u, op: clamp(u * 1.6), y: (1 - u) * rise, blur: (1 - u) * blur };
 }

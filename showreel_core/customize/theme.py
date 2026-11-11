@@ -39,6 +39,8 @@ def resolve(knobs: dict[str, Any] | None, spec_theme: dict[str, Any] | None = No
             f = V.font(src.get(k)) if src.get(k) else ""
             if f:
                 tokens[k] = f
+        if str(src.get("motion") or "") in ("bouncy", "smooth"):
+            tokens["motion"] = str(src["motion"])
     if "bg" in tokens and "text" not in tokens:
         tokens["text"] = "#F4F3EF" if V.lum(tokens["bg"]) < 0.35 else "#16151A"
     return tokens
@@ -158,6 +160,8 @@ def theme_block(tokens: dict[str, str]) -> dict[str, Any]:
     if not tokens:
         return {}
     block: dict[str, Any] = {"tokens": dict(tokens), "vars": css_vars(tokens)}
+    if tokens.get("motion"):
+        block["motion"] = tokens["motion"]          # kits/base motion.js: type entrances spring (bouncy)
     pal = kit_palettes(tokens)
     if pal:
         block["palette"] = pal

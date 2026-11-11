@@ -3,7 +3,7 @@
 import { sr } from '../../runtime/showreel.js';
 import { BASE_CSS } from './css.js';
 import { frame, css } from './dom.js';
-import { drift, clamp } from './motion.js';
+import { drift, clamp, setMotion } from './motion.js';
 
 export { sr };
 
@@ -28,6 +28,7 @@ export function defineDomScene(id, def) {
   function ensure(ctx, p) {
     let s = STATE.get(ctx);
     if (!s) {
+      setMotion(ctx.film && ctx.film.theme);
       const q = withDefaults(p, def.params);
       const F = frame(ctx, q, kind, BASE_CSS + (def.css || ''));
       s = def.build(ctx, q, F) || {};

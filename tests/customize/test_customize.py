@@ -481,3 +481,19 @@ def test_high_energy_keeps_the_requested_length_with_cut_ins():
 
 def test_high_energy_does_not_speed_up_the_narration():
     assert V.ENERGY_VOICE["high"] == 1.0 and V.ENERGY_VOICE["calm"] < 1.0
+
+
+def test_playful_springs_the_type_and_brings_the_candy_palette():
+    """'pink and playful' read as barely different from the preset: playful now means bouncy type motion (the theme
+    layer's motion token -> kits/base entrance overshoot) and, without a named palette, the candy palette."""
+    sp = S.keywords("pink and playful with a punchier ending", None, style="launch")
+    assert sp["theme"]["motion"] == "bouncy" and sp["theme"]["palette"] == "candy"
+    assert sp["theme"]["accent"] == V.COLOURS["pink"] and "energy" not in sp          # the ending is not the film
+    tokens = TH.resolve(None, sp["theme"])
+    block = TH.theme_block(tokens)
+    assert block["motion"] == "bouncy" and block["vars"]["--sr-accent"] == V.COLOURS["pink"]
+    assert block["vars"]["--sr-stage"] == V.PALETTES["candy"]["bg"]
+    assert S.keywords("neon palette, playful", None)["theme"]["palette"] == "neon"       # a named palette wins
+    assert "motion" not in (S.keywords("calm and premium", None).get("theme") or {})
+    src = (ROOT / "kits" / "base" / "motion.js").read_text(encoding="utf-8")
+    assert "MOTION.bouncy" in src and "setMotion" in (ROOT / "kits" / "base" / "scene.js").read_text(encoding="utf-8")
