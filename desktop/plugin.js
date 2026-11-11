@@ -787,6 +787,7 @@ function MakeView({ sid, jobs, backendDown, onStarted }) {
                 onChange: e => setCust(e.target.value)
               }),
               roam ? null : jsx(KnobRow, { knobs, setKnob, vocab }),
+              !roam && knobs.voice && !voiceOn ? jsx('div', { className: 'srl-hint', children: 'The voice is used when Narration is on.' }) : null,
               roam
                 ? (directed
                     ? jsx('div', { className: 'srl-hint', children: 'The Director writes a treatment, codes the scenes it needs, renders keyframes, has a critic score them and revises before the final render. You can watch it work in Live.' })

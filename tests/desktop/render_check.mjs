@@ -431,6 +431,11 @@ check(listeners.has('plugin.hype.job.progress'), '1 listens to plugin.hype.job.p
   const v = await mount(pane.render())
   await waitFor(() => byText(v.div, '.srl-example', 'narrated in a whisper'), '3d the narrated customize example')
   check($(v.div, '.srl-summary').textContent.includes('music only'), '3d the switch is off: music only')
+  kept.set('knobs', { voice: 'whisper' })
+  const vk = await mount(pane.render())
+  await waitFor(() => vk.div.textContent.includes('The voice is used when Narration is on'), '3d a narration voice picked while Narration is off says it is unused')
+  await vk.unmount()
+  kept.set('knobs', {})
   click(byText(v.div, '.srl-example', 'narrated in a whisper'))
   await waitFor(() => $(v.div, '.srl-summary').textContent.includes('narrated'), '3d "narrated in a whisper" makes the summary say narrated')
   const before = calls('POST', '/jobs').length
