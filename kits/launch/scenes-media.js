@@ -218,7 +218,7 @@ launchScene('kit:launch/FEATURE', {
     const pushO = { tPush, dur, yaw0: 8, pitchWide: 26, pitchPush: 14, pushFillH: 0.8,
       pushFillW: L ? 1.35 : 0.9, keepLeft: false, maxPush: L ? 2.8 : 2.4, scale: productScale(p) };
     const camA = pushTrack(W, F, n, b, b.rect(bbox), { ...pushO, region: R });
-    const camB = name && hand && Number.isFinite(hand.t0) ? pushTrack(W, F, n, b, b.rect(bbox), { ...pushO, pushFillH: 0.72 }) : null;
+    const camB = name && hand && Number.isFinite(hand.t0) ? pushTrack(W, F, n, b, b.rect(bbox), { ...pushO, pushFillH: 0.6, pushFillW: 0.75, maxPush: 1.7 }) : null;
     const cam = (t) => (camB ? blendCam(camA(t), camB(t), hand.u(t)) : camA(t));
     const ring = ringBlock();
     const [px, py] = b.pt(click[0], click[1]);

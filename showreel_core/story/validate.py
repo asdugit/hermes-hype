@@ -23,6 +23,7 @@ from .facts import (
     diff_rows,
     image_of,
     is_demo_run,
+    is_server_cmd,
     is_stub,
     is_test_cmd,
 )
@@ -767,8 +768,22 @@ def _scroll_fallback(ev: Event, ctx: _Ctx) -> Event | None:
     return real[0] if real else None
 
 
+def _check_terminal(scene: StoryScene, path: str, ctx: _Ctx) -> bool:
+    """In a product film a terminal that only starts a server ("python -m http.server 8743 / Background process
+    started") shows nothing of the product: the scene goes, its time goes to the product."""
+    if not _check_primary(scene, path, ctx):
+        return False
+    ev = ctx.facts.get(scene.refs[0]) if scene.refs else None
+    if ctx.mode == "product" and ev is not None and ev.kind == "terminal" \
+            and is_server_cmd(str((ev.data or {}).get("cmd") or "")):
+        ctx.issue("server_terminal", f"{path}.refs[0]", "a server start is not a product beat", "warning",
+                  fix="scene dropped")
+        return False
+    return True
+
+
 _SCENE_HANDLERS = {
-    T.CODE: _check_code, T.DIFF: _check_code, T.STATS: _check_stats, T.BEFORE_AFTER: _check_before_after,
+    T.TERMINAL: _check_terminal, T.CODE: _check_code, T.DIFF: _check_code, T.STATS: _check_stats, T.BEFORE_AFTER: _check_before_after,
     T.CALLOUT: _check_callout, T.MONTAGE: _check_montage, T.SCREEN: _check_screen, T.FEATURE: _check_feature,
     T.SCROLL: _check_scroll,
 }

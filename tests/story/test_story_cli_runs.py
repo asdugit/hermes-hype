@@ -70,3 +70,18 @@ def test_product_run_reads_from_the_top_tests_from_the_tail() -> None:
     many = _run(9, 70.0, "python -m pytest -q", [f"test_{i} PASSED" for i in range(20)] + ["20 passed in 1.0s"])
     tail = _terminal(many, 8)
     assert tail["output"][-1] == "20 passed in 1.0s" and tail["truncated_top"]
+
+
+def test_a_server_start_is_not_a_product_beat() -> None:
+    evs = [Event("e0", 0.0, "user_prompt", "", "habit tracker", "", {"text": "Build Streaks, a habit tracker"}),
+           _run(1, 5.0, "python -m http.server 8743", ["Background process started"]),
+           _run(2, 9.0, "python gitpulse.py ./sample-repo", ["gitpulse - sample-repo (677 commits)", *BARS])]
+    facts = SessionFacts(evs, Stats(duration_s=60))
+    sb = Storyboard(title="Streaks", tagline="Habits", cta="", mode="product",
+                    product=Product(name="Streaks", kind="web_app"),
+                    scenes=[StoryScene(T.TITLE, [], "", "Streaks"),
+                            StoryScene(T.TERMINAL, ["e1"], "", "One command to launch"),
+                            StoryScene(T.TERMINAL, ["e2"], "", "Real output"),
+                            StoryScene(T.END, [], "", "")])
+    res = validate_storyboard(sb, facts, 30, "product")
+    assert [s.refs for s in res.storyboard.scenes if s.type == T.TERMINAL] == [["e2"]]
