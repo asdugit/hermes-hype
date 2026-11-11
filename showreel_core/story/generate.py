@@ -128,12 +128,13 @@ def generate_storyboard_report(llm: LlmCall | Callable[..., LlmReply] | None, di
     try:
         facts = SessionFacts(events, stats, digest, timestamps=(options.mode == "speedrun"))
         draft = product or infer_product(facts)
+        lock = bool(product is not None and product.name and options.product_name_locked)
         if llm is not None:
-            chosen = _llm_storyboard(llm, digest, facts, options, draft, attempts)
+            chosen = _llm_storyboard(llm, digest, facts, options, draft, attempts, lock)
             if chosen is not None:
                 return GenerationResult(chosen.storyboard, attempts, chosen.fixes, [str(i) for i in chosen.issues])
         sb = build_heuristic_storyboard(events, stats, options, digest, draft)
-        res = validate_storyboard(sb, facts, options.clamped_seconds(), options.mode)
+        res = validate_storyboard(sb, facts, options.clamped_seconds(), options.mode, draft=draft, lock_name=lock)
         res.storyboard.source = "heuristic"
         return GenerationResult(res.storyboard, attempts, res.fixes, [str(i) for i in res.issues])
     except Exception as exc:  # last line of defence: a minimal valid film, never an exception
@@ -143,16 +144,16 @@ def generate_storyboard_report(llm: LlmCall | Callable[..., LlmReply] | None, di
 
 
 def _llm_storyboard(llm: Callable[..., LlmReply], digest: str, facts: SessionFacts, options: StoryOptions,
-                    draft: Product, attempts: list[Attempt]) -> ValidationResult | None:
+                    draft: Product, attempts: list[Attempt], lock: bool = False) -> ValidationResult | None:
     """Initial call, then one repair when needed; returns the best viable fixed storyboard or None."""
     instructions = build_instructions(options)
-    input_text = build_input(digest, facts, options, draft)
-    first = _attempt(llm, "initial", instructions, input_text, facts, options, attempts)
+    input_text = build_input(digest, facts, options, draft, name_locked=lock)
+    first = _attempt(llm, "initial", instructions, input_text, facts, options, attempts, draft, lock)
     if first.result is not None and first.result.viable and not first.result.errors:
         first.result.storyboard.source = "llm"
         return first.result
     repair_input = build_repair_input(input_text, first.raw, first.problems)
-    second = _attempt(llm, "repair", instructions, repair_input, facts, options, attempts)
+    second = _attempt(llm, "repair", instructions, repair_input, facts, options, attempts, draft, lock)
     viable = [c for c in (second, first) if c.result is not None and c.result.viable]
     if not viable:
         return None
@@ -163,7 +164,8 @@ def _llm_storyboard(llm: Callable[..., LlmReply], digest: str, facts: SessionFac
 
 
 def _attempt(llm: Callable[..., LlmReply], kind: str, instructions: str, input_text: str, facts: SessionFacts,
-             options: StoryOptions, attempts: list[Attempt]) -> _Candidate:
+             options: StoryOptions, attempts: list[Attempt], draft: Product | None = None,
+             lock: bool = False) -> _Candidate:
     """Run one call, validate it, record the attempt."""
     started = time.monotonic()
     try:
@@ -190,7 +192,8 @@ def _attempt(llm: Callable[..., LlmReply], kind: str, instructions: str, input_t
         problems += [str(e) for e in schema_errors]
         if not schema_errors:
             sb = storyboard_from_json(obj, source="llm", mode=options.mode)
-            result = validate_storyboard(sb, facts, options.clamped_seconds(), options.mode)
+            result = validate_storyboard(sb, facts, options.clamped_seconds(), options.mode, draft=draft,
+                                         lock_name=lock)
             problems += [str(i) for i in result.errors]
             if not result.viable:
                 problems.append("$.scenes: after removing invalid scenes the film has too little left")

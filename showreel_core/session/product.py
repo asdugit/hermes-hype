@@ -107,6 +107,21 @@ def _strip_md(s: str) -> str:
     return " ".join(s.split()).strip(" :-—")
 
 
+_BRAND_SPLIT_RE = re.compile(r"\s+[—–|·:]\s+|\s+-\s+|:\s+")
+
+
+def brand_part(title: str) -> str:
+    """The name part of a page title or README heading: "Tempo" for "Tempo — focus timer" or
+    "Tempo | Focus timer" ("" when the title has no such separator or the first part is not name-like)."""
+    parts = _BRAND_SPLIT_RE.split(str(title or "").strip(), maxsplit=1)
+    if len(parts) != 2 or not parts[1].strip():
+        return ""
+    head = parts[0].strip(" -")
+    if not (2 <= len(head) <= 40) or not re.search(r"[A-Za-z]", head) or len(head.split()) > 4:
+        return ""
+    return head
+
+
 def _readme_bits(lines: list[str]) -> tuple[str, str, list[str]]:
     """(H1, first sentence after it, feature bullets) from README markdown."""
     text = "\n".join(lines)
@@ -282,7 +297,11 @@ def _infer(events: list[Event], meta: dict[str, Any]) -> ProductReport:
                 tm = _TITLE_RE.search(head)
                 title = _strip_md(tm.group(1)) if tm else ""
                 if tm:
-                    ev_.name(0.7 if name == "index.html" else 0.55, title, f"<title> of {short_path(path, 2)}", ev.id)
+                    score = 0.7 if name == "index.html" else 0.55
+                    brand = brand_part(title)
+                    if brand:   # "Tempo — focus timer": the name is "Tempo", the rest describes it
+                        ev_.name(score + 0.01, brand, f"<title> of {short_path(path, 2)} (name part)", ev.id)
+                    ev_.name(score, title, f"<title> of {short_path(path, 2)}", ev.id)
                 dm = _META_DESC_RE.search(head)
                 if dm:
                     ev_.one_liners.append((0.7, clip(dm.group(1), 90), "meta description", ev.id))
@@ -512,6 +531,9 @@ def _scan_key_file(ev_: _Evidence, name: str, path: str, lines: list[str], eid: 
     if name.startswith("readme"):
         h1, one, feats = _readme_bits(lines)
         if h1:
+            brand = brand_part(h1)
+            if brand:
+                ev_.name(w + 0.06, brand, f"README H1 ({short_path(path, 2)}, name part)", eid)
             ev_.name(w + 0.05, h1, f"README H1 ({short_path(path, 2)})", eid)
         if one:
             ev_.one_liners.append((w, clip(one, 90), "README", eid))

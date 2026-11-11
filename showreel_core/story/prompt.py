@@ -218,12 +218,12 @@ Make the strongest honest film this session allows, one the user is proud to pos
 Adapt it to the session: leave out scene types the session has no evidence for instead of forcing them. A short chat without tools becomes TITLE, PROBLEM, one or two CALLOUT quotes from the answer, STATS if any, and END.
 
 # The product (always fill "product", in every mode)
-- name: its real name (README title, package or repo name, page title); 40 characters max.
+- name: its real name (README title, package or repo name, page title); 40 characters max. Never name it after a tool, a Showreel stage or a capture label ("product capture", "screenshot", "write_file"): the film is about the thing the session built, not about how it was filmed.
 - one_liner: what it does for its user, 90 characters max, using only what the session shows.
 - kind: web_app, site, cli, library, api, game, doc, media, data or other.
 - features: up to 6 names of 6 words or fewer, each visible in the evidence (a capture, a todo item, a README line, a command, a code identifier). Never invent a feature.
 - urls, entry_files, run_commands: copied exactly from the session; hero_event_ids: the best evidence of the product.
-A PRODUCT DRAFT inferred by Showreel may be in the input; correct it where the evidence disagrees.
+A PRODUCT DRAFT inferred by Showreel may be in the input; correct it where the evidence disagrees. When the draft says "name (fixed)", keep that name (you may drop a descriptive suffix, as in "Tempo" for "Tempo — focus timer").
 
 # Picking evidence
 Prefer high-weight events and product captures. Prefer the final, working state over intermediate attempts, except in BEFORE_AFTER and in making-of or speedrun films, where real failures are part of the story. Skip trivial events (file reads, ls, cat) outside MONTAGE. Each scene shows one thing; never show the same event in two scenes except the HOOK.
@@ -381,12 +381,13 @@ def build_stats_block(facts: SessionFacts) -> str:
     return "\n".join(lines) if lines else "(no computed stats; do not use a STATS scene)"
 
 
-def build_product_block(product: Product | None) -> str:
+def build_product_block(product: Product | None, name_locked: bool = False) -> str:
     """The PRODUCT DRAFT block (Showreel's own inference), or a note that there is none."""
     if product is None or not (product.name or product.features or product.hero_event_ids):
         return "(no draft: infer the product from the evidence)"
     p = product
-    rows = [f"name: {p.name}", f"one_liner: {p.one_liner}", f"kind: {p.kind}"]
+    key = "name (fixed)" if name_locked and p.name else "name"
+    rows = [f"{key}: {p.name}", f"one_liner: {p.one_liner}", f"kind: {p.kind}"]
     for key in ("urls", "entry_files", "run_commands", "features", "hero_event_ids"):
         values = getattr(p, key)
         if values:
@@ -413,7 +414,8 @@ def fallback_digest(facts: SessionFacts, max_chars: int = DIGEST_MAX_CHARS) -> s
     return head[: head.rfind("\n")] + "\n... (middle of the session omitted) ...\n" + tail[tail.find("\n") + 1:]
 
 
-def build_input(digest: str, facts: SessionFacts, options: StoryOptions, product: Product | None = None) -> str:
+def build_input(digest: str, facts: SessionFacts, options: StoryOptions, product: Product | None = None,
+                name_locked: bool = False) -> str:
     """The user-content block: film settings, stats, product draft, reference index and digest."""
     secs = options.clamped_seconds()
     mode = film_mode(options.mode)
@@ -430,7 +432,7 @@ mode {mode} | target {secs:g} s | style {options.style} | aspect {options.aspect
 {build_stats_block(facts)}
 
 # PRODUCT DRAFT
-{build_product_block(product)}
+{build_product_block(product, name_locked)}
 
 # REFERENCE INDEX (id | session time m:ss | kind | weight 0-1 | what it shows). Only these ids are valid refs.
 {build_reference_index(facts)}

@@ -26,6 +26,7 @@ from .facts import (
     is_stub,
     is_test_cmd,
 )
+from .identity import replace_name, same_product, toolish_words
 from .milestones import split_label
 from .rules import (
     BUILD_TYPES,
@@ -113,12 +114,15 @@ class ValidationResult:
 
 
 class _Ctx:
-    def __init__(self, facts: SessionFacts, mode: str) -> None:
+    def __init__(self, facts: SessionFacts, mode: str, draft: Product | None = None, lock_name: bool = False) -> None:
         self.facts = facts
         self.mode = mode
         self.issues: list[Issue] = []
         self.fixes: list[str] = []
         self.product = Product()
+        self.draft = draft if draft is not None and normalize_ws(draft.name) else None
+        self.lock_name = lock_name
+        self.renamed_from = ""      # the model's product name when it was replaced by the session's
 
     def issue(self, code: str, path: str, message: str, severity: str = "error", fix: str = "") -> None:
         self.issues.append(Issue(code, path, message, severity))
@@ -127,16 +131,21 @@ class _Ctx:
 
 
 def validate_storyboard(sb: Storyboard, facts: SessionFacts, target_seconds: float = 60.0,
-                        mode: str | None = None) -> ValidationResult:
+                        mode: str | None = None, draft: Product | None = None,
+                        lock_name: bool = False) -> ValidationResult:
     """Check ``sb`` against the session and film rules; return issues and a fixed copy.
 
-    ``mode`` overrides ``sb.mode`` (the user's choice is authoritative).
+    ``mode`` overrides ``sb.mode`` (the user's choice is authoritative). ``draft`` is the product the session
+    stage detected (or the brief named); with ``lock_name`` (a strong name: brief, README, package, page title)
+    the film keeps that product's name - the model may only shorten or tidy it. Without the lock the model may
+    correct a weak draft name, but never to a tool, stage or capture label ("Showreel Product Capture").
     """
-    ctx = _Ctx(facts, film_mode(mode or getattr(sb, "mode", None)))
+    ctx = _Ctx(facts, film_mode(mode or getattr(sb, "mode", None)), draft, lock_name)
     out = copy.deepcopy(sb)
     out.mode = ctx.mode  # type: ignore[assignment]
     _check_product(out, ctx)
     _check_top(out, ctx)
+    _check_identity_mentions(out, ctx)
     kept: list[tuple[int, StoryScene]] = []
     for i, scene in enumerate(out.scenes):
         fixed = _check_scene(scene, i, ctx)
@@ -200,8 +209,78 @@ def _check_product(sb: Storyboard, ctx: _Ctx) -> None:
     p.hero_event_ids = [r for r in dict.fromkeys(p.hero_event_ids)
                         if facts.get(r) is not None and (image_of(facts.by_id[r]) is not None
                                                          or facts.by_id[r].kind == "terminal")][:6]
+    _check_identity(p, ctx)
     ctx.product = p
     sb.product = p
+
+
+def _check_identity(p: Product, ctx: _Ctx) -> None:
+    """Keep the session's product name (see :mod:`.identity`); the model may only shorten or tidy it."""
+    draft = ctx.draft
+    path = "$.product.name"
+    if draft is None:
+        bad = toolish_words(p.name)
+        if bad and p.name:
+            ctx.issue("product_name_toolish", path, f"{p.name!r} names Showreel/Hermes machinery "
+                      f"({', '.join(bad)}), not the product the session built", "warning")
+        return
+    want = trim_chars(normalize_ws(draft.name), TITLE_CHARS)
+    if not p.name:
+        p.name = want
+        ctx.fixes.append(f"{path}: set to the session's product {want!r}")
+        return
+    if same_product(p.name, want):
+        bad = toolish_words(p.name, want)
+        if not bad:
+            return                      # the same product, tidied ("Tempo" for "Tempo — focus timer")
+    else:
+        bad = toolish_words(p.name, want)
+        if not ctx.lock_name and not bad:
+            return                      # a weak draft name (project directory) corrected by the model
+    why = (f"it names Showreel/Hermes machinery ({', '.join(bad)})" if bad
+           else "the session's product has another name")
+    ctx.issue("product_renamed", path,
+              f"the product this session built is {want!r} (from its README/package/page title or the brief); "
+              f"{p.name!r} is not its name: {why}. Use {want!r} in the product, title, narration and labels",
+              fix=f"set to {want!r}")
+    ctx.renamed_from = p.name
+    p.name = want
+    if draft.one_liner:
+        p.one_liner = trim_chars(normalize_ws(draft.one_liner), ONE_LINER_CHARS)
+    if draft.features:
+        p.features = list(dict.fromkeys([*draft.features, *p.features]))[:6]
+    if draft.kind in PRODUCT_KINDS:
+        p.kind = draft.kind
+
+
+def _check_identity_mentions(sb: Storyboard, ctx: _Ctx) -> None:
+    """After a rename, say the product's real name wherever the model wrote the wrong one."""
+    wrong, right = ctx.renamed_from, ctx.product.name
+    if not wrong or not right:
+        return
+    changed = 0
+    for attr in ("tagline", "cta"):
+        new = replace_name(getattr(sb, attr), wrong, right)
+        if new != getattr(sb, attr):
+            setattr(sb, attr, new)
+            changed += 1
+        elif attr == "tagline" and new:
+            # a tagline that never names the product describes the wrong one: the product's own line or none
+            one = ctx.product.one_liner
+            sb.tagline = one if one and len(one) <= TAGLINE_CHARS else ""
+            changed += 1
+    for scene in sb.scenes:
+        for attr in ("vo", "label"):
+            new = replace_name(getattr(scene, attr) or "", wrong, right)
+            if new != (getattr(scene, attr) or ""):
+                setattr(scene, attr, new)
+                changed += 1
+        feat = scene.extra.get("feature") if isinstance(scene.extra, dict) else None
+        if isinstance(feat, str) and replace_name(feat, wrong, right) != feat:
+            scene.extra["feature"] = replace_name(feat, wrong, right)
+            changed += 1
+    if changed:
+        ctx.fixes.append(f"$: {changed} mention(s) of {wrong!r} now say {right!r}")
 
 
 def _keep(items: list[str], ok: object, path: str, why: str, ctx: _Ctx) -> list[str]:
@@ -219,6 +298,12 @@ def _keep(items: list[str], ok: object, path: str, why: str, ctx: _Ctx) -> list[
 
 def _check_top(sb: Storyboard, ctx: _Ctx) -> None:
     sb.title = normalize_ws(sb.title)
+    name = ctx.product.name
+    if sb.title and name and not same_product(sb.title, name) and (
+            (ctx.renamed_from and same_product(sb.title, ctx.renamed_from)) or toolish_words(sb.title, name)):
+        ctx.issue("title_not_product", "$.title", f"{sb.title!r} is not the product's name ({name!r})",
+                  fix=f"set to {name!r}")
+        sb.title = ""
     if not sb.title:
         if ctx.product.name:
             sb.title = ctx.product.name

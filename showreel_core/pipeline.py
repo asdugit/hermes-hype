@@ -710,6 +710,7 @@ class SavedSession:
     product: Any = None
     product_detected: bool = False
     warnings: list[str] = field(default_factory=list)
+    product_evidence: dict[str, Any] = field(default_factory=dict)
 
 
 def save_session(bundle: Any, path: Path) -> None:
@@ -719,7 +720,9 @@ def save_session(bundle: Any, path: Path) -> None:
             "events": [e.to_dict() if hasattr(e, "to_dict") else asdict(e) for e in bundle.events],
             "stats": bundle.stats.to_dict() if hasattr(bundle.stats, "to_dict") else {},
             "product": _product_dict(getattr(bundle, "product", None)),
-            "product_detected": bool(getattr(bundle, "product_detected", False))}
+            "product_detected": bool(getattr(bundle, "product_detected", False)),
+            "product_evidence": {"names": list(((getattr(bundle, "product_evidence", None) or {}).get("names")
+                                                or [])[:6])}}
     path.write_text(json.dumps(data, ensure_ascii=False, default=str), encoding="utf-8")
 
 
@@ -733,8 +736,9 @@ def load_session(path: Path) -> SavedSession | None:
         prod = Product(**{k: v for k, v in (raw.get("product") or {}).items() if k in Product.__dataclass_fields__})
     except (OSError, ValueError, KeyError, TypeError):
         return None
+    evidence = raw.get("product_evidence") if isinstance(raw.get("product_evidence"), dict) else {}
     return SavedSession(str(raw.get("session_id") or ""), events, stats, str(raw.get("digest") or ""), prod,
-                        bool(raw.get("product_detected")))
+                        bool(raw.get("product_detected")), product_evidence=evidence)
 
 
 def _read(run: _Run) -> None:
@@ -910,7 +914,31 @@ def _story_options(run: _Run) -> Any:
     if run.opts.direction:
         brief_bits.append("User direction: " + run.opts.direction[:600])
     return StoryOptions(seconds=run.opts.seconds, style=run.opts.style, aspect=run.opts.aspects[0],
-                        mode=run.opts.mode, voice=run.opts.voice, brief="\n".join(brief_bits))
+                        mode=run.opts.mode, voice=run.opts.voice, brief="\n".join(brief_bits),
+                        product_name_locked=product_name_locked(run.bundle, b))
+
+
+#: Name sources strong enough that the film keeps the name (session/product.py scores >= this).
+STRONG_NAME_SCORE = 0.5
+
+
+def product_name_locked(bundle: Any, brief: dict[str, Any] | None = None) -> bool:
+    """True when the product's name is a session fact the storyboard must keep: the brief names it, or the
+    session stage found it in a README title, package/manifest name, page ``<title>`` or git remote (not just
+    a directory or the session title). Real E2E: a model called Orbit Notes "Showreel Product Capture"."""
+    prod = getattr(bundle, "product", None)
+    name = str(getattr(prod, "name", "") or "").strip()
+    if not name:
+        return False
+    if (brief or {}).get("name"):
+        return True
+    names = (getattr(bundle, "product_evidence", None) or {}).get("names") or []
+    top = names[0] if names and isinstance(names[0], dict) else {}
+    try:
+        score = float(top.get("score") or 0.0)
+    except (TypeError, ValueError):
+        score = 0.0
+    return score >= STRONG_NAME_SCORE and str(top.get("name") or "").strip().lower() == name.lower()
 
 
 def _quick_front(run: _Run) -> None:
