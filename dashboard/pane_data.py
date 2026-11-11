@@ -186,6 +186,7 @@ def chip_view(job: dict[str, Any]) -> dict[str, Any]:
         "id": job.get("id"), "session_id": job.get("session_id", ""), "title": job.get("title") or "",
         "stage": job.get("stage"), "pct": job.get("pct"), "eta_s": job.get("eta_s"), "note": job.get("note") or "",
         "kind": job.get("kind") or "quick", "mode": opts.get("mode") or "product", "style": opts.get("style") or "",
+        "voice": bool(opts.get("voice")),
         "created": job.get("created"), "updated": job.get("updated"), "finished": job.get("finished"),
         "outputs": sorted((job.get("outputs") or {}).keys()),
         "error": err.get("message", "") if isinstance(err, dict) else str(err),

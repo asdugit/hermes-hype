@@ -52,6 +52,17 @@ def test_active_jobs_lists_running_and_just_finished(api: dict[str, Any]) -> Non
     assert again[running["id"]]["stage"] == "mix"
 
 
+def test_active_jobs_say_whether_the_film_is_narrated(api: dict[str, Any]) -> None:
+    """The status chip names the stage ('Mixing the music' vs '... and voice') from the row's ``voice`` flag."""
+    store, c = api["store"], api["client"]
+    quiet = store.create("s1", {"style": "pixel", "voice": False})
+    loud = store.create("s2", {"style": "pixel", "voice": True})
+    for j in (quiet, loud):
+        store.update(j["id"], stage="mix", pct=0.9)
+    by = {j["id"]: j for j in c.get(f"{P}/jobs/active").json()["jobs"]}
+    assert by[quiet["id"]]["voice"] is False and by[loud["id"]]["voice"] is True
+
+
 def test_a_long_silent_job_of_this_process_is_not_marked_stale(api: dict[str, Any]) -> None:
     """The dashboard's pipeline copy does not know jobs the plugin's copy runs in the same process."""
     store, c = api["store"], api["client"]

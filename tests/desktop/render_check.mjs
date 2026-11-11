@@ -214,7 +214,7 @@ function server(method, url, body) {
     S.blender.install = { state: 'running', stage: 'download', pct: 0, version: '5.2.4' }
     return { found: false, offer: S.blender.offer, install: S.blender.install }
   }
-  if (p === '/jobs/active') return { jobs: Object.values(S.jobs).filter(j => !['done', 'failed', 'cancelled'].includes(j.stage)).map(j => ({ ...j, log: undefined })) }
+  if (p === '/jobs/active') return { jobs: Object.values(S.jobs).filter(j => !['done', 'failed', 'cancelled'].includes(j.stage)).map(j => ({ ...j, log: undefined, options: undefined, voice: Boolean(j.options && j.options.voice) })) }
   if (p === '/jobs' && method === 'GET') return { jobs: (S.bySession[q.session_id] || []).map(id => S.jobs[id]) }
   if (p === '/jobs' && method === 'POST') {
     const sid = body.session_id
@@ -419,6 +419,41 @@ check(listeners.has('plugin.hype.job.progress'), '1 listens to plugin.hype.job.p
   await v.unmount()
 }
 
+// ── 3d Make: narration words in the text win over the Narration switch (as on /hype and the tool) ─────
+{
+  focus('s-narr1')
+  kept.set('tab.pane', 'make')
+  kept.set('make', { ...kept.get('make'), route: 'preset', voice: false })
+  kept.set('customize', '')
+  const v = await mount(pane.render())
+  await waitFor(() => byText(v.div, '.srl-example', 'narrated in a whisper'), '3d the narrated customize example')
+  check($(v.div, '.srl-summary').textContent.includes('music only'), '3d the switch is off: music only')
+  click(byText(v.div, '.srl-example', 'narrated in a whisper'))
+  await waitFor(() => $(v.div, '.srl-summary').textContent.includes('narrated'), '3d "narrated in a whisper" makes the summary say narrated')
+  const before = calls('POST', '/jobs').length
+  click(byText(v.div, 'button', 'Make customized film'))
+  await waitFor(() => calls('POST', '/jobs').length === before + 1, '3d POST /jobs')
+  const body = calls('POST', '/jobs')[before].body
+  check(body.options.voice === true && body.customize.text.includes('narrated in a whisper'), `3d the film is narrated as asked: ${JSON.stringify(body.options)}`)
+  await v.unmount()
+}
+{
+  focus('s-narr2')
+  kept.set('tab.pane', 'make')
+  kept.set('make', { ...kept.get('make'), route: 'roam', voice: true })
+  kept.set('direction', 'a noir detective trailer, no narration')
+  const v = await mount(pane.render())
+  await waitFor(() => byText(v.div, 'button', 'Direct this film'), '3d a direction')
+  check($(v.div, '.srl-summary').textContent.includes('music only'), '3d "no narration" in the direction wins over the switch')
+  const before = calls('POST', '/jobs').length
+  click(byText(v.div, 'button', 'Direct this film'))
+  await waitFor(() => calls('POST', '/jobs').length === before + 1, '3d POST /jobs')
+  check(calls('POST', '/jobs')[before].body.options.voice === false, '3d sent as music only')
+  kept.set('direction', '')
+  kept.set('make', { ...kept.get('make'), route: 'preset' })
+  await v.unmount()
+}
+
 // ── 4 Live (Quick) ───────────────────────────────────────────────────────────────────────────────
 {
   focus('s-live')
@@ -439,9 +474,11 @@ check(listeners.has('plugin.hype.job.progress'), '1 listens to plugin.hype.job.p
   Object.assign(job, { stage: 'mix', pct: 0.9, eta_s: 10 })
   listeners.get('plugin.hype.job.progress')({ type: 'plugin.hype.job.progress', payload: { id: job.id, session_id: 's-live', stage: 'mix', pct: 0.9, eta_s: 10, note: 'mixing music and voice' } })
   await waitFor(() => $(v.div, '.srl-pct')?.textContent === '90%', '4 a progress event moves the bar')
-  // status chip while it runs
+  // status chip while it runs (a music-only film: the chip's rows carry `voice`, not the options)
+  job.options = { ...job.options, voice: false }
   const chip = await mount(reg('statusBar.right')[0].render())
   await waitFor(() => chip.div.textContent.includes('Hype 90%'), '11 chip shows the running percent')
+  check(($(chip.div, 'button').getAttribute('aria-label') || '').includes('Mixing the music'), `11 the chip names a music-only film's stage without a voice: ${$(chip.div, 'button').getAttribute('aria-label')}`)
   snap('chip', chip, 'bar')
   click($(chip.div, 'button'))
   check(stub.calls.navigate.includes('/hype'), '11 the chip opens the studio')

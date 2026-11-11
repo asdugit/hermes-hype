@@ -75,8 +75,14 @@ const FALLBACK_VOCAB = {
 const CUSTOMIZE_EXAMPLES = [
   'pink and playful with a punchier ending',
   'green phosphor hacker vibe, faster',
-  'moody blue night, slower, whispered narration'
+  'moody blue night, slower, narrated in a whisper'
 ]
+// Narration words in a direction or customization, as the slash command and the tool read them
+// (showreel_core/commands.py narration_requested): "with narration", "narrated" turn it on, "no narration" off.
+const NARRATE_RE = /\b(?:with|add|use|plus|and)\s+(?:a\s+|an\s+|some\s+)?(?:narration|narrator|voice[- ]?over|vo)\b|\bnarrat(?:ed|e\s+it|e\s+the\s+film)\b/i
+const NO_NARRATE_RE = /\b(?:no|without|skip)\s+(?:the\s+|any\s+|a\s+|an\s+)?(?:narration|narrator|voice[- ]?over|vo|voice)\b/i
+/** true / false when the text asks for or refuses narration, null when it says nothing. */
+const narrationAsked = text => (NO_NARRATE_RE.test(String(text || '')) ? false : NARRATE_RE.test(String(text || '')) ? true : null)
 const RAIL = [
   { id: 'setup', label: 'Brief' },
   { id: 'treatment', label: 'Treatment' },
@@ -654,6 +660,9 @@ function MakeView({ sid, jobs, backendDown, onStarted }) {
   const directed = roam && direction.trim().length > 0
   const customize = roam ? null : customizeFrom(custom, knobs)
   const engine3d = prefs.engine3d || (roam && directionWantsBlender(direction) ? 'blender' : '')
+  // Words in the text win over the Narration switch ("narrated in a whisper" narrates; "no narration" does not).
+  const asked = narrationAsked(roam ? direction : custom)
+  const voiceOn = asked === null ? Boolean(prefs.voice) : asked
 
   useEffect(() => {
     if (!ui.prefill) return
@@ -684,13 +693,13 @@ function MakeView({ sid, jobs, backendDown, onStarted }) {
   })
   const make = async () => {
     setBusy(true)
-    const job = await startFilm(sid, optionsFrom(prefs, roam ? direction : '', engine3d), customize)
+    const job = await startFilm(sid, optionsFrom({ ...prefs, voice: voiceOn }, roam ? direction : '', engine3d), customize)
     setBusy(false)
     if (job) onStarted(job)
   }
   const chosen = styles.find(s => s.id === prefs.style) || styles[0]
   const summary = [modeLabel(prefs.mode), chosen ? chosen.name : prefs.style, `${prefs.seconds} s`,
-    prefs.aspect === 'both' ? '16:9 + 9:16' : prefs.aspect, prefs.voice ? 'narrated' : 'music only'].concat(customize ? ['customized'] : [], engine3d === 'blender' ? ['Blender 3D'] : []).join(' · ')
+    prefs.aspect === 'both' ? '16:9 + 9:16' : prefs.aspect, voiceOn ? 'narrated' : 'music only'].concat(customize ? ['customized'] : [], engine3d === 'blender' ? ['Blender 3D'] : []).join(' · ')
   let blocker = ''
   if (backendDown) blocker = 'The Hype backend is off.'
   else if (!sid) blocker = 'Open a chat first: Hype films the chat you are looking at.'
@@ -781,7 +790,8 @@ function MakeView({ sid, jobs, backendDown, onStarted }) {
 // ── Live ───────────────────────────────────────────────────────────────────────────────────────────
 function stageLabel(stage, job) {
   const directed = isDirected(job)
-  const voice = !(job && job.options && job.options.voice === false)
+  // job.options on full job records; the status chip's rows carry only `voice` (films are music-only by default)
+  const voice = job && job.options ? job.options.voice !== false : Boolean(job && job.voice)
   return {
     queued: 'Waiting to start',
     reading: 'Reading the session',
@@ -789,7 +799,7 @@ function stageLabel(stage, job) {
     voice: voice ? 'Recording narration' : 'Captions',
     layout: 'Laying out the scenes',
     render: 'Rendering frames',
-    mix: 'Mixing music and voice',
+    mix: voice ? 'Mixing music and voice' : 'Mixing the music',
     qa: 'Quality checks'
   }[stage] || stage
 }
