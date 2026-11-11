@@ -654,11 +654,23 @@ def _film(r: _Run) -> Version | None:
     return v
 
 
+def _hygiene(r: _Run, obj: dict[str, Any]) -> list[str]:
+    """On-screen hygiene for every film reply: no dev-server address in any text, no closing type over the product."""
+    p = r.brief.product
+    name = (p.name if p and p.name else "") or str(obj["film"].get("title") or "")
+    url = repair.public_url(p.urls if p else [])
+    fixes = repair.scrub_loopback(obj["film"], name=name, url=url)
+    fixes += repair.lockup_end(obj, r.catalog, [a.name for a in r.brief.assets if a.product], name=name,
+                               tagline=repair.fit_words(p.one_liner, 8) if p and p.one_liner else "", url=url)
+    return fixes
+
+
 def _validate(r: _Run, obj: Any) -> tuple[tuple[dict[str, Any], dict[str, Any]] | None, list[str], list[str]]:
     """Director checks + static prominence + runtime schema for a {film, plan} object."""
     if isinstance(obj, dict) and isinstance(obj.get("film"), dict):
         obj, fixes = repair.coerce(obj, prompts.FILM_SCHEMA)
         fixes += repair.snap_film_ids(obj, r.catalog, [a.name for a in r.brief.assets])
+        fixes += _hygiene(r, obj)
         if fixes:
             r.emit("repair", f"Repaired {len(fixes)} field(s) of the film reply: {'; '.join(fixes[:6])[:300]}",
                    level="debug")
@@ -1700,9 +1712,14 @@ def _finish(r: _Run, best: Version | None, save_library: bool, t0: float) -> Dir
     if narration:
         film["narration"] = narration
     look = style_render(film)
-    if look and not (film.get("render") or {}).get("post"):
-        film["render"] = look                 # e.g. terminal's CRT: Quick films get it from kit.json, so do these
+    if look:                                  # e.g. terminal's CRT: Quick films get it from kit.json, so do these
+        compose.merge_render(film, look)
         r.emit("final", f"Style post chain from the film's main kit: {look.get('post')}")
+    moods = compose.mood_look(film, r.brief.direction,
+                              hold=compose.product_color(r.brief) if compose.physical(r.brief) else "")
+    if moods:
+        r.emit("final", f"Mood look ({', '.join(moods)}): post {(film.get('render') or {}).get('post')}, "
+                        f"grade {((film.get('render') or {}).get('post_params') or {}).get('grade')}")
     film_path = r.job_dir / "film.json"
     film_path.write_text(json.dumps(film, indent=1, ensure_ascii=False), encoding="utf-8")
     saved = _save_library(r, best) if save_library and r.library_dir else []

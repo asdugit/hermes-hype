@@ -212,6 +212,67 @@ def test_lock_waits_do_not_spend_the_effort_clock(tmp_path: Path) -> None:
     assert not engine._late(R, 0.5)                  # 60 s of it was waiting for someone else's Blender
 
 
+def test_no_loopback_address_on_screen_and_no_title_over_the_product(tmp_path: Path) -> None:
+    """ISSUES #56: a real END printed '127.0.0.1:8765' and laid the name across the app's timer ring."""
+    b = _screen_brief(tmp_path, "an Apple keynote")
+    b.product.urls = ["http://127.0.0.1:8765/", "orbitnotes.app"]
+    obj = {"film": {"shots": [
+        {"id": "f", "t0": 0, "t1": 5, "scene": "kit:launch/FEATURE",
+         "params": {"image": {"asset": "desktop_1920x1080", "url": "127.0.0.1:8765"}, "feature": "Sync"}},
+        {"id": "end", "t0": 5, "t1": 9, "scene": "custom:keynote-stage",
+         "params": {"product": "desktop_1920x1080", "title": "Orbit Notes", "cta": "Open http://localhost:8765"}}],
+        "overlays": [{"id": "o", "t0": 1, "t1": 2, "scene": "kit:type/lower-third",
+                      "params": {"title": "Live at 127.0.0.1:8765", "sub": ""}}]},
+        "plan": {"custom_scenes": [{"name": "keynote-stage", "spec": "x"}]}}
+    url = repair.public_url(b.product.urls)
+    fixes = repair.scrub_loopback(obj["film"], name="Orbit Notes", url=url)
+    cat = build_catalog(assets=b.assets)
+    fixes += repair.lockup_end(obj, cat, [a.name for a in b.assets], name="Orbit Notes", tagline="Notes in orbit",
+                               url=url)
+    text = json.dumps(obj)
+    assert "127.0.0.1" not in text and "localhost" not in text and len(fixes) >= 4
+    assert obj["film"]["shots"][0]["params"]["image"]["url"] == "orbitnotes.app"
+    end = obj["film"]["shots"][-1]
+    assert end["scene"] == "kit:launch/END" and end["params"]["title"] == "Orbit Notes"
+    assert "desktop_1920x1080" not in json.dumps(end) and obj["plan"]["custom_scenes"] == []
+    # the brief the model reads never offers the dev server
+    from showreel_core.director import prompts
+    txt = prompts._product_text(b)
+    assert "orbitnotes.app" in txt and "127.0.0.1" not in txt
+    # composed films too
+    bp = next(x for x in compose.blueprints(catalog=cat) if x.id == "screen-launch")
+    assert "127.0.0.1" not in json.dumps(compose.assemble(b, bp, {"blueprint": bp.id})["film"])
+
+
+def test_mood_grade_changes_the_whole_look(tmp_path: Path) -> None:
+    """Noir = black and white with the product's own colour held + rain; VHS keeps the kit CRT and adds chroma
+    shift + tracking wobble; the grade is a post chain over every frame (product media and kit scenes alike)."""
+    from showreel_core.render.post import build_post
+    film: dict[str, Any] = {"render": {"post": "crt", "post_params": {"crt": {"glow": 0.4}}}, "finish": {}}
+    assert compose.mood_look(film, "a 1980s VHS infomercial") == ["vhs"]
+    assert film["render"]["post"] == "crt+grade" and film["render"]["post_params"]["crt"] == {"glow": 0.4}
+    assert film["render"]["post_params"]["grade"]["shift"] > 0 and film["render"]["post_params"]["grade"]["wobble"]
+    noir: dict[str, Any] = {}
+    compose.mood_look(noir, "a noir detective trailer", hold="#c8102e")
+    g = noir["render"]["post_params"]["grade"]
+    assert g["hold"] == "#c8102e" and g["contrast"] > 1.2 and g["rain"] > 0 and noir["finish"]["grain"] >= 0.1
+    compose.mood_look(noir, "a noir detective trailer", hold="#c8102e")       # idempotent
+    assert noir["render"]["post"] == "grade"
+    flat: dict[str, Any] = {}
+    compose.mood_look(flat, "noir", hold="")
+    assert "hold" not in flat["render"]["post_params"]["grade"] and flat["render"]["post_params"]["grade"]["mono"] == 1
+    key: dict[str, Any] = {"finish": {"grain": 0.05}}
+    compose.mood_look(key, "an Apple keynote reveal")
+    assert key["finish"]["grain"] <= 0.012
+    pc = build_post("grade+grain_vignette", in_size=(320, 180), out_size=(320, 180), seed=1, work_dir=tmp_path,
+                    params={"grade": g, "grain_vignette": {"grain": 10, "vignette": 0.5}})
+    assert "colorhold=color=0xc8102e" in pc.graph and "curves" in pc.graph and "overlay" in pc.graph
+    assert any("rain_" in x for x in pc.extra_inputs)
+    vhs = build_post("grade", in_size=(320, 180), out_size=(320, 180), params={"grade": {"shift": 4, "wobble": 3,
+                                                                                         "mono": 0.2}})
+    assert "rgbashift=rh=-4:bh=4" in vhs.graph and "crop=w=iw-6" in vhs.graph and "colorchannelmixer" in vhs.graph
+
+
 def test_pick_repairs_malformed_and_hallucinated(tmp_path: Path) -> None:
     b = _screen_brief(tmp_path, "a 1980s VHS infomercial")
     bps = compose.blueprints(catalog=build_catalog(assets=b.assets))

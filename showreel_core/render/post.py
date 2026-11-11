@@ -6,7 +6,8 @@ Stage order is fixed regardless of the spec order:
 1. decode JPEG (full-range BT.601) -> planar RGB
 2. ``pixel``: fixed palette (``paletteuse dither=none``) at the internal size
 3. resize to the output size (nearest-neighbour for ``pixel``, lanczos otherwise)
-4. RGB effects at output size: ``bloom``; ``crt`` glow
+4. RGB effects at output size: ``grade`` (mood: mono / one held colour / contrast / tint / chroma shift / tracking
+   wobble), ``bloom``; ``crt`` glow
 5. one static multiply mask (vignette and/or CRT scanlines), then CRT curvature
 6. -> yuv420p BT.709 limited range, then seeded luma grain (``grain_vignette``)
 
@@ -24,7 +25,7 @@ from typing import Any
 
 from .errors import RenderError
 
-POST_CHAINS = ("none", "grain_vignette", "pixel", "crt", "bloom")
+POST_CHAINS = ("none", "grain_vignette", "pixel", "crt", "bloom", "grade")
 
 DEFAULTS: dict[str, dict[str, Any]] = {
     # vignette = darkening at the frame corners (0..1); grain = ffmpeg noise strength on luma
@@ -33,6 +34,12 @@ DEFAULTS: dict[str, dict[str, Any]] = {
     # scanline = darkening of every period-th row; period None -> round(out_h / 360) (3 px at 1080p)
     "crt": {"glow": 0.35, "scanline": 0.30, "period": None, "curvature": 0.05, "vignette": 0.45},
     "bloom": {"threshold": 222, "amount": 0.55, "sigma": 6.0},
+    # mood grade (the Director's per-direction look over every scene AND the product media):
+    # mono 0..1 desaturation; hold = "#hex" keeps that one colour while the rest goes to black and white (noir);
+    # contrast 1 = unchanged (S-curve); tint = "#hex" multiplied in at tint_amount; shift = px of red/blue
+    # misregistration (VHS chroma bleed); wobble = px of horizontal tracking sway (VHS)
+    "grade": {"mono": 0.0, "hold": None, "hold_similarity": 0.22, "hold_blend": 0.12, "contrast": 1.0,
+              "tint": None, "tint_amount": 0.0, "shift": 0, "wobble": 0, "rain": 0.0},
 }
 
 # Filters each chain needs (checked against the ffmpeg capability probe).
@@ -42,6 +49,7 @@ REQUIRED_FILTERS: dict[str, tuple[str, ...]] = {
     "pixel": ("paletteuse",),
     "crt": ("split", "gblur", "blend", "loop", "lenscorrection"),
     "bloom": ("split", "lutrgb", "gblur", "blend"),
+    "grade": ("colorchannelmixer", "curves", "colorhold", "rgbashift", "crop", "overlay", "loop"),
 }
 
 
@@ -111,6 +119,28 @@ def write_mask_png(size: tuple[int, int], path: Path, *, vignette: float = 0.0, 
             lines.paste(strip, (0, y))
         mask = ImageChops.multiply(mask, lines)
     mask.save(path, "PNG")
+    return path
+
+
+def write_rain_png(size: tuple[int, int], path: Path, *, density: float = 0.5, seed: int = 0) -> Path:
+    """Transparent RGBA texture of thin, slightly slanted light streaks (the noir mood's rain), seeded."""
+    import random
+
+    from PIL import Image, ImageDraw
+
+    w, h = size                          # h = 2 x frame height; the bottom half repeats the top (seamless loop)
+    rnd = random.Random(seed)
+    half = Image.new("RGBA", (w, h // 2), (0, 0, 0, 0))
+    d = ImageDraw.Draw(half)
+    for _ in range(int(450 * density * (w * h) / (1920 * 2160))):
+        x, y = rnd.uniform(0, w), rnd.uniform(-0.06 * h, h // 2)
+        ln = rnd.uniform(0.025, 0.06) * h
+        a = int(rnd.uniform(28, 80) * (0.6 + 0.4 * density))
+        d.line([(x, y), (x - ln * 0.18, y + ln)], fill=(225, 230, 240, a), width=1 if rnd.random() < 0.7 else 2)
+    img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    img.paste(half, (0, 0))
+    img.paste(half, (0, h // 2))
+    img.save(path, "PNG")
     return path
 
 
@@ -208,6 +238,19 @@ def build_post(spec: str | None, *, in_size: tuple[int, int], out_size: tuple[in
     # 4. RGB effects at output size (glows computed at quarter resolution)
     small = f"scale={max(2, ow // 4)}:{max(2, oh // 4)}:flags=area"
     big = f"scale={ow}:{oh}:flags=bilinear"
+    if "grade" in names:
+        gp = _p("grade", params)
+        _grade(g, gp, ow, oh)
+        rain = max(0.0, min(1.0, float(gp.get("rain") or 0.0)))
+        if rain > 0:                      # a seeded streak texture, looped and scrolled down-left per frame
+            rpath = need_dir() / f"rain_{ow}x{oh}_{rain:g}_{seed % 7}.png"
+            if not rpath.exists():
+                write_rain_png((ow, oh * 2), rpath, density=rain, seed=seed % 7)
+            extra += ["-i", str(rpath)]
+            src = g.flush()
+            rn = g.branch(f"{g.inputs}:v", ["format=gbrap", "loop=loop=-1:size=1:start=0"])
+            g.inputs += 1
+            g.join(src, rn, f"overlay=x=0:y='mod(n*61\\,{oh})-{oh}':shortest=1:format=gbrp")
     if "bloom" in names:
         b = _p("bloom", params)
         thr = int(b["threshold"])
@@ -250,3 +293,36 @@ def build_post(spec: str | None, *, in_size: tuple[int, int], out_size: tuple[in
     g.add("setparams=color_primaries=bt709:color_trc=bt709:colorspace=bt709:range=tv")
 
     return PostChain(spec or "none", g.text(), tuple(extra), tuple(dict.fromkeys(required)))
+
+
+def _grade(g: _Graph, p: Mapping[str, Any], ow: int, oh: int) -> None:
+    """The mood grade at output size, in planar RGB (every filter here supports gbrp)."""
+    hold = p.get("hold")
+    if hold:
+        r, gg, b = _hex(str(hold))
+        g.add(f"colorhold=color=0x{r:02x}{gg:02x}{b:02x}:similarity={float(p['hold_similarity']):g}"
+              f":blend={float(p['hold_blend']):g}")
+    mono = max(0.0, min(1.0, float(p.get("mono") or 0.0)))
+    if mono > 0 and not hold:
+        k = 1.0 - mono
+        lum = (0.299, 0.587, 0.114)
+        rows = []
+        for i, ch in enumerate("rgb"):
+            rows += [f"{ch}{c}={(k if i == j else 0.0) + mono * lum[j]:.4f}" for j, c in enumerate("rgb")]
+        g.add("colorchannelmixer=" + ":".join(rows))
+    c = float(p.get("contrast") or 1.0)
+    if abs(c - 1.0) > 1e-3:
+        d = max(-0.2, min(0.2, 0.25 * (c - 1.0)))
+        g.add(f"curves=all='0/0 0.25/{0.25 - d:.3f} 0.75/{0.75 + d:.3f} 1/1'")
+    tint, amt = p.get("tint"), max(0.0, min(1.0, float(p.get("tint_amount") or 0.0)))
+    if tint and amt > 0:
+        r, gg, b = (v / 255.0 for v in _hex(str(tint)))
+        g.add(f"colorchannelmixer=rr={1 - amt + amt * r:.4f}:gg={1 - amt + amt * gg:.4f}:bb={1 - amt + amt * b:.4f}")
+    sh = int(p.get("shift") or 0)
+    if sh:
+        g.add(f"rgbashift=rh={-sh}:bh={sh}:edge=smear")
+    wob = int(p.get("wobble") or 0)
+    if wob > 0:
+        # horizontal tracking sway: crop a drifting window and scale it back (seeded by the frame number only)
+        g.add(f"crop=w=iw-{2 * wob}:h=ih:x='{wob}+{wob}*sin(n*0.37)*sin(n*0.051)':y=0",
+              f"scale={ow}:{oh}:flags=bilinear", "format=gbrp")

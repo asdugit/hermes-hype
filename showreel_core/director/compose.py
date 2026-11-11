@@ -30,6 +30,7 @@ from pathlib import Path
 from typing import Any
 
 from . import recipes as rc
+from . import repair
 from .repair import coerce, fit_words, is_hex, loads_lenient, snap
 from .types import Brief
 
@@ -403,7 +404,7 @@ def facts(brief: Brief, pick: dict[str, Any] | None = None) -> dict[str, str]:
         return rest[min(i, len(rest) - 1)]
     tagline = str(pick.get("tagline") or "") or (fit_words(one, 8) if one else "") or "Made to be wanted."
     paint = _paint_tone(product_color(brief)) if _model_asset(brief) else ""
-    url = next((u for u in (p.urls if p else []) if u and "127.0.0.1" not in u and "localhost" not in u), "")
+    url = repair.public_url(p.urls if p else [])
     return {
         "product": main, "name": name, "NAME": name.upper()[:14], "tagline": tagline,
         "one_liner": one or tagline, "cta": str(pick.get("cta") or "") or ("Try it today" if screens else "Make it yours"),
@@ -796,36 +797,74 @@ def assemble(brief: Brief, bp: Blueprint, pick: dict[str, Any], texts: dict[str,
             "overlays": overlays, "music": music, "cues": [], "finish": dict(bp.finish)}
     if bp.render:
         film["render"] = copy.deepcopy(bp.render)
-    mood_look(film, brief.direction)
+    mood_look(film, brief.direction, hold=product_color(brief) if physical(brief) else "")
+    repair.scrub_loopback(film, name=vals["name"], url=vals["url"])
     plan = {"shots": plan_shots, "custom_scenes": [], "voiceover": list(voiceover or []),
             "blueprint": bp.id}
     return {"film": film, "plan": plan}
 
 
-MOODS: tuple[tuple[tuple[str, ...], dict[str, Any], dict[str, Any]], ...] = (
-    # (direction words, finish, render post) - the engine's look levers on top of any blueprint
+MOODS: tuple[tuple[tuple[str, ...], dict[str, Any], dict[str, Any], dict[str, Any]], ...] = (
+    # (direction words, finish, render post, mood grade) - the engine's look levers on top of any blueprint or
+    # script. The grade (render/post.py `grade`) runs over every frame, so it re-looks the product media and the kit
+    # scenes alike: a direction changes the WHOLE look while the product stays recognisable.
     (("vhs", "1980", "80s", "eighties", "infomercial", "tape", "camcorder", "late-night", "public access"),
      {"grain": 0.07, "vignette": 0.35}, {"post": "crt", "post_params": {"crt": {"glow": 0.45, "scanline": 0.32,
-                                                                               "curvature": 0.05, "vignette": 0.4}}}),
-    (("noir", "detective", "thriller", "crime", "gritty", "mystery"), {"grain": 0.08, "vignette": 0.55}, {}),
-    (("dream", "anime", "soft", "nostalgic", "pastel", "fairy"), {"bloom": 0.22, "grain": 0.02, "vignette": 0.15}, {}),
-    (("documentary", "nature", "film stock", "35mm", "cinematic"), {"grain": 0.035, "vignette": 0.22}, {}),
+                                                                               "curvature": 0.05, "vignette": 0.4}}},
+     {"mono": 0.12, "tint": "#ffd9a0", "tint_amount": 0.22, "shift": 5, "wobble": 3, "contrast": 0.94}),
+    (("noir", "detective", "thriller", "crime", "gritty", "mystery"), {"grain": 0.10, "vignette": 0.6}, {},
+     {"mono": 1.0, "hold": "{product}", "contrast": 1.4, "rain": 0.9}),
+    (("dream", "anime", "soft", "nostalgic", "pastel", "fairy"), {"bloom": 0.22, "grain": 0.02, "vignette": 0.15}, {},
+     {}),
+    (("documentary", "nature", "film stock", "35mm", "wildlife"), {"grain": 0.035, "vignette": 0.22}, {},
+     {"tint": "#ffe0b0", "tint_amount": 0.10, "contrast": 1.05}),
+    (("keynote", "apple", "minimal", "clean", "unveil"), {"max_grain": 0.012}, {}, {"contrast": 1.06}),
 )
 
 
-def mood_look(film: dict[str, Any], direction: str) -> list[str]:
-    """Mood words in the direction -> finish (grain / vignette / bloom) and post chain (CRT for VHS asks), so even a
-    blueprint picked by the weakest model looks like the ask. Never overrides a style kit's own post chain."""
+def merge_render(film: dict[str, Any], render: dict[str, Any]) -> None:
+    """Union a post chain block into ``film.render`` (chains + params; existing params win)."""
+    if not render or not render.get("post"):
+        return
+    cur = film.get("render") if isinstance(film.get("render"), dict) else {}
+    chains = [c for c in str(cur.get("post") or "").split("+") if c and c != "none"]
+    for c in str(render["post"]).split("+"):
+        if c and c != "none" and c not in chains:
+            chains.append(c)
+    params = dict(cur.get("post_params") or {})
+    for k, v in (render.get("post_params") or {}).items():
+        params.setdefault(k, copy.deepcopy(v))
+    film["render"] = {**cur, "post": "+".join(chains), "post_params": params}
+
+
+def mood_look(film: dict[str, Any], direction: str, *, hold: str = "") -> list[str]:
+    """Mood words in the direction -> finish (grain / vignette / bloom), post chain (CRT for VHS asks) and the mood
+    grade (noir: black and white with the product's own colour held, hard contrast, rain; VHS: chroma bleed,
+    tracking wobble, warm tape tint; keynote: clean). Idempotent; never drops a style kit's own post chain.
+    ``hold``: the product's colour (hex) for noir's one colour, '' = pure black and white."""
     d = direction.lower()
-    done = []
-    for words, finish, render in MOODS:
-        if any(w in d for w in words):
-            for k, v in finish.items():
-                film.setdefault("finish", {})
-                film["finish"][k] = max(float(film["finish"].get(k) or 0.0), float(v))
-            if render and not (film.get("render") or {}).get("post"):
-                film["render"] = copy.deepcopy(render)
-            done.append(words[0])
+    done: list[str] = []
+    grade: dict[str, Any] = {}
+    for words, finish, render, mood in MOODS:
+        if not any(w in d for w in words):
+            continue
+        fin = film.setdefault("finish", {})
+        for k, v in finish.items():
+            if k == "max_grain":
+                fin["grain"] = min(float(fin.get("grain") or 0.0), float(v))
+            else:
+                fin[k] = max(float(fin.get(k) or 0.0), float(v))
+        merge_render(film, copy.deepcopy(render))
+        grade.update(mood)
+        done.append(words[0])
+    if grade.get("hold") == "{product}":
+        if is_hex(hold):
+            grade["hold"] = hold
+        else:
+            grade.pop("hold")
+    if grade:
+        merge_render(film, {"post": "grade", "post_params": {}})
+        film["render"]["post_params"]["grade"] = grade
     return done
 
 
