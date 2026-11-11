@@ -213,10 +213,46 @@ class Shot:
         return range(1, self.n + 1)
 
 
-def shot(sc: Any, params_schema: dict) -> Shot:
-    """Build a ``Shot`` from a SceneCtx (A's ctx.py) or a dict-like stand-in; applies PARAMS defaults."""
+def coerce_params(given: dict, params_schema: dict) -> dict:
+    """PARAMS defaults + the given values made safe for the scene code: numbers written as strings become numbers
+    clamped to the schema's min/max, an enum value outside ``values`` falls back to the default (case-insensitive
+    match first), bool strings ("false", "0", "no", "off") are False. A Director film with ``"fill": "0.7"`` or
+    ``"device": "Laptop"`` used to crash the Blender scene (the shot then became a browser stand-in)."""
     p = {k: v.get("default") for k, v in params_schema.items()}
-    p.update({k: v for k, v in (getattr(sc, "params", None) or {}).items() if v is not None})
+    for k, v in (given or {}).items():
+        if v is None:
+            continue
+        spec = params_schema.get(k)
+        typ = spec.get("type") if isinstance(spec, dict) else None
+        if typ in ("float", "int") and not isinstance(v, bool):
+            try:
+                x = float(v)
+            except (TypeError, ValueError):
+                continue
+            if x != x or x in (float("inf"), float("-inf")):
+                continue
+            if spec.get("min") is not None:
+                x = max(float(spec["min"]), x)
+            if spec.get("max") is not None:
+                x = min(float(spec["max"]), x)
+            v = int(round(x)) if typ == "int" else x
+        elif typ == "enum" and spec.get("values"):
+            vals = list(spec["values"])
+            if v not in vals:
+                low = {str(a).lower(): a for a in vals}
+                if str(v).strip().lower() not in low:
+                    continue
+                v = low[str(v).strip().lower()]
+        elif typ == "bool" and isinstance(v, str):
+            v = v.strip().lower() not in ("", "false", "0", "no", "off", "none", "null")
+        p[k] = v
+    return p
+
+
+def shot(sc: Any, params_schema: dict) -> Shot:
+    """Build a ``Shot`` from a SceneCtx (A's ctx.py) or a dict-like stand-in; applies PARAMS defaults and
+    ``coerce_params``."""
+    p = coerce_params(getattr(sc, "params", None) or {}, params_schema)
     fps = float(getattr(sc, "fps", 30) or 30)
     dur = float(getattr(sc, "dur", 4.0) or 4.0)
     n = getattr(sc, "frames", None)
