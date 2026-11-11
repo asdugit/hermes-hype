@@ -1248,7 +1248,8 @@ def _enrich_uiless(kept: list[tuple[int, StoryScene]], ctx: _Ctx) -> list[tuple[
         return kept
     used = {r for _, sc in kept for r in sc.refs}
     adds: list[StoryScene] = []
-    green = [e for e in facts.events if looks_like_test_pass(e) and e.id not in used]
+    green = [e for e in facts.events if looks_like_test_pass(e) and e.id not in used and not shows_error(e)
+             and is_test_cmd(main_command(str((e.data or {}).get("cmd") or "")))]   # '200 OK' in a curl demo is no test
     if green and not any(sc.type in (T.TERMINAL, T.BEFORE_AFTER) for _, sc in kept):
         adds.append(StoryScene(T.TERMINAL, [green[-1].id], "", "", {}))
     if not any(sc.type in (T.CODE, T.DIFF) for _, sc in kept):

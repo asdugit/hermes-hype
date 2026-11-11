@@ -163,7 +163,8 @@ def test_a_product_without_pictures_shows_its_tests_and_code() -> None:
            Event("e2", 2.0, "file_write", "write_file", "test_x.py", "", {"path": "plugin/tests/test_x.py",
                                                                          "lines": code * 3}),
            _run(3, 3.0, "python -m pytest", ["21 passed in 0.3s"]),
-           _run(4, 4.0, "hermes plugins validate .", ["ok manifest", "ok isolation"])]
+           _run(4, 4.0, "hermes plugins validate .", ["ok manifest", "ok isolation"]),
+           _run(5, 5.0, "curl -s -i /links", ["HTTP/1.1 200 OK", '{"detail":"short code not found"}'])]
     facts = SessionFacts(evs, Stats(duration_s=60, files_created=2))
     sb = Storyboard(title="standup", tagline="Standups", cta="", mode="product",
                     product=Product(name="standup", kind="other"),
