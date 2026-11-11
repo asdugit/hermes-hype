@@ -560,7 +560,7 @@ async function startFilm(sid, options, customize) {
       requestTab('live')
       notify('info', 'A film is already rendering for this chat.')
     } else {
-      notify('error', `Could not start the auteur: ${e.message}`)
+      notify('error', `Could not start the film: ${e.message}`)
     }
     return null
   }
@@ -692,7 +692,7 @@ function MakeView({ sid, jobs, backendDown, onStarted }) {
             jsx('div', { className: 'srl-summary', children: summary }),
             jsx(Btn, {
               variant: 'default', size: 'lg', icon: directed ? 'sparkle' : 'device-camera-video', busy, disabled: Boolean(blocker),
-              onClick: make, children: directed ? 'Direct this film' : customize ? 'Make customized auteur' : 'Make auteur'
+              onClick: make, children: directed ? 'Direct this film' : customize ? 'Make customized film' : 'Make film'
             }),
             blocker ? jsx('div', { className: 'srl-hint srl-blocker', children: blocker }) : null,
             running ? jsx('button', { type: 'button', className: 'srl-link', onClick: () => requestTab('live'), children: 'Watch the running one in Live' }) : null
@@ -1220,7 +1220,7 @@ function ResultView({ job, sid, onTab }) {
   const done = job && job.stage === 'done'
   const postQ = useApi(qk('post', job && job.id), job ? `/jobs/${job.id}/post-text` : '', { enabled: Boolean(done), staleTime: 60000 })
   const thumbsQ = useApi(qk('thumbs', job && job.id), job ? `/jobs/${job.id}/thumbs` : '', { enabled: Boolean(done), staleTime: Infinity })
-  if (!job) return jsx(Empty, { icon: 'play-circle', title: 'No film yet', children: 'Your finished auteur plays here.' })
+  if (!job) return jsx(Empty, { icon: 'play-circle', title: 'No film yet', children: 'Your finished film plays here.' })
   if (!done) {
     return isRunning(job)
       ? jsx(Empty, { icon: 'play-circle', title: `Still rendering (${pctText(job.pct)})`, children: jsx('button', { type: 'button', className: 'srl-link', onClick: () => onTab('live'), children: 'Watch it in Live' }) })

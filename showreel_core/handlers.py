@@ -197,7 +197,7 @@ def slash(ctx: Any, raw_args: str = "", *, session_id: str = "", platform: str =
     if cmd.action == "revise":
         last = next((j for j in store.list(session_id) if j.get("stage") == "done"), None)
         if last is None:
-            return prefix + "🎬 There is no finished auteur in this session to revise yet. Run /auteur first."
+            return prefix + "🎬 There is no finished film in this session to revise yet. Run /auteur first."
         notes = opts.notes
         opts = Options.from_dict(last.get("options"))
         opts.notes = notes

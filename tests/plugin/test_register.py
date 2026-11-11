@@ -195,7 +195,7 @@ def test_slash_actions(env: dict[str, Any], monkeypatch: pytest.MonkeyPatch) -> 
     assert "launch" in handlers.slash(ctx, "styles")
     assert "No film yet" in handlers.slash(ctx, "status", session_id="s1")
     assert "Nothing to cancel" in handlers.slash(ctx, "cancel", session_id="s1")
-    assert "no finished auteur" in handlers.slash(ctx, "revise more product", session_id="s1")
+    assert "no finished film" in handlers.slash(ctx, "revise more product", session_id="s1")
     job = env["store"].create("s1", {"style": "pixel"})
     assert job["id"] in handlers.slash(ctx, "status", session_id="s1")
     assert "Cancelling" in handlers.slash(ctx, "cancel", session_id="s1")

@@ -1421,7 +1421,7 @@ def blender_pass(run: _Run, film: dict[str, Any], assets: dict[str, Any] | None,
 def _back_half(run: _Run) -> None:
     """Layout QA -> render -> audio -> mux -> QA -> delivery, per aspect."""
     if not _RENDER_LOCK.acquire(blocking=False):
-        run.rep.progress(0.0, "waiting for another auteur to finish", force=True)
+        run.rep.progress(0.0, "waiting for another film to finish", force=True)
         while not _RENDER_LOCK.acquire(timeout=1.0):
             run.cancel.check()
     try:

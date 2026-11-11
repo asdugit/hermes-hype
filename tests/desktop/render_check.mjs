@@ -296,7 +296,7 @@ check(listeners.has('plugin.auteur.job.progress'), '1 listens to plugin.auteur.j
   kept.set('tab.pane', 'make')
   const v = await mount(pane.render())
   await waitFor(() => v.div.textContent.includes('Open a chat first'), '2 no-chat hint')
-  const btn = byText(v.div, 'button', 'Make auteur')
+  const btn = byText(v.div, 'button', 'Make film')
   check(Boolean(btn && btn.disabled), '2 with no chat focused Make is disabled and says why')
   await v.unmount()
 }
@@ -357,13 +357,13 @@ check(listeners.has('plugin.auteur.job.progress'), '1 listens to plugin.auteur.j
   Object.getOwnPropertyDescriptor(W.HTMLSelectElement.prototype, 'value').set.call(music, 'playful')
   fire(music, 'change')
   typeInto($(v.div, 'input[type=color][aria-label="Accent colour"]'), '#ff4fa3')
-  await waitFor(() => byText(v.div, 'button', 'Make customized auteur'), '3b the button says "Make customized auteur"')
+  await waitFor(() => byText(v.div, 'button', 'Make customized film'), '3b the button says "Make customized film"')
   check(v.div.textContent.includes('customized'), '3b the summary says customized')
   check($(v.div, '.srl-knob-wide [data-seg-opt=high]') !== null, '3b Energy takes a whole knobs row (4 segments never clip at 360-480 px)')
   snap('make-customize', v)
   if (SNAP) { const pg = await mount(pageRoute().render()); await openTab(pg, 'Make'); await sleep(200); snap('make-customize', pg, 'page'); await pg.unmount() }
   const before = calls('POST', '/jobs').length
-  click(byText(v.div, 'button', 'Make customized auteur'))
+  click(byText(v.div, 'button', 'Make customized film'))
   await waitFor(() => calls('POST', '/jobs').length === before + 1, '3b POST /jobs')
   const body = calls('POST', '/jobs')[before].body
   check(body.options.style === 'launch' && body.options.direction === '', `3b the preset stays a Quick film: ${JSON.stringify(body.options)}`)
