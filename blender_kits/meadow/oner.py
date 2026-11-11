@@ -101,7 +101,7 @@ class Layout:
             # behind her, low: she is big and backlit; the camera is already moving as the petals clear
             B(0.0, P(197, 6.4 * rk, 1.2), T(1.4, 9, 1.9), 35 * lz, 2.8),
             # sweeping crane up and back: the sky full of red cars above the meadow
-            B(3.8, P(188, 9.2 * rk, 4.3), T(0.4, 14, 3.3), 30 * lz, 5.6),
+            B(3.8, P(188, 9.2 * rk, 4.0), T(0.4, 10, 1.0), 30 * lz, 5.6),
             # swoop down into the flowers: low hero angle under a car flying overhead
             B(6.4, P(206, 8.0 * rk, 0.7), T(-1.0, 8, 6.0), 26 * lz, 4.0),
         ]

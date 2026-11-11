@@ -382,7 +382,7 @@ def scatter(hf: Terrain, center=(0.0, 0.0), radius: float = 34.0, density: float
     return ob, (coll, objs, weights)
 
 
-def foreground(hf: Terrain, points: list[tuple[float, float]], seed: int = 7, scale: tuple = (1.5, 2.3),
+def foreground(hf: Terrain, points: list[tuple[float, float]], seed: int = 7, scale: tuple = (1.2, 1.85),
                t_offset: float = 0.0):
     """Tall blossoms at given ground points (near the camera path) for foreground depth-of-field framing."""
     import bpy  # noqa: PLC0415
