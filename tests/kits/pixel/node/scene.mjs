@@ -3,11 +3,12 @@
 // usage: node tests/kits/pixel/node/scene.mjs <scene-file> <export> <w>x<h> <dur> <t1,t2,...> [params.json|-] [outdir] [scale]
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
-import { resolve } from 'node:path';
+import { join, resolve } from 'node:path';
+import { tmpdir } from 'node:os';
 import { encodePNG } from './png.mjs';
 import { makeCtx } from './fakectx.mjs';
 
-const [file, exp, size, dur, times, pjson, outdir = 'C:/Users/2/AppData/Local/hermes/cache/scratch/k1', scaleArg = '2'] = process.argv.slice(2);
+const [file, exp, size, dur, times, pjson, outdir = join(tmpdir(), 'showreel-k1'), scaleArg = '2'] = process.argv.slice(2);
 const [w, h] = size.split('x').map(Number), scale = Number(scaleArg);
 const mod = await import(pathToFileURL(resolve(file)).href);
 const scene = mod[exp];

@@ -3,7 +3,7 @@
     python -m showreel_core.director.try --direction "pixel but ..." --media C:/path/car.mp4 \\
         [--cutout C:/path/car_alpha] [--media-desc "a red sports car"] [--name "Red Car"] [--one-liner "..."] \\
         [--feature "..."]* [--digest-file F] [--seconds 45] [--aspect 16:9] [--effort quick|standard|max] \\
-        [--job OUT] [--until treatment|film|scenes|all] [--slots C:/Users/2/showreel-work] [--library DIR] \\
+        [--job OUT] [--until treatment|film|scenes|all] [--slots DIR] [--library DIR] \\
         [--gpu] [--tts edge] [--render OUT.mp4]
     python -m showreel_core.director.try --revise PARENT_JOB --notes "make the field pinker" --job OUT [--render ...]
     python -m showreel_core.director.try --render-only JOB --render OUT.mp4 [--slots ...]

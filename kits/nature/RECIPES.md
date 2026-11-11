@@ -1,6 +1,6 @@
 # Nature kit — proven recipes (copy these numbers)
 
-Every recipe is a shot of the hand-directed **Red Car hero film** Act 2 (`C:/Users/2/showreel-work/hero/build_hero.py`
+Every recipe is a shot of the hand-directed **Red Car hero film** Act 2 (`hero/build_hero.py` in the dev workspace, not shipped
 → `hero.json` / `hero_916.json`; videos `previews/video/hero_16x9.mp4`, `hero_9x16.mp4`; critique log
 `hero/CRITIQUE.md`). Shot times below are film seconds; flyer `t0/t1` are **shot-local seconds**. All shots use
 `"time": "sunset"`, the car asset `{"type": "frames", "src": "car.mp4", "cutout": "car_alpha/"}`, and a distinct

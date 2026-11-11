@@ -2,6 +2,8 @@
 // contact sheet per aspect + report ms/frame and QA box counts. Also the source of tests' synthetic data.
 // usage: node tests/kits/pixel/node/quick_sheet.mjs [outdir] [t]
 import { mkdirSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { QUICK } from '../../../../kits/pixel/scenes/quick.js';
 import { encodePNG } from './png.mjs';
 import { makeCtx } from './fakectx.mjs';
@@ -24,7 +26,7 @@ export const DATA = {
   SCROLL: { scroll: [0, 1] },
 };
 
-const out = process.argv[2] || 'C:/Users/2/AppData/Local/hermes/cache/scratch/k1';
+const out = process.argv[2] || join(tmpdir(), 'showreel-k1');
 const T = Number(process.argv[3] || 2.6);
 if (import.meta.url.endsWith(process.argv[1].replace(/\\/g, '/').split('/').pop())) {
   mkdirSync(out, { recursive: true });

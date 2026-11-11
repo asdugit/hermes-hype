@@ -1,12 +1,14 @@
 // sheet.mjs — dev harness: render sprite sheets of the pixel kit's art to PNG for visual review.
 // usage: node tests/kits/pixel/node/sheet.mjs <out_dir>
 import { mkdirSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { Screen } from '../../../../kits/pixel/core/gfx.js';
 import { drawText } from '../../../../kits/pixel/core/text.js';
 import { heroFrames, HERO_IDS } from '../../../../kits/pixel/art/heroes.js';
 import { writeScreen } from './png.mjs';
 
-const out = process.argv[2] || 'C:/Users/2/AppData/Local/hermes/cache/scratch/k1';
+const out = process.argv[2] || join(tmpdir(), 'showreel-k1');
 mkdirSync(out, { recursive: true });
 
 export function heroSheet() {

@@ -1,6 +1,6 @@
 # Pixel kit — proven recipes (copy these numbers)
 
-Every recipe below is a shot from the hand-directed **Red Car hero film** (`C:/Users/2/showreel-work/hero/build_hero.py`
+Every recipe below is a shot from the hand-directed **Red Car hero film** (`hero/build_hero.py` in the dev workspace, not shipped
 → `hero.json` / `hero_916.json`, rendered to `previews/video/hero_16x9.mp4` / `hero_9x16.mp4`) and was checked
 frame by frame (critique log: `hero/CRITIQUE.md`). Times are film seconds unless marked *shot-local*.
 
