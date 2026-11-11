@@ -618,7 +618,8 @@ def facts(brief: Brief, pick: dict[str, Any] | None = None) -> dict[str, str]:
         if distinct:
             rest = distinct + [s for s in rest if s not in distinct]
         return rest[min(i, len(rest) - 1)]
-    tagline = str(pick.get("tagline") or "") or (fit_words(one, 8) if one else "") or "Made to be wanted."
+    # no tagline known -> none (the floor film's "Made to be wanted." was generic filler on a stranger's product)
+    tagline = str(pick.get("tagline") or "") or (fit_words(one, 8) if one else "")
     paint = _paint_tone(product_color(brief)) if _model_asset(brief) else ""
     url = repair.public_url(p.urls if p else [])
     return {

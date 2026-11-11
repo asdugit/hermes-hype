@@ -97,3 +97,16 @@ def test_ledger_guard_and_estimated_spend():
     with pytest.raises(BudgetExceeded):
         led(purpose="words", instructions="", text="")
     assert len(calls) == 1
+
+
+def test_floor_film_has_no_filler_tagline(tmp_path: Path):
+    from director_fakes import FakeLlm
+    b = T._screen_brief(tmp_path, "a 1980s VHS infomercial")
+    if b.product is not None:
+        b.product.one_liner = ""
+    cat = build_catalog(assets=b.assets, capabilities=b.capabilities)
+    llm = FakeLlm({"pick": [LlmReply(error="429")], "words": [LlmReply(error="429")], "critic": [LlmReply(error="429")]})
+    res = run(b, llm=llm, renderer=T.FakeRenderer(), effort="quick", budget=T.FREE_QUICK, job_dir=tmp_path / "job",
+              library_dir=tmp_path / "lib", catalog=cat, tier=tiers.detect("deepseek-v4.1-flash"))
+    assert res.ok and res.no_model
+    assert "Made to be wanted" not in str(res.film)
