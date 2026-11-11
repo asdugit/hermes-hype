@@ -169,6 +169,15 @@ def _install(run: Any) -> dict[str, Any] | None:
         for n in tnotes:
             _info(run, f"customize: {n}")
         sp = A.remap(sp, idmap)
+        if tnotes:                    # the pipeline wrote the timeline + duration before this hook trimmed/moved shots
+            try:
+                from ..pipeline import ASPECT_TAG
+                tag = ASPECT_TAG.get(str(kw.get("aspect") or ""), "x")
+                (Path(run.job_dir) / f"timeline_{tag}.json").write_text(
+                    json.dumps(tl.to_dict(), ensure_ascii=False, indent=1, default=str), encoding="utf-8")
+                run.store.update(run.job_id, duration_s=tl.dur)
+            except Exception:  # noqa: BLE001 - bookkeeping only
+                pass
         made = orig_quick(tl, **kw)
         film = made["film"]
         from ..film.quick import kit_meta
