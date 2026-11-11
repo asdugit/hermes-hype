@@ -26,8 +26,11 @@ const world = (S, name, t, camX = 0) => (WORLDS[name] || WORLDS.overworld)(S, t,
 function productArt(ctx, P, w, h, t) {
   const a = assetOf(ctx, P.media);
   if (!a) return null;
+  // a phone-shaped capture in a wide box shows the whole screen ('cover' cut a 390x844 capture down to a slice of
+  // its timer ring in a real 9:16 E2E film)
+  const tall = a.h > a.w * 1.15 && w > h;
   return a.cutout ? productSprite(ctx, a.cutout, { w, h, t, fit: 'contain', outline: 'ink', dither: P.dither ?? 24 })
-    : productSprite(ctx, a, { w, h, t, fit: 'cover', dither: P.dither ?? 24 });
+    : productSprite(ctx, a, { w, h, t, fit: tall ? 'contain' : 'cover', dither: P.dither ?? 24 });
 }
 
 /** Largest caps scale (4..1) at which every word-wrapped line of `text` fits maxW, max `lines` lines. */
