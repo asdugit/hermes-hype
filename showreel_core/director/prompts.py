@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from . import recipes
+from . import recipes, repair
 from .catalog import Catalog
 from .types import RUBRIC_KEYS, SCORE_BAR, Brief
 
@@ -139,8 +139,9 @@ def _product_text(brief: Brief) -> str:
         lines.append(f"- kind: {p.kind}")
     if p.features:
         lines.append("- features: " + "; ".join(p.features))
-    if p.urls:
-        lines.append("- urls: " + ", ".join(p.urls))
+    public = [u for u in p.urls if u and not repair.LOOPBACK.search(u)]   # never offer a dev-server address
+    if public:
+        lines.append("- urls: " + ", ".join(public))
     return "\n".join(lines)
 
 

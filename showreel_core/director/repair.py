@@ -521,3 +521,85 @@ def fit_words(text: Any, max_words: int) -> str:
 
 def is_hex(s: Any) -> bool:
     return isinstance(s, str) and re.fullmatch(r"#[0-9a-fA-F]{6}", s.strip()) is not None
+
+
+# ------------------------------------------------------------------------------------ on-screen hygiene
+
+LOOPBACK = re.compile(r"(?:https?://)?(?:127(?:\.\d{1,3}){3}|localhost|0\.0\.0\.0|\[::1\])(?::\d{1,5})?(?:/[^\s\"']*)?",
+                      re.IGNORECASE)
+_URL_KEYS = ("url", "href", "link", "domain")
+
+
+def public_url(urls: Iterable[str] | None) -> str:
+    """The first URL that is not a loopback/dev-server address ('' when none)."""
+    return next((u for u in (urls or []) if u and not LOOPBACK.search(u)), "")
+
+
+def scrub_loopback(film: dict[str, Any], *, name: str, url: str = "") -> list[str]:
+    """Never print a dev-server address on screen (a real END read '127.0.0.1:8765'): IN PLACE, url-like params
+    become the public URL (or ''), and the address inside any other text becomes the public URL or the product
+    name. Covers shots, overlays and captions."""
+    fixes: list[str] = []
+
+    def walk(o: Any, key: str, path: str) -> Any:
+        if isinstance(o, str):
+            if not LOOPBACK.search(o):
+                return o
+            new = url if key.lower() in _URL_KEYS else re.sub(r"\s{2,}", " ", LOOPBACK.sub(url or name, o)).strip()
+            fixes.append(f"{path}: loopback address -> {new!r}")
+            return new
+        if isinstance(o, dict):
+            return {k: walk(v, str(k), f"{path}.{k}") for k, v in o.items()}
+        if isinstance(o, list):
+            return [walk(v, key, f"{path}[{i}]") for i, v in enumerate(o)]
+        return o
+    for sect in ("shots", "overlays", "captions"):
+        if isinstance(film.get(sect), list):
+            film[sect] = walk(film[sect], "", sect)
+    return fixes
+
+
+def _mentions_assets(o: Any, names: set[str]) -> bool:
+    if isinstance(o, str):
+        return o in names
+    if isinstance(o, dict):
+        return any(_mentions_assets(v, names) for v in o.values())
+    if isinstance(o, list):
+        return any(_mentions_assets(v, names) for v in o)
+    return False
+
+
+def lockup_end(obj: dict[str, Any], catalog: Any, product_assets: Iterable[str], *, name: str, tagline: str = "",
+               cta: str = "", url: str = "") -> list[str]:
+    """A custom-code final shot that puts the product behind the closing type is swapped for a kit lockup, IN PLACE
+    on a ``{"film", "plan"}`` object (a real END laid "Tempo / Focus, beautifully." across the app's timer ring and
+    its CTA pill over the app's own text). Kit END lockups keep the name off the product's UI by construction."""
+    film = obj.get("film") if isinstance(obj.get("film"), dict) else obj
+    shots = film.get("shots") or []
+    if not shots or not isinstance(shots[-1], dict):
+        return []
+    last = shots[-1]
+    scene = str(last.get("scene", ""))
+    if not scene.startswith("custom:") or not _mentions_assets(last.get("params") or {}, set(product_assets)):
+        return []
+    known = set(catalog.scenes()) if catalog is not None else set()
+    kits: dict[str, float] = {}
+    for sh in shots:
+        sc = str(sh.get("scene", ""))
+        if sc.startswith("kit:"):
+            k = sc.split(":", 1)[1].split("/")[0]
+            kits[k] = kits.get(k, 0.0) + float(sh.get("t1", 0) or 0) - float(sh.get("t0", 0) or 0)
+    cands = [f"kit:{k}/END" for k in sorted(kits, key=lambda k: -kits[k]) if k not in ("type", "frames")]
+    target = next((c for c in [*cands, "kit:type/end-lockup"] if c in known), "")
+    if not target:
+        return []
+    params: dict[str, Any] = {"title": name, "cta": cta, "url": url}
+    if target == "kit:type/end-lockup":
+        params = {"title": name, "tagline": tagline, "cta": cta, "url": url, "scrim": 0.0}
+    last["scene"], last["params"] = target, {k: v for k, v in params.items() if v != ""}
+    plan = obj.get("plan") if isinstance(obj.get("plan"), dict) else None
+    old = scene.split(":", 1)[1]
+    if plan is not None and not any(str(sh.get("scene", "")) == scene for sh in shots[:-1]):
+        plan["custom_scenes"] = [c for c in plan.get("custom_scenes") or []
+                                 if not (isinstance(c, dict) and c.get("name") == old)]
+    return [f"shot `{last.get('id')}`: custom end {scene} put the title over the product; now {target}"]
