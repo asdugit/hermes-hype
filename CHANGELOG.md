@@ -5,6 +5,8 @@
 **Films of games, renders and apps** (late fix from a real session: a Roblox detective game)
 - Music-only by default: narration is opt-in (`narrated`, `--narrate`, `narration=on`, "with narration" in a
   direction, the `narration` setting or the Desktop toggle). Captions and on-screen type carry the story.
+- Desktop studio: an untouched Make form starts from your Hype settings (style, length, aspect, narration, effort,
+  3D engine), and narration words in a customization or direction work as they do on `/hype`.
 - Only a real web page capture gets a browser window, a cursor and a focus ring. Game/app screenshots, renders and
   image files are shown whole on a borderless card under a slow Ken-Burns push/pan, with cross-dissolves between
   pictures. Focus crops of pictures keep >= 55 % of the image at an aspect of 0.75-1.8 (or the whole picture),
