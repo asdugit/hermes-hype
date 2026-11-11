@@ -249,3 +249,30 @@ def test_unload_cancels_running_jobs(env: dict[str, Any], monkeypatch: pytest.Mo
     monkeypatch.setattr(pl, "cancel_all", lambda wait_s=0.0: called.append(wait_s) or [])
     handlers.on_unload()
     assert called == [3.0]
+
+
+@pytest.mark.parametrize(("argv", "engine"), [
+    (["--blender"], "blender"),
+    (["--engine-3d", "auto"], "auto"),
+    (["--direction", "a calm keynote, use blender for the hero"], "blender"),
+    (["--direction", "a calm keynote, no blender please"], "browser"),
+    ([], "browser"),
+])
+def test_cli_render_engine_3d(env: dict[str, Any], monkeypatch: pytest.MonkeyPatch, argv: list[str],
+                              engine: str) -> None:
+    """`hermes showreel render --blender` / `--engine-3d` / "use blender" in --direction reach job.options."""
+    import showreel_core.pipeline as pl
+    import showreel_core.session as sess
+    seen: list[dict[str, Any]] = []
+    monkeypatch.setattr(sess, "resolve_session_ref", lambda ref: "sess-1")
+    monkeypatch.setattr(handlers, "_ensure_builtin_tools", lambda: None)
+
+    def fake_run(job_id: str, host: Any, *, store: JobStore, handle: Any) -> dict[str, Any]:
+        job = store.load(job_id)
+        seen.append(job["options"])
+        return store.update(job_id, stage="failed", error={"code": "x", "message": "stub"}) or job
+    monkeypatch.setattr(pl, "run_job", fake_run)
+    parser = argparse.ArgumentParser(prog="hermes showreel")
+    handlers.cli_setup(parser)
+    assert handlers.cli(FakeCtx(), parser.parse_args(["render", "--seconds", "30", *argv])) == 1
+    assert seen and seen[0]["engine_3d"] == engine and seen[0]["seconds"] == 30

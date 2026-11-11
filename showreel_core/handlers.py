@@ -351,6 +351,9 @@ def cli_setup(parser: Any) -> None:
     r.add_argument("--preview", action="store_true")
     r.add_argument("--direction", default="", help="free-text direction (Directed mode)")
     r.add_argument("--effort", default=None, choices=("quick", "standard", "max"))
+    r.add_argument("--engine-3d", dest="engine_3d", default=None, choices=("browser", "blender", "auto"),
+                   help="3D shots: browser (default) or your installed Blender")
+    r.add_argument("--blender", action="store_true", help="same as --engine-3d blender")
     r.add_argument("--json", action="store_true")
     sub.add_parser("styles", help="list styles")
     d = sub.add_parser("doctor", help="check Chromium, ffmpeg, assets and the runtime")
@@ -402,6 +405,12 @@ def cli(ctx: Any, args: Any) -> int:
         opts.aspects = norm_aspects(args.aspect)
     opts.voice = opts.voice and not args.no_voice
     opts.preview, opts.direction = bool(args.preview), args.direction or ""
+    engine = "blender" if getattr(args, "blender", False) else getattr(args, "engine_3d", None)
+    if not engine and opts.direction:
+        wants = blender_requested(opts.direction)          # "use blender" in the direction, as in the tool
+        engine = None if wants is None else ("blender" if wants else "browser")
+    if engine:
+        opts.engine_3d = engine
     opts = opts.normalised()
     _ensure_builtin_tools()
     job = store.create(sid, opts.to_dict(), kind="directed" if opts.directed else "quick", surface="cli")
