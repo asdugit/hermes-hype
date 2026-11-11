@@ -56,6 +56,8 @@ def is_safe(box: Sequence[float], w: float, h: float) -> bool:
         x, y, bw, bh = (float(v) for v in box)
     except (TypeError, ValueError):
         return False
+    if not all(math.isfinite(v) for v in (x, y, bw, bh)):
+        return False                              # NaN compares False everywhere and would pass every rule below
     if bw >= 0.999 and bh >= 0.999:
         return True
     if bw <= 0 or bh <= 0 or x < -1e-6 or y < -1e-6 or x + bw > 1.0001 or y + bh > 1.0001:
@@ -72,7 +74,7 @@ def safe_crop(w: Any, h: Any, *, centre: tuple[float, float] = (0.5, 0.5), want:
         W, H = float(w), float(h)
     except (TypeError, ValueError):
         return list(WHOLE)
-    if W <= 0 or H <= 0:
+    if W <= 0 or H <= 0 or not (math.isfinite(W) and math.isfinite(H)):
         return list(WHOLE)
     cx, cy = centre
     if want is not None:
@@ -82,6 +84,8 @@ def safe_crop(w: Any, h: Any, *, centre: tuple[float, float] = (0.5, 0.5), want:
                 cx, cy = wx + ww / 2, wy + wh / 2
         except (TypeError, ValueError):
             pass
+    if not (math.isfinite(cx) and math.isfinite(cy)):
+        cx, cy = 0.5, 0.5
     A = W / H
     lo, hi = ASPECT_RANGE
     area = max(MIN_AREA, min(1.0, area))

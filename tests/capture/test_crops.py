@@ -61,3 +61,15 @@ def test_saliency_pulls_toward_detail(tmp_path: Path) -> None:
     assert cx > 0.6                           # toward the detail, pulled back toward the centre
     box = picture_crop({"path": str(p), "w": 800, "h": 450})
     assert is_safe(box, 800, 450) and box[0] > 0.1
+
+
+def test_non_finite_numbers_never_make_a_crop() -> None:
+    """Audit 2026-11-11: a NaN focus box (Python's json reads NaN in a model reply) made a NaN crop that is_safe
+    accepted, because NaN fails every comparison."""
+    nan, inf = float("nan"), float("inf")
+    assert not is_safe([nan, 0.1, 0.8, 0.8], 1920, 1080)
+    box = safe_crop(1920, 1080, want=[nan, nan, 0.5, 0.5])
+    assert all(v == v for v in box) and is_safe(box, 1920, 1080)
+    assert safe_crop(nan, 1080) == WHOLE and safe_crop(inf, 1080) == WHOLE
+    assert picture_crop({"path": "", "w": 1920, "h": 1080}, want=[nan, 0.2, 0.5, 0.5]) != [nan] * 4
+    assert all(v == v for v in picture_crop({"path": "", "w": 1920, "h": 1080}, want=[nan, 0.2, 0.5, 0.5]))
