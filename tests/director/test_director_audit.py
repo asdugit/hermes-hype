@@ -161,3 +161,23 @@ def test_fit_words_bounds_width_and_time() -> None:
     assert fit_words("Visit orbit.app today. It is fast.", 4) == "Visit orbit.app today."
     assert fit_words("Orbit Notes", 4) == "Orbit Notes"
     assert fit_words("Die schnellsten Offline-Notizen mit Synchronisierung für alle Geräte", 8).startswith("Die")
+
+
+def test_failed_vision_critic_falls_back_to_the_measured_review(env: dict[str, Any]) -> None:
+    """A model that rejects the contact sheets (an unknown text-only model) left the round without any review;
+    it now gets the measured review, and later rounds stop sending pictures."""
+    import dataclasses
+
+    from director_fakes import FILM, TREATMENT, FakeLlm
+    from test_director_anymodel import _GOOD
+
+    from showreel_core.director.llm import LlmReply
+    llm = FakeLlm({"treatment": [TREATMENT], "film": [FILM], "scene": ["```js\n" + _GOOD + "```"],
+                   "critic": [LlmReply(error="BadRequestError: 400 this model does not support image input")]})
+    res = run(env["brief"], llm=llm, renderer=FakeRenderer(), effort="quick", job_dir=env["job"],
+              library_dir=env["library"], catalog=env["catalog"], tier=tiers.detect("claude-opus-5-5"),
+              budget=dataclasses.replace(FREE_QUICK, rounds=2))
+    assert res.ok, res.error
+    assert res.scores and "measured" in res.scores[0].verdict
+    assert [p for p in llm.purposes() if p.startswith("critic")] == ["critic:r1", "critic:r1"]   # never again
+    assert res.tier["vision"] is False

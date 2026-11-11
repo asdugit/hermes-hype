@@ -1350,15 +1350,21 @@ def _critique(r: _Run, v: Version, rnd: int, *, measured_only: bool = False) -> 
     instr, text = prompts.critic_prompt(r.brief, treat, v.film, v.plan, [f.to_dict() for f in v.frames], checks)
     images = [Image(s.read_bytes(), "image/jpeg", str(s), f"contact sheet {i + 1}") for i, s in enumerate(sheets)]
     crit = None
+    failed = 0
     for attempt in range(2):
         reply = r.ask(f"critic:r{rnd}", instr, text, schema=prompts.CRITIC_SCHEMA, schema_name="hype.critique",
                       images=images, temperature=0.2, max_tokens=10000)
         crit = _normalise_critique(_json_of(reply), v)
         if crit is not None:
             break
+        failed += bool(reply.error and not reply.text.strip())
         r.warn("critic", f"Critique attempt {attempt + 1} unusable: {(reply.error or reply.text)[:160]}")
     if crit is None:
-        return None
+        # a model that cannot take the contact sheets (an unknown text-only model) still gets a review: measured
+        if failed == 2:
+            r.tier = dataclasses.replace(r.tier, vision=False, reason=r.tier.reason + "; the critic call failed")
+        r.warn("critic", "No usable critique from the model; measured review instead")
+        return _measured_critique(r, v, rnd)
     scores = crit["scores"]
     vals = [scores[k] for k in RUBRIC_KEYS]
     if v.prom is not None:                   # measured beats estimated
