@@ -139,7 +139,8 @@ def review(film: dict[str, Any], plan: dict[str, Any], frames: Sequence[Any], im
             first_t = float(s["t0"])
             break
     ends = any(str(o.get("scene")) in LOCKUP_SCENES and float(o.get("t1", 0)) >= dur - 0.5
-               for o in film.get("overlays") or []) or (shots and str(shots[-1]["scene"]).endswith(("/END", "_end")))
+               for o in film.get("overlays") or []) or (shots and (str(shots[-1]["scene"]).endswith(("/END", "_end"))
+                                                                 or str(shots[-1]["scene"]) in LOCKUP_SCENES))
     lens = [float(s["t1"]) - float(s["t0"]) for s in shots]
     story = 6.0 + (1.0 if first_t is not None and first_t <= 2.0 else -1.0) + (1.0 if ends else -1.5)
     if lens and (max(lens) > 0.7 * dur and len(lens) > 1 or min(lens) < 1.2):

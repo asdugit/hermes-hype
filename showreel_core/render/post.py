@@ -350,9 +350,9 @@ def levels_curve(levels: Any) -> str:
     if b < 0.004 and w > 0.996 and abs(gm - 1.0) < 0.02:
         return ""
     pts = [(0.0, 0.0)] if b > 0 else []
-    for k in (0.0, 0.07, 0.25, 0.5, 0.75, 1.0):   # a linear toe below 7 %: the mids lift, black stays black
-        x = b + (w - b) * k
-        y = k if k < 0.1 else k ** (1.0 / gm)
+    for k in (0.0, 0.035, 0.25, 0.5, 0.75, 1.0):  # a linear toe below 3.5 %: a black stage stays black while
+        x = b + (w - b) * k                           # a dark UI panel just above it lifts clear of it
+        y = k if k < 0.05 else k ** (1.0 / gm)
         pts.append((x, y))
     if w < 1.0:
         pts.append((1.0, 1.0))

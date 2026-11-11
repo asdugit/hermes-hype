@@ -383,6 +383,9 @@ def _mood_blueprints() -> list[Blueprint]:
     real product shown large (kit:base SCREEN/FEATURE: a 1560 px browser frame pushing in), so a noir ask reads as a
     case file and a keynote ask reads as a keynote stage - not as the same launch film with other words."""
     theme_n = {"theme": "noir"}
+    # a feature capture is already the feature: show it whole (the default 0.8 focus box pushed a timer ring and a
+    # task list half out of the frame in a real Tempo film)
+    WHOLE = {"bbox": [0.03, 0.03, 0.94, 0.94], "click": [0.5, 0.5]}  # noqa: N806
     noir = Blueprint(
         id="screen-noir", name="Noir case file (software)", kind="screen",
         fits="software / web apps; 'noir', 'detective', 'crime', 'mystery', 'thriller', 'hard-boiled', rain, night",
@@ -400,10 +403,10 @@ def _mood_blueprints() -> list[Blueprint]:
              "params": {"text": "<a 3-6 word typed line: the detective's first clue about the product>",
                         "reveal": "type", "scrim": 0.0, **theme_n}, "beat": "a typed clue on black"},
             {"id": "feature1", "share": (0.41, 0.60), "scene": "kit:base/FEATURE", "product": True,
-             "params": {"image": {"asset": "{asset2}"}, "feature": "{feature1}", **theme_n},
+             "params": {"image": {"asset": "{asset2}"}, "feature": "{feature1}", **WHOLE, **theme_n},
              "beat": "exhibit B: feature one, close"},
             {"id": "feature2", "share": (0.60, 0.80), "scene": "kit:base/FEATURE", "product": True,
-             "params": {"image": {"asset": "{asset3}"}, "feature": "{feature2}", **theme_n},
+             "params": {"image": {"asset": "{asset3}"}, "feature": "{feature2}", **WHOLE, **theme_n},
              "beat": "exhibit C: feature two, close"},
             {"id": "verdict", "share": (0.80, 0.88), "scene": "kit:type/title", "product": False,
              "params": {"text": "<a 2-5 word typed verdict that names no numbers>", "reveal": "type", "scrim": 0.0,
@@ -440,9 +443,9 @@ def _mood_blueprints() -> list[Blueprint]:
             {"id": "name", "share": (0.32, 0.40), "scene": "kit:type/title", "product": False,
              "params": {"text": "{name}", "sub": "{tagline}", "scrim": 0.0}, "beat": "the name, huge, on black"},
             {"id": "feature1", "share": (0.40, 0.59), "scene": "kit:base/FEATURE", "product": True,
-             "params": {"image": {"asset": "{asset2}"}, "feature": "{feature1}"}, "beat": "feature one, close"},
+             "params": {"image": {"asset": "{asset2}"}, "feature": "{feature1}", **WHOLE}, "beat": "feature one, close"},
             {"id": "feature2", "share": (0.59, 0.80), "scene": "kit:base/FEATURE", "product": True,
-             "params": {"image": {"asset": "{asset3}"}, "feature": "{feature2}"}, "beat": "feature two, close"},
+             "params": {"image": {"asset": "{asset3}"}, "feature": "{feature2}", **WHOLE}, "beat": "feature two, close"},
             {"id": "statement", "share": (0.80, 0.88), "scene": "kit:type/title", "product": False,
              "params": {"text": "<a 2-5 word keynote statement in two beats, e.g. 'Less noise. More focus.'>",
                         "scrim": 0.0}, "beat": "the one-line promise"},
