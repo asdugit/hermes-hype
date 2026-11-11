@@ -64,3 +64,14 @@ def test_video_to_frames(tmp_path: Path, ffmpeg_path: str):
     assert e["type"] == "frames" and e["fps"] == 30 and (e["w"], e["h"]) == (960, 540)
     assert 44 <= e["count"] <= 46 and frame_count_ok(tmp_path / "job", e)
     assert e["poster"] == "assets/car/poster.jpg"
+
+
+def test_video_to_frames_in_a_folder_with_percent_and_quotes(tmp_path: Path, ffmpeg_path: str):
+    """ffmpeg's image2 output pattern read a literal '%' in the job folder as a placeholder (exit -22)."""
+    root = tmp_path / "100% it's ünï"
+    root.mkdir()
+    src = root / "clip.mp4"
+    subprocess.run([ffmpeg_path, "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i",
+                    "testsrc2=size=320x180:rate=10:duration=1", "-pix_fmt", "yuv420p", str(src)], check=True)
+    e = prepare_asset("clip", {"src": str(src)}, root / "job", fps=10, ffmpeg=ffmpeg_path)
+    assert e["type"] == "frames" and 9 <= e["count"] <= 11 and frame_count_ok(root / "job", e)

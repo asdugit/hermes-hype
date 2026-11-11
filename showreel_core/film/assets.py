@@ -113,7 +113,9 @@ def extract_frames(src: Path, out_dir: Path, *, fps: float, max_w: int = FRAMES_
     vf = f"fps={rate:g},scale='min({int(max_w)},iw)':-2:flags=lanczos"
     cmd += ["-vf", vf, "-frames:v", str(MAX_FRAMES), "-an"]
     cmd += ["-pix_fmt", "rgba"] if alpha else ["-q:v", "3"]
-    cmd += [str(out_dir / f"{stem}%06d.{ext}")]
+    # image2 output pattern: a literal '%' in the folder (a Windows user named '100%', a data dir override) must be
+    # doubled, or ffmpeg reads it as a sequence placeholder and fails (exit -22)
+    cmd += [str(out_dir).replace("%", "%%") + "/" + f"{stem.replace('%', '%%')}%06d.{ext}"]
     try:
         run(cmd, timeout=900, what=f"frame extraction ({src.name})")
     except RenderError as e:
