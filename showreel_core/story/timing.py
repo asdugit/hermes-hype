@@ -457,7 +457,7 @@ def _resolve_scene_data(scene: StoryScene, sb: Storyboard, facts: SessionFacts,
         hero = _block(ev, compact=True)
         return {"hero": hero, "label": scene.label} if hero else None
     if st == T.PROBLEM:
-        text = str(data_get(ev, "text", ""))
+        text = short_urls(str(data_get(ev, "text", "")))
         shown = _prefix_words(text, PROBLEM_WORDS)
         return {"text": shown, "truncated": len(shown) < len(text.strip())} if shown else None
     if st == T.PLAN:
@@ -610,6 +610,24 @@ def _terminal(ev: Event, limit: int) -> dict[str, Any] | None:
     return {"cmd": cmd, "output": shown, "truncated_top": not head and len(out) > len(shown),
             "exit_code": data_get(ev, "exit_code"), "elapsed_s": data_get(ev, "elapsed_s"), "ok": terminal_ok(ev),
             "tests_passed": looks_like_test_pass(ev)}
+
+
+_LONG_URL_RE = re.compile(r"\bhttps?://([^\s/]+)(/[^\s]*)?")
+
+
+def short_urls(text: str, limit: int = 32) -> str:
+    """A long URL in a prompt card as its host and last path segment ('raw.githubusercontent.com/…/penguins.csv'):
+    a URL only breaks at '/' and '-', so a full one wraps into more lines than the card was sized for and its last
+    line ran under the card edge."""
+    def short(m: "re.Match[str]") -> str:
+        url = m.group(0).rstrip(".,;:)")
+        tail = m.group(0)[len(url):]
+        if len(url) <= limit:
+            return m.group(0)
+        host, path = m.group(1), (m.group(2) or "").rstrip(".,;:)")
+        last = [seg for seg in path.split("/") if seg][-1:] if path else []
+        return (f"{host}/\u2026/{last[0]}" if last else host) + tail
+    return _LONG_URL_RE.sub(short, str(text or ""))
 
 
 def _prefix_words(text: str, limit: int) -> str:

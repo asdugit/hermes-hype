@@ -40,7 +40,9 @@ launchScene('kit:launch/TITLE', {
     const n = W.node(b.el, { x: 0, y: 0, z: 8, w: b.w, h: b.h, tilt: 40 });
     W.light(0, -b.h * 0.3, b.w * 1.3, b.h * 1.8);
     const wires = panelWires(W, n, b, b.h * 0.92, { outAt: 0.6 });
-    const R = L ? { x: 30, y: 170, w: F.W - 60, h: 660 } : { x: 960, y: 80, w: F.W - 960 - 50, h: F.H - 160 };
+    // 16:9: the lockup column ends at ~980 px (safe left + 860), so the hero starts clear of it (a long tagline ran
+    // under the chart card's tilted left edge)
+    const R = L ? { x: 30, y: 170, w: F.W - 60, h: 660 } : { x: 1030, y: 80, w: F.W - 1030 - 50, h: F.H - 160 };
     const shift = [R.x + R.w / 2 - F.W / 2, R.y + R.h / 2 - F.H / 2];
     const c = W.nodePoint(n, b.w / 2, b.h / 2);
     const d = fitRect(W, F, b.w, b.h, 10, 0.92 * R.w / F.W, 0.86 * R.h / F.H) / productScale(p);

@@ -145,3 +145,11 @@ def test_escape_code_output_is_never_a_terminal_beat() -> None:
                             StoryScene(T.END, [], "", "")])
     res = validate_storyboard(sb, facts, 30, "product")
     assert "e2" not in [r for s in res.storyboard.scenes for r in s.refs[:1]]
+
+
+def test_a_prompt_card_shows_long_urls_short() -> None:
+    from showreel_core.story.timing import short_urls
+    txt = ("Download the dataset from https://raw.githubusercontent.com/mwaskom/seaborn-data/master/penguins.csv into "
+           "this folder, see https://example.com/a.")
+    assert short_urls(txt) == ("Download the dataset from raw.githubusercontent.com/\u2026/penguins.csv into this folder, "
+                               "see https://example.com/a.")
