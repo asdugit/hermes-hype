@@ -67,7 +67,8 @@ def build(sc) -> None:
                       floor=p["floor"], sweep=bool(p["reveal"]), key_side=-1.0 if p["yaw"] <= 0 else 1.0,
                       cam_dist=dist)
     if p["reveal"]:
-        studio.animate_reveal(s, st, t0=-0.1, t1=D * 0.55, from_level=0.12)  # dim silhouette at frame 1, never black
+        # starts ahead of the cut: frame 1 already shows the rim-lit silhouette (a film never opens on black)
+        studio.animate_reveal(s, st, t0=-min(1.2, D * 0.15), t1=D * 0.55, from_level=0.12)
         studio.animate_sweep(s, st, t0=D * 0.08, t1=D * 0.75, center=tuple(c), radius=r, energy=420.0,
                              height=0.9)
     yaw, pitch, arc = p["yaw"], p["pitch"], p["orbit_deg"]
