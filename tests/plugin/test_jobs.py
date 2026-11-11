@@ -167,3 +167,13 @@ def test_concurrent_logs_and_reads_never_corrupt(store: JobStore) -> None:
         t.join()
     assert not errors
     assert len(store.load(job["id"])["log"]) == 100
+
+
+def test_done_text_says_why_the_storyboard_is_built_in() -> None:
+    from showreel_core.deliver import done_text
+    base = {"id": "j1", "stage": "done", "title": "Tempo", "duration_s": 30.0, "storyboard_source": "heuristic",
+            "delivered": {"16:9": "/v/a.mp4"}}
+    failed = done_text({**base, "warnings": ["the model's storyboard was unusable; used the heuristic storyboard"]},
+                       media=True)
+    assert "could not be used" in failed and "unavailable" not in failed
+    assert "none was available" in done_text({**base, "warnings": []}, media=True)

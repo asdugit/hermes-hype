@@ -62,7 +62,9 @@ def done_text(job: dict[str, Any], *, media: bool = True) -> str:
     for aspect, path in files.items():
         lines.append(f"  {aspect}: {path}")
     if job.get("storyboard_source") == "heuristic":
-        lines.append("  Storyboard: built without the model (it was unavailable).")
+        failed = any("model's storyboard was unusable" in str(w) for w in job.get("warnings") or [])
+        lines.append("  Storyboard: the model's reply could not be used, so the built-in storyboard was used." if failed
+                     else "  Storyboard: built without the model (none was available).")
     notes = [w for w in (job.get("warnings") or []) if w][:4]
     if notes:
         lines.append("  Notes: " + "; ".join(notes))
