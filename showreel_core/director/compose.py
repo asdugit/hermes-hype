@@ -621,8 +621,9 @@ def facts(brief: Brief, pick: dict[str, Any] | None = None) -> dict[str, str]:
     return {
         "product": main, "name": name, "NAME": name.upper()[:14], "tagline": tagline,
         "one_liner": one or tagline, "cta": str(pick.get("cta") or "") or ("Try it today" if screens else "Make it yours"),
-        "feature1": fit_words(feats[0], 5) if feats else "Built to delight",
-        "feature2": fit_words(feats[1], 5) if len(feats) > 1 else (fit_words(feats[0], 5) if feats else "Made with care"),
+        # no known feature -> no label (filler like "Built to delight" read as placeholder text on real films)
+        "feature1": fit_words(feats[0], 5) if feats else "",
+        "feature2": fit_words(feats[1], 5) if len(feats) > 1 else "",
         "asset1": screens[0] if screens else main, "asset2": feat_asset(0), "asset3": feat_asset(1),
         "url": url, "accent": str(pick.get("accent") or paint or "#E8384A"),
         "time": str(pick.get("time") or "golden"), "model": _model_asset(brief), "paint": paint,
@@ -990,7 +991,7 @@ def assemble(brief: Brief, bp: Blueprint, pick: dict[str, Any], texts: dict[str,
     cards = {a.name for a in brief.assets if getattr(a, "frame", "") == "card"}
     for s in _layout_shots(bp, seconds, brief):
         params = _frame_cards(_put_slots(_fill(copy.deepcopy(s.get("params") or {}), vals), texts, s["id"]), cards)
-        params = {k: v for k, v in params.items() if not (k in ("paint", "accent") and not v)}
+        params = {k: v for k, v in params.items() if not (k in ("paint", "accent", "feature") and not v)}
         if s["scene"] == "kit:type/title" and not params.get("text"):
             params["text"] = vals["name"]          # an unfilled teaser still says something: the name
         if s["scene"].startswith("blender:") and vals["model"] and s["scene"].startswith("blender:studio/"):

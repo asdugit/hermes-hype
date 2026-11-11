@@ -88,3 +88,16 @@ def test_pictures_are_cards_and_web_pages_keep_the_browser_frame(tmp_path: Path)
     film = compose.assemble(b, bp, compose.default_pick(bps, b))["film"]
     imgs = {s["id"]: s["params"].get("image") for s in film["shots"] if s["params"].get("image")}
     assert imgs["feature1"]["frame"] == "card" and imgs["feature2"]["frame"] == "card"
+
+
+def test_no_known_features_means_no_filler_labels(tmp_path: Path) -> None:
+    b = T._screen_brief(tmp_path, "a noir detective trailer")
+    if b.product is not None:
+        b.product.features = []
+    bps = compose.blueprints()
+    for bp_id in ("screen-noir", "screen-cinematic", "screen-launch"):
+        bp = next(x for x in bps if x.id == bp_id)
+        film = compose.assemble(b, bp, compose.default_pick(bps, b))["film"]
+        blob = str(film)
+        assert "Built to delight" not in blob and "Made with care" not in blob
+        assert all(s["params"].get("feature") != "" for s in film["shots"])
