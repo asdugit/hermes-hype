@@ -147,8 +147,10 @@ def _explicit(value: str) -> Path:
                 return p / name
     # Windows Start-menu shortcuts point at blender-launcher.exe: it detaches from the console, so
     # `--version` prints nothing through it and background renders cannot be watched -> use its blender.exe
-    if p.name.lower() in ("blender-launcher.exe", "blender-launcher") and (p.parent / "blender.exe").is_file():
-        return p.parent / "blender.exe"
+    if p.name.lower() in ("blender-launcher.exe", "blender-launcher"):
+        for sib in ("blender.exe", "blender"):
+            if (p.parent / sib).is_file():
+                return p.parent / sib
     return p
 
 
