@@ -52,7 +52,7 @@ tubeScene('kit:terminal/TITLE', {
       ...(p.tagline ? [leader('tagline', '[  OK  ]', bootCols, 'm')] : []),
       ...(p.one_liner ? wrap(String(p.one_liner), bootCols - 2).slice(0, 2).map((s) => txt('d', '# ' + s)) : []),
     ];
-    const boot = T.pre(M.l, L ? M.t - 40 : M.t + 10, bootFs);
+    const boot = T.pre(M.l, L ? M.t - 6 : M.t + 10, bootFs);
     const bootPr = printing(bootLines.length, 0.08, 0.05);
     // logo
     const lb = logoBlock(title, W * (L ? 1 : 0.84), L ? 18 : 24, 10, L ? 3 : 2);
@@ -84,7 +84,7 @@ tubeScene('kit:terminal/TITLE', {
     const prompt = T.pre(M.l, tagY + (L ? 190 : 108), 30);
     prompt.style.width = `${W}px`; prompt.style.textAlign = 'center';
     T.bar('', '');
-    T.barEl.style.top = `${F.H - M.b - (L ? 0 : 20)}px`;
+    T.barEl.style.top = `${F.H - M.b - (L ? 56 : 40)}px`;   // above the caption band, inside the safe area
     const cues = [{ t: logoAt, sfx: 'appear', gain_db: -10 }];
     return {
       cues,
@@ -207,7 +207,7 @@ tubeScene('kit:terminal/END', {
     const W = F.W - M.l - M.r;
     const title = String(p.title || '').trim() || 'showreel';
     const exitTy = typing('exit', 0.15, { cps: 14, seed: 2 });
-    const head = T.pre(M.l, L ? M.t - 40 : M.t + 10, 26);
+    const head = T.pre(M.l, L ? M.t - 6 : M.t + 10, 26);
     const lb = logoBlock(title, W * 0.8, L ? 14 : 16, 8, 2);
     const cy = L ? F.H * 0.36 : F.H * 0.38;
     const lockAt = exitTy.end + 0.45;
@@ -244,7 +244,7 @@ tubeScene('kit:terminal/END', {
     urlEl.style.width = `${W}px`; urlEl.style.textAlign = 'center';
     const credit = String(p.credit || '');
     T.bar('', '');
-    T.barEl.style.top = `${F.H - M.b - (L ? 0 : 20)}px`;
+    T.barEl.style.top = `${F.H - M.b - (L ? 56 : 40)}px`;   // above the caption band, inside the safe area
     const cues = [...exitTy.cues({ every: 2 }), { t: lockAt, sfx: 'appear', gain_db: -8 }];
     return {
       cues,

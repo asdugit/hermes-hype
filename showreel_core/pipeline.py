@@ -486,10 +486,10 @@ def _d_mux(video: Path, audio: Path, out_path: Path, duration_s: float) -> Path:
 
 
 def _d_check_video(path: Path, *, frames: int, dur: float, fps: int, times: list[float], labels: list[str],
-                   contact_sheet: Path) -> dict[str, Any]:
+                   contact_sheet: Path, allowed_black: list[tuple[float, float]] | None = None) -> dict[str, Any]:
     from .qa.video import check_video
     return check_video(path, expected_frames=frames, expected_duration_s=dur, fps=fps, scene_times=times,
-                       scene_labels=labels, contact_sheet=contact_sheet).to_dict()
+                       scene_labels=labels, contact_sheet=contact_sheet, allowed_black=allowed_black or ()).to_dict()
 
 
 def _d_deliver(master: Path, *, title: str, job_id: str, aspect: str) -> Path:
@@ -1659,9 +1659,11 @@ def _qa_and_deliver(run: _Run, finals: dict[str, Path]) -> None:
         tag = ASPECT_TAG.get(b.aspect, "x")
         if run.deps.check_video is not None:
             try:
+                from .qa.video import transition_windows
                 rep = run.deps.check_video(final, frames=max(1, round(b.dur * b.fps)), dur=b.dur, fps=b.fps,
                                            times=b.scene_times, labels=b.scene_labels,
-                                           contact_sheet=run.job_dir / f"contact_{tag}.png")
+                                           contact_sheet=run.job_dir / f"contact_{tag}.png",
+                                           allowed_black=transition_windows(b.film))
             except Exception as exc:  # noqa: BLE001
                 rep = {"ok": False, "error": {"message": str(exc)}}
             qa[b.aspect] = rep

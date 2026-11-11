@@ -57,3 +57,14 @@ def test_check_video_flags_frame_mismatch_and_allows_designed_black(ffmpeg_path,
 def test_check_video_never_raises(tmp_path):
     rep = V.check_video(tmp_path / "missing.mp4", ffmpeg=str(tmp_path / "no-ffmpeg"))
     assert not rep.ok and rep.error is not None
+
+
+def test_transition_windows_cover_a_designed_dark_cut_but_not_a_black_shot():
+    film = {"transitions": [{"from": "a", "to": "b", "type": "kit:terminal/channel-switch", "t": 27.12, "dur": 0.3},
+                            {"from": "b", "to": "c", "type": "crossfade", "t": "bad"}]}
+    win = V.transition_windows(film)
+    assert win == [(27.07, 28.17)]
+    inside = lambda a, b: any(a >= lo - 1e-3 and b <= hi + 1e-3 for lo, hi in win)  # noqa: E731
+    assert inside(27.366667, 28.033333)          # real E2E run 9: the CRT static into END
+    assert not inside(27.4, 30.5)                # END itself black: still reported
+    assert V.transition_windows(None) == [] and V.transition_windows({}) == []

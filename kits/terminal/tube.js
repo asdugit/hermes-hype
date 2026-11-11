@@ -97,7 +97,7 @@ function tube(ctx, p, F, def) {
   /** Status line at the top of the content box: inverse tag left, dim text right. */
   const barFs = F.portrait ? 26 : 24;
   const barCols = Math.floor((W - M.l - M.r) / (barFs * 0.6));
-  const barEl = pre(M.l, F.portrait ? M.t - 70 : M.t - 2, barFs);
+  const barEl = pre(M.l, F.portrait ? M.t - 6 : M.t - 2, barFs);   // 9:16: below the platform UI band (safe top 220)
   function barHtml(tag, right) {
     const tg = tag ? ` ${String(tag).toUpperCase()} ` : '';
     const rt = String(right || '');

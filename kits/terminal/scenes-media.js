@@ -35,6 +35,7 @@ export function mediaPane(ctx, F, T, img, o) {
   (o.parent || T.scr).appendChild(wrapEl);
   const pre = h('pre', 'tm-pre');
   pre.style.cssText = `left:${Math.round(x)}px;top:${Math.round(y)}px;font-size:${fs}px;line-height:${lh}px;`;
+  pre.dataset.qa = 'off';            // the picture's frame + page title/url: chrome the zoom crops by design
   const title = fit(String(meta.page_title || o.title || 'screen'), 40);
   const url = prettyUrl(meta.url || '');
   pre.innerHTML = box(title, inner, Array.from({ length: rows }, () => txt('', '')), { right: fit(url, Math.max(8, inner - len(title) - 8)) }).join('\n');
@@ -243,6 +244,7 @@ tubeScene('kit:terminal/SCROLL', {
     clip.appendChild(full);
     mp.wrap.appendChild(clip);
     const thumb = h('pre', 'tm-pre h');
+    thumb.dataset.qa = 'off';         // block-character scrollbar: a rule, not text
     const tx = mp.x + (mp.inner + 3) * adv;
     thumb.style.cssText = `left:${tx}px;top:${mp.y + lh}px;font-size:${fs}px;line-height:${lh}px;background:transparent;`;
     mp.wrap.appendChild(thumb);
@@ -262,9 +264,9 @@ tubeScene('kit:terminal/SCROLL', {
         const scrolling = t >= tS;
         css(clip, { visibility: scrolling ? 'visible' : 'hidden' });
         css(full, { transform: `translate3d(0,${(-Math.min(range, q) * (A.w / dw)).toFixed(1)}px,0)` });
-        const nT = Math.max(1, Math.round(rows * viewH / Math.max(viewH, natural)));
-        const pos = Math.round((rows - nT) * (range > 0 ? Math.min(range, q) / range : 0));
-        thumb.textContent = Array.from({ length: rows }, (_, i) => (i >= pos && i < pos + nT ? '\u2588' : ' ')).join('\n');
+        const nT = Math.max(1, Math.round(mp.rows * viewH / Math.max(viewH, natural)));
+        const pos = Math.round((mp.rows - nT) * (range > 0 ? Math.min(range, q) / range : 0));
+        thumb.textContent = Array.from({ length: mp.rows }, (_, i) => (i >= pos && i < pos + nT ? '\u2588' : ' ')).join('\n');
       },
     };
   },

@@ -140,6 +140,7 @@ def make_deps(rec: Recorder, *, bundle: SavedSession | None = None, render_fail:
         return out
 
     def check_video(path: Path, *, frames: int, dur: float, fps: int, times: list[float], labels: list[str],
+                    allowed_black=(),
                     contact_sheet: Path) -> dict[str, Any]:
         rec.add("check_video", {"frames": frames, "dur": dur})
         contact_sheet.write_bytes(b"\x89PNGfake")

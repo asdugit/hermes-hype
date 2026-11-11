@@ -52,6 +52,24 @@ class VideoQAReport:
         self.issues.append({"kind": kind, "severity": severity, "msg": msg})
 
 
+#: a designed dark beat at a cut (a CRT channel switch's dead frame, a dip to black, a scene that starts on dark glass)
+#: may run this long past the transition window; a real black shot (missing media, a dead page) runs past it
+TRANSITION_BLACK_TAIL_S = 0.75
+
+
+def transition_windows(film: dict[str, Any] | None) -> list[tuple[float, float]]:
+    """Windows where a short black segment is by design: each film.json transition plus a tail into the next shot
+    (real E2E: the terminal channel switch into END read as \"black from 27.37s to 28.03s\")."""
+    out: list[tuple[float, float]] = []
+    for tr in (film or {}).get("transitions") or []:
+        try:
+            t, d = float(tr["t"]), float(tr.get("dur") or 0.0)
+        except (KeyError, TypeError, ValueError):
+            continue
+        out.append((round(t - 0.05, 3), round(t + d + TRANSITION_BLACK_TAIL_S, 3)))
+    return out
+
+
 def parse_blackdetect(text: str) -> list[tuple[float, float]]:
     """``[(start, end), ...]`` from blackdetect log lines."""
     return [(float(a), float(b)) for a, b, _ in _BLACK_RE.findall(text)]

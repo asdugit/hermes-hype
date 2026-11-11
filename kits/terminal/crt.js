@@ -146,14 +146,16 @@ export const txt = (cls, s) => row(sp(cls, s), len(s));
  * not clipped (caller wraps). Returns HTML lines; visible width = inner + 4.
  */
 export function box(title, inner, rows, { right = '', titleCls = 'm', rightCls = 'm', edge = 'd' } = {}) {
+  // rules (and the right-hand metadata: url, line range) are chrome a zoom may crop: data-qa="off"; the title is text
+  const rule = (cls, s) => `<span class="${cls}" data-qa="off">${esc(s)}</span>`;
   const T = title ? fit(title, Math.max(4, inner - 6 - (right ? len(right) + 2 : 0))) : '';
   const R = right ? len(right) + 2 : 0;
   const fill = Math.max(1, inner - 2 - (T ? len(T) : -1) - R);
-  const top = sp(edge, T ? '\u250c\u2500 ' : '\u250c\u2500\u2500') + (T ? sp(titleCls, T) + sp(edge, ' ') : '') +
-    sp(edge, '\u2500'.repeat(fill)) + (right ? sp(rightCls, ' ' + right + ' ') : '') + sp(edge, '\u2500\u2510');
+  const top = rule(edge, T ? '\u250c\u2500 ' : '\u250c\u2500\u2500') + (T ? sp(titleCls, T) + rule(edge, ' ') : '') +
+    rule(edge, '\u2500'.repeat(fill)) + (right ? rule(rightCls, ' ' + right + ' ') : '') + rule(edge, '\u2500\u2510');
   const out = [top];
-  for (const r of rows) out.push(sp(edge, '\u2502 ') + r.html + ' '.repeat(Math.max(0, inner - r.n)) + sp(edge, ' \u2502'));
-  out.push(sp(edge, '\u2514' + '\u2500'.repeat(inner + 2) + '\u2518'));
+  for (const r of rows) out.push(rule(edge, '\u2502 ') + r.html + ' '.repeat(Math.max(0, inner - r.n)) + rule(edge, ' \u2502'));
+  out.push(rule(edge, '\u2514' + '\u2500'.repeat(inner + 2) + '\u2518'));
   return out;
 }
 

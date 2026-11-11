@@ -26,7 +26,7 @@ export function p90(lengths, min = 40) {
 
 /** Content box (x, y, w, h) below the status bar. */
 export function contentBox(F, T) {
-  const top = F.portrait ? T.M.t + 30 : T.M.t + 76;
+  const top = F.portrait ? T.M.t + 44 : T.M.t + 76;
   return { x: T.M.l, y: top, w: F.W - T.M.l - T.M.r, h: F.H - top - T.M.b };
 }
 

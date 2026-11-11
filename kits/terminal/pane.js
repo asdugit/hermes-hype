@@ -221,6 +221,7 @@ export function odometer(display, size) {
     const cell = h('span', 'tm-cell');
     cell.style.cssText = `width:${cellW}px;height:${cellH}px;`;
     const drum = h('span', 'tm-drum');
+    drum.dataset.qa = 'off';        // rolling reels: digits pass and peek out of the cell by design (QA: proxy below)
     for (let i = 0; i <= 11; i++) {
       const b = h('b', '', { text: String((i + 9) % 10) });
       b.style.cssText = `height:${digitH}px;line-height:${digitH}px;`;
@@ -231,6 +232,11 @@ export function odometer(display, size) {
     digits.push({ drum, target: Number(c), place: place-- });
   }
   if (unit.trim()) el.appendChild(h('span', 'tm-unit', { text: unit.trim(), style: `font-size:${Math.round(size * 0.42)}px;align-self:flex-end;margin-bottom:${Math.round(size * 0.12)}px;margin-left:.3em;` }));
+  if (digits.length) {             // layout-QA proxy: the settled number, transparent, over the drums
+    const qa = h('span', 'tm-odo-qa', { text: body });
+    qa.style.cssText = `position:absolute;left:${pre ? '1em' : '0'};top:0;height:${cellH}px;line-height:${cellH}px;color:transparent;text-shadow:none;white-space:pre;pointer-events:none;`;
+    el.appendChild(qa);
+  }
   const value = Number(chars.filter((c) => /\d/.test(c)).join('')) || 0;
   function update(t, t0, t1) {
     for (const d of digits) {
