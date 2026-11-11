@@ -34,6 +34,7 @@ class Capabilities:
     vision: bool = True              # the critic model can see images
     image_generate: bool = False     # an image_generate tool is available
     video_generate: bool = False
+    blender: bool = False            # Blender is available: `blender:<kit>/<scene>` 3D shots may be used
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -152,6 +153,7 @@ class DirectorResult:
     log: list[dict[str, Any]] = field(default_factory=list)
     measured: dict[str, Any] = field(default_factory=dict)        # pixel-measured product prominence of the result
     narration: list[dict[str, Any]] = field(default_factory=list)  # [{path, start, duration, text, speed}]
+    tier: dict[str, Any] = field(default_factory=dict)             # model tier + path used (free/compose/floor)
 
     def to_dict(self) -> dict[str, Any]:
         d = asdict(self)

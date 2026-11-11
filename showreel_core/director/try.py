@@ -31,8 +31,15 @@ from .llm import hermes_cli_llm
 from .media import probe_asset
 from .types import EFFORTS, Brief
 
-# list rates of the dev model (hermes agent/usage_pricing.py), $ per 1M tokens
+# list rates (hermes agent/usage_pricing.py), $ per 1M tokens: input, output, cache read, cache write.
+# claude-fable-* has no published rate in usage_pricing: priced like Opus 5.5 (an estimate).
 RATES = {"input": 4.0, "output": 20.0, "cache_read": 0.20, "cache_write": 5.0}
+MODEL_RATES = {
+    "claude-haiku-4-5": (1.0, 5.0, 0.10, 1.25), "claude-sonnet-5": (2.0, 10.0, 0.20, 2.50),
+    "claude-sonnet-4-6": (3.0, 15.0, 0.30, 3.75), "claude-opus-4-8": (5.0, 25.0, 0.50, 6.25),
+    "deepseek-v4.1-flash-fast": (0.14, 0.28, 0.014, 0.14), "deepseek-v4.1-flash-abliterated": (0.14, 0.28, 0.014, 0.14),
+    "glm-5.3-flash-abliterated": (0.10, 0.40, 0.01, 0.10), "minimax-m3.1-flash": (0.20, 1.10, 0.02, 0.20),
+}
 
 
 def _print(**ev: Any) -> None:
@@ -44,20 +51,27 @@ def _print(**ev: Any) -> None:
 
 def cost_of(calls_dir: Path) -> dict[str, Any]:
     """Tokens and list-rate cost from every ``calls/*.meta.json`` (input tokens include cache reads/writes)."""
-    tot = {"input": 0, "output": 0, "cache_read": 0, "cache_write": 0, "calls": 0, "seconds": 0.0}
+    tot: dict[str, Any] = {"input": 0, "output": 0, "cache_read": 0, "cache_write": 0, "calls": 0, "seconds": 0.0}
+    usd = 0.0
+    by_model: dict[str, float] = {}
     for p in sorted(calls_dir.glob("*.meta.json")):
         m = json.loads(p.read_text(encoding="utf-8"))
         u = m.get("usage") or {}
         tot["calls"] += 1
         tot["seconds"] += float(m.get("seconds") or 0)
-        tot["input"] += int(u.get("input_tokens") or 0)
-        tot["output"] += int(u.get("output_tokens") or 0)
-        tot["cache_read"] += int(u.get("cache_read_tokens") or 0)
-        tot["cache_write"] += int(u.get("cache_write_tokens") or 0)
-    fresh = max(0, tot["input"] - tot["cache_read"] - tot["cache_write"])
-    usd = (fresh * RATES["input"] + tot["output"] * RATES["output"] + tot["cache_read"] * RATES["cache_read"]
-           + tot["cache_write"] * RATES["cache_write"]) / 1e6
-    return {**tot, "seconds": round(tot["seconds"], 1), "usd": round(usd, 2)}
+        i, o = int(u.get("input_tokens") or 0), int(u.get("output_tokens") or 0)
+        cr, cw = int(u.get("cache_read_tokens") or 0), int(u.get("cache_write_tokens") or 0)
+        tot["input"] += i
+        tot["output"] += o
+        tot["cache_read"] += cr
+        tot["cache_write"] += cw
+        model = str(m.get("model") or "")
+        r = MODEL_RATES.get(model) or (RATES["input"], RATES["output"], RATES["cache_read"], RATES["cache_write"])
+        c = (max(0, i - cr - cw) * r[0] + o * r[1] + cr * r[2] + cw * r[3]) / 1e6
+        usd += c
+        key = model if model in MODEL_RATES else "default (strong)"
+        by_model[key] = round(by_model.get(key, 0.0) + c, 3)
+    return {**tot, "seconds": round(tot["seconds"], 1), "usd": round(usd, 2), "usd_by_model": by_model}
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -88,6 +102,14 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--render", default="", help="render the result (1080p + audio) to this MP4")
     ap.add_argument("--render-only", default="", help="job dir whose page to render (no model calls)")
     ap.add_argument("--rounds", type=int, default=0, help="override the effort's critique rounds (1 = critique only)")
+    ap.add_argument("--model", default="", help="Director model for this run (hermes chat -m); default: user's")
+    ap.add_argument("--provider", default="", help="provider for --model (hermes chat --provider)")
+    ap.add_argument("--critic-model", default="", help="critic model (default: the user's default model)")
+    ap.add_argument("--critic-provider", default="")
+    ap.add_argument("--tier", default="", choices=("", "strong", "standard", "weak"), help="force a model tier")
+    ap.add_argument("--no-vision", action="store_true", help="the Director's model cannot see: measured review")
+    ap.add_argument("--model-asset", default="", help="the product's 3D model (glb/blend) for blender: shots")
+    ap.add_argument("--blender", default="", help="Blender executable: enables blender: shots (dev: GPU lock)")
     args = ap.parse_args(argv)
 
     lock = (lambda: render_slot(Path(args.slots), who="w3-director")) if args.slots else None
@@ -97,32 +119,45 @@ def main(argv: list[str] | None = None) -> int:
         return 0 if out.get("ok") else 1
     job = Path(args.job or f"director-job-{time.strftime('%Y%m%d-%H%M%S')}").resolve()
     job.mkdir(parents=True, exist_ok=True)
-    renderer = RuntimeRenderer(lock=lock, gpu=args.gpu)
+    renderer = RuntimeRenderer(lock=lock, gpu=args.gpu, blender=args.blender or None,
+                               blender_lock=dev_blender_lock if args.blender else None, job_dir=job,
+                               blender_min_free_gb=3.5 if args.blender else 0.0)
     dispatch = None
     if args.tts == "edge":
         from ..llm import edge_tts_dispatch
         dispatch = edge_tts_dispatch()
-    llm = hermes_cli_llm(reasoning=args.reasoning)
+    llm = hermes_cli_llm(reasoning=args.reasoning, model=args.model, provider=args.provider)
+    if args.model:                       # a weaker Director keeps the strong vision critic (fair judging)
+        from .llm import routed_llm
+        llm = routed_llm(llm, {"critic": hermes_cli_llm(model=args.critic_model, provider=args.critic_provider)})
+    from . import tiers
+    tier = tiers.detect(args.model, configured=args.tier, vision=False if args.no_vision else None)
     lib = Path(args.library).resolve() if args.library else job / "library"
     t0 = time.monotonic()
     if args.revise:
         res = revise(Path(args.revise).resolve(), args.notes, llm=llm, renderer=renderer, effort=args.effort,
-                     progress=_print, job_dir=job, library_dir=lib, dispatch=dispatch)
+                     progress=_print, job_dir=job, library_dir=lib, dispatch=dispatch, tier=tier)
         return _done(res, job, t0, args)
     assets = [probe_asset(m, out_dir=job / "director" / "media", description=args.media_desc) for m in args.media]
     if assets and args.cutout:
         assets[0].cutout = str(Path(args.cutout).resolve())
+    if args.model_asset:
+        from .types import MediaAsset
+        assets.append(MediaAsset(name="car3d" if "car" in Path(args.model_asset).stem.lower() else "model3d",
+                                 type="model", path=str(Path(args.model_asset).resolve()),
+                                 description="the product's 3D model (Blender scenes only)"))
     product = (Product(name=args.name, one_liner=args.one_liner, features=list(args.feature),
                        urls=[args.url] if args.url else []) if args.name else None)
     digest = Path(args.digest_file).read_text(encoding="utf-8") if args.digest_file else ""
     brief = Brief(direction=args.direction, assets=assets, seconds=args.seconds, aspect=args.aspect,
                   product=product, digest=digest)
     brief.capabilities.gpu = args.gpu
+    brief.capabilities.blender = bool(args.blender)
     print(f"job: {job}\nmedia: {[a.to_dict() for a in assets]}", flush=True)
     if args.until == "all" and args.film:
         from .engine import Version, _finish, _produce
         cat = build_catalog(library_dir=lib, assets=assets, capabilities=brief.capabilities)
-        r = _setup(brief, llm, renderer, args.effort, _print, None, job, lib, cat)
+        r = _setup(brief, llm, renderer, args.effort, _print, None, job, lib, cat, tier=tier)
         if args.rounds:
             r.budget = dataclasses.replace(r.budget, rounds=args.rounds)
         r.dispatch = dispatch
@@ -140,11 +175,14 @@ def main(argv: list[str] | None = None) -> int:
         v1 = Version(1, *chk.value)
         return _done(_finish(r, _produce(r, first=v1), True, t0), job, t0, args)
     if args.until == "all":
+        budget = None
+        if args.rounds:
+            budget = dataclasses.replace(EFFORTS[args.effort], rounds=args.rounds)
         res = run(brief, llm=llm, renderer=renderer, effort=args.effort, progress=_print, job_dir=job,
-                  library_dir=lib, dispatch=dispatch)
+                  library_dir=lib, dispatch=dispatch, tier=tier, budget=budget)
         return _done(res, job, t0, args)
     cat = build_catalog(library_dir=lib, assets=assets, capabilities=brief.capabilities)
-    r = _setup(brief, llm, renderer, args.effort, _print, None, job, lib, cat)
+    r = _setup(brief, llm, renderer, args.effort, _print, None, job, lib, cat, tier=tier)
     if args.treatment:
         r.treatment = json.loads(Path(args.treatment).read_text(encoding="utf-8"))
         r.save("treatment.json", r.treatment)
@@ -181,7 +219,8 @@ def _done(res: Any, job: Path, t0: float, args: argparse.Namespace) -> int:
                      indent=1, default=str))
     _summary(job, t0)
     if res.ok and args.render:
-        out = render_job(job, Path(args.render), slots=Path(args.slots) if args.slots else None)
+        out = render_job(job, Path(args.render), slots=Path(args.slots) if args.slots else None,
+                         blender=args.blender or None)
         print(json.dumps(out, indent=1, default=str))
     return 0 if res.ok else 1
 
@@ -193,15 +232,68 @@ def _summary(job: Path, t0: float) -> None:
 
 # ------------------------------------------------------------------------------------ dev render + mix
 
-def render_job(job: Path, out: Path, *, slots: Path | None = None, gpu: str = "auto") -> dict[str, Any]:
-    """Render ``job/page`` at film size and mix the film's audio (bed cue sheet, SFX, stings, narration)."""
+def dev_blender_lock() -> Any:
+    """DEV ONLY: blender.lock + the user's GPU lock (W5 rules) around each real Blender run."""
+    import contextlib
+    import os
+
+    @contextlib.contextmanager
+    def held() -> Any:
+        root = Path(os.environ.get("SHOWREEL_DEV_WORK", "C:/Users/2/showreel-work"))
+        lockf = root / "blender.lock"
+        while True:
+            try:
+                fd = os.open(lockf, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+                break
+            except FileExistsError:
+                try:
+                    if time.time() - lockf.stat().st_mtime > 3 * 3600:
+                        lockf.unlink(missing_ok=True)
+                        continue
+                except OSError:
+                    pass
+                time.sleep(10)
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(f"showreel-engine {os.getpid()} {time.strftime('%Y-%m-%dT%H:%M:%S')}")
+        try:
+            gdir = os.environ.get("SHOWREEL_DEV_GPULOCK_DIR", "D:/WhatIfCubed/tools/tts_eval")
+            if gdir and Path(gdir, "gpulock.py").is_file():
+                sys.path.insert(0, gdir)
+                from gpulock import gpu  # type: ignore[import-not-found]
+                with gpu("showreel-engine"):
+                    yield
+            else:
+                yield
+        finally:
+            lockf.unlink(missing_ok=True)
+    return held()
+
+
+def _style_post(spec: Any, film: dict[str, Any]) -> Any:
+    """A style kit's own post chain (terminal: crt) + the film finish, like the pipeline's post_plan."""
+    import dataclasses as dc
+
+    from .. import pipeline as pl
+    page, post, params = pl.post_plan(film, "stage.html")
+    try:
+        return dc.replace(spec, page=page, post=post, post_params=params)
+    except (TypeError, ValueError):
+        return spec
+
+
+def render_job(job: Path, out: Path, *, slots: Path | None = None, gpu: str = "auto",
+               blender: str | None = None) -> dict[str, Any]:
+    """Render ``job/page`` at film size and mix the film's audio (bed cue sheet, SFX, stings, narration).
+    Films with ``blender:`` shots go through ``blender.render_film`` (final-tier Blender -> browser -> audio)."""
     from ..film.render import render_spec
     from ..render.workers import render_video
 
     film = json.loads((job / "film.json").read_text(encoding="utf-8"))
     out.parent.mkdir(parents=True, exist_ok=True)
+    if any(str(s.get("scene", "")).startswith("blender:") for s in film.get("shots") or []):
+        return render_blender_job(job, film, out, blender=blender)
     silent = out.with_name(out.stem + "-silent.mp4")
-    spec = render_spec(job / "page", silent, gpu=gpu, work_dir=job / "render-chunks")
+    spec = _style_post(render_spec(job / "page", silent, gpu=gpu, work_dir=job / "render-chunks"), film)
     t0 = time.monotonic()
     if slots is not None:
         with render_slot(slots, who="w3-director-render"):
@@ -214,6 +306,32 @@ def render_job(job: Path, out: Path, *, slots: Path | None = None, gpu: str = "a
         return report
     report.update(mix_job(job, film, silent, out))
     return report
+
+
+def render_blender_job(job: Path, film: dict[str, Any], out: Path, *, blender: str | None) -> dict[str, Any]:
+    """Final-tier render of a Director film with Blender shots (dev route: holds the GPU lock per Blender run)."""
+    import shutil
+
+    from ..blender.render_film import render_film
+    brief = json.loads((job / "director" / "brief.json").read_text(encoding="utf-8"))
+    by_name = {a["name"]: a for a in brief.get("assets") or []}
+    fdir = job / "final-film"
+    (fdir / "scenes").mkdir(parents=True, exist_ok=True)
+    f2 = json.loads(json.dumps(film))
+    for name, spec in (f2.get("assets") or {}).items():
+        a = by_name.get(name)
+        if a:
+            spec["src"] = a["path"]
+            if a.get("cutout"):
+                spec["cutout"] = a["cutout"]
+    for p in sorted((job / "page" / "scenes").glob("*.js")):
+        shutil.copy2(p, fdir / "scenes" / p.name)
+    (fdir / "film.json").write_text(json.dumps(f2, indent=1), encoding="utf-8")
+    t0 = time.monotonic()
+    res = render_film(fdir / "film.json", out, tier="final", job_dir=job / "final-job", blender=blender,
+                      lock=dev_blender_lock, min_free_gb=3.5)
+    return {"render_s": round(time.monotonic() - t0, 1), "ok": bool(res.ok), "out": res.out, "error": res.error,
+            "timings": getattr(res, "timings", {})}
 
 
 def mix_job(job: Path, film: dict[str, Any], video: Path, out: Path) -> dict[str, Any]:

@@ -90,16 +90,19 @@ class Catalog:
     capabilities: Capabilities = field(default_factory=Capabilities)
     sdk: str = ""
     craft: str = ""
+    blender_scenes: list[SceneInfo] = field(default_factory=list)   # `blender:<kit>/<scene>` (Blender present)
 
     # ------------------------------------------------------------------ lookups
     def scenes(self) -> dict[str, SceneInfo]:
-        """Every referenceable scene id (kit + library) -> info."""
+        """Every referenceable scene id (kit + library + Blender when available) -> info."""
         out: dict[str, SceneInfo] = {}
         for k in self.kits:
             for s in k.scenes:
                 out[s.id] = s
         for e in self.library:
             out[e.id] = SceneInfo(e.id, "", e.describe, e.layer, list(e.params), json.dumps(e.params)[:800])
+        for s in self.blender_scenes:
+            out[s.id] = s
         return out
 
     def transitions(self) -> set[str]:
@@ -143,6 +146,12 @@ class Catalog:
                 lines.append(f"  - `{s.id}`{f' [{s.layer}]' if s.layer else ''}: {_one_line(s.describe, 160)}")
             if k.transitions:
                 lines.append(f"  - transitions: {', '.join(f'`{t}`' for t in k.transitions)}")
+        if self.blender_scenes:
+            lines.append("- **blender** (real 3D, rendered by the user's Blender; the best-looking scenes for a "
+                         "product with a 3D model or for app screens on real devices; kit:type overlays carry the "
+                         "words; `params` use the names below):")
+            for s in self.blender_scenes:
+                lines.append(f"  - `{s.id}` [3D]: {_one_line(s.describe, 200)} Params: {_one_line(s.params_src, 600)}")
         lines.append("\n## User library (reusable by id)")
         lines += [f"- `{e.id}` [{e.layer or '?'}]: {_one_line(e.describe, 200)}" for e in self.library] or ["(empty)"]
         lines.append("\n" + self.music_text())
@@ -213,6 +222,7 @@ class Catalog:
         return ("## Capabilities\n"
                 f"- GPU: {'yes' if c.gpu else 'no (software WebGL: keep three.js scenes light)'}\n"
                 f"- three.js: {'available' if c.three else 'not available'}\n"
+                f"- Blender 3D shots: {'available (blender:<kit>/<scene>)' if c.blender else 'not available'}\n"
                 f"- image generation tool: {'available' if c.image_generate else 'not available'}; "
                 f"video generation: {'available' if c.video_generate else 'not available'}")
 
@@ -238,7 +248,27 @@ def build_catalog(*, kits_dir: Path | None = None, library_dir: Path | None = No
         beds=load_beds(audio_dir / "beds"), sfx=load_sfx(audio_dir / "sfx" / "sfx.json"),
         assets=list(assets or []), capabilities=capabilities or Capabilities(),
         sdk=_read(REFERENCE_DIR / "sdk.md"), craft=_read(REFERENCE_DIR / "craft.md"),
+        blender_scenes=load_blender_scenes() if capabilities is not None and capabilities.blender else [],
     )
+
+
+def load_blender_scenes(kit_root: Path | None = None) -> list[SceneInfo]:
+    """`blender:<kit>/<scene>` scenes (static parse of PARAMS/DESCRIBE, no bpy). Never raises."""
+    try:
+        from ..blender import film as bfilm
+        out = []
+        for sid in bfilm.available_scenes(kit_root):
+            info = bfilm.scene_info(bfilm.scene_file(sid, kit_root))
+            params = info.get("params") or {}
+            src = " · ".join(
+                f"`{k}` {json.dumps(v.get('default'))}"
+                + (f" ({'|'.join(str(x) for x in v['values'])})" if isinstance(v, dict) and v.get("values") else "")
+                + (f" - {_one_line(str(v.get('doc', '')), 90)}" if isinstance(v, dict) and v.get("doc") else "")
+                for k, v in params.items() if isinstance(v, dict))
+            out.append(SceneInfo(sid, "blender", str(info.get("describe") or ""), "blender", list(params), src))
+        return out
+    except Exception:  # noqa: BLE001 - Blender kits missing/broken: no 3D scenes offered
+        return []
 
 
 def load_kits(kits_dir: Path) -> list[KitInfo]:

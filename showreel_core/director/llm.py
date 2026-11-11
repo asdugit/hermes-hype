@@ -145,7 +145,7 @@ def _usage_dict(usage: Any) -> dict[str, Any]:
 # ----------------------------------------------------------------------------- dev: hermes chat
 
 def hermes_cli_llm(*, exe: str | None = None, workdir: Path | None = None, extra_turns: int = 1,
-                   reasoning: str | None = None) -> DirectorLlm:
+                   reasoning: str | None = None, model: str = "", provider: str = "") -> DirectorLlm:
     """Dev-only adapter: one ``hermes chat --query-file F -Q --format stream-json`` run per call.
 
     The user's default model answers through the full agent. One-shot chat cannot attach images
@@ -187,6 +187,10 @@ def hermes_cli_llm(*, exe: str | None = None, workdir: Path | None = None, extra
                    "--max-turns", str(len(paths) + extra_turns)]
             if reasoning:
                 cmd += ["--reasoning", reasoning]
+            if model:
+                cmd += ["-m", model]
+            if provider:
+                cmd += ["--provider", provider]
             try:
                 proc = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace",
                                       check=False, timeout=max(120.0, timeout * 3), stdin=subprocess.DEVNULL)
@@ -200,7 +204,21 @@ def hermes_cli_llm(*, exe: str | None = None, workdir: Path | None = None, extra
         err = out.get("error", "") or ("" if proc.returncode == 0 and txt else
                                        f"hermes chat exit {proc.returncode}: {proc.stderr.strip()[-300:]}")
         return LlmReply(text=txt, parsed=_parse_if_json(txt, json_schema is not None), error=err,
-                        model="hermes chat (default model)", usage=usage, seconds=time.monotonic() - t0)
+                        model=model or "hermes chat (default model)", usage=usage, seconds=time.monotonic() - t0)
+    call.model = model  # type: ignore[attr-defined]  # tiers.model_of() reads it
+    return call
+
+
+def routed_llm(default: DirectorLlm, routes: dict[str, DirectorLlm]) -> DirectorLlm:
+    """Send calls whose purpose starts with a route prefix (e.g. ``critic``) to another model; the rest to
+    ``default`` (dev trials: a weak Director with a strong vision critic, for fair judging)."""
+    def call(**kw: Any) -> LlmReply:
+        purpose = str(kw.get("purpose") or "")
+        for prefix, llm in routes.items():
+            if purpose.startswith(prefix):
+                return llm(**kw)
+        return default(**kw)
+    call.model = getattr(default, "model", "")  # type: ignore[attr-defined]
     return call
 
 

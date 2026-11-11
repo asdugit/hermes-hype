@@ -17,6 +17,7 @@ Public API (never raises; returns :class:`DirectorResult`)::
 from __future__ import annotations
 
 import copy
+import dataclasses
 import hashlib
 import json
 import logging
@@ -31,8 +32,8 @@ from typing import Any
 
 from ..contracts import Product
 from ..story.schema import parse_json_text
+from . import compose, measured, prompts, repair, tiers
 from . import prominence as pm
-from . import prompts
 from .backend import Preview, Renderer, RuntimeRenderer, ShotError
 from .catalog import Catalog, build_catalog
 from .checks import (
@@ -49,7 +50,16 @@ from .checks import (
     references,
 )
 from .library import save_scene
-from .llm import BudgetExceeded, CallLedger, Cancelled, DirectorLlm, Image, LlmReply, hermes_llm, is_cancelled
+from .llm import (
+    BudgetExceeded,
+    CallLedger,
+    Cancelled,
+    DirectorLlm,
+    Image,
+    LlmReply,
+    hermes_llm,
+    is_cancelled,
+)
 from .patches import apply_blocks, apply_film_patch, parse_blocks, shot_diff
 from .sheet import Frame, contact_sheets, plan_keyframes
 from .types import (
@@ -157,6 +167,8 @@ class _Run:
         self.dispatch: Any = None                            # Hermes dispatch_tool (narration TTS)
         self.voice_speed: Any = None                         # the user's narration_speed override
         self.parent_prom: pm.Prominence | None = None        # measurements of the film being revised
+        self.tier: tiers.Tier = tiers.Tier("strong")         # what the model is trusted with (see tiers.py)
+        self.path = ""                                       # free | compose | floor: how v1 was made
 
     # -------------------------------------------------------------- events
     def emit(self, step: str, msg: str, frac: float | None = None, level: str = "info", **extra: Any) -> None:
@@ -231,7 +243,13 @@ def run(brief: Brief | None = None, *, llm: Any = None, renderer: Renderer | Non
                           cancel=cancel, job_dir=jd, library_dir=library_dir, catalog=catalog,
                           save_library=save_library, budget=budget, dispatch=kwargs.get("dispatch"),
                           voice_speed=getattr(opts, "voice_speed", None))
-        r = _setup(brief, llm, renderer, effort, progress, cancel, jd, library_dir, catalog, budget)
+        if renderer is None and kwargs.get("blender"):
+            renderer = RuntimeRenderer(gpu=brief.capabilities.gpu, blender=kwargs.get("blender"), job_dir=jd)
+        tier = kwargs.get("tier") if isinstance(kwargs.get("tier"), tiers.Tier) else tiers.detect(
+            str(kwargs.get("model") or tiers.model_of(llm)),
+            configured=str(kwargs.get("director_tier") or getattr(opts, "director_tier", "") or ""),
+            vision=kwargs.get("director_vision", getattr(opts, "director_vision", None)))
+        r = _setup(brief, llm, renderer, effort, progress, cancel, jd, library_dir, catalog, budget, tier=tier)
         r.dispatch = kwargs.get("dispatch")
         r.voice_speed = getattr(opts, "voice_speed", None)
         return _finish(r, _produce(r), save_library, t0)
@@ -308,6 +326,11 @@ def brief_from_kwargs(kw: dict[str, Any], job_dir: Path) -> Brief:
     if not assets and bundle is not None:
         from .media import assets_from_bundle
         assets = assets_from_bundle(bundle, job_dir / "director" / "media")
+    blender = bool(kw.get("blender"))
+    model = str(getattr(product, "model", "") or "") if product is not None else ""
+    if blender and model and Path(model).is_file() and not any(a.type == "model" for a in assets):
+        assets.append(MediaAsset(name="model3d", type="model", path=str(Path(model).resolve()),
+                                 description="the product's 3D model (Blender scenes only)"))
     return Brief(
         direction=str(kw.get("direction") or getattr(opts, "direction", "") or ""),
         product=product if isinstance(product, Product) else None,
@@ -315,7 +338,7 @@ def brief_from_kwargs(kw: dict[str, Any], job_dir: Path) -> Brief:
         assets=assets,
         seconds=float(kw.get("seconds") or getattr(opts, "seconds", 45) or 45),
         aspect=aspect, fps=int(kw.get("fps") or 30), seed=int(kw.get("seed") or 7),
-        capabilities=Capabilities(gpu=bool(kw.get("gpu"))),
+        capabilities=Capabilities(gpu=bool(kw.get("gpu")), blender=blender),
         notes=str(kw.get("notes") or getattr(opts, "notes", "") or ""),
     )
 
@@ -346,7 +369,7 @@ def _as_director_llm(llm: Any) -> DirectorLlm:
 
 def _setup(brief: Brief, llm: Any, renderer: Renderer | None, effort: str, progress: ProgressFn | None,
            cancel: Any, job_dir: Path, library_dir: str | Path | None, catalog: Catalog | None,
-           budget: Budget | None = None) -> _Run:
+           budget: Budget | None = None, tier: tiers.Tier | None = None) -> _Run:
     effort = effort if effort in EFFORTS else "standard"
     lib = Path(library_dir) if library_dir else None
     if lib is None:
@@ -358,12 +381,26 @@ def _setup(brief: Brief, llm: Any, renderer: Renderer | None, effort: str, progr
     cat = catalog or build_catalog(library_dir=lib, assets=brief.assets, capabilities=brief.capabilities)
     if not cat.assets:
         cat.assets = list(brief.assets)
-    r = _Run(brief, cat, budget or EFFORTS[effort], _as_director_llm(llm),
+    tier = tier or tiers.Tier("strong")
+    if not tier.vision:
+        brief.capabilities.vision = False
+    bud = budget or EFFORTS[effort]
+    if tier.custom_scenes < bud.max_custom:
+        bud = dataclasses.replace(bud, max_custom=tier.custom_scenes)
+    if not tier.vision:                      # no critic to iterate with: one measured review, engine repairs only
+        bud = dataclasses.replace(bud, rounds=1)
+    r = _Run(brief, cat, bud, _as_director_llm(llm),
              renderer or RuntimeRenderer(gpu=brief.capabilities.gpu), job_dir, lib, progress, cancel, effort)
+    r.tier = tier
+    if hasattr(r.renderer, "job_dir") and getattr(r.renderer, "job_dir", None) is None:
+        r.renderer.job_dir = job_dir
     r.save("brief.json", brief.to_dict())
     r.save("catalog.md", cat.full())
+    r.save("tier.json", tier.to_dict())
     r.emit("setup", f"Director ready ({effort}: {r.budget.rounds} critique round(s), "
-                    f"{len(cat.scenes())} kit/library scenes, {len(brief.assets)} media)", 0.01)
+                    f"{len(cat.scenes())} kit/library scenes, {len(brief.assets)} media; model tier {tier.name}"
+                    f"{'' if tier.vision else ', no vision: measured review'}"
+                    f"{', compose path' if tier.path == 'compose' else ''})", 0.01, tier=tier.to_dict())
     return r
 
 
@@ -382,18 +419,8 @@ def _produce(r: _Run, start: Version | None = None, first: Version | None = None
             if not _realise(r, v, code=list(v.customs)):
                 return None
         elif start is None:
-            r.emit("treatment", "Writing treatment", 0.03)
-            r.treatment = _treatment(r)
-            if not r.treatment:
-                return None
-            r.emit("film", "Writing film script", 0.10)
-            v = _film(r)
+            v = _first_version(r)
             if v is None:
-                return None
-            recipe = r.treatment.get("recipe")
-            r.emit("scenes", f"Film script: {len(v.film['shots'])} shots, {len(v.customs)} custom scene(s)"
-                             + (f" (recipe {recipe})" if recipe else ""), 0.18)
-            if not _realise(r, v, code=list(v.customs)):
                 return None
         else:
             v = _apply_notes(r, start)
@@ -438,6 +465,119 @@ def _produce(r: _Run, start: Version | None = None, first: Version | None = None
 
 
 # ------------------------------------------------------------------------------------ steps
+
+def _first_version(r: _Run) -> Version | None:
+    """v1 by the path the model's tier allows, falling down the floor on failure:
+    free (treatment -> film -> custom code) -> compose (pick -> words -> engine film) -> engine floor (no model)."""
+    if r.tier.path == "free":
+        try:
+            r.emit("treatment", "Writing treatment", 0.03)
+            r.treatment = _treatment(r)
+            v = None
+            if r.treatment:
+                r.emit("film", "Writing film script", 0.10)
+                v = _film(r)
+            if v is not None:
+                recipe = r.treatment.get("recipe")
+                r.emit("scenes", f"Film script: {len(v.film['shots'])} shots, {len(v.customs)} custom scene(s)"
+                                 + (f" (recipe {recipe})" if recipe else ""), 0.18)
+                if _realise(r, v, code=list(v.customs)):
+                    r.path = "free"
+                    return v
+            r.warn("floor", "The free-form film did not come together; composing from a blueprint instead")
+        except BudgetExceeded:
+            raise
+        except Cancelled:
+            raise
+        except Exception as exc:
+            if type(exc).__name__ == "Cancelled":
+                raise
+            log.exception("free path failed")
+            r.warn("floor", f"The free-form path failed ({type(exc).__name__}); composing from a blueprint instead")
+    v = _compose(r, use_model=r.ledger.remaining >= 2)
+    if v is not None and _realise(r, v, code=[]):
+        return v
+    if r.path != "floor":
+        r.warn("floor", "The composed film did not render; using the engine floor film")
+        v = _compose(r, use_model=False)
+        if v is not None and _realise(r, v, code=[]):
+            return v
+    return None
+
+
+def _compose(r: _Run, *, use_model: bool) -> Version | None:
+    """The any-model path: PICK (enum-constrained) -> WORDS (slot texts) -> the engine assembles the film from the
+    blueprint. Every reply is repaired; anything missing comes from the engine floor (``use_model=False`` = floor)."""
+    bps = compose.blueprints(catalog=r.catalog, blender=r.brief.capabilities.blender)
+    if not bps:
+        r.emit("compose", "No blueprints are installed", level="error")
+        return None
+    brief = r.brief
+    pick = compose.default_pick(bps, brief)
+    texts: dict[str, str] = {}
+    voice: list[dict[str, Any]] = []
+    answered = 0                                   # model replies that were usable at all
+    if use_model:
+        r.emit("compose", "Choosing the film's blueprint", 0.05)
+        instr, text = compose.pick_prompt(brief, bps)
+        try:
+            reply = r.ask("pick", instr, text, schema=compose.PICK_SCHEMA, schema_name="showreel.pick",
+                          temperature=0.5, max_tokens=1500, timeout=180.0)
+            raw = reply.parsed if reply.parsed is not None else reply.text
+            answered += int(bool(reply.text.strip()) and not (reply.error and not reply.parsed))
+            pick, fixes = compose.check_pick(raw, bps, brief)
+            for f in fixes:
+                r.emit("compose", f"pick repaired: {f}", level="debug")
+            if reply.error and not reply.text:
+                r.warn("compose", f"Pick call failed ({reply.error[:120]}); engine default blueprint")
+        except BudgetExceeded:
+            r.warn("compose", "No model calls left; engine default blueprint")
+    bp = next(b for b in bps if b.id == pick["blueprint"])
+    r.emit("compose", f"Blueprint {bp.id} ({bp.name}); voice {pick.get('voice')}; time {pick.get('time')}"
+                      + (f": {pick.get('why')[:160]}" if pick.get("why") else ""), 0.08, blueprint=bp.id)
+    if use_model and r.ledger.remaining >= 1:
+        instr, text = compose.words_prompt(brief, bp, pick, float(brief.seconds))
+        try:
+            reply = r.ask("words", instr, text, schema=compose.WORDS_SCHEMA, schema_name="showreel.words",
+                          temperature=0.7, max_tokens=2500, timeout=180.0)
+            answered += int(bool(reply.text.strip()) and not (reply.error and not reply.parsed))
+            texts, voice, fixes = compose.check_words(reply.parsed if reply.parsed is not None else reply.text,
+                                                      bp, brief, pick, float(brief.seconds))
+            for f in fixes:
+                r.emit("compose", f"words repaired: {f}", level="debug")
+        except BudgetExceeded:
+            r.warn("compose", "No model calls left; the engine writes the words")
+    if not voice and pick.get("voice") == "narrated" and not use_model:
+        voice = []
+    obj = compose.assemble(brief, bp, pick, texts, voice)
+    if not r.treatment:
+        r.treatment = compose.treatment_of(bp, pick, brief)
+        r.save("treatment.json", r.treatment)
+    value, errors, warnings = _validate(r, obj)
+    for w in warnings:
+        r.emit("compose", w, level="debug")
+    if value is None and (texts or voice):
+        r.warn("compose", f"Composed film rejected ({'; '.join(errors)[:240]}); retrying without the model's words")
+        value, errors, _w = _validate(r, compose.assemble(brief, bp, pick))
+    if value is None:
+        r.emit("compose", f"Blueprint {bp.id} did not validate: {'; '.join(errors)[:300]}", level="error")
+        alt = [b for _, b in compose.rank(bps, brief.direction, brief) if b.id != bp.id and not b.blender]
+        for b in alt[:2]:
+            value, errors, _w = _validate(r, compose.assemble(brief, b, compose.default_pick([b], brief)))
+            if value is not None:
+                bp = b
+                break
+    if value is None:
+        return None
+    film, plan = value
+    r.path = "compose" if use_model and answered else "floor"
+    v = Version(1, film, plan, origin=r.path)
+    _static_bumps(r, v)
+    r.save("v1/compose.json", {"blueprint": bp.id, "pick": pick, "texts": texts, "voiceover": voice,
+                               "path": r.path})
+    r.emit("scenes", f"Composed film: {len(film['shots'])} shots on blueprint {bp.id} ({r.path})", 0.18)
+    return v
+
 
 def _treatment(r: _Run) -> dict[str, Any]:
     instr, text = prompts.treatment_prompt(r.brief, r.catalog)
@@ -485,6 +625,12 @@ def _film(r: _Run) -> Version | None:
 
 def _validate(r: _Run, obj: Any) -> tuple[tuple[dict[str, Any], dict[str, Any]] | None, list[str], list[str]]:
     """Director checks + static prominence + runtime schema for a {film, plan} object."""
+    if isinstance(obj, dict) and isinstance(obj.get("film"), dict):
+        obj, fixes = repair.coerce(obj, prompts.FILM_SCHEMA)
+        fixes += repair.snap_film_ids(obj, r.catalog, [a.name for a in r.brief.assets])
+        if fixes:
+            r.emit("repair", f"Repaired {len(fixes)} field(s) of the film reply: {'; '.join(fixes[:6])[:300]}",
+                   level="debug")
     chk = check_film(obj, r.brief, r.catalog, max_custom=r.budget.max_custom)
     errors = list(chk.errors)
     if chk.value is not None and not errors:
@@ -772,6 +918,8 @@ def _dry_run(r: _Run, v: Version) -> bool:
     v.frames = plan_keyframes(v.film, r.budget.keyframes_per_shot)
     for loop in range(r.budget.scene_tries + 2):
         r.check_cancel()
+        if hasattr(r.renderer, "blender_times"):
+            r.renderer.blender_times = _blender_times(v)
         errs = r.renderer.build(v.film, r.page_dir, scenes=v.scenes, assets=r.brief.assets,
                                 library_dir=r.library_dir)
         r.built_n = v.n
@@ -835,6 +983,20 @@ def _dry_run(r: _Run, v: Version) -> bool:
     return False
 
 
+def _blender_shot_ids(film: dict[str, Any]) -> set[str]:
+    return {str(s["id"]) for s in film.get("shots") or [] if str(s.get("scene", "")).startswith("blender:")}
+
+
+def _blender_times(v: Version) -> list[float]:
+    """Film times the browser will show inside Blender shots (keyframes + probe frames): only these frames are
+    rendered by the Blender preview pass."""
+    ids = _blender_shot_ids(v.film)
+    if not ids:
+        return []
+    probe, _det = _probe_times(v.film, only=ids)
+    return sorted({round(f.t, 3) for f in v.frames} | set(probe))
+
+
 def _errors_by_scene(v: Version, pv: Preview) -> dict[str, list[str]]:
     """Group dry-run errors by custom scene name ('' = kit shots / unattributed but harmless)."""
     scene_of = {s["id"]: s["scene"] for s in v.film["shots"]}
@@ -885,6 +1047,12 @@ def _measure(r: _Run, v: Version) -> None:
         v.measures, v.prom = [], None
         return
     v.measures = pm.measure_frames(v.frames, v.images, v.mask_images)
+    b_ids = _blender_shot_ids(v.film)
+    if b_ids:          # Blender frames are not drawn from the flipped media: the mirror cannot measure them
+        v.measures = [m for m in v.measures if m.shot not in b_ids]
+        if not v.measures:
+            v.prom = None
+            return
     v.prom = pm.summarise(v.measures)
     pm.save(r.ddir / f"v{v.n}" / "prominence.json", v.measures, v.prom)
 
@@ -980,6 +1148,8 @@ def _critique(r: _Run, v: Version, rnd: int) -> RoundScore | None:
     v.sheets = list(sheets)
     r.emit("critic", f"Critic round {rnd}: reviewing {len(v.frames)} keyframes on {len(sheets)} sheet(s)",
            sheets=[str(s) for s in sheets])
+    if not r.tier.vision:
+        return _measured_critique(r, v, rnd)
     product = r.product
     share, missing = product_share(v.film, product) if product else (1.0, [])
     checks = [f"product media referenced in {share:.0%} of the runtime" + (f" (not in {missing})" if missing else "")]
@@ -1038,6 +1208,25 @@ def _critique(r: _Run, v: Version, rnd: int) -> RoundScore | None:
            + (f", framed as the hero in {hshare:.0%}" if hshare is not None and product else "")
            + (f"; shots: {shots_txt}" if shots_txt else ""),
            scores=scores, product_share=vshare, shot_scores=v.shot_scores())
+    return v.score
+
+
+def _measured_critique(r: _Run, v: Version, rnd: int) -> RoundScore:
+    """No vision: score the version from measurements (keyframes, prominence, layout QA, film structure)."""
+    crit = measured.review(v.film, v.plan, v.frames, v.images, prom=v.prom, measures=v.measures,
+                           qa=(v.preview.qa if v.preview else []), fallbacks=v.fallbacks, product=bool(r.product))
+    crit = _normalise_critique(crit, v) or crit
+    crit["measured"] = True
+    scores = crit["scores"]
+    vals = [scores[k] for k in RUBRIC_KEYS]
+    vshare = v.prom.visible_share if v.prom is not None else None
+    hshare = v.prom.hero_share if v.prom is not None else None
+    v.critique = crit
+    v.score = RoundScore(rnd, v.n, scores, round(sum(vals) / len(vals), 2), min(vals), vshare, False,
+                         len(crit["per_shot_issues"]), str(crit.get("verdict", "")), hshare)
+    r.save(f"v{v.n}/critique.json", crit)
+    r.emit("critic", f"Measured review v{v.n} (no vision): " + ", ".join(f"{k} {scores[k]:g}" for k in RUBRIC_KEYS),
+           scores=scores, measured=True)
     return v.score
 
 
@@ -1477,13 +1666,15 @@ def _finish(r: _Run, best: Version | None, save_library: bool, t0: float) -> Dir
                          page_dir=str(r.page_dir), scene_files=files, treatment=r.treatment, version=best.n,
                          scores=scores, passed_bar=passed, scenes=scenes, library_saved=saved,
                          usage=r.ledger.totals(), seconds=round(time.monotonic() - t0, 1), log=r.log,
-                         measured=best.prom.to_dict() if best.prom else {}, narration=narration)
+                         measured=best.prom.to_dict() if best.prom else {}, narration=narration,
+                         tier={**r.tier.to_dict(), "path": r.path})
     r.save("result.json", {k: v for k, v in res.to_dict().items() if k != "log"})
     return res
 
 
 def _save_state(r: _Run, best: Version) -> None:
     r.save("state.json", {"brief": r.brief.to_dict(), "treatment": r.treatment, "best": best.n,
+                          "tier": {**r.tier.to_dict(), "path": r.path},
                           "title": best.film.get("title", ""),
                           "versions": [{"n": v.n, "origin": v.origin, "score": v.score.to_dict() if v.score else None,
                                         "shots": v.shot_scores(), "measured": v.prom.to_dict() if v.prom else None,

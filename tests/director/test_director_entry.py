@@ -45,8 +45,12 @@ def test_host_llm_is_used(tmp_path: Path) -> None:
     class Host:
         llm = Ctx()
 
-    res = run(direction="a film", host=Host(), job_dir=tmp_path / "j", library_dir=tmp_path / "lib")
-    assert not res.ok and calls and calls[0]["purpose"] == "showreel.treatment"
+    from director_fakes import FakeRenderer
+    res = run(direction="a film", host=Host(), job_dir=tmp_path / "j", library_dir=tmp_path / "lib",
+              renderer=FakeRenderer())
+    assert calls and calls[0]["purpose"] == "showreel.treatment"
+    # every model call fails: the engine floor still makes a (critique-less) film instead of giving up
+    assert res.ok and res.tier["path"] == "floor"
 
 
 def test_guess_style() -> None:

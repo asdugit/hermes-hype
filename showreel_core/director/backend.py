@@ -105,11 +105,19 @@ class RuntimeRenderer:
     """
 
     def __init__(self, *, lock: Callable[[], contextlib.AbstractContextManager[Any]] | None = None,
-                 timeout_s: float = 90.0, kits_root: Path | None = None, gpu: bool = False) -> None:
+                 timeout_s: float = 90.0, kits_root: Path | None = None, gpu: bool = False,
+                 blender: Any = None, blender_lock: Callable[[], Any] | None = None, job_dir: Path | None = None,
+                 blender_min_free_gb: float = 0.0) -> None:
         self.lock = lock
         self.timeout_s = timeout_s
         self.gpu = gpu          # keyframes on the GPU look like the final render (software GL picks low tiers)
         self.build_kwargs: dict[str, Any] = {"kits_root": kits_root} if kits_root else {}
+        self.blender = blender                  # BlenderFound / its dict / a path: enables `blender:` shots
+        self.blender_lock = blender_lock        # dev: GPU lock + blender.lock around each Blender run
+        self.blender_min_free_gb = blender_min_free_gb
+        self.blender_times: list[float] = []    # film times the preview will show (set by the engine per build)
+        self.job_dir = job_dir
+        self.blender_log: list[dict[str, Any]] = []
 
     # ------------------------------------------------------------------ film layer (optional modules)
     def validate_film(self, film: dict[str, Any]) -> list[str]:
@@ -146,14 +154,44 @@ class RuntimeRenderer:
             src = Path(library_dir or "") / sid.split(":", 1)[1] / "scene.js"
             if library_dir and src.is_file():
                 sources[sid] = src
+        specs = _asset_specs(film, page_dir, assets)
+        if any(str(s.get("scene", "")).startswith("blender:") for s in film.get("shots") or []):
+            film, specs, berr = self._blender_pass(film, page_dir, specs, assets, sources)
+            if berr:
+                return berr
         try:
-            fn(film, page_dir, scenes=sources, assets=_asset_specs(film, page_dir, assets), **self.build_kwargs)
+            fn(film, page_dir, scenes=sources, assets=specs, **self.build_kwargs)
         except Exception as exc:  # noqa: BLE001 - build problems go back to the engine as errors
             issues = getattr(exc, "issues", None)
             if issues:
                 return [str(i) for i in issues]
             return [f"page build failed: {type(exc).__name__}: {exc}"]
         return []
+
+    def _blender_pass(self, film: dict[str, Any], page_dir: Path, specs: dict[str, Any], assets: list[MediaAsset],
+                      sources: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any], list[str]]:
+        """Preview-tier Blender render of the `blender:` shots at the times the preview will show; returns the film
+        with those shots rewritten to `kit:frames/play` plus the frame assets (ISSUES #42)."""
+        if not self.blender:
+            return film, specs, ["this film has `blender:` shots but Blender is not available: use kit scenes"]
+        from ..blender.film import render_film_shots
+        full = dict(specs)
+        for a in assets:                          # 3D models are Blender-only assets (never in the browser page)
+            if a.type == "model" and a.name in (film.get("assets") or {}):
+                full[a.name] = {"src": a.path, "type": "model"}
+        jd = Path(self.job_dir or page_dir.parent)
+        times = sorted(set(self.blender_times)) or None
+        t0 = time.monotonic()
+        found = self.blender.get("path") if isinstance(self.blender, dict) else self.blender
+        bp = render_film_shots(film, jd, blender=found, tier="preview", assets=full, times=times,
+                               lock=self.blender_lock, min_free_gb=self.blender_min_free_gb, scenes=sources,
+                               cache_dir=jd / "director" / "blender-cache")
+        self.blender_log.append({"ok": bp.ok, "seconds": round(time.monotonic() - t0, 1), "times": len(times or []),
+                                 "errors": list(getattr(bp, "errors", []) or [])[:4]})
+        if not bp.ok:
+            errs = list(getattr(bp, "errors", []) or []) or [str(getattr(bp, "message", "") or "Blender pass failed")]
+            return film, specs, [f"Blender: {e}" for e in errs[:6]]
+        return bp.film, {**bp.browser_assets, **bp.manifest}, []
 
     # ------------------------------------------------------------------ dry run + keyframes
     def preview(self, page_dir: Path, *, probe_times: Sequence[float], capture_times: Sequence[float],

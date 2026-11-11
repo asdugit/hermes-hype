@@ -196,7 +196,13 @@ def check_film(obj: Any, brief: Brief, catalog: Catalog, *, max_custom: int) -> 
         used |= references(s["params"], names)
     for o in film.get("overlays") or []:
         used |= references(o.get("params") or {}, names)
-    film["assets"] = {a.name: {"type": "frames" if a.type == "video" else "image"}
+    models = [a for a in brief.assets if a.type == "model"]
+    if models and any(str(s["scene"]).startswith("blender:") for s in shots):
+        used.add(models[0].name)                     # Blender scenes default to the job's 3D product
+        film.setdefault("meta", {})
+        if isinstance(film["meta"], dict):
+            film["meta"].setdefault("product_asset", models[0].name)
+    film["assets"] = {a.name: {"type": "model" if a.type == "model" else "frames" if a.type == "video" else "image"}
                       for a in brief.assets if a.name in used}
     product = {a.name for a in brief.assets if a.product}
     if product and shots:
@@ -238,7 +244,8 @@ def _check_shots(film: dict[str, Any], dur: float, errors: list[str], warnings: 
             sid += "-b"
         seen.add(sid)
         scene = str(s.get("scene") or "").strip()
-        if not re.match(r"^(kit:[a-z0-9_-]+/[a-z0-9_.-]+|lib:[a-z0-9_.-]+|custom:[a-z0-9_.-]+)$", scene, re.IGNORECASE):
+        if not re.match(r"^(kit:[a-z0-9_-]+/[a-z0-9_.-]+|lib:[a-z0-9_.-]+|custom:[a-z0-9_.-]+|"
+                        r"blender:[a-z0-9_-]+/[a-z0-9_.-]+)$", scene, re.IGNORECASE):
             errors.append(f"shot `{sid}` has an invalid scene id `{scene}`")
         res = s.get("res")
         if isinstance(res, list) and len(res) == 2 and all(_num(v) for v in res):
@@ -509,7 +516,7 @@ def product_share(film: dict[str, Any], product_assets: set[str]) -> tuple[float
     covered: list[tuple[float, float]] = []
     missing = []
     for s in film.get("shots") or []:
-        if references(s.get("params") or {}, product_assets):
+        if references(s.get("params") or {}, product_assets) or blender_product_shot(s):
             covered.append((s["t0"], s["t1"]))
         else:
             missing.append(s["id"])
@@ -525,9 +532,19 @@ def product_share(film: dict[str, Any], product_assets: set[str]) -> tuple[float
     return min(1.0, total / dur), missing
 
 
+BLENDER_PRODUCT_KITS = ("studio", "meadow", "device")
+
+
+def blender_product_shot(shot: dict[str, Any]) -> bool:
+    """Blender product scenes draw the job's product (3D model / captures) by default, without a param."""
+    sc = str(shot.get("scene") or "")
+    return sc.startswith("blender:") and sc.split(":", 1)[1].split("/")[0] in BLENDER_PRODUCT_KITS
+
+
 def first_product_time(film: dict[str, Any], product_assets: set[str]) -> float | None:
     """Start of the first shot/overlay that references product media."""
-    ts = [float(s["t0"]) for s in film.get("shots") or [] if references(s.get("params") or {}, product_assets)]
+    ts = [float(s["t0"]) for s in film.get("shots") or []
+          if references(s.get("params") or {}, product_assets) or blender_product_shot(s)]
     ts += [float(o["t0"]) for o in film.get("overlays") or [] if references(o.get("params") or {}, product_assets)]
     return min(ts) if ts else None
 
