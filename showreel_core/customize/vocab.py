@@ -115,7 +115,7 @@ def rgba(hex6: str, a: float) -> str:
 PALETTES: dict[str, dict[str, str]] = {
     "neon": {"accent": "#FF2BD6", "accent2": "#00F0FF", "accent3": "#B6FF3A", "bg": "#0A0614", "text": "#F7F1FF"},
     "pastel": {"accent": "#FF9EC7", "accent2": "#9ED8FF", "accent3": "#FFE29A", "bg": "#FFF6FA", "text": "#3B2F45"},
-    "candy": {"accent": "#FF4FA3", "accent2": "#FFD23A", "accent3": "#5CE1E6", "bg": "#2A0E2E", "text": "#FFF4FB"},
+    "candy": {"accent": "#FF4FA3", "accent2": "#FFD23A", "accent3": "#5CE1E6", "bg": "#4A0D3C", "text": "#FFF4FB"},
     "noir": {"accent": "#E8E8E8", "accent2": "#9A9A9A", "accent3": "#D7263D", "bg": "#050505", "text": "#F2F2F2"},
     "sunset": {"accent": "#FF7A45", "accent2": "#FFC145", "accent3": "#C04CFD", "bg": "#1C0B19", "text": "#FFF1E6"},
     "ocean": {"accent": "#3FA7FF", "accent2": "#2FD3C0", "accent3": "#B8E7FF", "bg": "#06162B", "text": "#EAF6FF"},
