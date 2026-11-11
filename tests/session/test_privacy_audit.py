@@ -66,7 +66,7 @@ def test_credential_file_values_are_masked_whatever_the_key():
     ("call +44 20 7946 0958 or (415) 555-0132", f"call {PHONE} or {PHONE}"),
     ("jane@janes-mbp tempo % npm test", f"{USER} tempo % npm test"),
     ("root@abc123:/app# ls", f"{USER}:/app# ls"),
-    ('git config --global user.name "Jane Doe"', f"git config --global user.name {USER}"),
+    ('git config user.name "Jane Doe"', f"git config user.name {USER}"),
     ("Signed-off-by: Jane Doe <jane@corp.io>", f"Signed-off-by: {USER} <‹email›>"),
 ])
 def test_new_pii_passes(text, expect):
