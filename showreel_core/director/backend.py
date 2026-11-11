@@ -124,6 +124,7 @@ class RuntimeRenderer:
         mod = _film_module("schema")
         fn = _first(mod, ("validate_film", "validate"))
         if fn is None:
+            _warn_once("schema", self.job_dir)
             return []
         try:
             res = fn(film)
@@ -135,6 +136,7 @@ class RuntimeRenderer:
         mod = _film_module("lint")
         fn = _first(mod, ("lint_scene", "lint_source", "lint_code", "lint"))
         if fn is None:
+            _warn_once("lint", self.job_dir)
             return []
         try:
             res = _call_kw(fn, code, scene_id=scene_id, source=code, code=code, kind="scene")
@@ -148,7 +150,8 @@ class RuntimeRenderer:
         mod = _film_module("page")
         fn = getattr(mod, "build_job", None) if mod is not None else None
         if fn is None:
-            return ["the film page builder (showreel_core.film.page) is not in this build"]
+            why = FILM_IMPORT_ERRORS.get("page") or "it has no build_job()"
+            return [f"the film page builder ({_FILM_PKG}.page) could not be loaded: {why}"]
         sources: dict[str, Any] = {f"custom:{k}": v for k, v in scenes.items()}
         for sid in _lib_ids(film):
             src = Path(library_dir or "") / sid.split(":", 1)[1] / "scene.js"
@@ -336,12 +339,36 @@ def _asset_specs(film: dict[str, Any], page_dir: Path, assets: list[MediaAsset])
     return out
 
 
+# The core package is `showreel_core` in a checkout but a sub-package of the plugin when Hermes installs it
+# (e.g. `<plugins pkg>.showreel.showreel_core`): resolve the film layer relative to this package, never by an
+# absolute name (an absolute import failed in every installed copy and was reported as "not in this build").
+_FILM_PKG = (__package__ or "showreel_core.director").rsplit(".", 1)[0] + ".film"
+FILM_IMPORT_ERRORS: dict[str, str] = {}
+
+
 def _film_module(name: str) -> Any:
+    import importlib
     try:
-        import importlib
-        return importlib.import_module(f"showreel_core.film.{name}")
-    except ImportError:
+        mod = importlib.import_module(f"{_FILM_PKG}.{name}")
+    except Exception as exc:  # noqa: BLE001 - surfaced to the job log by the callers, never swallowed silently
+        FILM_IMPORT_ERRORS[name] = f"{type(exc).__name__}: {exc}"
         return None
+    FILM_IMPORT_ERRORS.pop(name, None)
+    return mod
+
+
+_WARNED: set[str] = set()
+
+
+def _warn_once(name: str, job_dir: Path | None) -> None:
+    """An optional film-layer module that fails to import is logged (with the real error), not hidden."""
+    why = FILM_IMPORT_ERRORS.get(name)
+    if not why or name in _WARNED:
+        return
+    _WARNED.add(name)
+    import logging
+    logging.getLogger(__name__).warning("showreel director: %s.%s not loaded (%s); skipping that check",
+                                        _FILM_PKG, name, why)
 
 
 def _first(mod: Any, names: tuple[str, ...]) -> Callable[..., Any] | None:
