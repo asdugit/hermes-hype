@@ -277,6 +277,7 @@ class _Tty:
     ({}, True, True), ({}, False, False), ({"CI": "true"}, True, False), ({"GITHUB_ACTIONS": "true"}, True, False),
     ({"HERMES_CRON_SESSION": "1"}, True, False), ({"HERMES_GATEWAY_SESSION": "1"}, True, False),
     ({"HERMES_SESSION_SOURCE": "telegram"}, True, False), ({"HERMES_SESSION_SOURCE": "cli"}, True, True),
+    ({"HERMES_SESSION_SOURCE": "desktop"}, True, True), ({"HERMES_SESSION_SOURCE": "kanban"}, True, False),
     ({"HYPE_NO_PROMPT": "1"}, True, False), ({"CI": "0"}, True, True)])
 def test_can_prompt_only_for_a_person_at_a_terminal(env: dict[str, str], tty: bool, ok: bool) -> None:
     assert bi.can_prompt(_Tty(tty), _Tty(tty), env) is ok

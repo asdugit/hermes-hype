@@ -165,7 +165,7 @@ def can_prompt(stdin: Any = None, stdout: Any = None, environ: dict[str, str] | 
         if str(env.get(name, "")).strip().lower() not in ("", "0", "false", "no"):
             return False
     source = str(env.get("HERMES_SESSION_SOURCE", "") or "").strip().lower()
-    if source and source not in ("cli", "tui", "terminal"):
+    if source and source not in ("cli", "tui", "desktop", "acp", "terminal"):   # Hermes' attended sources
         return False
     for stream in (stdin if stdin is not None else sys.stdin, stdout if stdout is not None else sys.stdout):
         try:
