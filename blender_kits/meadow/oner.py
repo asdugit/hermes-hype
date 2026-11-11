@@ -197,6 +197,11 @@ class Layout:
 
     def _flights(self):
         S, K, H, T = self.S, self.K, self.H, self.T
+        C = self.C
+
+        def C_lerp(a, b, u):
+            return (a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u, a[2] + (b[2] - a[2]) * u)
+        del C
         Fl = self.Fl
         fl = []
         # 1 "coming down": dives in from the upper left as the petals clear, banks across in front of her
@@ -214,9 +219,11 @@ class Layout:
                                       (5.8, ("S", -0.3, 0.45, 28)), (7.2, ("S", 0.2, 0.85, 30)),
                                       (8.6, ("S", 0.65, 1.3, 36))], bank=0.9))
         # 4 flies over the low camera from behind and climbs away into the frame
-        fl.append(self._fla("over", [(5.0, ("K", 0.6, 3.6, -16.0)), (5.9, ("K", 0.2, 3.9, -3.5)),
-                                     (6.6, ("S", -0.3, 0.55, 8.5)), (7.4, ("S", -0.5, 0.6, 17)),
-                                     (8.3, ("S", -0.75, 0.7, 29))], bank=1.0))
+        A, B2 = K(5.9, 0.2, 3.9, -3.5), S(7.4, -0.5, 0.6, 17)
+        B2 = (B2[0], B2[1], A[2] + 0.35 * (B2[2] - A[2]))           # climbs gently, stays level-ish
+        A0 = C_lerp(A, B2, -1.0)
+        A0 = (A0[0], A0[1], A[2] + 0.4)                              # level approach from behind the lens
+        fl.append(self._fl("over", [(4.4, A0), (5.9, A), (7.4, B2), (8.9, C_lerp(A, B2, 2.0))], bank=0.0))
         # 5 the tracked "wing" car: the camera flies alongside it around her
         wk = [(t, self._wing_pt(t)) for t in [6.4 + 0.5 * k for k in range(18)]]
         fl.append(self._fl("wing", wk, bank=1.1))
@@ -428,6 +435,8 @@ def build(sc) -> None:
     look.setup(sc, sc.tier)
     world.sky(pal, SUN, seed=sc.seed, fps=sc.fps, frames=sc.frames, t_offset=t_off)
     world.sun_light(*SUN, strength=3.4)
+    fill = world.sun_light(SUN[0] + 180.0, 26.0, color="#F6C9D9", strength=1.25, angle_deg=12.0)
+    fill.data.use_shadow = False
     world.mountains(center=(0, 0, L.F[2] - 3), palette=pal, seed=sc.seed)
     meadow.terrain_object(L.hf, palette=pal)
     dens = float(_p(sc, "density")) * (0.55 if sc.tier == "preview" else 1.0)

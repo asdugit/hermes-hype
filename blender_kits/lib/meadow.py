@@ -394,7 +394,7 @@ def foreground(hf: Terrain, points: list[tuple[float, float]], seed: int = 7, sc
     from .world import toon_material  # noqa: PLC0415
     stem_m, _, _ = toon_material("fg_stem", "#7FA552", "#466340", soft=0.2)
     objs, weights = [], []
-    for kind in ("cosmos", "daisy", "lilac", "pink", "rose", "white"):
+    for kind in ("cosmos", "daisy", "pink", "rose", "white", "cosmos"):     # no lupine cones in front of the lens
         pm, _, _ = toon_material(f"fg_petal_{kind}", FLOWERS[kind][0], rim=0.4, translucent=0.6, soft=0.2)
         cm, _, _ = toon_material(f"fg_centre_{kind}", FLOWERS[kind][1], soft=0.2)
         me = _flower(rng, kind)
