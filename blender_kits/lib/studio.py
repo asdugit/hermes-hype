@@ -662,7 +662,8 @@ def _noir(lights: dict, world: Any, cyc_ob: Any, *, center: Vec3, r: float, e2: 
     # the body itself, from high above the camera side - the stripes must land in the frame
     a = math.radians(view_yaw or 0.0)
     if view_yaw is None or math.cos(a) > 0.6:
-        wall = (cx - ks * r * 0.8, cy + r * 10.6, cz + r * 3.4)
+        bx, by = -math.sin(a), math.cos(a)                 # away from the camera (by > 0.6: toward the wall)
+        wall = (cx + bx * r * 10.6 / by - ks * r * 1.6, cy + r * 10.6, cz + r * 1.4)   # in frame, beside the car
         bl = (cx - ks * r * 5.5, cy - r * 3.2, cz + r * 6.8)
         e_bl = 2600 * e2
     else:
