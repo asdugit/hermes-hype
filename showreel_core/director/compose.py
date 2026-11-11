@@ -598,6 +598,9 @@ def facts(brief: Brief, pick: dict[str, Any] | None = None) -> dict[str, str]:
     strips = {a.name for a in _product_assets(brief) if a.type == "image" and _strip(a)}
     good = [s for s in screens if s not in strips] or screens
 
+    def page_shot(n: str) -> bool:                   # another viewport of the same page as the hero capture
+        return n.lower().startswith(("desktop", "full", "page", "poster"))
+
     def feat_asset(i: int) -> str:
         if not good:
             return main
@@ -607,6 +610,11 @@ def facts(brief: Brief, pick: dict[str, Any] | None = None) -> dict[str, str]:
             if words and any(w[:6] in s.lower() for w in words):
                 return s
         rest = [s for s in good[1:] if "mobile" not in s.lower()] or good
+        # distinct pictures first (a gameplay screenshot, an element crop) before the hero page at another size:
+        # Brickfall's two "features" were its title page at 1440 and at full height - three shots of one picture
+        distinct = [s for s in rest if not page_shot(s)] if good and page_shot(good[0]) else []
+        if distinct:
+            rest = distinct + [s for s in rest if s not in distinct]
         return rest[min(i, len(rest) - 1)]
     tagline = str(pick.get("tagline") or "") or (fit_words(one, 8) if one else "") or "Made to be wanted."
     paint = _paint_tone(product_color(brief)) if _model_asset(brief) else ""
@@ -965,6 +973,19 @@ def _frame_cards(params: dict[str, Any], cards: set[str]) -> dict[str, Any]:
     return params
 
 
+def _focus_content(params: dict[str, Any], paths: dict[str, str]) -> None:
+    """Point the shot's focus box at the product inside its capture when the capture is mostly flat margin (a game
+    canvas in a black page): the push-in / Ken-Burns then shows the product large, not the margins."""
+    img = params.get("image")
+    name = img.get("asset") if isinstance(img, dict) else None
+    if not isinstance(name, str) or name not in paths:
+        return
+    from .contentbox import content_box
+    box = content_box(paths[name])
+    if box is not None:
+        params["bbox"] = list(box)
+
+
 def assemble(brief: Brief, bp: Blueprint, pick: dict[str, Any], texts: dict[str, str] | None = None,
              voiceover: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     """The blueprint + pick + words -> ``{"film": ..., "plan": ...}`` (ready for ``check_film``)."""
@@ -982,8 +1003,11 @@ def assemble(brief: Brief, bp: Blueprint, pick: dict[str, Any], texts: dict[str,
             return {"film": film, "plan": plan}
     shots, plan_shots = [], []
     cards = {a.name for a in brief.assets if getattr(a, "frame", "") == "card"}
+    paths = {a.name: a.path for a in brief.assets if a.type == "image" and a.path}
     for s in _layout_shots(bp, seconds, brief):
         params = _frame_cards(_put_slots(_fill(copy.deepcopy(s.get("params") or {}), vals), texts, s["id"]), cards)
+        if s["scene"].startswith("kit:base/"):
+            _focus_content(params, paths)
         params = {k: v for k, v in params.items() if not (k in ("paint", "accent", "feature") and not v)}
         if s["scene"] == "kit:type/title" and not params.get("text"):
             params["text"] = vals["name"]          # an unfilled teaser still says something: the name
