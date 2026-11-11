@@ -21,7 +21,8 @@ plus the files it references.
 
 Reason codes for skipped candidates: ``unsupported_scheme``, ``refused_public``, ``refused_lan``,
 ``refused_http``, ``unreachable``, ``http_error``, ``not_renderable``, ``not_found``,
-``needs_build``, ``duplicate``, ``over_cap``.
+``needs_build``, ``duplicate``, ``over_cap``, ``test_page`` (a page under a test/fixture/report folder while the
+product has pages of its own: a film once showed a test fixture of colour blocks as the product).
 """
 from __future__ import annotations
 
@@ -487,6 +488,11 @@ def _plan_web(plan: TargetPlan, product: Product, events: Sequence[Event], seen_
     for path in product.entry_files:
         if path.lower().endswith((".html", ".htm")):
             html_cands.append((path, "entry file", 0.6, [], False))
+    from ..story.onscreen import is_test_path   # lazy: the story package is not needed to plan media
+    if any(not is_test_path(c[0]) for c in html_cands):
+        for c in [c for c in html_cands if is_test_path(c[0])]:
+            plan.skipped.append(Skipped(c[0], "test_page", "a test/fixture/report page; the product has its own"))
+        html_cands = [c for c in html_cands if not is_test_path(c[0])]
 
     # ---- URLs: policy, dedupe, probe in parallel
     keyed: dict[str, tuple[ParsedURL, str, float]] = {}

@@ -170,3 +170,21 @@ def test_media_targets_from_artifacts(tmp_path):
     assert [t.kind for t in plan.targets] == ["video", "image", "pdf"]
     assert plan.of("pdf")[0].serve_rel == "doc.pdf"
     assert [s.reason for s in plan.skipped] == ["not_found"]
+
+
+def test_test_fixture_pages_are_not_the_product(tmp_path):
+    """A page under tests/ (a fixture of colour blocks) never stands in for the product when the product has its
+    own page (W5 polish-2: a 9:16 film showed tests/capture/fixture_site/shell.html)."""
+    (tmp_path / "tests" / "fixtures").mkdir(parents=True)
+    (tmp_path / "index.html").write_text("<title>Tempo</title><h1>Tempo</h1>", encoding="utf-8")
+    (tmp_path / "tests" / "fixtures" / "shell.html").write_text("<title>Shell</title><p>One</p>", encoding="utf-8")
+    events = [Event("e1", 1.0, "artifact", "write_file", "index.html", "",
+                    {"path": str(tmp_path / "index.html"), "kind": "web"}),
+              Event("e2", 2.0, "artifact", "write_file", "shell.html", "",
+                    {"path": str(tmp_path / "tests" / "fixtures" / "shell.html"), "kind": "web"})]
+    plan = plan_targets(Product(name="Tempo"), events, probe=False)
+    srcs = [t.source for t in plan.of("html")]
+    assert srcs == [str(tmp_path / "index.html")]
+    assert any(s.reason == "test_page" for s in plan.skipped)
+    only = plan_targets(Product(name="Orbit"), events[1:], probe=False)      # a fixture IS the product: kept
+    assert [t.source for t in only.of("html")] == [str(tmp_path / "tests" / "fixtures" / "shell.html")]
