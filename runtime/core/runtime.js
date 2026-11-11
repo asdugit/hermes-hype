@@ -428,7 +428,11 @@ export class Runtime {
       this.warnings.push(`${item.kind} ${item.id}: fit pass skipped (${errText(e)})`);
     }
     // contrast pass (contrast.js): headline/body text vs the pixels behind it, at fixed times (deterministic)
-    if (!(F.qa && F.qa.contrast === false) && !isCodeScene(item.scene)) {
+    // only when the palette was changed from the kit's curated one (customize / knobs: E19); curated kit looks
+    // (comic outlines, dim credits) are designed and left alone
+    const th = F.theme && typeof F.theme === 'object' ? F.theme : null;
+    const custom = !!th && ((th.vars && Object.keys(th.vars).length > 0) || (th.tokens && (th.tokens.text || th.tokens.bg)));
+    if ((custom || (F.qa && F.qa.contrast === true)) && !(F.qa && F.qa.contrast === false) && !isCodeScene(item.scene)) {
       try {
         const k = Math.min(F.w, F.h) / 1080;
         const minSize = 40 * k;      // headline/body display type (small labels are styled dim on purpose)

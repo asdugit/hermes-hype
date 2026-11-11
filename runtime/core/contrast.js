@@ -153,6 +153,17 @@ export function lowContrast(root, stage, { W, H, minSize = 22, picSize = 0, base
     const tc = rgbaOf(fill);
     if (tc[3] < 0.3) continue;                         // outlined / knocked-out display type: not measurable here
     if (cs.backgroundClip === 'text' || cs.webkitBackgroundClip === 'text') continue;
+    // designed outlines: an opaque text-stroke or text-shadow colour already separates the glyphs from anything
+    let own = 0;
+    const sw = parseFloat(cs.webkitTextStrokeWidth) || 0;
+    if (sw >= 1) { const sc2 = rgbaOf(cs.webkitTextStrokeColor); if (sc2[3] >= 0.5) own = Math.max(own, ratio(tc, sc2)); }
+    if (cs.textShadow && cs.textShadow !== 'none') {
+      for (const col of cs.textShadow.match(/rgba?\([^)]*\)/g) || []) {
+        const sc2 = rgbaOf(col);
+        if (sc2[3] >= 0.5) own = Math.max(own, ratio(tc, sc2));
+      }
+    }
+    if (own >= minRatio) continue;
     let worst = Infinity, wbd = null;
     for (const [fx, fy] of [[0.5, 0.55], [0.2, 0.55], [0.8, 0.55], [0.35, 0.3], [0.65, 0.8]]) {
       const px = x + w * fx, py = y + h * fy;
@@ -196,7 +207,8 @@ export function fixContrast(root, stage, opts) {
   for (const b of bad) {
     if (b.el.dataset.srHalo) continue;
     b.el.dataset.srHalo = b.ratio.toFixed(2);
-    b.el.style.textShadow = haloFor(b.colour, b.backdrop);
+    const prev = getComputedStyle(b.el).textShadow;
+    b.el.style.textShadow = prev && prev !== 'none' ? `${prev}, ${haloFor(b.colour, b.backdrop)}` : haloFor(b.colour, b.backdrop);
   }
   return bad;
 }

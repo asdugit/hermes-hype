@@ -114,6 +114,7 @@ def test_without_the_fit_pass_the_push_clips(tmp_path):
 @pytest.mark.slow
 def test_dark_type_on_a_dark_backdrop_gets_a_halo(tmp_path):
     film = _film([("custom:dark", 2.0)])
+    film["theme"] = {"tokens": {"text": "#3B2F45", "bg": "#FFF6FA"}, "vars": {"--sr-accent": "#FF5FA2"}}
     job = build_job(film, tmp_path / "job", scenes={"custom:dark": PUSH})
     js = ("JSON.stringify([...document.querySelectorAll('#dk,#ok')].map(e => "
           "[e.id, getComputedStyle(e).textShadow, e.dataset.srHalo || '']))")
@@ -131,3 +132,12 @@ def test_caption_markdown_is_typeset(tmp_path):
     text = looks[0][2].replace("\u200c", "")
     assert "`" not in text and "**" not in text
     assert "node --test" in text and "—" in text
+
+
+@pytest.mark.slow
+def test_curated_palettes_are_never_haloed(tmp_path):
+    """No customised palette -> the contrast pass does not run (kits' own looks, e.g. comic outlines, stay)."""
+    film = _film([("custom:dark", 2.0)])
+    job = build_job(film, tmp_path / "job", scenes={"custom:dark": PUSH})
+    looks, _ = asyncio.run(_look(job, film, [1.5], "document.querySelector('#dk').dataset.srHalo || ''"))
+    assert looks[0][2] == ""
