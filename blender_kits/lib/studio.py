@@ -671,25 +671,27 @@ def _noir(lights: dict, world: Any, cyc_ob: Any, *, center: Vec3, r: float, e2: 
         wall = (cx + bx * r * 0.3, cy + by * r * 0.3, cz)     # the stripes fall across the body itself
         bl = (cx - bx * r * 4.5 - by * ks * r * 1.5, cy - by * r * 4.5 + bx * ks * r * 1.5, cz + r * 6.5)
         e_bl = 2600 * e2
-    blinds = _spot("sr_blinds", "#e8e2d6", e_bl, bl, wall, 22.0, 0.08, r * 0.003)
+    blinds = _spot("sr_blinds", "#e8e2d6", e_bl, bl, wall, 22.0, 0.08, r * 0.0008)
     lights["blinds"] = blinds
     piv = bpy.data.objects.new("sr_blinds_frame", None)
     bpy.context.scene.collection.objects.link(piv)
     piv.location = bl
     piv.rotation_euler = blinds.rotation_euler.copy()
-    for i in range(-11, 12):
+    # slats 2 r out from the light (magnification ~3-6x on the target: crisp 10-20 cm stripes on a car, not two
+    # broad soft bands); they cover the whole 22 deg cone there
+    for i in range(-14, 15):
         bpy.ops.mesh.primitive_cube_add(size=1.0)
         sl = bpy.context.object
-        sl.name = f"sr_slat_{i + 11:02d}"
+        sl.name = f"sr_slat_{i + 14:02d}"
         sl.parent = piv
-        sl.location = (0.0, i * r * 0.036, -r * 1.0)
-        sl.scale = (r * 0.9, r * 0.016, r * 0.004)
+        sl.location = (0.0, i * r * 0.03, -r * 2.0)
+        sl.scale = (r * 1.2, r * 0.013, r * 0.004)
         for attr in ("visible_camera", "visible_glossy", "visible_diffuse", "visible_transmission"):
             _try(sl, attr, False)
-    # haze: a uniform world volume (optical depth ~0.25 across the stage) so the cones read
+    # haze: a uniform world volume (optical depth ~0.5 across the stage) so the key's cone reads
     nt = world.node_tree
     vol = nt.nodes.new("ShaderNodeVolumePrincipled")
-    vol.inputs["Density"].default_value = 0.021 * max(0.0, haze) / max(r, 0.05)
+    vol.inputs["Density"].default_value = 0.045 * max(0.0, haze) / max(r, 0.05)
     _try(vol.inputs["Anisotropy"], "default_value", 0.35)
     out = next((n for n in nt.nodes if n.type == "OUTPUT_WORLD"), None)
     if out is not None and haze > 0:
