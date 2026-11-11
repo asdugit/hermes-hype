@@ -1,4 +1,9 @@
-"""``hermes hype doctor``: can this machine make a film? (read-only checks, nothing installed)."""
+"""``hermes hype doctor``: can this machine make a film?
+
+The checks are read-only. Only at an interactive terminal (never in CI, cron, the gateway or with ``--json``)
+the doctor then offers y/N installs for what is missing (default No, 60 s timeout = No): Blender via
+``showreel_core.blender.install`` (checksum-pinned official build), ffmpeg/Chromium via ``hermes pm install``.
+"""
 from __future__ import annotations
 
 import os
@@ -120,7 +125,7 @@ def _blender() -> list[dict[str, Any]]:
         return [_check("blender", True, f"Blender {found.version_string} at {found.path} ({found.source})",
                        required=False)]
     return [_check("blender", False, "not found (optional: only for the 'blender' 3D engine)", found.message,
-                   required=False)]
+                   required=False) | {"reason": getattr(found, "reason", "")}]
 
 
 def doctor_report(ctx: Any = None) -> dict[str, Any]:
@@ -149,4 +154,160 @@ def format_report(rep: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-__all__ = ["doctor_report", "format_report"]
+# ------------------------------------------------------------------------- y/N install offers (people only)
+
+#: Doctor items Hermes' own package manager can install (``hermes pm install NAME``).
+PM_PACKAGES = {"ffmpeg": "ffmpeg", "chromium": "chromium"}
+
+
+def hermes_command() -> list[str]:
+    """How to call the public ``hermes`` CLI from here (the launcher on PATH, else this interpreter)."""
+    import shutil
+    exe = shutil.which("hermes")
+    return [exe] if exe else [sys.executable, "-m", "hermes_cli.main"]
+
+
+class CliProgress:
+    """One self-rewriting progress line on stderr for the Blender install."""
+
+    LABELS = {"download": "downloading", "verify": "verifying SHA-256", "unpack": "unpacking", "check": "checking"}
+
+    def __init__(self, stream: Any = None) -> None:
+        self.stream = stream or sys.stderr
+        self.last = 0.0
+        self.stage = ""
+
+    def __call__(self, stage: str, done: int, total: int) -> None:
+        import time
+        now = time.monotonic()
+        if stage == self.stage and now - self.last < 0.25 and done < total:
+            return
+        if self.stage and stage != self.stage:
+            self.stream.write("\n")
+        self.stage, self.last = stage, now
+        label = self.LABELS.get(stage, stage)
+        if stage == "download":
+            text = f"  {label} {done / 1e6:6.0f} / {total / 1e6:.0f} MB ({100 * done // max(1, total)}%)"
+        elif stage == "unpack":
+            text = f"  {label} {done}/{total} files"
+        else:
+            text = f"  {label}…"
+        self.stream.write("\r" + text)
+        self.stream.flush()
+
+    def end(self) -> None:
+        if self.stage:
+            self.stream.write("\n")
+            self.stream.flush()
+            self.stage = ""
+
+
+def install_blender_cli(*, yes: bool = False, parent: str | None = None, out: Any = print,
+                        ask: Any = None, prompt_ok: bool | None = None, installer: Any = None) -> int:
+    """``hermes hype install-blender [--yes] [--dir PATH]``; returns the exit code."""
+    from .blender import install as bi
+    from .blender.locate import BlenderFound, locate
+    from .config import settings_from_hermes_config
+
+    build = bi.build_for()
+    if build is None:
+        out("Blender publishes no build for this machine; install it from https://www.blender.org/download/ "
+            "and set HYPE_BLENDER to its blender executable.")
+        return 1
+    if not parent:
+        found = locate(settings_from_hermes_config().blender_path or None)
+        if isinstance(found, BlenderFound):
+            out(f"Blender {found.version_string} is already installed at {found.path}; nothing to do.")
+            return 0
+        if _explicit_setting():
+            out(f"Note: {found.message.split('. ')[0]}. Unset it after the install so Hype finds the new Blender.")
+    if not yes:
+        if not (bi.can_prompt() if prompt_ok is None else prompt_ok):
+            out(f"Not asking without a terminal. To install Blender {build.version} (~{build.size_mb} MB from "
+                "download.blender.org, checksum-verified) run: hermes hype install-blender --yes")
+            return 2
+        answer = (ask or bi.ask_yes_no)(bi.question(build))
+        if not answer:
+            out("Blender was not installed.")
+            return 1
+    where = parent or str(bi.default_parent(build))
+    out(f"Installing Blender {build.version} from {build.href}\n  into {where} (SHA-256 {build.sha256[:16]}…)")
+    bar = CliProgress()
+    try:
+        res = (installer or bi.install)(build=build, parent=parent, progress=bar)
+    except (bi.InstallCancelled, KeyboardInterrupt):
+        bar.end()
+        out("Cancelled; nothing was installed.")
+        return 130
+    except bi.InstallError as exc:
+        bar.end()
+        out(f"Blender install failed: {exc}")
+        return 1
+    bar.end()
+    if res.get("skipped"):
+        out(f"Blender {res['version']} is already at {res['path']}; left it as it is.")
+    else:
+        out(f"Blender {res['version']} installed at {res['path']}")
+    if parent:
+        out(f"Hype searches the standard folders only; to use this one set HYPE_BLENDER={res['path']} "
+            "(or the Hype setting blender_path).")
+    else:
+        out("Hype finds it automatically: try `/hype ... blender` or the Blender engine in the Desktop pane.")
+    return 0
+
+
+def _explicit_setting() -> bool:
+    from .blender.locate import ENV_VAR
+    from .config import settings_from_hermes_config
+    try:
+        return bool(os.environ.get(ENV_VAR, "").strip() or settings_from_hermes_config().blender_path)
+    except Exception:  # noqa: BLE001
+        return bool(os.environ.get(ENV_VAR, "").strip())
+
+
+def offer_installs(rep: dict[str, Any], *, out: Any = print, ask: Any = None, prompt_ok: bool | None = None,
+                   run: Any = None, install_blender: Any = None) -> bool:
+    """After a doctor report: offer y/N installs for missing pieces, only to a person at a terminal.
+
+    Blender: our checksum-pinned download (:mod:`showreel_core.blender.install`). ffmpeg/Chromium: Hermes' own
+    package manager (``hermes pm install NAME``). Default No, 60 s timeout = No (and no further questions).
+    Returns True when something was installed (the caller re-runs the checks).
+    """
+    import subprocess
+
+    from .blender import install as bi
+    if not (bi.can_prompt() if prompt_ok is None else prompt_ok):
+        return False
+    ask = ask or bi.ask_yes_no
+    changed = False
+    missing = {c["name"]: c for c in rep.get("checks", []) if not c.get("ok")}
+    for name, pkg in PM_PACKAGES.items():
+        if name not in missing:
+            continue
+        cmd = hermes_command() + ["pm", "install", pkg]
+        answer = ask(f"{name} is missing. Install it now with Hermes' own installer (`hermes pm install {pkg}`)? "
+                     "[y/N] ")
+        if answer is None:
+            return changed
+        if not answer:
+            out(f"  skipped; run `hermes pm install {pkg}` any time.")
+            continue
+        try:
+            code = (run or subprocess.run)(cmd).returncode
+        except (OSError, KeyboardInterrupt) as exc:
+            code = 1
+            out(f"  could not run `hermes pm install {pkg}`: {exc}")
+        out(f"  hermes pm install {pkg}: {'done' if code == 0 else f'exit code {code}'}")
+        changed = changed or code == 0
+    blender = missing.get("blender")
+    if blender and bi.build_for() is not None:
+        if _explicit_setting():
+            out("  Blender: HYPE_BLENDER / blender_path points at a Blender that does not work; fix or unset it "
+                "(or run `hermes hype install-blender`).")
+            return changed
+        code = (install_blender or install_blender_cli)(ask=ask, prompt_ok=True, out=out)
+        changed = changed or code == 0
+    return changed
+
+
+__all__ = ["doctor_report", "format_report", "install_blender_cli", "offer_installs"]

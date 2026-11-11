@@ -286,3 +286,79 @@ def test_customize_vocabulary(api: dict[str, Any]) -> None:
     assert "neon" in v["palettes"] and "Bangers" in v["fonts"] and v["energies"] == ["calm", "normal", "high"]
     assert "whisper" in v["voices"] and "playful" in v["moods"] and any(b["id"] == "comic_b" for b in v["beds"])
     assert {"accent", "music", "logo", "language"} <= set(v["knobs"])
+
+
+# ------------------------------------------------------------------------------- Blender install (optional)
+
+def _missing_blender(api: dict[str, Any], monkeypatch: Any) -> Any:
+    loc = api["mod"]._sub("blender.locate")
+    monkeypatch.setattr(loc, "locate", lambda *a, **k: loc.BlenderMissing("not_found", "Blender was not found."))
+    bi = api["mod"]._sub("blender.install")
+    monkeypatch.setattr(bi, "_STATE", bi._State())
+    return bi
+
+
+def test_blender_status_offers_the_pinned_build(api: dict[str, Any], monkeypatch: Any) -> None:
+    bi = _missing_blender(api, monkeypatch)
+    got = api["client"].get(f"{P}/blender").json()
+    assert got["found"] is False and got["install"] == {"state": "idle"} and "not found" in got["message"]
+    want = bi.build_for()
+    if want is not None:
+        assert got["offer"]["version"] == want.version and got["offer"]["size_mb"] == want.size_mb
+        assert got["offer"]["url"].startswith("https://download.blender.org/")
+
+
+def test_blender_install_needs_an_explicit_confirm(api: dict[str, Any], monkeypatch: Any) -> None:
+    bi = _missing_blender(api, monkeypatch)
+    started: list[dict[str, Any]] = []
+    monkeypatch.setattr(bi, "start_background", lambda **kw: started.append(kw) or {"state": "running"})
+    c = api["client"]
+    assert c.post(f"{P}/blender/install", json={}).status_code == 400
+    assert c.post(f"{P}/blender/install", json={"confirm": "yes"}).status_code == 400
+    assert started == []
+    if bi.build_for() is None:
+        return
+    assert c.post(f"{P}/blender/install", json={"confirm": True}).status_code == 202 and len(started) == 1
+
+
+def test_blender_install_route_reports_progress_then_done(api: dict[str, Any], monkeypatch: Any,
+                                                         tmp_path: Path) -> None:
+    import hashlib
+    import io
+    import threading
+    import zipfile
+    bi = _missing_blender(api, monkeypatch)
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        zf.writestr("blender-9.9.9-windows-x64/blender.exe", b"fake")
+    data = buf.getvalue()
+    build = bi.Build("windows-x64", "9.9.9", "blender-9.9.9-windows-x64.zip", hashlib.sha256(data).hexdigest(),
+                     len(data), url="https://example.invalid/b.zip")
+    gate = threading.Event()
+
+    class Resp(io.BytesIO):
+        headers = {"Content-Length": str(len(data))}
+
+        def read(self, n: int = -1) -> bytes:
+            gate.wait(5)                 # hold the download so the route can see it running
+            return super().read(n)
+
+    real_start = bi.start_background
+    monkeypatch.setattr(bi, "build_for", lambda key=None: build)
+    monkeypatch.setattr(bi, "start_background", lambda **kw: real_start(
+        build=build, parent=tmp_path / "apps", opener=lambda req, t: Resp(data),
+        probe=lambda exe: "9.9.9" if exe.is_file() else None, disk_free=lambda p: 10 ** 12))
+    c = api["client"]
+    first = c.post(f"{P}/blender/install", json={"confirm": True})
+    assert first.status_code == 202 and first.json()["install"]["state"] == "running"
+    assert first.json()["install"]["version"] == "9.9.9"
+    again = c.post(f"{P}/blender/install", json={"confirm": True}).json()     # a second click joins the first
+    assert again["install"]["state"] == "running"
+    gate.set()
+    for _ in range(250):
+        st = c.get(f"{P}/blender").json()["install"]
+        if st["state"] != "running":
+            break
+        time.sleep(0.02)
+    assert st["state"] == "done" and st["pct"] == 100, st
+    assert Path(st["path"]).is_file() and Path(st["path"]).parent.name == "Blender 9.9"

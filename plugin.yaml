@@ -11,8 +11,10 @@ description: >-
   change set over the preset film. Free roam: a free-text direction without a preset goes to the Director engine,
   which writes, renders, critiques and revises a one-off film. Surfaces: /hype, the hype_render tool, a
   Desktop studio and hermes hype render. Renders locally with headless Chromium and ffmpeg; narration uses your
-  Hermes TTS. Opt-in: "blender" / "use blender" renders 3D shots with your own installed Blender, run headless as
-  a subprocess (never downloaded).
+  Hermes TTS. Opt-in: "blender" / "use blender" renders 3D shots with your Blender, run headless as a subprocess.
+  Only when you answer yes (hermes hype install-blender, the doctor's y/N question at a terminal, or the
+  Desktop Install button): downloads Blender 5.2.4 LTS from download.blender.org, verifies the pinned SHA-256,
+  installs it per-user without admin rights.
 author: asdugit
 license: AGPL-3.0-or-later
 homepage: https://github.com/asdugit/hermes-hype
@@ -81,8 +83,8 @@ config_schema:
     default: ""
     label: Blender executable (optional)
     description: >-
-      Path to blender / blender.exe. Empty = HYPE_BLENDER, PATH, then the usual install folders (incl. where
-      the Hermes blender plugin installs it). Hype never downloads Blender.
+      Path to blender / blender.exe. Empty = HYPE_BLENDER, PATH, then the usual install folders (incl. the
+      per-user ones `hermes hype install-blender` and the Hermes blender plugin use).
   customize:
     type: str
     default: ""

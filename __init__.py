@@ -45,7 +45,7 @@ def register(ctx, **_kwargs):  # Hermes plugin entry point (ctx: hermes_cli.plug
     try:
         ctx.register_cli_command("hype", help="Make Hype films from the command line",
                                  setup_fn=h.cli_setup, handler_fn=h.make_cli_handler(ctx),
-                                 description="hermes hype render|styles|doctor|status")
+                                 description="hermes hype render|styles|doctor|status|install-blender")
     except Exception as exc:  # noqa: BLE001 - CLI is optional
         log.debug("hype: CLI command not registered: %s", exc)
 

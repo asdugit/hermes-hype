@@ -203,7 +203,23 @@ def slash(ctx: Any, raw_args: str = "", *, session_id: str = "", platform: str =
         opts.notes = notes
         parent = last["id"]
     surface = _surface(ctx, platform)
+    if str(getattr(opts, "engine_3d", "") or "") == "blender":
+        prefix += blender_missing_line(getattr(opts, "blender_path", "") or settings.blender_path or None)
     return prefix + start_film(ctx, store, session_id, opts, surface=surface, parent=parent)
+
+
+def blender_missing_line(config_path: str | None = None) -> str:
+    """One chat line when the user asked for Blender and it is not installed ('' when it is). Never asks:
+    a chat must not wait on a prompt, so the film goes ahead with the browser 3D engine."""
+    try:
+        from .blender.locate import locate
+        if locate(config_path).ok:
+            return ""
+    except Exception as exc:  # noqa: BLE001 - the pipeline reports it again in the job log
+        log.debug("hype: blender locate failed: %s", exc)
+        return ""
+    return ("🎬 Blender isn't installed, so this film makes its 3D shots in the browser. To add Blender, run "
+            "`hermes hype install-blender` in a terminal or use Install in the Desktop Hype pane.\n")
 
 
 def start_film(ctx: Any, store: JobStore, session_id: str, opts: Options, *, surface: str, parent: str = "") -> str:
@@ -354,7 +370,7 @@ def status_tool(ctx: Any, args: dict[str, Any] | None, **kwargs: Any) -> str:
 # ----------------------------------------------------------------------------------- CLI
 
 def cli_setup(parser: Any) -> None:
-    """``hermes hype render|styles|doctor|status`` argument tree."""
+    """``hermes hype render|styles|doctor|status|install-blender`` argument tree."""
     sub = parser.add_subparsers(dest="hype_cmd")
     r = sub.add_parser("render", help="make a film of a session")
     r.add_argument("--session", default="latest", help="session id, prefix or 'latest'")
@@ -372,8 +388,14 @@ def cli_setup(parser: Any) -> None:
     r.add_argument("--json", action="store_true")
     _cz.add_cli_args(r)  # W5: --customize TEXT, --set KEY=VALUE
     sub.add_parser("styles", help="list styles")
-    d = sub.add_parser("doctor", help="check Chromium, ffmpeg, assets and the runtime")
+    d = sub.add_parser("doctor", help="check Chromium, ffmpeg, Blender, assets and the runtime (at a terminal it "
+                                      "offers y/N installs for what is missing)")
     d.add_argument("--json", action="store_true")
+    d.add_argument("--no-prompt", dest="no_prompt", action="store_true", help="only report, never offer installs")
+    b = sub.add_parser("install-blender", help="download Blender (official LTS build, checksum-verified) for this "
+                                               "user, after asking")
+    b.add_argument("--yes", "-y", action="store_true", help="do not ask (for scripts)")
+    b.add_argument("--dir", default=None, help="install under this folder instead of the per-user default")
     s = sub.add_parser("status", help="show a job (latest by default)")
     s.add_argument("job", nargs="?", default="")
 
@@ -397,16 +419,24 @@ def cli(ctx: Any, args: Any) -> int:
         print(styles_text(discover_styles()))
         return 0
     if which == "doctor":
-        from .doctor import doctor_report, format_report
+        from .doctor import doctor_report, format_report, offer_installs
         rep = doctor_report(ctx)
-        print(json.dumps(rep, indent=1, default=str) if getattr(args, "json", False) else format_report(rep))
+        as_json = bool(getattr(args, "json", False))
+        print(json.dumps(rep, indent=1, default=str) if as_json else format_report(rep))
+        if not as_json and not getattr(args, "no_prompt", False) and offer_installs(rep):
+            print("\nRe-checking…")
+            rep = doctor_report(ctx)
+            print(format_report(rep))
         return 0 if rep.get("ok") else 1
+    if which == "install-blender":
+        from .doctor import install_blender_cli
+        return install_blender_cli(yes=bool(getattr(args, "yes", False)), parent=getattr(args, "dir", None) or None)
     store = _store()
     if which == "status":
         print(_status_text(store, getattr(args, "job", ""), ""))
         return 0
     if which != "render":
-        print("usage: hermes hype render|styles|doctor|status  (hermes hype render --help)")
+        print("usage: hermes hype render|styles|doctor|status|install-blender  (hermes hype render --help)")
         return 2
     from .session import resolve_session_ref
     sid = resolve_session_ref(args.session) or ""

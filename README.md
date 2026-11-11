@@ -169,9 +169,20 @@ render them with **your own installed Blender 4.2+**: real 3D products, smooth s
 - Hype runs your Blender as a headless subprocess with `--factory-startup` (your preferences and add-ons are
   not loaded or changed), on a job file in the film's job folder, and composes the frames with the rest of the
   film. Cancelling stops only the Blender process Hype started.
-- Blender is found through `HYPE_BLENDER`, the `blender_path` setting, `PATH`, then the usual install folders,
-  including where the official Hermes `blender` plugin installs it. **Hype never downloads Blender.** Without
-  it, the film falls back to the browser engine and the job log says so.
+- Blender is found through `HYPE_BLENDER`, the `blender_path` setting, `PATH`, then the usual per-user and
+  system install folders (the same ones the official Hermes `blender` plugin uses when its skill installs
+  Blender). Without it, the film falls back to the browser engine and the job log says so.
+- **No Blender yet?** Hype can install it for you, but only when you say yes: `hermes hype install-blender`,
+  the y/N question `hermes hype doctor` asks at a terminal, or **Install** in the Desktop studio when you pick
+  the Blender engine. It downloads the official Blender 5.2.4 LTS (4.5.9 LTS on Intel Macs, which Blender 5
+  no longer supports; about 270-410 MB) from `download.blender.org`, checks the SHA-256 pinned in
+  `showreel_core/blender/install.py` and refuses the file on a mismatch, and unpacks it for your user only, no
+  admin rights: `%LOCALAPPDATA%\Programs\Blender Foundation\Blender 5.2` on Windows, `~/Applications/Blender
+  5.2.app` on macOS, `~/.local/opt/blender-5.2.4` on Linux. It never writes over an existing folder, unpacks into
+  a temporary folder next to the target and moves it into place in one step, and checks `blender --version`
+  before it counts. `--dir PATH` installs somewhere else. CI, cron, the gateway, `--json` and any non-terminal
+  run never get the question; chat (`/hype ... blender`) never asks either, it points at the command and renders
+  with the browser engine.
 - Blender is slower (about 0.5-1 s per 1080p frame with EEVEE on a desktop GPU). Hype times 3 frames first
   and shows the estimate, and caches rendered shots so a revision re-renders only what changed.
 
@@ -274,7 +285,8 @@ Read this before installing. Hype:
   storyboard and drop scenes before you post.
 - **Sends narration text to your TTS provider** through Hermes' `text_to_speech` (Edge, the default, is a
   Microsoft online service). `mute` or `narration: off` sends nothing.
-- **Runs subprocesses:** headless Chromium, ffmpeg and, only when you ask for it, your Blender. All with fixed
+- **Runs subprocesses:** headless Chromium, ffmpeg and, only when you ask for it, your Blender. After a yes to an
+  install offer also `blender --version`, `hdiutil`/`ditto` (macOS .dmg) or `hermes pm install`. All with fixed
   argument lists. During a render it also serves the job folder to its own Chromium from a local web server on
   `127.0.0.1` with a random port and path; render pages can't reach the network.
 - **Runs in the background.** Films render in background threads (one heavy render at a time) and can take
@@ -282,8 +294,13 @@ Read this before installing. Hype:
   plugin stops its renders.
 - **Writes** job folders under `<HERMES_HOME>/plugin-data/hype/jobs/`, saved Director scenes under
   `plugin-data/hype/library/`, and finished videos to `<HERMES_HOME>/cache/generated/videos/`.
-- **Does not:** send telemetry, update itself, download anything (fonts, music, three.js and Rough.js ship in the
-  repo; Blender is never downloaded), read credentials, or need any API key.
+- **Downloads Blender only when you answer yes.** `hermes hype install-blender`, the doctor's y/N question
+  (interactive terminals only, default No, 60 s timeout = No) or the Desktop studio's Install button download
+  Blender 5.2.4 LTS (4.5.9 LTS on Intel Macs) from `download.blender.org`, verify the pinned SHA-256 and install
+  it per-user without admin rights (see "Blender (optional 3D engine)"). The doctor can also offer to run Hermes' own
+  `hermes pm install ffmpeg|chromium` when those are missing. Nothing is downloaded otherwise.
+- **Does not:** send telemetry, update itself, download anything else (fonts, music, three.js and Rough.js ship
+  in the repo), read credentials, or need any API key.
 - The package also contains developer harnesses (`python -m showreel_core.pipeline`, `...story.try`,
   `...director.try`) that can call `hermes chat` as a subprocess. The plugin's command, tools, CLI and Desktop
   studio never run them.
@@ -293,6 +310,8 @@ Read this before installing. Hype:
 - **"No Chromium found"**: `hermes pm install chromium`, or set `HYPE_CHROMIUM` to a Chrome/Edge/Chromium
   executable. `hermes hype doctor` shows what was found.
 - **"ffmpeg not found"**: `hermes pm install ffmpeg`, or set `HYPE_FFMPEG`.
+- **Blender not found** (only for the `blender` 3D engine): `hermes hype install-blender`, or set `HYPE_BLENDER`.
+  Run at a terminal, `hermes hype doctor` offers these installs as y/N questions (`--no-prompt` to only report).
 - **Captions but no voice**: your TTS provider failed (the job log says which line). With Edge, an outdated
   `edge-tts` package can get HTTP 403 from Microsoft; update Hermes. If narration plays at the wrong pace, remove
   `tts.<provider>.speed` from `config.yaml` (it overrides per-call speed; the job log warns about it).

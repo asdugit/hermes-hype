@@ -28,6 +28,11 @@ Routes
   GET  /jobs/{id}/director/scene?v=&name=      one custom scene's code (read-only peek)
   GET  /jobs/{id}/post-text            {text}: a ready-to-post caption for the finished film
   GET  /library                        the user's saved scenes/worlds with thumbnails
+  GET  /blender                        {found, version, path, message, offer, install}: is Blender there, what an
+                                       install would fetch (version, size, url) and the running install's progress
+  POST /blender/install                {confirm: true} -> start the user-confirmed Blender install (background
+                                       thread; poll GET /blender). Only the pane's Install button sends it.
+  POST /blender/install/cancel         stop a running install (nothing is left behind)
 """
 from __future__ import annotations
 
@@ -449,6 +454,50 @@ async def post_text(job_id: str) -> Any:
         treatment = pane.treatment_summary(store.job_dir(job_id) / "director") or {}
         return 200, {"id": job_id, "text": pane.post_text(job, tagline, treatment.get("logline", ""))}
     return _reply(await run_in_threadpool(go))
+
+
+# --------------------------------------------------------------------------- Blender (optional 3D engine)
+
+def _blender_state() -> dict[str, Any]:
+    bi, loc, cfg = _sub("blender.install"), _sub("blender.locate"), _sub("config")
+    found = loc.locate(cfg.settings_from_hermes_config().blender_path or None)
+    build = bi.build_for()
+    out: dict[str, Any] = {"found": bool(found.ok), "install": bi.status(),
+                           "offer": build.to_dict() if build is not None else None}
+    if found.ok:
+        out.update(version=found.version_string, path=str(found.path), source=found.source)
+    else:
+        out.update(message=found.message, reason=found.reason)
+    return out
+
+
+@router.get("/blender")
+async def blender_status() -> Any:
+    return await run_in_threadpool(_blender_state)
+
+
+@router.post("/blender/install")
+async def blender_install(request: Request) -> Any:
+    body = await _json_body(request)
+    if body is None or body.get("confirm") is not True:
+        return _err(400, "send {\"confirm\": true}: the install starts only after the user agreed")
+
+    def go() -> tuple[int, dict[str, Any]]:
+        state = _blender_state()
+        if state["found"]:
+            return 200, state
+        if state["offer"] is None:
+            return 409, dict(state, error="Blender publishes no build for this machine")
+        _sub("blender.install").start_background()
+        return 202, _blender_state()
+    return _reply(await run_in_threadpool(go))
+
+
+@router.post("/blender/install/cancel")
+async def blender_install_cancel() -> Any:
+    def go() -> dict[str, Any]:
+        return {"cancelled": bool(_sub("blender.install").cancel_background()), **_blender_state()}
+    return await run_in_threadpool(go)
 
 
 @router.get("/library")

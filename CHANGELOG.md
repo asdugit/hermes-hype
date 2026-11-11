@@ -66,8 +66,13 @@ belongs to another plugin.
 
 **Blender (opt-in)**
 - `blender` in the command, "use blender" in a direction, or `engine_3d: blender|auto` renders 3D shots with your
-  own Blender 4.2+, headless with `--factory-startup`, on files in the job folder. Never downloaded; without it
-  the film falls back to the browser engine and says so.
+  own Blender 4.2+, headless with `--factory-startup`, on files in the job folder. Without it the film falls back
+  to the browser engine and says so.
+- Blender install on request: `hermes hype install-blender [--yes] [--dir PATH]`, a y/N question in an
+  interactive `hermes hype doctor` (which can also run `hermes pm install ffmpeg|chromium` for you), and an
+  Install / Not now card in the Desktop studio when you pick the Blender engine. Official Blender 5.2.4 LTS
+  (4.5.9 LTS on Intel Macs) from download.blender.org, pinned SHA-256, per-user, no admin rights, never over an
+  existing folder, nothing half-installed on cancel. Unattended runs (CI, cron, gateway, chat) never ask.
 - Preset films map their product shots to Blender scenes (`device/*` for screens, `studio/*` for 3D models);
   Directed films can use those plus the meadow oner. Rendered shots are cached by content, so a revision
   re-renders only what changed. In 9:16 the devices are phones showing the phone capture, and the title words sit

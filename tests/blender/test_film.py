@@ -155,7 +155,7 @@ def test_failure_and_missing_blender(tmp_path, media, monkeypatch):
     bp, _ = run_pass(tmp_path, film, media)
     assert not bp.ok and "not found" in bp.message
     missing = bfilm.render_film_shots(make_film(), tmp_path / "j2", config_path=str(tmp_path / "no-blender.exe"))
-    assert not missing.ok and missing.missing and "hermes plugins install blender" in missing.message
+    assert not missing.ok and missing.missing and "hermes hype install-blender" in missing.message
 
 
 def test_model_assets_go_to_blender_only(tmp_path, media):

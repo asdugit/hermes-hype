@@ -157,7 +157,8 @@ const S = {
   bySession: {},
   library: { dir: 'C:/data/library', items: [] },
   dlogCalls: [],
-  nextId: 100
+  nextId: 100,
+  blender: { found: false, offer: { key: 'windows-x64', version: '5.2.4', size_mb: 406, url: 'https://download.blender.org/release/Blender5.2/blender-5.2.4-windows-x64.zip' }, install: { state: 'idle' }, polls: 0 }
 }
 const STYLES = [
   { id: 'launch', name: 'Launch', blurb: 'Premium product-launch motion graphics', ready: true, has_preview: false, preview_kind: '', preview_url: '' },
@@ -199,6 +200,20 @@ function server(method, url, body) {
   if (p === '/styles') return { styles: STYLES }
   if (p === '/styles/cinematic/preview') return { id: 'cinematic', kind: 'video', mime: 'video/mp4', url: 'data:video/mp4;base64,AAAAGGZ0eXA=' }
   if (p === '/library') return S.library
+  if (p === '/blender' && method === 'GET') {
+    const b = S.blender
+    if (b.install.state === 'running' && ++b.polls >= 3) {   // the fake install finishes after a few polls
+      b.install = { state: 'done', pct: 100, stage: 'done', version: '5.2.4', path: 'C:/u/Blender 5.2/blender.exe', message: 'Blender 5.2.4 is ready' }
+      b.found = true
+      b.version = '5.2.4'
+    } else if (b.install.state === 'running') b.install = { ...b.install, pct: 30 * b.polls, stage: 'download' }
+    return { found: b.found, version: b.version, offer: b.offer, install: b.install }
+  }
+  if (p === '/blender/install' && method === 'POST') {
+    if (!body || body.confirm !== true) throw httpError(400, { error: 'send {"confirm": true}' })
+    S.blender.install = { state: 'running', stage: 'download', pct: 0, version: '5.2.4' }
+    return { found: false, offer: S.blender.offer, install: S.blender.install }
+  }
   if (p === '/jobs/active') return { jobs: Object.values(S.jobs).filter(j => !['done', 'failed', 'cancelled'].includes(j.stage)).map(j => ({ ...j, log: undefined })) }
   if (p === '/jobs' && method === 'GET') return { jobs: (S.bySession[q.session_id] || []).map(id => S.jobs[id]) }
   if (p === '/jobs' && method === 'POST') {
@@ -368,6 +383,39 @@ check(listeners.has('plugin.hype.job.progress'), '1 listens to plugin.hype.job.p
   const body = calls('POST', '/jobs')[before].body
   check(body.options.style === 'launch' && body.options.direction === '', `3b the preset stays a Quick film: ${JSON.stringify(body.options)}`)
   check(body.customize && body.customize.text === 'pink and playful with a punchier ending' && body.customize.knobs.energy === 'high' && body.customize.knobs.music === 'playful' && body.customize.knobs.accent === '#ff4fa3', `3b customize sent: ${JSON.stringify(body.customize)}`)
+  await v.unmount()
+}
+
+// ── 3c Make: picking the Blender engine without Blender asks before installing it ────────────────────
+{
+  focus('s-blend')
+  kept.set('tab.pane', 'make')
+  const v = await mount(pane.render())
+  await waitFor(() => $$(v.div, '.srl-card').length === 4, '3c style cards')
+  check(!$(v.div, '[aria-label="Install Blender"]') && calls('GET', '/blender').length === 0, '3c no Blender question (or probe) while the browser engine is picked')
+  click($(v.div, '[data-seg-opt=blender]'))
+  await waitFor(() => $(v.div, '[aria-label="Install Blender"]'), '3c picking Blender while it is missing shows the install question')
+  const q = $(v.div, '[aria-label="Install Blender"]').textContent
+  check(q.includes("Blender isn't installed") && q.includes('5.2.4') && q.includes('406 MB') && q.includes('checksum-verified'), `3c the question names version, size and checksum: ${q}`)
+  check(calls('POST', '/blender/install').length === 0, '3c nothing is installed before the click')
+  snap('make-blender', v)
+  click(byText(v.div, 'button', 'Not now'))
+  await waitFor(() => v.div.textContent.includes('Without Blender the 3D shots render in the browser'), '3c Not now: films still render (browser 3D)')
+  check(calls('POST', '/blender/install').length === 0, '3c Not now installs nothing')
+  click(byText(v.div, 'button', 'Install Blender…'))
+  await waitFor(() => byText(v.div, 'button', 'Install'), '3c the question comes back on request')
+  click(byText(v.div, 'button', 'Install'))
+  await waitFor(() => calls('POST', '/blender/install').length === 1, '3c Install -> POST /blender/install')
+  check(calls('POST', '/blender/install')[0].body.confirm === true, '3c the POST carries confirm: true')
+  await waitFor(() => $(v.div, '.srl-blender [role=progressbar]'), '3c a progress bar while it installs')
+  await waitFor(() => v.div.textContent.includes('Blender 5.2.4 found'), '3c on success the Blender engine is ready', 6000)
+  check(stub.calls.notify.some(n => n.kind === 'success' && n.message.includes('Blender')), '3c with a toast')
+  const before = calls('POST', '/jobs').length
+  click($(v.div, '.srl-make-go button'))
+  await waitFor(() => calls('POST', '/jobs').length === before + 1, '3c POST /jobs')
+  const o = calls('POST', '/jobs')[before].body.options
+  check(o.engine_3d === 'blender' && o.explicit.includes('engine_3d'), `3c the film asks for the Blender engine: ${JSON.stringify(o)}`)
+  kept.set('make', { ...kept.get('make'), engine3d: '' })
   await v.unmount()
 }
 

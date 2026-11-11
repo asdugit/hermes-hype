@@ -525,13 +525,18 @@ function loadPrefs() {
   return { ...DEFAULT_PREFS, ...(p && typeof p === 'object' ? p : {}) }
 }
 
-function optionsFrom(prefs, direction) {
+function optionsFrom(prefs, direction, engine3d) {
   const aspects = prefs.aspect === 'both' ? ['16:9', '9:16'] : [prefs.aspect]
-  return {
+  const out = {
     mode: prefs.mode, style: prefs.style, seconds: Number(prefs.seconds) || 60, aspects, voice: Boolean(prefs.voice),
     effort: prefs.effort, direction: String(direction || '').trim(),
     explicit: ['mode', 'style', 'seconds', 'aspects', 'voice'].concat(String(direction || '').trim() ? ['effort'] : [])
   }
+  if (engine3d) {
+    out.engine_3d = engine3d
+    out.explicit.push('engine_3d')
+  }
+  return out
 }
 
 /** The customization of the picked preset (POST /jobs `customize`), or null when nothing is set. */
@@ -540,6 +545,73 @@ function customizeFrom(text, knobs) {
   for (const [key, v] of Object.entries(knobs || {})) if (v !== '' && v != null) k[key] = v
   const t = String(text || '').trim()
   return t || Object.keys(k).length ? { text: t, knobs: k } : null
+}
+
+// ── Blender (optional 3D engine): the pane asks before it installs anything ───────────────────────
+const ENGINES = [{ id: 'browser', label: 'Browser' }, { id: 'blender', label: 'Blender' }]
+const NO_BLENDER = /\b(no|not|without|don'?t|never|skip|avoid)\s+(use\s+|using\s+|any\s+)?blender\b/i
+/** Does a direction ask for the Blender engine? ("use blender"; "no blender" does not) */
+const directionWantsBlender = text => /\bblender\b/i.test(String(text || '')) && !NO_BLENDER.test(String(text || ''))
+const INSTALL_STAGE = { download: 'downloading', verify: 'verifying the checksum', unpack: 'unpacking', check: 'checking it runs', done: 'done' }
+
+/** Blender status under the 3D-engine choice: found, or an Install / Not now card (POST /blender/install only
+ * after the click), then live progress polled from GET /blender. Without Blender films still render (browser 3D). */
+function BlenderOffer() {
+  const [dismissed, setDismissed] = useState(false)
+  const [starting, setStarting] = useState(false)
+  const [polling, setPolling] = useState(false)
+  const q = useApi(qk('blender'), '/blender', { refetchInterval: polling ? 1000 : false, staleTime: 15000 })
+  const d = q.data && typeof q.data === 'object' ? q.data : null
+  const inst = (d && d.install) || {}
+  const running = inst.state === 'running'
+  const wasRunning = useRef(false)
+  useEffect(() => {
+    setPolling(running)
+    if (wasRunning.current && !running && inst.state === 'done') notify('success', inst.message || 'Blender is installed.')
+    if (wasRunning.current && !running && inst.state === 'failed') notify('error', `Blender install failed: ${inst.message || ''}`)
+    wasRunning.current = running
+  }, [running, inst.state])
+  const install = async () => {
+    setStarting(true)
+    try {
+      await api('/blender/install', { method: 'POST', body: { confirm: true } })
+      setPolling(true)
+    } catch (e) {
+      notify('error', `Could not start the Blender install: ${e.message}`)
+    }
+    setStarting(false)
+    invalidate('blender')
+  }
+  const cancel = async () => {
+    try { await api('/blender/install/cancel', { method: 'POST', body: {} }) } catch (e) { notify('error', e.message) }
+    invalidate('blender')
+  }
+  if (!d) return null
+  const offer = d.offer
+  if (d.found) return jsx('div', { className: 'srl-hint', children: `Blender ${d.version} found: the 3D shots render in Blender (nicer, much slower).` })
+  if (running) {
+    const pct = Math.max(0, Math.min(100, Number(inst.pct) || 0))
+    return jsxs('div', { className: 'srl-blender', role: 'status', 'data-state': 'running', children: [
+      jsxs('div', { className: 'srl-progress-top', children: [jsx('span', { children: `Installing Blender ${inst.version || ''}: ${INSTALL_STAGE[inst.stage] || inst.stage || ''}…` }), jsx('span', { className: 'srl-hint', children: `${pct}%` })] }),
+      jsx('div', { className: 'srl-progress', 'data-live': true, role: 'progressbar', 'aria-valuemin': 0, 'aria-valuemax': 100, 'aria-valuenow': pct, children: jsx('i', { style: { width: `${pct}%` } }) }),
+      jsx('div', { className: 'srl-row-btns', children: jsx(Btn, { onClick: cancel, children: 'Cancel install' }) })
+    ] })
+  }
+  if (!offer) return jsx('div', { className: 'srl-hint', children: 'Blender is not installed (and has no build for this machine): the 3D shots render in the browser.' })
+  if (dismissed) {
+    return jsxs('div', { className: 'srl-hint', children: ['Without Blender the 3D shots render in the browser. ',
+      jsx('button', { type: 'button', className: 'srl-link', onClick: () => setDismissed(false), children: 'Install Blender…' })] })
+  }
+  return jsxs('div', { className: 'srl-blender', role: 'alertdialog', 'aria-label': 'Install Blender', 'data-state': inst.state || 'idle', children: [
+    jsx('div', { className: 'srl-blender-q', children: `Blender isn't installed. Install Blender ${offer.version} (~${offer.size_mb} MB, from blender.org, checksum-verified)?` }),
+    jsx('div', { className: 'srl-hint', children: 'For you only, no admin rights. Until then the 3D shots render in the browser.' }),
+    inst.state === 'failed' ? jsx(Alert, { tone: 'error', children: inst.message || 'The install failed.' }) : null,
+    inst.state === 'cancelled' ? jsx('div', { className: 'srl-hint', children: inst.message }) : null,
+    jsxs('div', { className: 'srl-row-btns', children: [
+      jsx(Btn, { variant: 'default', icon: 'cloud-download', busy: starting, onClick: install, children: 'Install' }),
+      jsx(Btn, { onClick: () => setDismissed(true), children: 'Not now' })
+    ] })
+  ] })
 }
 
 /** Start a film for a chat; resolves the new job, or null (the user was told why). */
@@ -581,6 +653,7 @@ function MakeView({ sid, jobs, backendDown, onStarted }) {
   const roam = prefs.route === 'roam'
   const directed = roam && direction.trim().length > 0
   const customize = roam ? null : customizeFrom(custom, knobs)
+  const engine3d = prefs.engine3d || (roam && directionWantsBlender(direction) ? 'blender' : '')
 
   useEffect(() => {
     if (!ui.prefill) return
@@ -611,13 +684,13 @@ function MakeView({ sid, jobs, backendDown, onStarted }) {
   })
   const make = async () => {
     setBusy(true)
-    const job = await startFilm(sid, optionsFrom(prefs, roam ? direction : ''), customize)
+    const job = await startFilm(sid, optionsFrom(prefs, roam ? direction : '', engine3d), customize)
     setBusy(false)
     if (job) onStarted(job)
   }
   const chosen = styles.find(s => s.id === prefs.style) || styles[0]
   const summary = [modeLabel(prefs.mode), chosen ? chosen.name : prefs.style, `${prefs.seconds} s`,
-    prefs.aspect === 'both' ? '16:9 + 9:16' : prefs.aspect, prefs.voice ? 'narrated' : 'captions only'].concat(customize ? ['customized'] : []).join(' · ')
+    prefs.aspect === 'both' ? '16:9 + 9:16' : prefs.aspect, prefs.voice ? 'narrated' : 'captions only'].concat(customize ? ['customized'] : [], engine3d === 'blender' ? ['Blender 3D'] : []).join(' · ')
   let blocker = ''
   if (backendDown) blocker = 'The Hype backend is off.'
   else if (!sid) blocker = 'Open a chat first: Hype films the chat you are looking at.'
@@ -653,6 +726,8 @@ function MakeView({ sid, jobs, backendDown, onStarted }) {
               jsxs('div', { className: 'srl-row', children: [jsx('span', { children: 'Length' }), jsx(Seg, { label: 'Length', options: LENGTHS, value: String(prefs.seconds), onChange: seconds => set({ seconds }) })] }),
               jsxs('div', { className: 'srl-row', children: [jsx('span', { children: 'Aspect' }), jsx(Seg, { label: 'Aspect', options: ASPECTS, value: prefs.aspect, onChange: aspect => set({ aspect }) })] }),
               jsxs('div', { className: 'srl-row', children: [jsx('span', { children: 'Narration' }), jsx(Toggle, { label: 'Narration', checked: Boolean(prefs.voice), onChange: voice => set({ voice }) })] }),
+              jsxs('div', { className: 'srl-row', children: [jsx('span', { children: '3D engine' }), jsx(Seg, { label: '3D engine', options: ENGINES, value: engine3d || 'browser', onChange: v => set({ engine3d: v }) })] }),
+              engine3d === 'blender' ? jsx(BlenderOffer, {}) : null,
               jsxs('div', { className: cx('srl-row', !directed && 'is-dim'), children: [jsx('span', { children: 'Effort' }), jsx(Seg, { label: 'Director effort', options: EFFORTS, value: prefs.effort, onChange: effort => set({ effort }) })] }),
               jsx('div', { className: 'srl-hint', children: directed ? EFFORT_HINT[prefs.effort] : 'Effort applies to Directed films (write a direction below).' })
             ] })
@@ -1708,6 +1783,9 @@ button.srl-card:hover{transform:translateY(-1px);box-shadow:inset 0 0 0 1px var(
 .srl-page .srl-jobtitle{font-size:19px}
 .srl-jobmeta{color:var(--ui-text-tertiary);font-size:11.5px}
 .srl-progress-block{display:flex;flex-direction:column;gap:5px}
+.srl-blender{display:flex;flex-direction:column;gap:7px;padding:10px 11px;border-radius:8px;background:color-mix(in srgb,var(--ui-accent) 6%,transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--ui-accent) 22%,transparent)}
+.srl-blender-q{font-weight:600}
+.srl-row-btns{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .srl-progress-top{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
 .srl-pct{font-size:22px;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
 .srl-eta{color:var(--ui-text-secondary);font-size:12px;font-variant-numeric:tabular-nums}

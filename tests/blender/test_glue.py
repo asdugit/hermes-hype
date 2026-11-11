@@ -58,7 +58,7 @@ def test_locate_errors_are_user_facing(tmp_path, fake_versions):
     fake_versions["old.exe"] = ((3, 6, 5), "3.6.5")
     bad = loc.locate(str(tmp_path / "missing.exe"), environ={}, search_standard=False)
     assert bad.reason == "bad_path" and "does not exist" in bad.message
-    assert "hermes plugins install blender" in bad.message and "HYPE_BLENDER" in bad.message
+    assert "hermes hype install-blender" in bad.message and "HYPE_BLENDER" in bad.message
     too_old = loc.locate(str(old), environ={}, search_standard=False)
     assert too_old.reason == "too_old" and "4.2" in too_old.message
     none = loc.locate(None, environ={}, search_standard=False)

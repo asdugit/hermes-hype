@@ -4,7 +4,7 @@ Order: ``HYPE_BLENDER`` env -> plugin config ``blender_path`` -> ``blender`` on 
 locations (incl. where the official Hermes ``blender`` plugin installs it). Requires Blender >= 4.2 (EEVEE Next);
 the version comes from ``blender --version``. Never raises: :func:`locate` returns :class:`BlenderFound` or
 :class:`BlenderMissing` (both have ``ok`` and ``to_dict()``), and ``BlenderMissing.message`` is user-facing.
-Hype never downloads Blender itself.
+Finding never downloads anything; ``install.py`` installs Blender only when the user says yes.
 """
 from __future__ import annotations
 
@@ -25,10 +25,10 @@ _VERSION_RE = re.compile(r"Blender\s+(\d+)\.(\d+)(?:\.(\d+))?")
 _cache: dict[tuple[str, int, int], tuple[tuple[int, int, int], str] | None] = {}
 
 INSTALL_HINT = (
-    "Install Blender 4.2 or newer with the official Hermes plugin (`hermes plugins install blender`; it puts "
-    "Blender 5.1+ in %LOCALAPPDATA%\\Programs\\Blender Foundation on Windows, ~/Applications on macOS, "
-    "~/.local/opt on Linux), or point Hype at an existing Blender: set HYPE_BLENDER=<path to the blender "
-    "executable> or the Hype setting `blender_path`.")
+    "Run `hermes hype install-blender` (asks first, then downloads the official Blender LTS from "
+    "download.blender.org, checksum-verified, per-user, no admin), or install Blender 4.2+ from blender.org "
+    "yourself, or point Hype at an existing Blender: set HYPE_BLENDER=<path to the blender executable> or the "
+    "Hype setting `blender_path`.")
 
 
 @dataclass(frozen=True)

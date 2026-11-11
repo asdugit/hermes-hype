@@ -87,8 +87,10 @@ Public URLs are used only if they already appeared in this session.
 - A Directed film fell back to a preset: the Director hit an error or its budget, and the job log says why.
   Suggest the `quick` effort (`/hype ... quick` or the `effort` setting), a shorter direction, or
   customizing a preset instead.
-- Blender asked for but not found: the film uses the browser engine and warns. Set `blender_path` or
-  `HYPE_BLENDER`.
+- Blender asked for but not found: the film uses the browser engine and warns. Tell the user they can run
+  `hermes hype install-blender` in a terminal (it asks first, then downloads the official Blender LTS,
+  checksum-verified, per-user) or use Install in the Desktop studio, or set `blender_path` / `HYPE_BLENDER`.
+  Never run the install yourself without the user's yes.
 
 ## Privacy
 
