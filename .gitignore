@@ -1,10 +1,27 @@
+# Python bytecode and tool caches (catalog rule 17: never commit .pyc/.pyo)
 __pycache__/
-*.pyc
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
 .venv/
+.venv-*/
+
+# Node (tests/desktop installs jsdom/react for the render check)
 node_modules/
+
+# Job outputs and renders (films are made under Hermes' plugin-data, never in the repo)
 /out/
 /renders/
+/jobs/
 *.mp4
 !docs/**/*.mp4
+tests/desktop/.out/
+
+# OS / editor
 .DS_Store
+Thumbs.db
+
+# Internal notes
 docs/.spec-internal.md
