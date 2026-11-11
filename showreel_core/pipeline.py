@@ -1188,6 +1188,7 @@ def _build_aspect(run: _Run, aspect: str, style: str) -> Built:
     made = run.deps.quick_film(tl, job_dir=run.job_dir, page_dir=page_dir, style=style, aspect=aspect,
                                preview=run.opts.preview, storyboard=run.storyboard, bundle=run.bundle, **qkw)
     film = made["film"]
+    _screen_hygiene(run, film)
     assets = made.get("assets")
     if found and (film.get("meta") or {}).get("blender_shots"):
         from .film.quick import revert_blender
@@ -1206,6 +1207,18 @@ def _build_aspect(run: _Run, aspect: str, style: str) -> Built:
                  voices=voices, scene_times=[round((sc.t0 + sc.t1) / 2, 3) for sc in tl.scenes],
                  scene_labels=[getattr(sc.type, "value", str(sc.type)) for sc in tl.scenes],
                  drop_time=drop, last_word_time=last_word, style=style)
+
+
+def _screen_hygiene(run: _Run, film: dict[str, Any]) -> None:
+    """No loopback / dev-server address on screen in a Quick or customized film (a real customized END said
+    'Open it at localhost'): IN PLACE over shots, overlays and captions, after the customize hook's edits."""
+    from .story.onscreen import scrub_film
+    sb = run.storyboard
+    product = getattr(sb, "product", None)
+    name = str(getattr(product, "name", "") or getattr(sb, "title", "") or "")
+    url = str(getattr(sb, "url", "") or "")
+    for fix in scrub_film(film, name=name, url=url):
+        run.rep.info(f"on-screen hygiene: {fix}")
 
 
 def post_plan(film: dict[str, Any], page: str = "stage.html") -> tuple[str, str, dict[str, Any]]:
