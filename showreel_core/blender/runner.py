@@ -360,66 +360,72 @@ def _spawn_and_watch(cmd: list[str], job: dict[str, Any], todo: list[int], res: 
     last_line = time.monotonic()
     last_rss = 0.0
     eof = False
-    with open(log_path, "w", encoding="utf-8", newline="\n") as log:
-        log.write("$ " + " ".join(cmd) + "\n")
-        while True:
-            try:
-                line = lines.get(timeout=0.2)
-            except queue.Empty:
-                line = ""
-            if line is None:          # reader hit EOF: the child closed stdout (it is exiting)
-                eof = True
-                line = ""
-            now = time.monotonic()
-            if line:
-                last_line = now
-                log.write(line + "\n")
-                tail.append(line)
-                if _TRACEBACK in line:
-                    in_tb = True
-                if in_tb:
-                    tb_lines.append(line)
-                    if len(tb_lines) > 200:
-                        in_tb = False
-                ev = parse_line(line)
-                if ev:
-                    in_tb = False if ev["ev"] in ("FRAME", "DONE") else in_tb
-                    if ev["ev"] == "BUILD_DONE":
-                        res.build_s = float(ev.get("s") or 0.0)
-                        _emit(progress, phase="build", build_s=res.build_s, done=0, total=total,
-                              eta_s=None)
-                    elif ev["ev"] == "FRAME":
-                        rendered.append(ev["frame"])
-                        if ev.get("s") is not None:
-                            frame_s.append(float(ev["s"]))
-                        # the first frame carries shader compilation / scene sync: keep it out of the rate
-                        steady = frame_s[1:] or frame_s
-                        mean = sum(steady) / len(steady) if steady else None
-                        eta = mean * (total - len(rendered)) if mean is not None else None
-                        _emit(progress, phase="frame", frame=ev["frame"], frame_s=ev.get("s"), done=len(rendered),
-                              total=total, eta_s=eta)
-                    elif ev["ev"] == "DONE":
-                        done_seen = True
-                    elif ev["ev"] == "ERROR":
-                        sr_error = sr_error or ev.get("msg", "")
-            if _is_cancelled(cancel):
-                proc.kill_tree()
-                res.cancelled = True
-                res.error = "cancelled"
-                break
-            if now - last_rss > 1.0:
-                proc.sample_rss()
-                last_rss = now
-            if now - last_line > stall_s:
-                proc.kill_tree()
-                res.error = f"Blender printed nothing for {stall_s:.0f} s and was stopped"
-                break
-            if timeout_s and now - t_start > timeout_s:
-                proc.kill_tree()
-                res.error = f"Blender exceeded the {timeout_s:.0f} s time limit and was stopped"
-                break
-            if eof and lines.empty():
-                break
+    try:
+        with open(log_path, "w", encoding="utf-8", newline="\n") as log:
+            log.write("$ " + " ".join(cmd) + "\n")
+            while True:
+                try:
+                    line = lines.get(timeout=0.2)
+                except queue.Empty:
+                    line = ""
+                if line is None:          # reader hit EOF: the child closed stdout (it is exiting)
+                    eof = True
+                    line = ""
+                now = time.monotonic()
+                if line:
+                    last_line = now
+                    log.write(line + "\n")
+                    tail.append(line)
+                    if _TRACEBACK in line:
+                        in_tb = True
+                    if in_tb:
+                        tb_lines.append(line)
+                        if len(tb_lines) > 200:
+                            in_tb = False
+                    ev = parse_line(line)
+                    if ev:
+                        in_tb = False if ev["ev"] in ("FRAME", "DONE") else in_tb
+                        if ev["ev"] == "BUILD_DONE":
+                            res.build_s = float(ev.get("s") or 0.0)
+                            _emit(progress, phase="build", build_s=res.build_s, done=0, total=total,
+                                  eta_s=None)
+                        elif ev["ev"] == "FRAME":
+                            rendered.append(ev["frame"])
+                            if ev.get("s") is not None:
+                                frame_s.append(float(ev["s"]))
+                            # the first frame carries shader compilation / scene sync: keep it out of the rate
+                            steady = frame_s[1:] or frame_s
+                            mean = sum(steady) / len(steady) if steady else None
+                            eta = mean * (total - len(rendered)) if mean is not None else None
+                            _emit(progress, phase="frame", frame=ev["frame"], frame_s=ev.get("s"), done=len(rendered),
+                                  total=total, eta_s=eta)
+                        elif ev["ev"] == "DONE":
+                            done_seen = True
+                        elif ev["ev"] == "ERROR":
+                            sr_error = sr_error or ev.get("msg", "")
+                if _is_cancelled(cancel):
+                    proc.kill_tree()
+                    res.cancelled = True
+                    res.error = "cancelled"
+                    break
+                if now - last_rss > 1.0:
+                    proc.sample_rss()
+                    last_rss = now
+                if now - last_line > stall_s:
+                    proc.kill_tree()
+                    res.error = f"Blender printed nothing for {stall_s:.0f} s and was stopped"
+                    break
+                if timeout_s and now - t_start > timeout_s:
+                    proc.kill_tree()
+                    res.error = f"Blender exceeded the {timeout_s:.0f} s time limit and was stopped"
+                    break
+                if eof and lines.empty():
+                    break
+    except BaseException as exc:   # Ctrl+C or a host-side error (disk full writing the log, ...): never orphan
+        proc.kill_tree()           # our Blender - it has no console, so it would not see the user's Ctrl+C
+        if not isinstance(exc, Exception):
+            raise
+        res.error = f"watching Blender failed: {type(exc).__name__}: {exc}"
     try:
         res.exit_code = popen.wait(timeout=30)
     except subprocess.TimeoutExpired:

@@ -136,6 +136,44 @@ def test_cancel_kills_only_our_child(tmp_path):
         bystander.kill()
 
 
+def test_interrupt_in_the_host_never_orphans_blender(tmp_path, monkeypatch):
+    """Ctrl+C (KeyboardInterrupt) or any host-side error while watching Blender must kill our Blender: the
+    child runs without a console (CREATE_NO_WINDOW), so it never sees the user's Ctrl+C and would keep rendering
+    (GPU + RAM) after `hermes hype render` exited."""
+    import psutil
+
+    def dead(job) -> bool:
+        pid = int((Path(job["out_dir"]) / "fake.pid").read_text())
+        time.sleep(0.3)
+        return not psutil.pid_exists(pid) or psutil.Process(pid).status() == psutil.STATUS_ZOMBIE
+
+    # 1. Ctrl+C arrives while we watch (raised from the progress sink: _emit only swallows Exception)
+    job = job_for(tmp_path / "kbd", "slow", n=40, params={"_sleep": 0.3})
+
+    def progress(ev):
+        if ev["phase"] == "frame":
+            raise KeyboardInterrupt
+
+    with pytest.raises(KeyboardInterrupt):
+        run(job, progress=progress)
+    assert dead(job)
+
+    # 2. a host-side error in the watch loop (disk full writing blender.log, ...) -> failed result, child gone
+    job = job_for(tmp_path / "oserr", "slow", n=40, params={"_sleep": 0.3})
+    real = runner.parse_line
+
+    def parse(line):
+        ev = real(line)
+        if ev and ev["ev"] == "FRAME":
+            raise OSError(28, "No space left on device")
+        return ev
+
+    monkeypatch.setattr(runner, "parse_line", parse)
+    r = run(job)
+    assert not r.ok and "No space left" in r.error
+    assert dead(job)
+
+
 def test_eta_helpers():
     assert runner.estimate_s(2.0, 0.5, 100) == 52.0
     assert runner.estimate_s(0.0, 1.0, 10, pixels=4, bench_pixels=1) == 40.0
