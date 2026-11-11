@@ -674,3 +674,39 @@ def test_critic_sees_the_graded_keyframes(tmp_path: Path) -> None:
                                                   emit=lambda *a, **k: None),
                                   SimpleNamespace(film={"shots": []}, images=[buf.getvalue()]))
     assert plain == [buf.getvalue()]
+
+
+def test_directed_end_never_prints_code_paths_or_loopback() -> None:
+    """Directed films go through Quick's on-screen helpers (story/onscreen.py): a real Quick END read
+    'from pathlib import Path'; a Directed END must not print a code line, a machine path or a dev-server URL."""
+    p = Product(name="Tempo", one_liner="Focus timer.", run_commands=["npx tempo-timer"])
+    film: dict[str, Any] = {
+        "shots": [{"id": "end", "t0": 0, "t1": 3, "scene": "kit:type/end-lockup",
+                   "params": {"title": "Tempo", "tagline": "Saved in C:/Users/me/work/tempo/out/report.txt",
+                              "cta": "from pathlib import Path", "url": "http://127.0.0.1:8765/index.html"}},
+                  {"id": "term", "t0": 3, "t1": 6, "scene": "kit:terminal/END",
+                   "params": {"cta": "npx tempo-timer", "url": "file:///C:/Users/me/work/tempo/index.html"}}],
+        "overlays": [{"id": "o", "t0": 0, "t1": 2, "scene": "kit:type/cta",
+                      "params": {"cta": "python C:/Users/me/work/tempo/server.py --port 8765"}},
+                     {"id": "w", "t0": 2, "t1": 3, "scene": "kit:type/title",
+                      "params": {"text": "Built in /home/me/work/tempo today", "sub": "Live at localhost:5173"}}]}
+    plan = {"voiceover": [{"t": 0, "text": "Open localhost:8765 to try it. It just flows."}]}
+    fixes = repair.onscreen(film, plan, product=p, name="Tempo", url="")
+    end = film["shots"][0]["params"]
+    assert end["cta"] == "" and end["url"] == "" and "C:/Users" not in end["tagline"]
+    assert film["shots"][1]["params"]["cta"] == "npx tempo-timer"            # the product's own command stays
+    assert film["shots"][1]["params"]["url"] == ""                           # a local page path is not a URL
+    assert film["overlays"][0]["params"]["cta"] == ""
+    w = film["overlays"][1]["params"]
+    assert "/home/me" not in w["text"] and "localhost" not in w["sub"]
+    assert plan["voiceover"][0]["text"] == "It just flows."
+    assert fixes and repair.onscreen(film, plan, product=p, name="Tempo") == []      # idempotent
+
+
+def test_composed_end_cta_from_the_model_is_checked(tmp_path: Path) -> None:
+    b = _screen_brief(tmp_path, "an Apple keynote reveal")
+    bps = compose.blueprints(catalog=build_catalog(assets=b.assets))
+    bp = next(x for x in bps if x.id == "screen-launch")
+    obj = compose.assemble(b, bp, {"blueprint": bp.id, "cta": "import orbit; orbit.run()", "tagline": "Notes."})
+    ctas = [s["params"].get("cta") for s in obj["film"]["shots"] if "cta" in (s.get("params") or {})]
+    assert ctas and all(c in ("", None) for c in ctas)

@@ -660,7 +660,8 @@ def _hygiene(r: _Run, obj: dict[str, Any]) -> list[str]:
     name = (p.name if p and p.name else "") or str(obj["film"].get("title") or "")
     url = repair.public_url(p.urls if p else [])
     fixes = _mood_world(r, obj["film"])
-    fixes += repair.scrub_loopback(obj["film"], name=name, url=url)
+    fixes += repair.onscreen(obj["film"], obj.get("plan") if isinstance(obj.get("plan"), dict) else None,
+                             product=p, name=name, url=url)
     fixes += repair.lockup_end(obj, r.catalog, [a.name for a in r.brief.assets if a.product], name=name,
                                tagline=repair.fit_words(p.one_liner, 8) if p and p.one_liner else "", url=url)
     return fixes

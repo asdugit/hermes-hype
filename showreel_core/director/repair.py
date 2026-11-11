@@ -559,6 +559,57 @@ def scrub_loopback(film: dict[str, Any], *, name: str, url: str = "") -> list[st
     return fixes
 
 
+_CMD_PARAM_KEYS = {"cta", "cmd", "command", "install", "run"}
+_TEXT_PARAM_KEYS = {"title", "tagline", "text", "sub", "label", "eyebrow", "caption", "headline", "feature", "quote",
+                    "who", "words", "line", "credit", "name", "one_liner", "species", "heading", "subtitle"}
+_MACHINE_PATH = re.compile(r"^(?:file:|~[\\/]|[A-Za-z]:[\\/]|/)")
+
+
+def onscreen(film: dict[str, Any], plan: dict[str, Any] | None = None, *, product: Any = None, name: str = "",
+             url: str = "") -> list[str]:
+    """IN PLACE: the Director's on-screen text through the same helpers as Quick mode (``story/onscreen.py``):
+    no loopback address anywhere (narration drops the sentence, commands elide it, URL fields become the public
+    URL or ''); a CTA / command param that reads as a command or a line of code must be the product's own
+    launch or install command (``approved_cta``) or it goes (the END then shows name + tagline); URL fields
+    never carry a machine path; machine paths inside titles, taglines and labels are shortened like Quick's.
+    Returns what changed."""
+    from types import SimpleNamespace
+
+    from ..story import onscreen as so
+    fixes = so.scrub_film(film, name=name, url=url)
+    nofacts = SimpleNamespace(events=[])          # a Directed film has no session events: only the product's
+    trusted = list(getattr(product, "run_commands", None) or [])   # detected commands are trusted
+
+    def walk(o: Any, key: str, path: str) -> Any:
+        if isinstance(o, dict):
+            return {k: walk(v, str(k), f"{path}.{k}") for k, v in o.items()}
+        if isinstance(o, list):
+            return [walk(v, key, f"{path}[{i}]") for i, v in enumerate(o)]
+        if not isinstance(o, str) or not o.strip():
+            return o
+        k = key.lower()
+        new = o
+        if k in _CMD_PARAM_KEYS:
+            if so.looks_like_command(o) or _MACHINE_PATH.match(o.strip()):
+                new = so.approved_cta(o, product, nofacts, trusted)
+        elif k in _URL_KEYS or k == "address":
+            if _MACHINE_PATH.match(o.strip()):
+                new = url if url and not _MACHINE_PATH.match(url) else ""
+        elif k in _TEXT_PARAM_KEYS:
+            new = so.display_text_paths(o)
+        if new != o:
+            fixes.append(f"{path}: {o[:60]!r} -> {new[:60]!r}")
+        return new
+    for sect in ("shots", "overlays", "captions"):
+        if isinstance(film.get(sect), list):
+            film[sect] = walk(film[sect], "", sect)
+    for i, line in enumerate((plan or {}).get("voiceover") or []):
+        if isinstance(line, dict) and isinstance(line.get("text"), str) and so.has_loopback(line["text"]):
+            line["text"] = so.scrub_sentences(line["text"])
+            fixes.append(f"plan.voiceover[{i}]: loopback sentence dropped")
+    return fixes
+
+
 def _mentions_assets(o: Any, names: set[str]) -> bool:
     if isinstance(o, str):
         return o in names

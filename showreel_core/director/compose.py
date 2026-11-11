@@ -891,9 +891,9 @@ def assemble(brief: Brief, bp: Blueprint, pick: dict[str, Any], texts: dict[str,
         film["render"] = copy.deepcopy(bp.render)
     moods.enforce(film, brief.direction, model=vals["model"], paint=vals["paint"], product=vals["product"])
     mood_look(film, brief.direction, hold=product_color(brief) if physical(brief) else "")
-    repair.scrub_loopback(film, name=vals["name"], url=vals["url"])
     plan = {"shots": plan_shots, "custom_scenes": [], "voiceover": list(voiceover or []),
             "blueprint": bp.id}
+    repair.onscreen(film, plan, product=brief.product, name=vals["name"], url=vals["url"])
     return {"film": film, "plan": plan}
 
 
