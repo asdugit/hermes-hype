@@ -39,13 +39,19 @@ jobs:
       # ffmpeg is what Hermes' package manager provides on a user's machine; on CI we take the OS one.
       # Tests that need it skip cleanly when it is missing, so a failed install does not fail the job.
       # The timeouts stop a stalled package mirror from holding the job (an apt mirror once hung for 15+ minutes).
+      # apt first; when the mirror stalls (it did for 15+ minutes twice), a static build from the ffmpeg static-build site.
       - name: ffmpeg (Linux)
         if: runner.os == 'Linux'
         continue-on-error: true
-        timeout-minutes: 8
+        timeout-minutes: 10
         run: |
-          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update -qq
-          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 install -y -qq ffmpeg
+          APT="-o Acquire::Retries=2 -o Acquire::http::Timeout=20"
+          if timeout 180 sudo apt-get $APT update -qq && timeout 180 sudo apt-get $APT install -y -qq ffmpeg; then exit 0; fi
+          echo "apt failed or stalled; using a static ffmpeg build"
+          curl -fsSL --retry 2 --max-time 240 -o "$RUNNER_TEMP/ff.tar.xz" \
+            https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz
+          mkdir -p "$RUNNER_TEMP/ffmpeg" && tar -xJf "$RUNNER_TEMP/ff.tar.xz" -C "$RUNNER_TEMP/ffmpeg" --strip-components=1
+          echo "$RUNNER_TEMP/ffmpeg" >> "$GITHUB_PATH"
       - name: ffmpeg (macOS)
         if: runner.os == 'macOS'
         continue-on-error: true
