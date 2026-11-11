@@ -126,3 +126,20 @@ def test_template_default_names_never_name_the_product():
     t2.call("write_file", {"path": "/home/bob/x/package.json", "content": json.dumps({"name": "vite-project"})},
             {"bytes_written": 30})
     assert infer_product(extract_events(t2.rows).events, {}).product.name in ("x", "vite-project")
+
+
+def test_holder_folders_and_the_login_name_never_name_the_product(monkeypatch):
+    """Audit 2026-11-11: files written straight into D:/<login>/ or ~/Desktop named the product after the
+    folder: the user's own login name (or "Desktop") as the film's title."""
+    import getpass
+    monkeypatch.setattr(getpass, "getuser", lambda: "alice")
+    for folder in ("D:/alice", "/home/bob/Desktop", "C:/Users/bob/AppData/Local/Temp/tmpab12x"):
+        t = Transcript()
+        t.call("write_file", {"path": f"{folder}/game.py", "content": "import pygame\n"}, {"bytes_written": 14})
+        t.call("write_file", {"path": f"{folder}/level.py", "content": "LEVEL = 1\n"}, {"bytes_written": 10})
+        names = [c["name"].lower() for c in infer_product(extract_events(t.rows).events, {}).evidence.get("names", [])]
+        assert not {"alice", "desktop", "tmpab12x"} & set(names), (folder, names)
+    t = Transcript()
+    t.call("write_file", {"path": "D:/alice/orbit-quest/game.py", "content": "x = 1\n"}, {"bytes_written": 6})
+    t.call("write_file", {"path": "D:/alice/orbit-quest/level.py", "content": "y = 2\n"}, {"bytes_written": 6})
+    assert infer_product(extract_events(t.rows).events, {}).product.name == "orbit-quest"

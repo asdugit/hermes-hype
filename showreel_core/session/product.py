@@ -228,6 +228,25 @@ def _path_ok(path: str) -> bool:
 
 _ROOT_MARKERS = (".git", "package.json", "pyproject.toml", "Cargo.toml", "go.mod", "plugin.yaml", "setup.py",
                  "README.md", "readme.md", "index.html")
+#: folders that hold projects rather than name one (files written straight into ~/Desktop are not "Desktop")
+_HOLDER_DIRS = {"desktop", "documents", "downloads", "home", "users", "user", "projects", "project", "code", "dev",
+                "src", "repos", "repo", "work", "workspace", "tmp", "temp", "scratch", "onedrive", "dropbox",
+                "pictures", "videos", "music", "appdata", "local", "~", "", "."}
+
+
+def _folder_name_ok(folder: str) -> bool:
+    """A folder's name can name the product: not a generic holder folder, a temp dir, the home folder itself or
+    the user's login name (a project in D:/alice must not be called "alice" on screen)."""
+    name = basename(str(folder).rstrip("\\/")).strip()
+    low = name.lower()
+    if low in _HOLDER_DIRS or re.fullmatch(r"(?:tmp|temp)[\w.\-]*", low):
+        return False
+    try:
+        import getpass
+        logins = {getpass.getuser().lower(), Path.home().name.lower()}
+    except Exception:  # noqa: BLE001 - no login name on this platform
+        logins = set()
+    return low not in logins and norm_path(folder).rstrip("/") != norm_path(str(Path.home())).rstrip("/")
 
 
 def _project_root(paths: list[str]) -> str:
@@ -374,9 +393,9 @@ def _infer(events: list[Event], meta: dict[str, Any]) -> ProductReport:
 
     # ---- name / one-liner fallbacks
     root = _project_root(written)
-    if root:
+    if root and _folder_name_ok(root):
         ev_.name(0.45, basename(root), "project directory", "")
-    if meta.get("git_repo_root"):
+    if meta.get("git_repo_root") and _folder_name_ok(str(meta["git_repo_root"])):
         ev_.name(0.5, basename(str(meta["git_repo_root"])), "git repo root", "")
     if meta.get("title"):
         ev_.name(0.25, meta["title"], "session title", "")
