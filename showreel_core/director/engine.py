@@ -32,7 +32,7 @@ from typing import Any
 
 from ..contracts import Product
 from ..story.schema import parse_json_text
-from . import compose, lookguard, measured, moods, prompts, repair, tiers
+from . import compose, lookguard, measured, moods, prompts, repair, shotfix, tiers
 from . import prominence as pm
 from .backend import Preview, Renderer, RuntimeRenderer, ShotError
 from .catalog import Catalog, build_catalog
@@ -471,6 +471,7 @@ def _produce(r: _Run, start: Version | None = None, first: Version | None = None
                 r.warn("revise", "Revision failed; keeping the best version so far")
                 break
             v = nxt
+        _engine_round(r, rounds)
         merged = _merge_best(r)
         if merged is not None:
             r.versions.append(merged)
@@ -1262,6 +1263,57 @@ def _prominence_pass(r: _Run, v: Version) -> None:
         if v.prom is not None:
             r.emit("prominence", f"Re-measured v{v.n}: visible {v.prom.visible_share:.0%}, hero-sized "
                                  f"{v.prom.hero_share:.0%}", measured=v.prom.to_dict())
+
+
+def _engine_round(r: _Run, rounds: int) -> None:
+    """Weak / compose tiers: one bounded, model-free revision of the worst shots (see shotfix.py), re-rendered,
+    measured and critiqued once more; best-of keeps the better version. The model's own revisions are not trusted
+    on these tiers (they regressed in trials), so without this the critique fixed nothing."""
+    if not (r.tier.name == "weak" or r.tier.path == "compose") or not r.versions:
+        return
+    v = r.versions[-1]
+    if v.score is None or v.score.passed or _late(r, 0.6):
+        return
+    seen = r.tier.vision and not (v.critique or {}).get("measured")
+    if seen and r.ledger.remaining < 1:
+        return                              # a vision v1 against a measured v2 is no fair comparison
+    nv = _engine_revision(r, v)
+    if nv is None:
+        return
+    _prominence_pass(r, nv)
+    _look_guard(r, nv)
+    r.versions.append(nv)
+    _save_version(r, nv)
+    sc = _critique(r, nv, rounds + 1, measured_only=not seen)
+    if sc is not None:
+        best = max((x for x in r.versions if x.score), key=Version.key)
+        r.emit("critic", f"Engine fix v{nv.n}: {sc.mean:.1f} (was {v.score.mean:.1f}); keeping v{best.n}")
+    _save_version(r, nv)
+
+
+def _engine_revision(r: _Run, v: Version) -> Version | None:
+    try:
+        m = moods.dominant(r.brief.direction)
+        theme = m.id if m is not None and m.id in ("noir", "anime") else ""
+        name = r.brief.product.name if r.brief.product and r.brief.product.name else str(v.film.get("title") or "")
+        film, changes = shotfix.fix_worst(v.film, v.plan, critique=v.critique,
+                                          per_shot=v.prom.per_shot if v.prom is not None else {},
+                                          qa=v.preview.qa if v.preview else [], product=r.product,
+                                          screen=not compose.physical(r.brief), theme=theme, name=name)
+    except Exception as exc:  # noqa: BLE001 - never costs the film
+        r.emit("revise", f"Engine fix skipped ({type(exc).__name__}: {str(exc)[:120]})", level="debug")
+        return None
+    if not changes:
+        r.emit("revise", "Engine fix: nothing safe to change in the worst shots")
+        return None
+    nv = Version(v.n + 1, film, copy.deepcopy(v.plan), dict(v.scenes), dict(v.fallbacks), stable=dict(v.scenes),
+                 origin="engine-fix")
+    nv.changes = list(changes)
+    r.emit("revise", "Engine fix of the worst shot(s): " + "; ".join(changes)[:300])
+    if not _realise(r, nv, code=[]):
+        r.warn("revise", "The engine fix did not render; keeping the critiqued version")
+        return None
+    return nv
 
 
 def _look_guard(r: _Run, v: Version) -> None:
