@@ -45,7 +45,9 @@ WORLDS: tuple[MoodWorld, ...] = (
                "venetian-blind light, black and white with only the product's own colour kept, typewriter titles. "
                "For a physical product with a 3D model use `blender:studio/product_hero` (env `noir`; moves "
                "orbit/dolly/macro/turntable) - NEVER a meadow, sky, flower field, daylight, pastel or a bright "
-               "stage; for a screen product the dark `kit:cinematic/*` room."),
+               "stage; for a screen product (software): typewriter cards on black (`kit:type/title`, reveal "
+               "`type`, theme `noir`) between the real product shown LARGE as the evidence (`kit:base/SCREEN` / "
+               "`kit:base/FEATURE`, theme `noir`), never a small card in a big dark room."),
         prefer=("studio-noir", "screen-noir", "screen-cinematic"),
         avoid=("kit:nature/", "blender:meadow/", "kit:pixel/", "kit:launch/", "kit:ink/", "kit:comic/"),
         avoid_transitions=("kit:nature/", "kit:pixel/", "blender:transitions/petal", "kit:comic/", "kit:ink/"),
