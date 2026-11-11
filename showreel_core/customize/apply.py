@@ -47,17 +47,73 @@ def _speech_end(sc: Any) -> float:
     return max([float(c.t1) for c in sc.captions or []] + [float(sc.t0)])
 
 
+#: shot types whose picture can carry a cut-in (a closer framing of the same product capture)
+CUTIN_FROM = ("FEATURE", "SCREEN", "SCROLL", "HOOK")
+CUTIN_MIN_S, CUTIN_MAX_S = 1.4, 2.6
+
+
+def _cutin_image(sc: Any) -> dict[str, Any] | None:
+    data = sc.data if isinstance(getattr(sc, "data", None), dict) else {}
+    img = data.get("hero") if _tname(sc.type) == "HOOK" else data.get("image")
+    if not isinstance(img, dict) or not (img.get("path") or img.get("asset")):
+        return None
+    if _tname(sc.type) == "HOOK" and str(img.get("kind") or "image") != "image":
+        return None
+    return img
+
+
+def _cutin(sc: Any, dur: float) -> Any:
+    """A closer framing of ``sc``'s product picture: a SCREEN push-in on (a tighter box around) the feature region,
+    no narration. High-energy films cut on the picture instead of holding dead air after the line."""
+    img = dict(_cutin_image(sc) or {})
+    img.pop("kind", None)
+    data = sc.data if isinstance(sc.data, dict) else {}
+    bb = data.get("bbox")
+    bb = bb if isinstance(bb, list) and len(bb) == 4 else [0.1, 0.1, 0.8, 0.8]
+    x, y, w, h = (float(v) for v in bb)
+    cw, ch = max(0.28, w * 0.62), max(0.28, h * 0.62)
+    cx, cy = x + w / 2, y + h / 2
+    box = [round(min(max(0.0, cx - cw / 2), 1 - cw), 4), round(min(max(0.0, cy - ch / 2), 1 - ch), 4),
+           round(cw, 4), round(ch, 4)]
+    new = copy.copy(sc)
+    new.type = type(sc.type)("SCREEN") if hasattr(sc.type, "value") else "SCREEN"
+    new.data = {"image": img, "bbox": box, "cutin": True,
+                **({"story_index": data["story_index"]} if "story_index" in data else {})}
+    new.label = str(getattr(sc, "label", "") or data.get("feature") or "")
+    new.vo_path, new.vo_t0, new.captions = "", 0.0, []
+    new.transition_in = "cut"
+    new.t0, new.t1 = 0.0, round(dur, 4)
+    return new
+
+
+def _cue_like(cues: list[Any], t: float) -> Any:
+    """A cut whoosh on the cut-in (same Cue class as the timeline's)."""
+    if not cues:
+        return None
+    c = copy.copy(cues[0])
+    c.t, c.sfx = round(t, 4), "cut"
+    if hasattr(c, "gain_db"):
+        c.gain_db = -12.0
+    if hasattr(c, "align"):
+        c.align = "onset"
+    return c
+
+
 def apply_timeline(tl: Any, spec: dict[str, Any], *, energy: str = "") -> tuple[list[str], dict[str, str]]:
     """Structural edits on a Timeline dataclass, in place: ``order``, ``remove``, ``hold`` (+/- seconds) and the
-    ``high`` energy tightening (dead air after the narration trimmed). Returns (notes, old shot id -> new id):
-    Quick numbers shots by position, so a drop or a reorder renames the shots after it."""
+    ``high`` energy pacing. Returns (notes, old shot id -> new id): Quick numbers shots by position, so a drop, a
+    reorder or an inserted cut-in renames the shots after it.
+
+    High energy never shortens the film (users ask for "30"): the dead air after each narration line is cut and the
+    time goes to more shots - a cut-in (a closer framing of the same product capture) after the product beats - and
+    whatever is left holds the product beats. Narration is not sped up (customize.hook)."""
     notes: list[str] = []
     if not hasattr(tl, "scenes") or not tl.scenes:
         return notes, {}
     ids = [r["id"] for r in shot_rows(tl)]
     idx = {sid: k for k, sid in enumerate(ids)}
     edits = {s["id"]: s for s in spec.get("shots") or [] if s.get("id") in idx}
-    blocks = []                      # (scene, cues inside it, splits inside it, hold)
+    blocks = []                      # (scene, cues inside it, splits inside it, id)
     for k, sc in enumerate(tl.scenes):
         t0, t1 = float(sc.t0), float(sc.t1)
         last = k == len(tl.scenes) - 1
@@ -74,19 +130,45 @@ def apply_timeline(tl: Any, spec: dict[str, Any], *, energy: str = "") -> tuple[
             notes.append(f"dropped {b[3]}")
             continue
         kept.append(b)
-    t = 0.0
-    new_cues, new_scenes = [], []
+    # per-shot lengths: the requested holds first; high energy then trims the dead air after the line
+    plan = []                        # [block, dur, base_want, want]
     for b in kept:
-        sc, cues, splits, sid = b
+        sc, sid = b[0], b[3]
         dur = float(sc.t1) - float(sc.t0)
         speech = _speech_end(sc) - float(sc.t0)
-        want = dur + float(edits.get(sid, {}).get("hold") or 0.0)
+        floor = max(MIN_SHOT_S, speech + 0.3 if speech > 0.05 else MIN_SHOT_S)
+        base = max(floor, dur + float(edits.get(sid, {}).get("hold") or 0.0))
+        want = base
         if energy == "high" and not edits.get(sid, {}).get("hold"):
             tail = dur - speech if speech > 0.05 else dur * 0.25
             if tail > 1.0:
-                want = dur - min(tail - 0.7, 0.35 * dur)
-        floor = max(MIN_SHOT_S, speech + 0.3 if speech > 0.05 else MIN_SHOT_S)
-        want = max(floor, want)
+                want = max(floor, dur - min(tail - 0.7, 0.35 * dur))
+        plan.append([b, dur, base, want])
+    # high energy: give the trimmed time back as cut-ins after the product beats, then as holds (same length)
+    inserts: dict[int, float] = {}
+    if energy == "high":
+        freed = sum(p[2] - p[3] for p in plan)
+        cands = [k for k, p in enumerate(plan) if _tname(p[0][0].type) in CUTIN_FROM and _cutin_image(p[0][0])
+                 and k < len(plan) - 1]
+        cands.sort(key=lambda k: (_tname(plan[k][0][0].type) == "HOOK", -(plan[k][2] - plan[k][3]), k))
+        n = min(len(cands), int(freed // CUTIN_MIN_S))
+        if n:
+            each = min(CUTIN_MAX_S, freed / n)
+            for k in sorted(cands[:n]):
+                inserts[k] = round(each, 4)
+            freed -= each * n
+        if freed > 0.02:             # the rest holds the product beats (else every shot gets its trim back)
+            holders = [k for k, p in enumerate(plan) if _tname(p[0][0].type) in CUTIN_FROM + ("END",)] or \
+                list(range(len(plan)))
+            give = [max(0.0, plan[k][2] - plan[k][3]) for k in holders]
+            tot = sum(give)
+            for k, g in zip(holders, give):
+                plan[k][3] += freed * (g / tot if tot > 0 else 1.0 / len(holders))
+    t = 0.0
+    new_cues, new_scenes = [], []
+    idmap: dict[str, str] = {}
+    for k, (b, dur, _base, want) in enumerate(plan):
+        sc, cues, splits, sid = b
         dt = t - float(sc.t0)
         for c in cues:
             c.t = round(float(c.t) + dt, 4)
@@ -101,14 +183,20 @@ def apply_timeline(tl: Any, spec: dict[str, Any], *, energy: str = "") -> tuple[
             if abs(want - dur) > 0.15:
                 notes.append(f"{sid} {'held' if want > dur else 'tightened'} {want - dur:+.2f}s")
         new_cues += cues
+        idmap[sid] = f"s{len(new_scenes):02d}_{_tname(sc.type).lower()}"
         new_scenes.append(sc)
         t = float(sc.t1)
-    idmap: dict[str, str] = {}
-    for k, b in enumerate(kept):
-        b[0].i = k
-        idmap[b[3]] = f"s{k:02d}_{_tname(b[0].type).lower()}"
+        if k in inserts:
+            ci = _cutin(sc, inserts[k])
+            _shift_scene(ci, t)
+            new_scenes.append(ci)
+            new_cues.append(_cue_like(tl.cues, t))
+            notes.append(f"cut-in after {sid}: {inserts[k]:.2f}s closer on the product")
+            t = float(ci.t1)
+    for k, sc in enumerate(new_scenes):
+        sc.i = k
     tl.scenes = new_scenes
-    tl.cues = sorted(new_cues, key=lambda c: float(c.t))
+    tl.cues = sorted([c for c in new_cues if c is not None], key=lambda c: float(c.t))
     tl.dur = round(max(t, 1.0), 4)
     return notes, idmap
 

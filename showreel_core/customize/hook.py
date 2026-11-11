@@ -137,6 +137,9 @@ def _install(run: Any) -> dict[str, Any] | None:
     if knobs.get("language") and knobs["language"] != "en":
         name = V.LANGUAGES[knobs["language"]][1]
         notes.append(f"Write every narration line and every on-screen word in {name}.")
+    if str(knobs.get("energy") or cz["floor"].get("energy") or "") == "high":
+        # high energy = more, faster cuts and SHORTER lines; the voice is never sped up (stays <= ~185 wpm)
+        notes.append("High energy: keep every narration line short and punchy (about 5-9 words); never longer lines.")
     if notes:
         run.opts.notes = " ".join([run.opts.notes] + notes).strip() if run.opts.notes else " ".join(notes)
     plan = _voice_plan(run, cz)

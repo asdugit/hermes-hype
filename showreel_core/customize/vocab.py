@@ -290,7 +290,7 @@ ENERGY_ALIASES = {"low": "calm", "chill": "calm", "slow": "calm", "slower": "cal
                   "medium": "normal", "default": "normal", "mid": "normal", "fast": "high", "faster": "high",
                   "hype": "high", "punchy": "high", "energetic": "high", "intense": "high", "max": "high"}
 #: Narration pace multiplier per energy (on top of the style's voice_speed; an explicit voice_speed wins).
-ENERGY_VOICE = {"calm": 0.93, "normal": 1.0, "high": 1.08}
+ENERGY_VOICE = {"calm": 0.93, "normal": 1.0, "high": 1.0}   # high: shorter lines + more cuts, never a faster voice
 
 TRANSITION_FAMILIES = ("auto", "kit", "cut", "soft", "punchy", "fade")
 TRANSITION_ALIASES = {"default": "auto", "style": "kit", "native": "kit", "hard": "cut", "cuts": "cut", "none": "cut",

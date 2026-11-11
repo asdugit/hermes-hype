@@ -12,6 +12,7 @@ import pytest
 from showreel_core.commands import parse
 from showreel_core.config import Options, style_ids
 from showreel_core.customize import apply as A
+from showreel_core.customize.apply import CUTIN_MAX_S, CUTIN_MIN_S
 from showreel_core.customize import command as C
 from showreel_core.customize import knobs as K
 from showreel_core.customize import spec as S
@@ -451,3 +452,32 @@ def test_captions_follow_the_theme():
     launch = A.theme_captions({"bg": "rgba(10,11,13,0.72)"}, {"bg": "#2A0E2E", "text": "#FFF4FB"}, "launch")
     assert launch["bg"] != "rgba(10,11,13,0.72)"
     assert A.theme_captions({"bg": "rgba(251,246,236,0.94)", "color": "#2B2622"}, {"bg": "#101010"}, "ink")["color"] == "#2B2622"
+
+
+def test_high_energy_keeps_the_requested_length_with_cut_ins():
+    """ISSUES #58: energy=high turned a requested 30 s film into 23.8 s. The dead air after each line now goes to
+    cut-ins (closer framings of the product capture) and holds; the film keeps its length and stays valid."""
+    from showreel_core.contracts import Caption
+    tl = _tl()
+    feature = next(s for s in tl.scenes if s.type.value == "FEATURE")
+    feature.captions = [Caption(14.3, 15.5, "Dark mode, one tap.")]
+    feature.vo_path, feature.vo_t0 = "voice/vo_04.wav", 14.3
+    notes, idmap = A.apply_timeline(tl, {}, energy="high")
+    assert tl.dur == pytest.approx(25.0, abs=0.01)
+    types = [s.type.value for s in tl.scenes]
+    assert types == ["HOOK", "TITLE", "CODE", "TERMINAL", "FEATURE", "SCREEN", "STATS", "END"], types
+    cut = tl.scenes[5]
+    assert cut.data["cutin"] is True and cut.data["image"]["path"] == feature.data["image"]["path"]
+    assert not cut.vo_path and not cut.captions and CUTIN_MIN_S <= cut.t1 - cut.t0 <= CUTIN_MAX_S
+    assert feature.t1 - feature.t0 < 5.0 and feature.captions[0].t1 <= feature.t1      # the dead air was cut
+    assert all(a.t1 == pytest.approx(b.t0) for a, b in zip(tl.scenes, tl.scenes[1:]))
+    assert idmap["s04_feature"] == "s04_feature" and idmap["s05_stats"] == "s06_stats"
+    assert any("cut-in after s04_feature" in n for n in notes)
+    assert any(c.sfx == "cut" and c.t == pytest.approx(cut.t0) for c in tl.cues)
+    made = film_from_timeline(tl, media_map=_media())
+    assert errors_of(validate_film(made["film"])) == []
+    assert made["film"]["dur"] == pytest.approx(25.0, abs=0.01)
+
+
+def test_high_energy_does_not_speed_up_the_narration():
+    assert V.ENERGY_VOICE["high"] == 1.0 and V.ENERGY_VOICE["calm"] < 1.0
