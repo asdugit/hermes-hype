@@ -53,6 +53,18 @@ def test_locate_env_then_config(tmp_path, fake_versions):
     assert not got.ok
 
 
+def test_locate_maps_the_windows_launcher_to_blender_exe(tmp_path, fake_versions):
+    """The Start-menu shortcut targets blender-launcher.exe, which detaches from the console (`--version` prints
+    nothing through it): a user who pastes that path gets the blender.exe next to it."""
+    _exe(tmp_path, "blender.exe")
+    launcher = _exe(tmp_path, "blender-launcher.exe")
+    fake_versions["blender.exe"] = ((4, 2, 3), "4.2.3")     # the launcher itself answers nothing (None)
+    got = loc.locate(None, environ={"HYPE_BLENDER": str(launcher)}, search_standard=False)
+    assert got.ok and got.path == tmp_path / "blender.exe"
+    got = loc.locate(f'"{launcher}"', environ={}, search_standard=False)
+    assert got.ok and got.source == "config"
+
+
 def test_locate_errors_are_user_facing(tmp_path, fake_versions):
     old = _exe(tmp_path, "old.exe")
     fake_versions["old.exe"] = ((3, 6, 5), "3.6.5")
