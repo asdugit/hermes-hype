@@ -9,7 +9,7 @@
 import { Screen } from './../core/gfx.js';
 import { drawText, fontInfo } from './../core/text.js';
 import { frameCam } from './../core/camera.js';
-import { NONE } from './../core/palette.js';
+import { NONE, themedWords } from './../core/palette.js';
 
 const SCREENS = new WeakMap(), UIS = new WeakMap(), GAMES = new WeakMap(), COMP = new WeakMap(), CANV = new WeakMap();
 
@@ -110,17 +110,17 @@ export function present(ctx, S, o = {}) {
       }
       if (U) for (let i = 0; i < U.d.length; i++) if (U.d[i] !== NONE) C.d[i] = U.d[i];
     }
-    C.present(out.g);
+    C.present(out.g, themedWords(ctx.film && ctx.film.theme));
   } else {
     const g = out.g, cv = canvases(ctx, S.w, S.h);
-    S.present(cv.wg);
+    S.present(cv.wg, themedWords(ctx.film && ctx.film.theme));
     g.save();
     g.setTransform(1, 0, 0, 1, 0, 0);
     g.imageSmoothingEnabled = false;
     g.fillStyle = '#0d0b1e';
     if (F.ox > 0 || F.oy > 0 || F.ox + S.w * F.ps < out.w || F.oy + S.h * F.ps < out.h) g.fillRect(0, 0, out.w, out.h);
     g.drawImage(cv.w, F.ox, F.oy, S.w * F.ps, S.h * F.ps);
-    if (U) { U.present(cv.ug); g.drawImage(cv.u, 0, 0, U.w * k, U.h * k); }
+    if (U) { U.present(cv.ug, themedWords(ctx.film && ctx.film.theme)); g.drawImage(cv.u, 0, 0, U.w * k, U.h * k); }
     g.restore();
     if (out.canvas && out.canvas.dataset) out.canvas.dataset.gp = String(k);
   }

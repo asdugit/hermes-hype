@@ -13,7 +13,24 @@ export const PHOSPHOR = {
   p3: { ph: '#FFB13B', hot: '#FFE6B8', mid: '#C98A2C', dim: '#7C531A', faint: '#3A2609', glass: '#0C0805', rgb: [255, 177, 59] },
   p1: { ph: '#4BFF86', hot: '#D9FFE6', mid: '#35C268', dim: '#1E7A40', faint: '#0E3A1E', glass: '#040905', rgb: [75, 255, 134] },
 };
-export const phosphorOf = (p) => PHOSPHOR[String((p && p.phosphor) || 'p3').toLowerCase()] || PHOSPHOR.p3;
+const CUSTOM = new Map();
+const mixHex = (rgb, to, t) => '#' + rgb.map((c, i) => Math.round(c + (to[i] - c) * t).toString(16).padStart(2, '0')).join('').toUpperCase();
+/** A phosphor palette from any hex (customization: `phosphor: '#00E5FF'`), shaped like the P1/P3 tables. */
+export function customPhosphor(hex) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || '').trim());
+  if (!m) return null;
+  const key = m[1].toUpperCase();
+  if (!CUSTOM.has(key)) {
+    const n = parseInt(key, 16), rgb = [n >> 16 & 255, n >> 8 & 255, n & 255];
+    CUSTOM.set(key, { ph: '#' + key, hot: mixHex(rgb, [255, 255, 255], 0.72), mid: mixHex(rgb, [0, 0, 0], 0.22),
+      dim: mixHex(rgb, [0, 0, 0], 0.52), faint: mixHex(rgb, [0, 0, 0], 0.78), glass: mixHex(rgb, [0, 0, 0], 0.955), rgb });
+  }
+  return CUSTOM.get(key);
+}
+export const phosphorOf = (p) => PHOSPHOR[String((p && p.phosphor) || 'p3').toLowerCase()] || customPhosphor(p && p.phosphor) || PHOSPHOR.p3;
+/** CSS custom properties of a phosphor palette (custom hex phosphors re-skin the tube's DOM too). */
+export const phosphorVars = (P) => ({ '--ph': P.ph, '--ph-hot': P.hot, '--ph-mid': P.mid, '--ph-dim': P.dim, '--ph-faint': P.faint,
+  '--ph-rgb': P.rgb.join(', '), '--glass': P.glass });
 
 export const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 /** Visible length in characters (code points). */

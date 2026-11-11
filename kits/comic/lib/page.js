@@ -19,12 +19,20 @@ const STATE = new WeakMap();
  * {render(t), cues}. Frame size is reference px (short side 1080); P.W x P.H = the frame. Same contract as
  * kit:base defineDomScene, plus an async setup that waits for the flattened art / printed shots to decode.
  */
+const C0 = { ...C };
+/** film.theme.palette.comic overrides the JS palette (SVG art colours) for this film (customize/theme.py). */
+function themePalette(ctx) {
+  const o = ctx.film && ctx.film.theme && ctx.film.theme.palette && ctx.film.theme.palette.comic;
+  Object.assign(C, C0, o && typeof o === 'object' ? o : {});
+}
+
 export function comicScene(id, def) {
   const kind = def.kind || `cx-${id.split('/').pop().toLowerCase()}`;
   const params = { ...CCOMMON, ...(def.params || {}) };
   function ensure(ctx, p) {
     let s = STATE.get(ctx);
     if (!s) {
+      themePalette(ctx);
       const q = withDefaults(p, params);
       const F = frame(ctx, q, kind, BASE_CSS + COMIC_CSS);
       F.el.classList.add('sr-theme-comic');

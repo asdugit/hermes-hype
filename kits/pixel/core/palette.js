@@ -153,6 +153,29 @@ export function quantize(rgba, w, h, o = {}) {
   return out;
 }
 
+const THEMED = new Map();
+/**
+ * Palette words with the film's customization overrides (film.theme.palette.pixel = {token: '#RRGGBB'}): the
+ * art stays index-locked, only the colours behind the tokens change (showreel_core/customize/theme.py).
+ */
+export function themedWords(theme) {
+  const pal = theme && theme.palette && theme.palette.pixel;
+  if (!pal || typeof pal !== 'object') return WORDS;
+  const key = JSON.stringify(pal);
+  let t = THEMED.get(key);
+  if (!t) {
+    t = WORDS.slice();
+    for (const [name, hex] of Object.entries(pal)) {
+      const i = IDX[name], m = /^#?([0-9a-f]{6})$/i.exec(String(hex));
+      if (i === undefined || !m) continue;
+      const n = parseInt(m[1], 16);
+      t[i] = (255 << 24 | (n & 255) << 16 | (n >> 8 & 255) << 8 | n >> 16 & 255) >>> 0;
+    }
+    THEMED.set(key, t);
+  }
+  return t;
+}
+
 /** Packed little-endian ABGR words for ImageData (index -> uint32). Index 255 -> transparent. */
 export const WORDS = (() => {
   const t = new Uint32Array(256);

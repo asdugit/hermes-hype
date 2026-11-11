@@ -212,11 +212,11 @@ export class Screen {
       this.d[y * this.w + x] = (sx < 0 || sy < 0 || sx >= this.w || sy >= this.h) ? k : src[sy * this.w + sx];
     }
   }
-  /** Write the buffer to a 2D context at (0,0) (putImageData; 1 screen px = 1 canvas px). */
-  present(g) {
+  /** Write the buffer to a 2D context at (0,0) (putImageData; 1 screen px = 1 canvas px); `words` = palette words. */
+  present(g, words = WORDS) {
     if (!this._img) { this._img = g.createImageData(this.w, this.h); this._u32 = new Uint32Array(this._img.data.buffer); }
     const u = this._u32, d = this.d;
-    for (let i = 0; i < d.length; i++) u[i] = WORDS[d[i]];
+    for (let i = 0; i < d.length; i++) u[i] = words[d[i]];
     g.putImageData(this._img, 0, 0);
     return this._img;
   }

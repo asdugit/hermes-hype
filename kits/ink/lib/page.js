@@ -9,6 +9,7 @@ import { BASE_CSS } from '../../base/css.js';
 import { clamp, pchip, drift, rng } from '../../base/motion.js';
 import { COMMON } from '../../base/scenes-panels.js';
 import { INK_CSS } from '../css.js';
+import { C } from './ink.js';
 
 export const ICOMMON = { ...COMMON, theme: { type: 'string', default: 'ink', doc: 'theme tokens (ink)' } };
 
@@ -31,12 +32,20 @@ function flat2d(root) {
  * Register a kit:ink scene. def.build(ctx, p, F, P) gets the base frame F and a fresh page P and returns
  * {render(t), cues}. Sizes are reference px (short side 1080). P.W x P.H = the frame.
  */
+const C0 = { ...C };
+/** film.theme.palette.ink overrides the JS palette (drawn art colours) for this film (customize/theme.py). */
+function themePalette(ctx) {
+  const o = ctx.film && ctx.film.theme && ctx.film.theme.palette && ctx.film.theme.palette.ink;
+  Object.assign(C, C0, o && typeof o === 'object' ? o : {});
+}
+
 export function inkScene(id, def) {
   const kind = def.kind || `ik-${id.split('/').pop().toLowerCase()}`;
   const params = { ...ICOMMON, ...(def.params || {}) };
   function ensure(ctx, p) {
     let s = STATE.get(ctx);
     if (!s) {
+      themePalette(ctx);
       const q = withDefaults(p, params);
       const F = frame(ctx, q, kind, BASE_CSS + INK_CSS);
       F.el.classList.add('sr-theme-ink');

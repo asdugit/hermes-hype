@@ -7,7 +7,7 @@ import { defineDomScene } from '../base/scene.js';
 import { COMMON } from '../base/scenes-panels.js';
 import { h, css } from '../base/dom.js';
 import { seg, ease, clamp, lerp } from '../base/motion.js';
-import { lineH, sp, len, pad } from './crt.js';
+import { lineH, sp, len, pad, customPhosphor, phosphorVars } from './crt.js';
 
 /** Params every terminal scene accepts (on top of the base COMMON ones). */
 export const TCOMMON = {
@@ -34,6 +34,8 @@ export function tubeScene(id, def) {
     params: { ...TCOMMON, ...(def.params || {}) },
     build(ctx, p, F) {
       if (String(p.phosphor || 'p3').toLowerCase() === 'p1') F.el.classList.add('tm-p1');
+      const cp = /^#/.test(String(p.phosphor || '')) ? customPhosphor(p.phosphor) : null;   // customization: any hex
+      if (cp) for (const [k, v] of Object.entries(phosphorVars(cp))) F.el.style.setProperty(k, v);
       const T = tube(ctx, p, F, def);
       const s = def.build(ctx, p, F, T) || {};
       return {

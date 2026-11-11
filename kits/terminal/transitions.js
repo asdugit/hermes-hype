@@ -5,12 +5,14 @@
 
 import { sr } from '../base/scene.js';
 
+import { phosphorOf } from './crt.js';
+
 const PH = { p3: [255, 177, 59], p1: [75, 255, 134] };
 
 /** Channel switch: u 0..0.5 old picture tears + dims, burst of static at the cut, u 0.5..1 new picture rolls in. */
 function channelSwitch(tx, u, p) {
   const r = tx.rng;
-  const [cr, cg, cb] = PH[p.phosphor] || PH.p3;
+  const [cr, cg, cb] = PH[p.phosphor] || phosphorOf(p).rgb;
   const first = u < 0.5;
   (first ? tx.toEl : tx.fromEl).style.visibility = 'hidden';
   const el = first ? tx.fromEl : tx.toEl;
