@@ -25,7 +25,17 @@ const has = (f, s) => [...s].every((c) => glyph(f, c));
  * Normalise characters the font lacks: the fallback map, then the letter without its accents (é -> e), then the
  * other case; anything still unknown (emoji, CJK) is dropped instead of printing '?'.
  */
+const NORM = new Map();
 export function normalize(str, font = 'mono') {
+  const key = `${font}\u0000${str}`;
+  const hit = NORM.get(key);
+  if (hit !== undefined) return hit;
+  const res = normalizeRaw(String(str), font);
+  if (NORM.size > 4000) NORM.clear();
+  NORM.set(key, res);
+  return res;
+}
+function normalizeRaw(str, font) {
   const f = GLYPHS[font]; let out = '';
   for (const ch of String(str)) {
     if (glyph(f, ch)) { out += ch; continue; }
