@@ -179,6 +179,14 @@ class SessionFacts:
                 out.add(str(p).replace("\\", "/"))
         return out
 
+    @cached_property
+    def project_root(self) -> str:
+        """The project folder (``~/work/tempo``): film text shows paths relative to it (``src/app.js``)."""
+        from .onscreen import project_root
+        written = [str((e.data or {}).get("path") or "") for e in self.events
+                   if e.kind in ("file_write", "file_patch", "artifact")]
+        return project_root(written or self.paths, self.commands)
+
     def path_in_session(self, path: str) -> bool:
         """True when ``path`` equals or ends a path the session touched."""
         p = (path or "").replace("\\", "/").strip()

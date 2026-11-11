@@ -205,5 +205,5 @@ def _attempt(llm: Callable[..., LlmReply], kind: str, instructions: str, input_t
 def _minimal_storyboard(options: StoryOptions, product: Product | None) -> Storyboard:
     name = product.name if product and product.name else GENERIC_NAME
     scenes = [StoryScene(SceneType.TITLE, [], "", ""), StoryScene(SceneType.END, [], "", "")]
-    return Storyboard(title=name, tagline="", scenes=scenes, cta="Built with Hermes Agent", source="heuristic",
+    return Storyboard(title=name, tagline="", scenes=scenes, cta="", source="heuristic",
                       mode=film_mode(options.mode), product=product or Product(name=name))  # type: ignore[arg-type]

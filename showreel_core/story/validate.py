@@ -16,7 +16,7 @@ import copy
 import re
 from dataclasses import dataclass, field
 
-from ..contracts import Product, SceneType, Storyboard, StoryScene
+from ..contracts import Event, Product, SceneType, Storyboard, StoryScene
 from .facts import (
     SessionFacts,
     code_lines,
@@ -44,6 +44,15 @@ from .rules import (
     film_mode,
     max_type_count,
     narration_budget,
+)
+from .onscreen import (
+    approved_cta,
+    end_command,
+    has_loopback,
+    is_long_page,
+    is_test_page,
+    looks_like_command,
+    scrub_text,
 )
 from .schema import (
     CTA_CHARS,
@@ -78,7 +87,8 @@ _EXTRA_KEYS: dict[SceneType, tuple[str, ...]] = {
 MAX_CODE_FOCUS = 18
 MIN_MONTAGE = 4
 MAX_MONTAGE = 16
-DEFAULT_CTA = "Built with Hermes Agent"
+#: no product command found: the END shows the product name + tagline, no command (never a line of code)
+DEFAULT_CTA = ""
 
 
 @dataclass(frozen=True)
@@ -193,8 +203,9 @@ def _check_product(sb: Storyboard, ctx: _Ctx) -> None:
     p.urls = _keep(p.urls, facts.url_in_session, f"{path}.urls", "does not appear in the session", ctx)[:5]
     p.entry_files = _keep(p.entry_files, facts.path_in_session, f"{path}.entry_files",
                           "is not a file the session touched", ctx)[:6]
-    p.run_commands = _keep(p.run_commands, facts.command_in_session, f"{path}.run_commands",
-                           "is not a command the session ran", ctx)[:6]
+    trusted = set(ctx.draft.run_commands) if ctx.draft is not None else set()   # README / package.json / ...
+    p.run_commands = _keep(p.run_commands, lambda c: facts.command_in_session(c) or c in trusted,
+                           f"{path}.run_commands", "is not a command the session ran", ctx)[:6]
     features: list[str] = []
     for j, feat in enumerate(p.features):
         feat = trim_label(normalize_ws(feat), LABEL_WORDS)
@@ -315,6 +326,19 @@ def _check_top(sb: Storyboard, ctx: _Ctx) -> None:
         ctx.issue("title_long", "$.title", f"longer than {TITLE_CHARS} characters", "warning", "trimmed")
     for attr, limit, path in (("tagline", TAGLINE_CHARS, "$.tagline"), ("cta", CTA_CHARS, "$.cta")):
         value = normalize_ws(getattr(sb, attr))
+        if has_loopback(value):   # 'Open it at localhost' reached a real END card
+            new = "" if attr == "cta" else scrub_text(value, ctx.product.name)
+            ctx.issue("loopback_on_screen", path, f"{value!r} names a loopback/dev-server address", "warning",
+                      f"now {new!r}")
+            value = new
+        if attr == "cta" and value and looks_like_command(value):
+            ok = approved_cta(value, ctx.product, ctx.facts,
+                              ctx.draft.run_commands if ctx.draft is not None else ())
+            if ok != value:
+                ctx.issue("cta_not_product_command", path,
+                          f"{value!r} is not the product's own launch or install command", "warning",
+                          f"now {ok!r}" if ok else "cleared")
+            value = ok
         if len(value) > limit:
             value = trim_chars(value, limit)
             ctx.issue(f"{attr}_long", path, f"longer than {limit} characters", "warning", "trimmed")
@@ -327,9 +351,12 @@ def _check_top(sb: Storyboard, ctx: _Ctx) -> None:
     if not sb.tagline and ctx.product.one_liner and len(ctx.product.one_liner) <= TAGLINE_CHARS:
         sb.tagline = ctx.product.one_liner
     if not sb.cta:
-        cmd = next((c for c in ctx.product.run_commands if len(c) <= CTA_CHARS), "")
-        sb.cta = cmd or DEFAULT_CTA
+        sb.cta = end_command(ctx.product, ctx.facts, CTA_CHARS) or DEFAULT_CTA
         ctx.fixes.append(f"$.cta: defaulted to {sb.cta!r}")
+    if sb.url and (has_loopback(sb.url) or re.match(r"(?i)(?:file:|~|/|\\|[a-z]:[\\/])", sb.url.strip())):
+        ctx.issue("url_not_public", "$.url", f"{sb.url!r} is a dev-server address or a local path", "warning",
+                  "cleared")
+        sb.url = ""
     if sb.url and not ctx.facts.url_in_session(sb.url):
         ctx.issue("url_not_in_session", "$.url", f"{sb.url!r} does not appear in the session", "warning", "cleared")
         sb.url = ""
@@ -614,8 +641,36 @@ def _check_feature(scene: StoryScene, path: str, ctx: _Ctx) -> bool:
 def _check_scroll(scene: StoryScene, path: str, ctx: _Ctx) -> bool:
     if not _check_primary(scene, path, ctx):
         return False
+    ev = ctx.facts.get(scene.refs[0]) if scene.refs else None
+    if ev is not None and image_of(ev) is not None:
+        why = ""
+        if not is_long_page(ev):
+            why = "the picture is not a long page"
+        elif is_test_page(ev) and any(not is_test_page(e) for e in ctx.facts.visuals() if e.kind == "product_capture"):
+            why = "the page is a test fixture, not the product"
+        if why:
+            # SCROLL must scroll the product's real long page (a 9:16 film scrolled a test page of colour blocks);
+            # otherwise it is a still SCREEN of the product's own page
+            ctx.issue("scroll_not_product_page", path, why, "warning", "now a SCREEN")
+            alt = _scroll_fallback(ev, ctx)
+            scene.type = T.SCREEN
+            scene.refs = [alt.id] if alt is not None else scene.refs
+            scene.extra = {k: v for k, v in (scene.extra or {}).items() if k in _EXTRA_KEYS[T.SCREEN]}
+            return _check_screen(scene, path, ctx)
     _clamp_pair(scene, "scroll", path, ctx)
     return True
+
+
+def _scroll_fallback(ev: Event, ctx: _Ctx) -> Event | None:
+    """The viewport capture of the same page (or of the product's main page when ``ev`` is a test page)."""
+    caps = [e for e in ctx.facts.visuals() if e.kind == "product_capture" and (e.data or {}).get("kind") == "viewport"]
+    url = str((ev.data or {}).get("url") or "").rstrip("/")
+    if not is_test_page(ev) or not any(not is_test_page(e) for e in caps):
+        same = [e for e in caps if str((e.data or {}).get("url") or "").rstrip("/") == url]
+        if same:
+            return same[0]
+    real = [e for e in caps if not is_test_page(e)]
+    return real[0] if real else None
 
 
 _SCENE_HANDLERS = {
@@ -647,6 +702,10 @@ def _check_vo(scene: StoryScene, path: str, ctx: _Ctx) -> None:
         ctx.issue("markup", f"{path}.vo", "narration contains markup characters", "warning", "stripped")
     kept: list[str] = []
     for sent in sentences(vo):
+        if has_loopback(sent):     # a voice never reads a dev-server address ('open it at localhost')
+            ctx.issue("loopback_on_screen", f"{path}.vo", "names a loopback/dev-server address", "warning",
+                      "sentence removed")
+            continue
         bad = _bad_numbers(sent, ctx.facts)
         if bad:
             ctx.issue("number_not_in_session", f"{path}.vo",
@@ -676,6 +735,13 @@ def _check_vo(scene: StoryScene, path: str, ctx: _Ctx) -> None:
 
 def _check_label(scene: StoryScene, path: str, ctx: _Ctx) -> None:
     label = normalize_ws(scene.label).rstrip(".")
+    if has_loopback(label):
+        label = scrub_text(label, ctx.product.name)
+        ctx.issue("loopback_on_screen", f"{path}.label", "names a loopback/dev-server address", "warning",
+                  f"now {label!r}")
+    feat = (scene.extra or {}).get("feature")
+    if isinstance(feat, str) and has_loopback(feat):
+        scene.extra["feature"] = scrub_text(feat, ctx.product.name)
     if _bad_numbers(label, ctx.facts):
         ctx.issue("number_not_in_session", f"{path}.label", "label mentions a number that is not a session number",
                   fix="cleared")

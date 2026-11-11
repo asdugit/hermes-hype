@@ -317,6 +317,7 @@ def _type_overlay(typ: str, data: Mapping[str, Any], theme: str,
                                   **place}
     if typ == "END":
         return "kit:type/end-lockup", {"title": str(data.get("title") or ""), "cta": str(data.get("cta") or ""),
+                                       "tagline": str(data.get("tagline") or ""),   # set when there is no command
                                        "url": str(data.get("url") or ""), "credit": str(data.get("credit") or ""),
                                        "theme": theme}
     if typ == "FEATURE" and data.get("feature"):

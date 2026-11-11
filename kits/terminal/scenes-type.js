@@ -234,7 +234,9 @@ tubeScene('kit:terminal/END', {
     let pbEl = null;
     if (pb) { pbEl = T.disp(M.l, y, L ? 84 : 90, 'h'); pbEl.style.width = `${W}px`; pbEl.style.textAlign = 'center'; y += L ? 110 : 108; }
     const ctaFs = L ? 30 : 36;
-    const cta = String(p.cta || '');
+    // the product's command as a hot prompt line; with no command (never a line of code), the tagline as words
+    const isCmd = !!String(p.cta || '').trim();
+    const cta = isCmd ? String(p.cta) : String(p.tagline || '');
     const ctaLines = wrap(cta, Math.floor(W / (ctaFs * ADV)) - 3, '  ');
     const ctaEl = T.pre(M.l, y, ctaFs);
     ctaEl.style.width = `${W}px`; ctaEl.style.textAlign = 'center';
@@ -261,7 +263,7 @@ tubeScene('kit:terminal/END', {
         if (pbEl) pbEl.textContent = t >= lockAt + 0.2 ? `PB ${pb}` : '';
         const k = ctaTy.count(t);
         const typed = [...ctaTy.chars].slice(0, k).join('').split('\n');
-        ctaEl.set(t >= ctaTy.at[0] - 0.1 && cta ? typed.map((s, i) => (i === 0 ? sp('d', '$ ') : '') + sp('h', s) + (i === typed.length - 1 ? cursor(k < ctaTy.n || blink(t - ctaTy.end)) : '')).join('\n') : '');
+        ctaEl.set(t >= ctaTy.at[0] - 0.1 && cta ? typed.map((s, i) => (i === 0 && isCmd ? sp('d', '$ ') : '') + sp(isCmd ? 'h' : 'm', s) + (i === typed.length - 1 ? cursor(k < ctaTy.n || blink(t - ctaTy.end)) : '')).join('\n') : '');
         const u = t >= ctaTy.end + 0.15;
         urlEl.set(u ? [p.url ? sp('m', String(p.url)) : '', credit ? sp('d', credit) : ''].filter(Boolean).join('\n') : '');
         T.barEl.set(t > lockAt ? T.barHtml(title, '') : '');

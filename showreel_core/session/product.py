@@ -526,8 +526,52 @@ def pick_models(cands: list[dict[str, Any]]) -> list[str]:
     return [str(c["_p"]) for c in ok]
 
 
+def product_runs(name: str, lines: list[str]) -> list[str]:
+    """Launch commands a product file declares - README usage blocks, package.json ``start``/``dev`` scripts and
+    ``bin``, pyproject ``[project.scripts]``, Makefile run targets: the END card's command when the session never
+    ran one (and never a line of code from some other file)."""
+    from ..story.onscreen import launch_command
+    text = "\n".join(str(x) for x in lines)
+    out: list[str] = []
+    try:
+        if name.startswith("readme"):
+            fenced = False
+            for raw in lines:
+                s = str(raw).strip()
+                if s.startswith(("```", "~~~")):
+                    fenced = not fenced
+                    continue
+                if fenced or s.startswith("$ "):
+                    lc = launch_command(s[2:] if s.startswith("$ ") else s)
+                    if lc:
+                        out.append(lc)
+        elif name == "package.json":
+            j = json.loads(text)
+            scripts = j.get("scripts") or {}
+            if "start" in scripts:
+                out.append("npm start")
+            out += [f"npm run {k}" for k in ("dev", "serve", "preview") if k in scripts]
+            if j.get("bin") and j.get("name"):
+                out.append(f"npx {j['name']}")
+        elif name == "pyproject.toml":
+            t = tomllib.loads(text)
+            scripts = (t.get("project") or {}).get("scripts") or ((t.get("tool") or {}).get("poetry") or {}).get(
+                "scripts") or {}
+            out += [str(k) for k in list(scripts)[:2]]
+        elif name in ("makefile", "gnumakefile"):
+            out += [f"make {m.group(1)}" for m in re.finditer(r"^(run|dev|serve|start|demo|play|up)\s*:", text, re.M)]
+    except (ValueError, tomllib.TOMLDecodeError, AttributeError, TypeError):
+        return []
+    return list(dict.fromkeys(c for c in out if c and len(c) <= 80))[:3]
+
+
 def _scan_key_file(ev_: _Evidence, name: str, path: str, lines: list[str], eid: str, read: bool = False) -> None:
     w = 0.85 if not read else 0.7       # files the session wrote outrank files it merely read
+    from ..story.onscreen import is_test_path
+    if not _SKIP_DIRS.search(norm_path(path)) and not is_test_path(path):
+        for c in product_runs(name, lines):
+            slot = ev_.run_cmds.setdefault(c, {"cmd": c, "ids": [], "ok": True, "source": name})
+            slot["ids"].append(eid)
     if name.startswith("readme"):
         h1, one, feats = _readme_bits(lines)
         if h1:

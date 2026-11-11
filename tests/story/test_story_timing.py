@@ -146,7 +146,9 @@ def test_resolved_content_is_verbatim(name, mode):
         if sc.type == T.MONTAGE:
             for item in sc.data["items"]:
                 ev = facts.by_id[item["id"]]
-                assert item["arg"] in json.dumps(ev.data, ensure_ascii=False) or item["arg"] in ev.title
+                shown = item["arg"].removeprefix("\u2026/").removesuffix("\u2026")   # display form: ellipsized
+                assert shown in json.dumps(ev.data, ensure_ascii=False) or shown in ev.title
+                assert "localhost" not in item["arg"] and "127.0.0.1" not in item["arg"]
 
 
 @pytest.mark.parametrize("name", ("coding", "webapp", "huge", "bugfix"))

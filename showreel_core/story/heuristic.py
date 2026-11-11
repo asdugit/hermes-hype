@@ -40,6 +40,7 @@ from .facts import (
     terminal_ok,
 )
 from .milestones import detect_milestones
+from .onscreen import INSTALL_RE, end_command, has_loopback, launch_command
 from .options import StoryOptions
 from .rules import (
     DROP_PRIORITY,
@@ -82,9 +83,6 @@ _LOW_VALUE_EXT = {".md", ".txt", ".json", ".lock", ".toml", ".yaml", ".yml", ".c
                   ".csv", ".env", ".log"}
 _ENTRY_NAMES = {"index.html", "main.py", "app.py", "server.py", "cli.py", "__main__.py", "main.js", "index.js",
                 "server.js", "app.js", "main.ts", "index.ts", "main.rs", "main.go", "app.tsx", "main.tsx", "readme.md"}
-_INSTALL_RE = re.compile(r"((?:pip|pipx|uv pip|uv tool) install [\w.\-\[\]=<>]+|npm (?:i|install) -g [\w@/.\-]+"
-                         r"|git clone \S+|cargo install [\w\-]+|brew install [\w\-/]+"
-                         r"|hermes plugins install [\w/.\-]+)")
 _GITHUB_RE = re.compile(r"https://github\.com/[\w.\-]+/[\w.\-]+")
 _LOCAL_RE = re.compile(r"^(?:https?://(?:localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])|file:)", re.IGNORECASE)
 _CLI_HINT_RE = re.compile(r"\b(argparse|click|typer|clap|commander|yargs|cobra|sys\.argv|process\.argv)\b")
@@ -229,9 +227,13 @@ def _product_urls(facts: SessionFacts) -> list[str]:
 
 
 def _run_commands(facts: SessionFacts) -> list[str]:
+    """Commands that launch the product (a dev server, the CLI, the app script), never a line of code: the first
+    line of an ``execute_code`` script (``from pathlib import Path``) once became a real END card's command."""
     out: list[str] = []
     for ev in facts.of_kind("terminal"):
         cmd = normalize_ws(str(data_get(ev, "cmd", "")))
+        if not launch_command(str(data_get(ev, "cmd", "")), shell=str(data_get(ev, "shell", "") or "")):
+            continue
         runs = is_demo_run(ev) or (is_server_cmd(cmd) and (ev.ok or data_get(ev, "exit_code") is None))
         if runs and cmd not in out:
             out.append(cmd)
@@ -384,21 +386,18 @@ class _Film:
         return "Built in one session with Hermes Agent"
 
     def _cta(self) -> tuple[str, str]:
-        texts = [str(data_get(e, "text", "")) for e in self.answers] + [str(data_get(e, "cmd", "")) for e in self.terms
-                                                                        if terminal_ok(e)]
         public = [u for u in self.p.urls + [x for x in self.f.urls() if _GITHUB_RE.match(x)]
-                  if not _LOCAL_RE.match(u) and self.f.url_in_session(u)]
+                  if u.lower().startswith(("http://", "https://")) and not _LOCAL_RE.match(u) and not has_loopback(u)
+                  and self.f.url_in_session(u)]     # a local page path is not a URL a viewer can open
         url = next((u for u in public if _GITHUB_RE.match(u)), public[0] if public else "")
-        for text in reversed(texts):
-            m = _INSTALL_RE.search(text)
-            if m and len(m.group(1)) <= CTA_CHARS:
-                return m.group(1), url
+        cmd = end_command(self.p, self.f, CTA_CHARS)
+        if cmd and INSTALL_RE.match(cmd):
+            return cmd, url
         if url and _GITHUB_RE.match(url):
             return "Read the code on GitHub", url
         if url:
             return "Try it now", url
-        run = next((c for c in self.p.run_commands if len(c) <= CTA_CHARS), "")
-        return (run or "Built with Hermes Agent"), ""
+        return cmd, ""          # the product's launch command, or none (the END shows name + tagline)
 
     # ------------------------------------------------------------------ scenes
     def hook(self) -> StoryScene | None:

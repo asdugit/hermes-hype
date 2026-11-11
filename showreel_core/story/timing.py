@@ -49,6 +49,17 @@ from .rules import (
     SPLIT_CHARS,
     film_mode,
 )
+from ..session.textutil import is_local_path
+from .onscreen import (
+    ELLIPSIS,
+    display_cmd,
+    display_path,
+    display_text_paths,
+    ellipsize,
+    has_loopback,
+    scrub_cmd,
+    scrub_value,
+)
 from .text import phrases, syllables, word_count
 from .validate import scene_role
 
@@ -319,8 +330,60 @@ def _captions(vo: str, t0: float, dur: float) -> list[Caption]:
 
 # ---------------------------------------------------------------------- resolution
 
+#: a terminal panel's command line (longer commands are ellipsized at a word boundary)
+CMD_CHARS = 64
+#: a MONTAGE card's argument
+ARG_CHARS = 40
+
+
 def resolve_scene_data(scene: StoryScene, sb: Storyboard, facts: SessionFacts,
                        portrait: bool = False) -> dict[str, Any] | None:
+    """Verbatim content for a scene's template (as the screen shows it: project-relative paths, commands without
+    shell noise, no loopback address), or None when its refs cannot supply it."""
+    data = _resolve_scene_data(scene, sb, facts, portrait)
+    if data is None:
+        return None
+    product = getattr(sb, "product", None)
+    name = str(getattr(product, "name", "") or getattr(sb, "title", "") or "")
+    return screen_text(data, facts.project_root, name)
+
+
+def screen_text(data: Any, root: str, name: str = "") -> Any:
+    """Scene data as the film shows it (a copy): terminal commands via :func:`display_cmd` (no ``cd X &&``, no
+    ``VAR=...``, interpreter paths as names, ellipsized), code/diff/output paths project-relative, a local page
+    address project-relative, no loopback address anywhere (output lines naming one are dropped). Picture file
+    paths (``image.path``) stay untouched - they load the asset."""
+    def walk(o: Any, key: str = "") -> Any:
+        if isinstance(o, dict):
+            is_pic = o.get("kind") == "image" or ("w" in o and "h" in o and "asset" not in o and "lines" not in o
+                                                   and "hunks" not in o and "cmd" not in o) or key == "image"
+            out: dict[str, Any] = {}
+            for k, v in o.items():
+                if is_pic and k == "path":
+                    out[k] = v
+                elif k == "cmd" and isinstance(v, str):
+                    out[k] = display_cmd(v, root, CMD_CHARS)
+                elif k == "path" and isinstance(v, str):
+                    out[k] = display_path(v, root, 3)
+                elif k == "url" and isinstance(v, str) and is_local_path(v):
+                    out[k] = display_path(v, root, 3)
+                elif k == "output" and isinstance(v, list):        # terminal output lines (code stays verbatim)
+                    out[k] = [display_text_paths(x, root) if isinstance(x, str) else x for x in v]
+                elif k == "header" and isinstance(v, str):         # diff header ("new file ~/work/app/x.py")
+                    out[k] = display_text_paths(v, root)
+                elif isinstance(v, (dict, list)):
+                    out[k] = walk(v, k)
+                else:
+                    out[k] = v
+            return out
+        if isinstance(o, list):
+            return [walk(v, key) for v in o]
+        return o
+    return scrub_value(walk(data), name=name)
+
+
+def _resolve_scene_data(scene: StoryScene, sb: Storyboard, facts: SessionFacts,
+                        portrait: bool = False) -> dict[str, Any] | None:
     """Verbatim content for a scene's template, or None when its refs cannot supply it.
 
     ``portrait`` (9:16 films): a landscape desktop capture is swapped for the phone capture of the same page
@@ -342,6 +405,8 @@ def resolve_scene_data(scene: StoryScene, sb: Storyboard, facts: SessionFacts,
                 "one_liner": product.one_liner if product else ""}
     if st == T.END:
         out: dict[str, Any] = {"title": sb.title, "cta": sb.cta, "url": sb.url, "credit": CREDIT}
+        if not sb.cta and sb.tagline:
+            out["tagline"] = sb.tagline     # no product command: the END is the name + tagline
         if film_mode(getattr(sb, "mode", None)) == "speedrun":
             total = float(facts.stats.duration_s or 0)
             out.update(pb_time_s=total, pb_display=_clock(total))
@@ -360,7 +425,9 @@ def resolve_scene_data(scene: StoryScene, sb: Storyboard, facts: SessionFacts,
             m = facts.get(ref)
             if m is None:
                 continue
-            arg, clipped = _verbatim_arg(m)
+            if has_loopback(str((m.data or {}).get("url") or "")) and not (m.data or {}).get("path"):
+                continue            # a dev-server address is never on screen (and a card of '…' says nothing)
+            arg, clipped = _verbatim_arg(m, root=facts.project_root)
             items.append({"id": m.id, "kind": m.kind, "tool": m.tool, "arg": arg, "clipped": clipped, "t": m.t})
         return {"items": items} if len(items) >= 3 else None
     if st == T.BEFORE_AFTER:
@@ -527,16 +594,32 @@ def _prefix_words(text: str, limit: int) -> str:
     return text[:cut].rstrip()
 
 
-def _verbatim_arg(ev: Event, limit: int = 40) -> tuple[str, bool]:
+def _verbatim_arg(ev: Event, limit: int = ARG_CHARS, root: str = "") -> tuple[str, bool]:
+    """A MONTAGE card's argument as the screen shows it: a path project-relative (``src/app.js``, never
+    ``~/work/...`` running off the card), a command without shell noise, ellipsized at a word boundary."""
     data = ev.data or {}
     for key in ("path", "cmd", "url", "query"):
         if data.get(key):
             raw = str(data[key])
             break
     else:
-        raw = ev.title or ev.tool or ev.kind
-    raw = raw.splitlines()[0] if raw.splitlines() else raw
-    return (raw[:limit], len(raw) > limit)
+        key, raw = "", ev.title or ev.tool or ev.kind
+    if key == "path" or (key == "url" and is_local_path(raw)):
+        shown = display_path(raw, root, 3)
+    elif key == "cmd":
+        shown = display_cmd(raw, root)
+    else:
+        shown = raw.splitlines()[0] if raw.splitlines() else raw
+        shown = scrub_cmd(shown)
+    if len(shown) > limit:
+        if key == "path" or (key == "url" and is_local_path(raw)):
+            comps = shown.removeprefix(ELLIPSIS + "/").split("/")
+            while len(comps) > 1 and len(ELLIPSIS + "/" + "/".join(comps)) > limit:
+                comps = comps[1:]                       # whole folder names off the front: '…/blueprints/x.py'
+            cut = ELLIPSIS + "/" + "/".join(comps)
+            return (cut if len(cut) <= limit else ELLIPSIS + cut[-(limit - 1):]), True
+        return ellipsize(shown, limit), True
+    return shown, False
 
 
 def _clock(seconds: float) -> str:
@@ -604,9 +687,18 @@ def _transitions(scenes: list[TimelineScene], plans: list[_Plan]) -> None:
 
 
 def _same_source(a: TimelineScene, b: TimelineScene) -> bool:
-    pa = a.data.get("path") or (a.data.get("image") or {}).get("url")
-    pb = b.data.get("path") or (b.data.get("image") or {}).get("url")
-    return bool(pa) and pa == pb
+    return bool(_source_key(a)) and _source_key(a) == _source_key(b)
+
+
+def _source_key(sc: TimelineScene) -> str:
+    img = sc.data.get("image") or {}
+    if sc.data.get("path"):
+        return str(sc.data["path"])
+    if img.get("url"):
+        return str(img["url"])
+    if img.get("source_kind") == "product_capture" and img.get("path"):   # one folder per captured page (a
+        return str(img["path"]).replace("\\", "/").rsplit("/", 1)[0]     # dev-server url is not on screen)
+    return ""
 
 
 # ---------------------------------------------------------------------------- cues
