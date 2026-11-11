@@ -1,6 +1,7 @@
 """Any-model engine: weak/broken model output is repaired or falls back to the engine floor (fake models)."""
 from __future__ import annotations
 
+import dataclasses
 import json
 from pathlib import Path
 from typing import Any
@@ -18,7 +19,7 @@ from showreel_core.director.checks import (
 from showreel_core.director.engine import run
 from showreel_core.director.llm import LlmReply
 from showreel_core.director.sheet import Frame
-from showreel_core.director.types import Brief, Capabilities, MediaAsset
+from showreel_core.director.types import EFFORTS, Brief, Capabilities, MediaAsset
 
 # ------------------------------------------------------------------------------------ repair
 
@@ -195,6 +196,9 @@ def test_blender_scenes_in_catalog_only_with_blender() -> None:
 # ------------------------------------------------------------------------------------ engine end to end
 
 
+FREE_QUICK = dataclasses.replace(EFFORTS["quick"], path="", deadline_s=0.0, max_custom=2)
+
+
 def _engine(tmp: Path, brief: Brief, llm: Any, renderer: FakeRenderer | None = None, **kw: Any) -> Any:
     return run(brief, llm=llm, renderer=renderer or FakeRenderer(), effort="quick", job_dir=tmp / "job",
                library_dir=tmp / "lib", catalog=build_catalog(assets=brief.assets, capabilities=brief.capabilities),
@@ -230,7 +234,7 @@ def test_free_path_failure_falls_to_compose(tmp_path: Path) -> None:
     b = _screen_brief(tmp_path, "anime opening credits")
     llm = FakeLlm({"treatment": ["I cannot write JSON today."], "pick": [{"blueprint": "screen-comic"}],
                    "words": ["{}"], "critic": [critique(6.0)]})
-    res = _engine(tmp_path, b, llm, tier=tiers.detect("claude-opus-5-5"))
+    res = _engine(tmp_path, b, llm, tier=tiers.detect("claude-opus-5-5"), budget=FREE_QUICK)
     assert res.ok and res.tier["path"] == "compose"
     assert llm.purposes().count("treatment") == 2 and "pick" in llm.purposes()
     assert all(s["scene"].startswith("kit:comic/") for s in res.film["shots"])
@@ -262,7 +266,8 @@ def test_strong_path_snaps_hallucinated_kit_ids_without_a_reask(env: dict[str, A
     llm = FakeLlm({"treatment": [TREATMENT], "film": [bad], "scene": ["```js\n" + _GOOD + "```"],
                    "critic": [critique(9.0)]})
     res = run(env["brief"], llm=llm, renderer=FakeRenderer(), effort="quick", job_dir=env["job"],
-              library_dir=env["library"], catalog=env["catalog"], tier=tiers.detect("claude-opus-5-5"))
+              library_dir=env["library"], catalog=env["catalog"], tier=tiers.detect("claude-opus-5-5"),
+              budget=FREE_QUICK)
     assert res.ok and llm.purposes().count("film") == 1
     assert res.film["shots"][0]["scene"] == "kit:fake/walk"
 
@@ -324,3 +329,17 @@ def test_balance_still_catches_truncated_and_broken_code(monkeypatch) -> None:
     errs, _ = checks.lint_scene("import * as sr from '../runtime/showreel.js';\n"
                                 "sr.defineScene('x', { layer: '2d', render(ctx, t, p) { ctx.x(); } } });", "x")
     assert any(e.startswith("syntax:") for e in errs)
+
+
+def test_quick_effort_is_kit_first_and_time_boxed(tmp_path: Path) -> None:
+    """quick = engine-assembled from blueprints even for a strong model: no treatment/film/scene-code calls, one
+    critique, no revision (a real quick job on the free path took 27 min of model thinking)."""
+    b = _car_brief(tmp_path, "make it feel like an Apple keynote")
+    llm = FakeLlm({"treatment": [TREATMENT], "film": [FILM], "pick": [{"blueprint": "launch-keynote"}],
+                   "words": ["{}"], "critic": [critique(5.0)]})
+    res = run(b, llm=llm, renderer=FakeRenderer(), effort="quick", job_dir=tmp_path / "job",
+              library_dir=tmp_path / "lib", catalog=build_catalog(assets=b.assets, capabilities=b.capabilities),
+              tier=tiers.detect("claude-fable-5-2"))
+    assert res.ok and res.tier["path"] == "compose", res.error
+    assert not {"treatment", "film", "revise-film"} & set(llm.purposes())
+    assert not any(p.startswith("scene") for p in llm.purposes()) and len(res.scores) == 1

@@ -95,11 +95,18 @@ class Budget:
     max_calls: int              # hard cap on model calls for the whole run
     max_custom: int = 3         # custom scenes per film
     prominence_repairs: int = 1  # measured-product repair passes per version before the critic looks
+    path: str = ""              # force a path ("compose" = engine-assembled from blueprints); "" = by model tier
+    deadline_s: float = 0.0     # wall-clock target; late critique/revision steps are skipped to meet it (0 = none)
 
 
 EFFORTS: dict[str, Budget] = {
-    "quick": Budget(rounds=1, keyframes_per_shot=1, scene_tries=2, film_repairs=1, max_calls=16, max_custom=2),
-    "standard": Budget(rounds=2, keyframes_per_shot=3, scene_tries=3, film_repairs=2, max_calls=36, max_custom=3),
+    # quick = time-boxed (~10 min with a slow frontier model): kit-first, engine-assembled from blueprints (the model
+    # picks + writes words: ~15 s of calls), no custom scene code, one critique and no revision. A real quick job on
+    # the free path took 27 min (treatment 4 min + film 9.5 min + custom scene 12 min of model thinking).
+    "quick": Budget(rounds=1, keyframes_per_shot=1, scene_tries=2, film_repairs=1, max_calls=16, max_custom=0,
+                    path="compose", deadline_s=600.0),
+    "standard": Budget(rounds=2, keyframes_per_shot=3, scene_tries=3, film_repairs=2, max_calls=36, max_custom=3,
+                       deadline_s=2700.0),
     "max": Budget(rounds=4, keyframes_per_shot=5, scene_tries=4, film_repairs=2, max_calls=72, max_custom=4,
                   prominence_repairs=2),
 }

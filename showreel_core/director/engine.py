@@ -385,6 +385,10 @@ def _setup(brief: Brief, llm: Any, renderer: Renderer | None, effort: str, progr
     if not tier.vision:
         brief.capabilities.vision = False
     bud = budget or EFFORTS[effort]
+    if bud.path == "compose" and tier.path != "compose":
+        tier = dataclasses.replace(tier, path="compose", custom_scenes=0,
+                                   reason=(tier.reason + "; " if tier.reason else "") + f"{effort} effort: kit-first, "
+                                   "engine-assembled from blueprints")
     if tier.custom_scenes < bud.max_custom:
         bud = dataclasses.replace(bud, max_custom=tier.custom_scenes)
     if not tier.vision or tier.path == "compose":
@@ -433,7 +437,10 @@ def _produce(r: _Run, start: Version | None = None, first: Version | None = None
             _prominence_pass(r, v)
             r.versions.append(v)
             _save_version(r, v)
-            score = _critique(r, v, rnd)
+            late = _late(r, 0.7)
+            if late:
+                r.warn("critic", f"{late}: measured review instead of the vision critic")
+            score = _critique(r, v, rnd, measured_only=bool(late))
             span = 0.45 + 0.45 * rnd / rounds
             if score is None:
                 r.warn("critic", f"Critic round {rnd}: no usable critique")
@@ -445,6 +452,11 @@ def _produce(r: _Run, start: Version | None = None, first: Version | None = None
                 break
             if rnd == rounds:
                 r.emit("critic", f"Critic round {rnd}: {score.mean:.1f} (min {score.min:g}) - round budget spent", span)
+                _save_version(r, v)
+                break
+            late = _late(r, 0.5)
+            if late:
+                r.emit("critic", f"Critic round {rnd}: {score.mean:.1f} (min {score.min:g}) - {late}, no revision", span)
                 _save_version(r, v)
                 break
             r.emit("critic", f"Critic round {rnd}: {score.mean:.1f} -> fixing {n_issues} issue(s)", span - 0.2 / rounds)
@@ -472,30 +484,10 @@ def _first_version(r: _Run) -> Version | None:
     """v1 by the path the model's tier allows, falling down the floor on failure:
     free (treatment -> film -> custom code) -> compose (pick -> words -> engine film) -> engine floor (no model)."""
     if r.tier.path == "free":
-        try:
-            r.emit("treatment", "Writing treatment", 0.03)
-            r.treatment = _treatment(r)
-            v = None
-            if r.treatment:
-                r.emit("film", "Writing film script", 0.10)
-                v = _film(r)
-            if v is not None:
-                recipe = r.treatment.get("recipe")
-                r.emit("scenes", f"Film script: {len(v.film['shots'])} shots, {len(v.customs)} custom scene(s)"
-                                 + (f" (recipe {recipe})" if recipe else ""), 0.18)
-                if _realise(r, v, code=list(v.customs)):
-                    r.path = "free"
-                    return v
-            r.warn("floor", "The free-form film did not come together; composing from a blueprint instead")
-        except BudgetExceeded:
-            raise
-        except Cancelled:
-            raise
-        except Exception as exc:
-            if type(exc).__name__ == "Cancelled":
-                raise
-            log.exception("free path failed")
-            r.warn("floor", f"The free-form path failed ({type(exc).__name__}); composing from a blueprint instead")
+        v = _free_version(r)
+        if v is not None:
+            return v
+        r.warn("floor", "Composing from a blueprint instead")
     v = _compose(r, use_model=r.ledger.remaining >= 2)
     if v is not None and _realise(r, v, code=[]):
         return v
@@ -504,6 +496,40 @@ def _first_version(r: _Run) -> Version | None:
         v = _compose(r, use_model=False)
         if v is not None and _realise(r, v, code=[]):
             return v
+    if r.budget.path == "compose" and r.tier.name != "weak" and r.ledger.remaining >= 2:
+        # the effort chose compose for speed, but no blueprint fits/renders here: the model writes the film itself
+        r.warn("floor", "No blueprint film rendered; the model writes the film (kit scenes only)")
+        return _free_version(r)
+    return None
+
+
+def _free_version(r: _Run) -> Version | None:
+    """The free path: treatment -> film script (+ custom code within the budget). None when it does not come
+    together (the caller falls down to compose / the floor)."""
+    try:
+        r.emit("treatment", "Writing treatment", 0.03)
+        r.treatment = _treatment(r)
+        v = None
+        if r.treatment:
+            r.emit("film", "Writing film script", 0.10)
+            v = _film(r)
+        if v is not None:
+            recipe = r.treatment.get("recipe")
+            r.emit("scenes", f"Film script: {len(v.film['shots'])} shots, {len(v.customs)} custom scene(s)"
+                             + (f" (recipe {recipe})" if recipe else ""), 0.18)
+            if _realise(r, v, code=list(v.customs)):
+                r.path = "free"
+                return v
+        r.warn("floor", "The free-form film did not come together")
+    except BudgetExceeded:
+        raise
+    except Cancelled:
+        raise
+    except Exception as exc:
+        if type(exc).__name__ == "Cancelled":
+            raise
+        log.exception("free path failed")
+        r.warn("floor", f"The free-form path failed ({type(exc).__name__})")
     return None
 
 
@@ -1148,7 +1174,14 @@ def _prominence_pass(r: _Run, v: Version) -> None:
 
 # ------------------------------------------------------------------------------------ critic
 
-def _critique(r: _Run, v: Version, rnd: int) -> RoundScore | None:
+def _late(r: _Run, frac: float) -> str:
+    """A reason string when the run has used more than ``frac`` of its effort's wall-clock target, else ""."""
+    dl = float(getattr(r.budget, "deadline_s", 0.0) or 0.0)
+    spent = time.monotonic() - r.t0
+    return f"{spent / 60:.0f} of the {r.effort} effort's {dl / 60:.0f} min used" if dl and spent > frac * dl else ""
+
+
+def _critique(r: _Run, v: Version, rnd: int, *, measured_only: bool = False) -> RoundScore | None:
     """Contact sheet(s) -> vision critic -> rubric; stores the score on the version."""
     if not v.images:
         return None
@@ -1164,7 +1197,7 @@ def _critique(r: _Run, v: Version, rnd: int) -> RoundScore | None:
     v.sheets = list(sheets)
     r.emit("critic", f"Critic round {rnd}: reviewing {len(v.frames)} keyframes on {len(sheets)} sheet(s)",
            sheets=[str(s) for s in sheets])
-    if not r.tier.vision:
+    if not r.tier.vision or measured_only:
         return _measured_critique(r, v, rnd)
     product = r.product
     share, missing = product_share(v.film, product) if product else (1.0, [])

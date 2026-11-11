@@ -307,8 +307,26 @@ def _check_customs(plan: dict[str, Any], shots: list[dict[str, Any]], catalog: C
             warnings.append(f"dropped unused custom scene spec `{name}`")
             specs.pop(name)
     if len(used) > max_custom:
-        errors.append(f"{len(used)} custom scenes ({used}); at most {max_custom}: use kit scenes for the rest or "
-                      "serve several shots with one custom scene through params")
+        # repair, don't re-ask: the excess custom scenes (latest first) become their nearest kit scene; only a
+        # scene no kit can stand in for is an error (a quick-effort budget is 0 custom scenes)
+        names = catalog.asset_names()
+        for name in list(reversed(used))[: len(used) - max_custom]:
+            spec = specs.get(name, {"name": name})
+            target = nearest_kit_scene(spec, catalog)
+            if target is None:
+                continue
+            for s in [*shots, *(overlays or [])]:
+                if s.get("scene") == f"custom:{name}":
+                    s["params"] = fallback_params(spec, s.get("params") or {}, target, names)
+                    s["scene"] = target.id
+            used.remove(name)
+            specs.pop(name, None)
+            warnings.append(f"custom scene `{name}` is over the budget ({max_custom}); using kit scene {target.id}")
+        if len(used) > max_custom:
+            errors.append(f"{len(used)} custom scenes ({used}); at most {max_custom}: use kit scenes for the rest or "
+                          "serve several shots with one custom scene through params")
+        plan["custom_scenes"] = [c for c in plan.get("custom_scenes") or []
+                                 if not isinstance(c, dict) or _slug(str(c.get("name", ""))) in used]
     asset_names = {a.name for a in brief.assets}
     known = catalog.scenes()
     for name in used:

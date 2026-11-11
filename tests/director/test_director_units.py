@@ -135,8 +135,11 @@ def test_film_check_custom_scene_rules(env: dict[str, Any]) -> None:
     obj = copy.deepcopy(FILM)
     obj["plan"]["custom_scenes"] = []
     assert any("no entry in plan.custom_scenes" in e for e in _check(env, obj).errors)
-    obj = copy.deepcopy(FILM)
-    assert any("at most 0" in e for e in checks.check_film(obj, env["brief"], env["catalog"], max_custom=0).errors)
+    obj = copy.deepcopy(FILM)               # over the custom budget: repaired to the nearest kit scene, not re-asked
+    chk = checks.check_film(obj, env["brief"], env["catalog"], max_custom=0)
+    assert not any("at most 0" in e for e in chk.errors), chk.errors
+    assert any("over the budget" in w for w in chk.warnings)
+    assert not [s for s in chk.value[0]["shots"] if s["scene"].startswith("custom:")]
 
 
 def test_film_check_transition_window_and_captions(env: dict[str, Any]) -> None:

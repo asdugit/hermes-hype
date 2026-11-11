@@ -24,6 +24,8 @@ from director_fakes import (
 from showreel_core.director import EFFORTS, Budget, run
 from showreel_core.director.engine import revise
 
+FREE_QUICK = replace(EFFORTS["quick"], path="", deadline_s=0.0, max_custom=2)    # the old cheap free-path budget
+
 
 def _run(env: dict[str, Any], llm: Any, renderer: Any = None, **kw: Any) -> Any:
     events: list[dict[str, Any]] = []
@@ -183,10 +185,20 @@ def test_round_limit_quick_effort(env: dict[str, Any]) -> None:
     llm = FakeLlm({"treatment": [TREATMENT], "film": [FILM], "scene": [fenced(GOOD_CODE)],
                    "critic": [critique(5.0, LOW_ISSUES)], "revise-film": [revised_film()]})
     rend = FakeRenderer()
-    res = _run(env, llm, rend, effort="quick")
+    res = _run(env, llm, rend, effort="quick", budget=FREE_QUICK)
     assert res.ok and not res.passed_bar
     assert len(res.scores) == 1 and "revise-film" not in llm.purposes()
     assert len(rend.previews[0]["capture"]) <= 3 + 1 + 1                 # 1 keyframe per shot + transition + hook
+
+
+def test_quick_effort_without_blueprints_falls_back_to_the_free_path(env: dict[str, Any]) -> None:
+    """quick composes from blueprints; a catalog with none (this fake one) must still yield a film, kit-only."""
+    llm = FakeLlm({"treatment": [TREATMENT], "film": [FILM], "scene": [fenced(GOOD_CODE)],
+                   "critic": [critique(5.0, LOW_ISSUES)], "revise-film": [revised_film()]})
+    res = _run(env, llm, FakeRenderer(), effort="quick")
+    assert res.ok and res.tier["path"] == "free"
+    assert not any(p.startswith("scene") for p in llm.purposes()) and len(res.scores) == 1
+    assert EFFORTS["quick"].max_custom == 0 and EFFORTS["quick"].deadline_s <= 600
 
 
 def test_best_version_wins_when_revision_scores_lower(env: dict[str, Any]) -> None:
@@ -316,7 +328,7 @@ def test_pipeline_keyword_entry_with_ctx_llm(env: dict[str, Any]) -> None:
         notes = ""
 
     ctx_llm = CtxLlm()
-    res = run(direction=env["brief"].direction, llm=ctx_llm, options=Opts(), renderer=FakeRenderer(),
+    res = run(direction=env["brief"].direction, llm=ctx_llm, options=Opts(), renderer=FakeRenderer(), budget=FREE_QUICK,
               job_dir=env["job"], library_dir=env["library"], catalog=env["catalog"], seconds=45, aspect="16:9",
               fps=30, size=(1920, 1080), seed=3, product=env["brief"].product, assets=[env["car"]],
               progress=lambda stage="", frac=0.0, note="", **_: None)
