@@ -5,11 +5,12 @@ description: "Use when the user wants a video, trailer, promo, demo reel or show
 
 # Hype: a launch trailer of what this session built
 
-`hype_render` turns this session into a finished, narrated video. It reads the session itself, so don't ask
+`hype_render` turns this session into a finished video (music and on-screen type). It reads the session itself, so don't ask
 the user to explain the project. The product is the hero (about 70 %: hook, name and one-liner, 2-4 feature beats)
 and the session is the proof (about 30 %: real diffs, terminal output, green tests, computed stats). Code,
-commands, output and numbers on screen are verbatim from the session; the model only picks, orders and narrates.
-It renders locally with headless Chromium and ffmpeg and narrates with Hermes `text_to_speech`.
+commands, output and numbers on screen are verbatim from the session; the model only picks, orders and writes the words.
+It renders locally with headless Chromium and ffmpeg. Films are music-only by default: pass `voice: true` only
+when the user asks for narration ("narrated", "with a voiceover"); it then narrates with Hermes `text_to_speech`.
 
 ## When to use it
 

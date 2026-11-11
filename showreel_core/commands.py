@@ -29,7 +29,22 @@ ACTIONS = {"styles": "styles", "status": "status", "cancel": "cancel", "revise":
 _ACTION_MAX_WORDS = {"styles": 1, "help": 1, "status": 2, "cancel": 2, "revise": 10_000}
 _VOICE_OFF = {"mute", "muted", "silent", "no-voice", "novoice", "no-vo", "captions", "captions-only", "no-narration",
               "--no-voice", "--mute", "--captions"}
-_VOICE_ON = {"voice", "narrated", "--voice"}
+_VOICE_ON = {"voice", "narrated", "narrate", "narration", "voiceover", "voice-over", "--voice", "--narrate",
+             "--narration"}
+#: free-text asks for a narrator ('... with narration', 'narrated', 'add a voiceover'); and the opposite
+_NARRATE_RE = re.compile(r"\b(?:with|add|use|plus|and)\s+(?:a\s+|an\s+|some\s+)?(?:narration|narrator|voice[- ]?over|vo)\b"
+                         r"|\bnarrat(?:ed|e\s+it|e\s+the\s+film)\b", re.I)
+_NO_NARRATE_RE = re.compile(r"\b(?:no|without|skip)\s+(?:the\s+|any\s+|a\s+|an\s+)?(?:narration|narrator|voice[- ]?over|vo|voice)\b",
+                            re.I)
+
+
+def narration_requested(text: str) -> bool | None:
+    """True when free text asks for narration, False when it refuses it, None when it says nothing (films
+    are music-only by default)."""
+    t = str(text or "")
+    if _NO_NARRATE_RE.search(t):
+        return False
+    return True if _NARRATE_RE.search(t) else None
 _ASPECT_WORDS = {"vertical", "portrait", "9:16", "both", "horizontal", "landscape", "16:9", "wide", "square", "1:1"}
 _STRONG_ASPECTS = {"vertical", "9:16", "16:9", "1:1"}
 _PREVIEW = {"preview", "draft", "--preview"}
@@ -54,7 +69,7 @@ HELP = (
     "Usage: /hype [lore|speedrun] [style] [30|60|90] [vertical|both] [mute] [quick|standard|max] [blender]\n"
     "  /hype                      product trailer of what this session built (default)\n"
     "  /hype lore                 the making-of story · /hype speedrun  the build as a speedrun\n"
-    "  /hype pixel 60 vertical    style + length + 9:16 · add 'mute' for captions only\n"
+    "  /hype pixel 60 vertical    style + length + 9:16 · add 'narrated' for a narrator\n"
     "  /hype <any direction>      Directed film, e.g. /hype pixel, then bloom into anime, sell it\n"
     "  /hype revise <notes>       another pass on the last film with your notes\n"
     "  add 'blender' (or say 'use blender') to render the 3D shots in your own Blender\n"
@@ -230,6 +245,9 @@ def parse(raw: str | None, *, styles: Iterable[str] = (), base: Options | None =
     settings defaults. Any free text makes the film Directed (``options.direction`` = the full text).
     """
     text = " ".join(str(raw or "").split())
+    # "with narration" / "without narration" are one option each, not free text that makes the film Directed
+    text = re.sub(r"(?i)\b(?:with|add)\s+(?:a\s+|an\s+)?(?:narration|narrator|voice[- ]?over)\b", "narrated", text)
+    text = re.sub(r"(?i)\b(?:no|without)\s+(?:narration|narrator|voice[- ]?over)\b", "no-narration", text)
     opts = (base or Options()).normalised()
     opts.explicit, opts.hints, opts.direction = [], {}, ""
     cmd = Command(options=opts)
@@ -270,6 +288,10 @@ def parse(raw: str | None, *, styles: Iterable[str] = (), base: Options | None =
             opts.direction = text
             for t in sorted((t for t in middle if t.kind != "text" and t.strong), key=lambda t: not t.pref):
                 _apply_hint(opts, t)
+            vo = narration_requested(text)
+            if vo is not None and "voice" not in opts.explicit:
+                opts.voice = vo
+                opts.hints["voice"] = vo
             wants = blender_requested(text)
             if wants is not None:
                 opts.hints["engine_3d"] = "blender" if wants else "browser"
@@ -294,8 +316,7 @@ def describe(opts: Options) -> str:
     """One-line human summary of the options (used in replies and progress messages)."""
     mode = {"product": "trailer", "making_of": "making-of", "speedrun": "speedrun"}.get(opts.mode, opts.mode)
     parts = [f"{opts.style} {mode}", f"{opts.seconds}s", " + ".join(opts.aspects)]
-    if not opts.voice:
-        parts.append("captions only")
+    parts.append("narrated" if opts.voice else "music only")
     if opts.preview:
         parts.append("preview")
     if opts.directed:
@@ -314,5 +335,5 @@ def styles_text(styles: dict[str, Any]) -> str:
         lines.append(f"  {s.id:<10} {s.blurb}".rstrip())
     if later:
         lines.append("Not in this build yet (falls back to launch): " + ", ".join(sorted(s.id for s in later)))
-    lines.append("Use: /hype <style> [30|60|90] [vertical|both] [mute], or describe any look you want.")
+    lines.append("Use: /hype <style> [30|60|90] [vertical|both] [narrated], or describe any look you want.")
     return "\n".join(lines)

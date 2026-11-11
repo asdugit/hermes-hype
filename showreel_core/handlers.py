@@ -58,7 +58,8 @@ RENDER_SCHEMA: dict[str, Any] = {
                         "description": "Target length in seconds (30, 60 or 90 work best)."},
             "aspect": {"type": "string", "enum": ["16:9", "9:16", "both", "1:1"],
                        "description": "16:9 (default), 9:16 vertical, or both."},
-            "voice": {"type": "boolean", "description": "Narrate with Hermes TTS (default true); false = captions only."},
+            "voice": {"type": "boolean", "description": "Narrate with Hermes TTS. Default false: music and on-screen "
+                                                     "type only. Set true only when the user asks for narration."},
             "direction": {"type": "string",
                           "description": "Optional free-text creative direction (\"pixel art that blooms into an "
                                          "anime flower field, sell the product\"). Makes a Directed film; a "
@@ -279,6 +280,10 @@ def _tool_options(ctx: Any, args: dict[str, Any]) -> Options:
         opts.preview = args["preview"]
     if args.get("direction"):
         opts.direction = str(args["direction"])
+        if not isinstance(args.get("voice"), bool):
+            from .commands import narration_requested
+            vo = narration_requested(opts.direction)       # "... with narration" in the direction
+            opts.voice = opts.voice if vo is None else vo
         wants = blender_requested(opts.direction)
         if wants is not None and not args.get("engine_3d"):
             opts.engine_3d = "blender" if wants else "browser"
@@ -378,6 +383,8 @@ def cli_setup(parser: Any) -> None:
     r.add_argument("--seconds", type=int, default=None)
     r.add_argument("--aspect", default=None, help="16:9 | 9:16 | both | 1:1")
     r.add_argument("--mode", default=None, help="product | lore | speedrun")
+    r.add_argument("--narrate", "--voice", dest="narrate", action="store_true",
+                   help="add a narrator (films are music-only by default)")
     r.add_argument("--no-voice", action="store_true")
     r.add_argument("--preview", action="store_true")
     r.add_argument("--direction", default="", help="free-text direction (Directed mode)")
@@ -449,8 +456,12 @@ def cli(ctx: Any, args: Any) -> int:
             setattr(opts, key, getattr(args, key))
     if args.aspect:
         opts.aspects = norm_aspects(args.aspect)
-    opts.voice = opts.voice and not args.no_voice
+    opts.voice = (opts.voice or bool(getattr(args, "narrate", False))) and not args.no_voice
     opts.preview, opts.direction = bool(args.preview), args.direction or ""
+    if opts.direction and not getattr(args, "narrate", False) and not args.no_voice:
+        from .commands import narration_requested
+        vo = narration_requested(opts.direction)           # "... with narration" in the direction
+        opts.voice = opts.voice if vo is None else vo
     engine = "blender" if getattr(args, "blender", False) else getattr(args, "engine_3d", None)
     if not engine and opts.direction:
         wants = blender_requested(opts.direction)          # "use blender" in the direction, as in the tool

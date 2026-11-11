@@ -90,7 +90,7 @@ class Options:
     style: str = DEFAULT_STYLE
     seconds: int = 60
     aspects: list[str] = field(default_factory=lambda: ["16:9"])
-    voice: bool = True                     # False -> captions only
+    voice: bool = False                    # music + on-screen type by default; True = narrated (opt-in)
     effort: str = "standard"               # Director budget: quick | standard | max
     preview: bool = False                  # 540p15 preview preset
     redact: bool = True
@@ -149,7 +149,7 @@ class Settings:
     default_style: str = DEFAULT_STYLE
     default_seconds: int = 60
     aspect: str = "16:9"                   # 16:9 | 9:16 | both | 1:1
-    narration: bool = True
+    narration: bool = False                # films are music-only unless the user asks for narration
     redact: bool = True
     effort: str = "standard"
     max_parallel_workers: int = 0          # 0 = auto

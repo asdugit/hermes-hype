@@ -157,7 +157,7 @@ def test_never_raises_on_garbage() -> None:
 def test_texts() -> None:
     assert "/hype" in HELP
     o = Options(style="pixel", mode="speedrun", seconds=60, aspects=["16:9", "9:16"], voice=False).normalised()
-    assert describe(o) == "pixel speedrun · 60s · 16:9 + 9:16 · captions only"
+    assert describe(o) == "pixel speedrun · 60s · 16:9 + 9:16 · music only"
     txt = styles_text({"launch": StyleInfo("launch", blurb="Premium", ready=True),
                        "pixel": StyleInfo("pixel", ready=False)})
     assert "launch" in txt and "falls back to launch): pixel" in txt

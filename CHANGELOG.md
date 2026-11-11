@@ -2,6 +2,19 @@
 
 ## 1.0.0 (2026-11-11)
 
+**Films of games, renders and apps** (late fix from a real session: a Roblox detective game)
+- Music-only by default: narration is opt-in (`narrated`, `--narrate`, `narration=on`, "with narration" in a
+  direction, the `narration` setting or the Desktop toggle). Captions and on-screen type carry the story.
+- Only a real web page capture gets a browser window, a cursor and a focus ring. Game/app screenshots, renders and
+  image files are shown whole on a borderless card under a slow Ken-Burns push/pan, with cross-dissolves between
+  pictures. Focus crops of pictures keep >= 55 % of the image at an aspect of 0.75-1.8 (or the whole picture),
+  never a strip.
+- The session's pictures are ranked before the storyboard sees them: contact sheets and tile grids, B&W tests,
+  debug renders (`sheet`, `grid`, `heads`, `debug`, `bw`, `zf_`... in the name), older numbered retries,
+  near-duplicates, tiny pictures and strips are set aside; pictures you were shown come first. A storyboard
+  pointing at a set-aside picture gets the best unused real shot instead, and a product film shows up to one
+  real picture per ~10 s rather than holding its end card.
+
 First public release, built for the Nous Research Hermes Agent plugin hackathon. Formerly Showreel: the plugin
 was renamed to Hype (`/hype`, `hype_render`, `hermes hype`) because the catalog name `showreel` already
 belongs to another plugin.

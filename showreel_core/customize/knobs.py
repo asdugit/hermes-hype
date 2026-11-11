@@ -25,7 +25,7 @@ KNOBS: dict[str, tuple[str, str]] = {
     "music": ("music", "music bed id (launch_a, comic_b, ...), a mood (playful, dark, calm, epic, chiptune, "
                        "synthwave, ...) or none"),
     "energy": ("energy", "calm | normal | high (narration pace, holds, transitions, music tempo)"),
-    "narration": ("bool", "on | off (off = captions only)"),
+    "narration": ("bool", "on | off (default off: music and on-screen type; on = a narrator)"),
     "voice": ("voice", "narration voice: a style (whisper, warm, deep, bright, playful, serious) or an Edge "
                        "voice name (en-US-AvaMultilingualNeural)"),
     "voice_speed": ("speed", "narration pace multiplier 0.5-2.0 (default: the style's pace)"),

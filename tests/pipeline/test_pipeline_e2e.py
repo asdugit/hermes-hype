@@ -32,6 +32,7 @@ class Handle:
 
 
 def _job(store: Any, **opts: Any) -> dict[str, Any]:
+    opts.setdefault("voice", True)          # these tests exercise the narrated path (films are music-only by default)
     return store.create("sess-1", Options(**opts).normalised().to_dict())
 
 
@@ -119,6 +120,13 @@ def test_transient_tts_failures_are_retried(env: dict[str, Any]) -> None:
     assert final["stage"] == "done" and rec.n("tts_fail") >= 1
     assert not any("narration failed" in w for w in final["warnings"]), final["warnings"]
     assert rec.calls["mix"][0]["voices"] == rec.n("tts_fail")
+
+
+def test_default_film_is_music_only(env: dict[str, Any]) -> None:
+    store, rec = env["store"], Recorder()
+    job = store.create("sess-1", Options(seconds=30).normalised().to_dict())
+    final = run_job(job["id"], _host()[0], store=store, deps=make_deps(rec))
+    assert final["stage"] == "done" and rec.n("tts") == 0 and rec.calls["mix"][0]["voices"] == 0
 
 
 def test_no_tts_service_and_voice_off(env: dict[str, Any]) -> None:
@@ -290,7 +298,7 @@ def test_rerender_reuses_the_storyboard_and_evidence_without_a_model_call(env: d
         calls.append(kw)
         raise AssertionError("no model call on a re-render")
 
-    child = store.create("sess-1", Options(seconds=30, aspects=["9:16"]).to_dict(), parent=first["id"])
+    child = store.create("sess-1", Options(seconds=30, aspects=["9:16"], voice=True).to_dict(), parent=first["id"])
     store.update(child["id"], reuse_storyboard=sb)
     rec2 = Recorder()
     final = run_job(child["id"], Host(story_llm=llm, dispatch=lambda *a, **k: "{}"), store=store,
@@ -561,3 +569,10 @@ def test_earlier_films_of_the_session_are_not_evidence(env: dict[str, Any]) -> N
     # a session that BUILT Hype (no film tool call) keeps its own talk about "hype"
     dev = Event("d1", 5.0, "assistant_note", "", "Wiring the film pipeline", "hype pipeline tests pass", {})
     assert not own_output_event(dev, [], after_first_film=False)
+    # the session's own pictures, copied into THIS job's assets, are evidence (not Hype output)
+    root = str(store.root).replace("\\", "/").lower()
+    job = f"{root}/jobs/20261111-1500-abcd/"
+    shot = Event("s1", 6.0, "screenshot", "vision_analyze", "shots/gameplay.jpg", "",
+                 {"src": "~/game/shots/gameplay.jpg", "path": job + "assets/e9_gameplay.jpg"})
+    assert own_output_event(shot, [root], after_first_film=False)                  # without the job: dropped
+    assert not own_output_event(shot, [root], after_first_film=False, this_job=(job,))

@@ -1,14 +1,14 @@
 # Hype
 
-**An engine inside a Hermes plugin: type `/hype` and the session you just worked in becomes a narrated
-launch trailer for the thing you built.**
+**An engine inside a Hermes plugin: type `/hype` and the session you just worked in becomes a launch
+trailer for the thing you built.** Music and on-screen type by default; a narrator when you ask for one.
 
 ![One app, four presets: Tempo, a focus timer, as a launch film (its timer ring on a dark stage), a comic (TEMPO masthead with a caped hero), an ink explainer (the ring on paper with a sticky note) and a pixel-art film (the ring on a night stage)](docs/media/hero_styles.webp)
 
 *One session, four presets. Tempo is a focus timer that Hermes built in one real chat; these are 3.6 seconds
 from each of four 30 s films that the installed plugin made from that chat (`launch`, `comic`, `ink`, `pixel`),
 with no prompting: the session was the brief. Rendered locally by Hype's own pipeline: HTML scenes in headless
-Chromium, original music and SFX, narration, ffmpeg.*
+Chromium, original music and SFX, ffmpeg.*
 
 [![CI](https://github.com/asdugit/hermes-hype/actions/workflows/ci.yml/badge.svg)](https://github.com/asdugit/hermes-hype/actions/workflows/ci.yml)
 License: AGPL-3.0-or-later · Hermes Agent >= 0.22.5 · Windows, macOS, Linux
@@ -238,7 +238,7 @@ Desktop → Capabilities → Plugins → Hype, or `plugins.entries.hype.settings
 | `default_style` | `launch` | Style when the command names none |
 | `default_seconds` | `60` | Length (15-180) |
 | `aspect` | `16:9` | `16:9`, `9:16`, `both` or `1:1` (experimental) |
-| `narration` | on | Off = captions only; nothing is sent to your TTS provider |
+| `narration` | off | Off = music and on-screen type, nothing is sent to your TTS provider. On = a narrator (per film: `narrated`, `--narrate`, `narration=on`, or "with narration" in a direction) |
 | `narration_speed` | empty | Empty = each style's pace (cinematic 1.13, others 1.0) |
 | `redact` | on | Redact secrets, emails and home paths before the model and the render |
 | `effort` | `standard` | Directed films: quick, standard or max critique rounds |
@@ -283,8 +283,8 @@ Read this before installing. Hype:
   that model for the critic. This uses your provider account and costs what your provider charges.
   Redaction is best effort and does not touch pixels: screenshots in the film are shown as they were. Review the
   storyboard and drop scenes before you post.
-- **Sends narration text to your TTS provider** through Hermes' `text_to_speech` (Edge, the default, is a
-  Microsoft online service). `mute` or `narration: off` sends nothing.
+- **Sends narration text to your TTS provider** only when you ask for narration, through Hermes'
+  `text_to_speech` (Edge, the default, is a Microsoft online service). The default (music only) sends nothing.
 - **Runs subprocesses:** headless Chromium, ffmpeg and, only when you ask for it, your Blender. After a yes to an
   install offer also `blender --version`, `hdiutil`/`ditto` (macOS .dmg) or `hermes pm install`. All with fixed
   argument lists. During a render it also serves the job folder to its own Chromium from a local web server on
