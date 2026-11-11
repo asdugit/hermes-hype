@@ -285,3 +285,12 @@ def test_measured_review_scores_from_measurements() -> None:
     assert set(crit["scores"]) >= {"product_clarity", "legibility"} and crit["measured"]
     assert any("flat" in i["issue"] for i in crit["per_shot_issues"])
     assert crit["scores"]["legibility"] < 8
+
+
+def test_custom_scene_used_only_as_an_overlay_is_kept(env: dict[str, Any]) -> None:
+    obj = json.loads(json.dumps(FILM))
+    obj["film"]["overlays"].append({"id": "vhs", "t0": 0, "t1": 45, "scene": "custom:vhs-deck", "params": {}})
+    obj["plan"]["custom_scenes"].append(dict(obj["plan"]["custom_scenes"][0], name="vhs-deck"))
+    chk = check_film(obj, env["brief"], env["catalog"], max_custom=3)
+    assert chk.value is not None, chk.errors
+    assert {c["name"] for c in chk.value[1]["custom_scenes"]} == {"boss-battle", "vhs-deck"}

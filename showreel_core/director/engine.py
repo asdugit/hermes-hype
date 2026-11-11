@@ -387,7 +387,9 @@ def _setup(brief: Brief, llm: Any, renderer: Renderer | None, effort: str, progr
     bud = budget or EFFORTS[effort]
     if tier.custom_scenes < bud.max_custom:
         bud = dataclasses.replace(bud, max_custom=tier.custom_scenes)
-    if not tier.vision:                      # no critic to iterate with: one measured review, engine repairs only
+    if not tier.vision or tier.path == "compose":
+        # no critic to iterate with -> one measured review; a weak model's free-form revision patch regressed the
+        # composed film in trials (5.7 -> 4.7, best-of kept v1): critique once, keep the engine's repairs only
         bud = dataclasses.replace(bud, rounds=1)
     r = _Run(brief, cat, bud, _as_director_llm(llm),
              renderer or RuntimeRenderer(gpu=brief.capabilities.gpu), job_dir, lib, progress, cancel, effort)

@@ -168,7 +168,8 @@ def check_film(obj: Any, brief: Brief, catalog: Catalog, *, max_custom: int) -> 
 
     shots = _check_shots(film, dur, errors, warnings)
     known = catalog.scenes()
-    customs = _check_customs(plan, shots, catalog, brief, max_custom, errors, warnings)
+    customs = _check_customs(plan, shots, catalog, brief, max_custom, errors, warnings,
+                             overlays=[o for o in film.get("overlays") or [] if isinstance(o, dict)])
     for s in shots:
         scene = s["scene"]
         if scene.startswith("custom:"):
@@ -287,15 +288,16 @@ def _check_shots(film: dict[str, Any], dur: float, errors: list[str], warnings: 
 
 
 def _check_customs(plan: dict[str, Any], shots: list[dict[str, Any]], catalog: Catalog, brief: Brief,
-                   max_custom: int, errors: list[str], warnings: list[str]) -> dict[str, dict[str, Any]]:
+                   max_custom: int, errors: list[str], warnings: list[str],
+                   overlays: list[dict[str, Any]] | None = None) -> dict[str, dict[str, Any]]:
     specs: dict[str, dict[str, Any]] = {}
     for c in plan.get("custom_scenes") or []:
         if isinstance(c, dict) and c.get("name"):
             name = _slug(c["name"])
             specs[name] = dict(c, name=name)
     used = []
-    for s in shots:
-        if s["scene"].startswith("custom:"):
+    for s in [*shots, *(overlays or [])]:          # a custom scene may serve as an overlay (a VHS/noir layer)
+        if str(s.get("scene", "")).startswith("custom:"):
             name = _slug(s["scene"].split(":", 1)[1])
             s["scene"] = f"custom:{name}"
             if name not in used:
