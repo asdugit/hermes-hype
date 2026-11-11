@@ -67,7 +67,10 @@ _NOT_PRODUCT_NPM = {"test", "lint", "build", "format", "fmt", "typecheck", "type
 _NOT_PRODUCT_MODULE = {"pytest", "pip", "venv", "virtualenv", "unittest", "mypy", "ruff", "black", "flake8",
                        "pylint", "isort", "build", "twine", "compileall", "py_compile", "json.tool", "doctest",
                        "coverage", "playwright", "ensurepip", "pydoc", "timeit", "cprofile", "pdb", "site",
-                       "tox", "nox", "pre_commit", "sphinx", "mkdocs", "setuptools", "wheel", "pipx", "uv"}
+                       "tox", "nox", "pre_commit", "sphinx", "mkdocs", "setuptools", "wheel", "pipx", "uv",
+                       # a static file server on some port is how the AGENT looked at the page, not how a viewer runs
+                       # the product (END showed `python -m http.server 8743` for a plain index.html app)
+                       "http.server", "simplehttpserver"}
 _TEST_PATH_RE = re.compile(r"(?i)(?:^|[\\/])(?:tests?|__tests__|specs?|fixtures?|e2e|testing|testdata|"
                            r"test[_-]?data|htmlcov|coverage|playwright-report|test-results|node_modules|"
                            r"site-packages|\.pytest_cache|\.tox|\.venv|venv)(?:[\\/]|$)"
@@ -134,6 +137,8 @@ def _is_launch(seg: str, clis: Iterable[str] = ()) -> bool:
         return False
     m = re.match(r"npx\s+(?:-y\s+|--yes\s+)?([@\w][\w@./\-]*)", low)
     if m and m.group(1) in {"tsc", "eslint", "prettier", "jest", "vitest", "playwright", "mocha", "create-react-app"}:
+        return False
+    if re.match(r"php\s+-S\s", seg) or re.match(r"ruby\s+-run\s+-e\s+httpd", low):
         return False
     if _RUN_SHAPE_RE.match(seg):
         return True

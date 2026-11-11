@@ -53,7 +53,8 @@ def _write(i, path, lines):
     ("from patchlib import patch", "", ""),                                       # a code line, any shell
     ("python -c \"import x; x.run()\"", "", ""),
     ("cd ~/work/tempo && HYPE_SLOTS=C:/x ~/work/.venv/Scripts/python.exe -m pytest tests/ -q", "", ""),
-    ("python -m http.server 8765 --bind 127.0.0.1", "", "python -m http.server 8765"),
+    ("python -m http.server 8765 --bind 127.0.0.1", "", ""),                     # how the agent looked, not a launch
+    ("php -S localhost:8000", "", ""),
     ("cd app && npm install && npm run dev", "", "npm run dev"),
     ("timeout 300 python app.py --port 5000 > log.txt 2>&1 &", "", "python app.py --port 5000"),
     ("npm run build", "", ""),
@@ -116,12 +117,16 @@ def test_model_cta_must_be_the_products_own_command():
     facts = SessionFacts(events, Stats(duration_s=600))
     served = f"cd {ROOT} && python -m http.server 8765 --bind 127.0.0.1"
     product = Product(name="Tempo", kind="web_app", run_commands=[served])
-    assert approved_cta("python -m http.server 8765", product, facts) == "python -m http.server 8765"
-    assert approved_cta("$ python -m http.server 8765", product, facts) == "python -m http.server 8765"
+    # a static file server is how the agent looked at the page: END shows the name + tagline instead
+    assert approved_cta("python -m http.server 8765", product, facts) == ""
+    assert end_command(product, facts) == ""
+    product = Product(name="Tempo", kind="web_app", run_commands=[served, f"cd {ROOT} && npm start"])
+    assert approved_cta("npm start", product, facts) == "npm start"
+    assert approved_cta("$ npm start", product, facts) == "npm start"
     assert approved_cta("from patchlib import patch", product, facts) == ""
     assert approved_cta("npm run dev", product, facts) == ""          # never run, not in any product file
     assert approved_cta("npm start", product, facts, trusted=["npm start"]) == "npm start"   # README usage
-    assert end_command(product, facts) == "python -m http.server 8765"
+    assert end_command(product, facts) == "npm start"
 
     def board(cta):
         return Storyboard(title="Tempo", tagline="A focus timer", cta=cta, mode="product", product=product,
@@ -131,7 +136,7 @@ def test_model_cta_must_be_the_products_own_command():
                                   StoryScene(T.END, [], "", "")], url="http://127.0.0.1:8765/")
     for bad in ("from patchlib import patch", "Open it at localhost", "Open it at http://localhost:8765/"):
         out = validate_storyboard(board(bad), facts, 30, "product").storyboard
-        assert out.cta == "python -m http.server 8765", bad          # the session's own launch command
+        assert out.cta == "", bad          # no product launch command was run: END = name + tagline
         assert out.url == ""
         assert "localhost" not in out.scenes[1].vo and out.scenes[1].vo.startswith("Meet Tempo")
         assert "localhost" not in out.scenes[2].label
