@@ -471,6 +471,17 @@ def _resolve_scene_data(scene: StoryScene, sb: Storyboard, facts: SessionFacts,
         if img is None:
             return None
         out = {"image": img}
+        if img.get("frame") == "card" and st in (T.SCREEN, T.FEATURE):
+            # a game/app screenshot, render or image file: no DOM rects, so no cursor, no focus ring and never
+            # a strip crop. The box is the Ken-Burns end frame (>= 55 % of the picture, aspect 0.75-1.8).
+            from ..capture.crops import picture_crop     # lazy: Pillow
+            asked = ex.get("bbox") if st == T.FEATURE else None
+            out["bbox"] = picture_crop(img, asked if isinstance(asked, (list, tuple)) and len(asked) == 4 else None)
+            if st == T.FEATURE:
+                b = out["bbox"]                 # kept for kits that ignore `frame`; no cursor is drawn on a card
+                out.update(feature=str(ex.get("feature") or scene.label or ""),
+                           click=[round(b[0] + b[2] / 2, 4), round(b[1] + b[3] / 2, 4)])
+            return out
         if st == T.SCREEN:
             out["bbox"] = list(ex.get("bbox") or auto_bbox(img["path"]))
         elif st == T.FEATURE:
@@ -676,14 +687,21 @@ def _transitions(scenes: list[TimelineScene], plans: list[_Plan]) -> None:
             choice = "push"
         elif sc.type == T.BEFORE_AFTER:
             choice = "wipe"
-        elif _same_source(prev, sc):
-            choice = "match"
+        elif _same_source(prev, sc) or (_is_card(prev) and _is_card(sc)):
+            choice = "match"                    # picture to picture: a cross-dissolve on the beat
         else:
             choice = "cut"
         if choice == "push" and prev_push:
             choice = "cut"
         sc.transition_in = choice  # type: ignore[assignment]
         prev_push = choice == "push"
+
+
+def _is_card(sc: TimelineScene) -> bool:
+    """A shot that shows a non-web picture (card presentation, see facts.picture_frame)."""
+    d = sc.data or {}
+    img = d.get("image") or d.get("hero") or {}
+    return isinstance(img, dict) and img.get("frame") == "card"
 
 
 def _same_source(a: TimelineScene, b: TimelineScene) -> bool:
@@ -737,6 +755,8 @@ def _cues(scenes: list[TimelineScene], beat: float, dur: float, mode: str, split
                 t = sc.t0 + beat * (j + 1)
                 if t < sc.t1 - beat / 2:
                     cues.append(Cue(_grid(t, beat), "appear", -12.0, "onset"))
+        elif sc.type == T.FEATURE and _is_card(sc):
+            cues.append(Cue(_grid(sc.t0 + span * 0.3, beat), "appear", -14.0, "onset"))   # no cursor, no click
         elif sc.type == T.FEATURE:
             cues.append(Cue(_grid(sc.t0 + span * 0.45, beat), "click", -10.0, "onset"))
         elif sc.type == T.MONTAGE:

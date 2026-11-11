@@ -3,7 +3,7 @@
 import { launchScene, camTrack, fitRect, nodeIn, pushTrack, panelWires, productScale } from './stage.js';
 import { h, css, fitSize } from '../base/dom.js';
 import { clamp, lerp, seg, ease } from '../base/motion.js';
-import { browserBlock, cursorBlock, ringBlock } from '../base/media.js';
+import { browserBlock, cursorBlock, ringBlock, isCard, cardWidth, kenBurns } from '../base/media.js';
 import { toolCard } from '../base/cards.js';
 import { kineticLine, riseIn } from '../base/type.js';
 import { contentBlock } from '../base/scenes-media.js';
@@ -36,6 +36,36 @@ function headline(F, text, o = {}) {
     : `left:${F.safe.l}px;top:0;height:${F.H}px;display:flex;flex-direction:column;justify-content:center;`;
   F.ov.appendChild(box);
   return { update(t, t0 = 0.3) { if (eyebrow) riseIn(eyebrow, t, t0 - 0.1); line.update(t, t0, { stagger: 0.08 }); } };
+}
+
+/**
+ * A picture that is not a web page (game/app screenshot, render, image file) on the table: the whole picture
+ * on a large borderless card seen almost face-on, a slow Ken-Burns push/pan inside it for the whole shot and
+ * a slow camera drift; no browser chrome, cursor, ring or wires. Returns {render(t)}.
+ */
+function cardOnTable(ctx, p, F, W, R) {
+  const dur = ctx.dur, img = p.image || {};
+  const b = browserBlock(ctx, img, { width: cardWidth(img, 1800, 1500) });
+  const n = W.node(b.el, { x: 0, y: b.h / 2, z: 40, w: b.w, h: b.h });
+  W.light(0, 0, b.w * 1.2, b.h * 1.5);
+  const c = W.nodePoint(n, b.w / 2, b.h / 2);
+  const d = fitRect(W, F, b.w, b.h, 8, 0.97 * R.w / F.W, 0.95 * R.h / F.H) / productScale(p);
+  const shift = [R.x + R.w / 2 - F.W / 2, R.y + R.h / 2 - F.H / 2];
+  const side = (Number(p.story_index) || 0) % 2 ? -1 : 1;
+  const cam = camTrack([
+    [-0.5, { target: [c[0], c[1] + 10, c[2]], dist: d * 1.035, yaw: -3 * side, pitch: 9, roll: -0.5 * side }],
+    [dur + 0.8, { target: [c[0], c[1] - 6, c[2]], dist: d * 0.995, yaw: 2.5 * side, pitch: 6, roll: 0.3 * side }],
+  ]);
+  const kb = kenBurns(b, p.bbox, dur, Number(p.story_index) || 0);
+  return {
+    render(t) {
+      const u = nodeIn(t, -0.35, 0.7);
+      W.update(n, { z: lerp(70, 40, u), op: clamp(u * 1.6) });
+      const [kx, ky, kz] = kb(t);
+      b.setView(kx, ky, kz);
+      W.camera(t, { ...cam(t), shift, lift: F.caps ? 40 : 0 }, { amp: 0.5, rollAmp: 0.3 });
+    },
+  };
 }
 
 /** Frame region for media beside a headline column / above a band. */
@@ -87,11 +117,15 @@ launchScene('kit:launch/HOOK', {
 
 // ------------------------------------------------------------------------------------- SCREEN
 launchScene('kit:launch/SCREEN', {
-  describe: 'Real screenshot in a paper browser frame lying on the table: establish wide, push to the focus box, hold.',
+  describe: 'Real screenshot on the table: a web capture in a paper browser frame (establish wide, push to the focus box, hold); any other picture (game, app, render) whole on a borderless card under a slow Ken-Burns move.',
   params: { image: IMAGE_DOC, bbox: { type: 'array', default: [0.1, 0.1, 0.8, 0.8], doc: 'focus box (image fractions)' } },
   build(ctx, p, F, W) {
     const dur = ctx.dur, L = F.portrait;
     const img = p.image || {};
+    if (isCard(img)) {
+      const shot = cardOnTable(ctx, p, F, W, mediaRegion(F, false));
+      return { cues: [{ t: 0.1, sfx: 'move', gain_db: -16 }], render(t) { shot.render(t); } };
+    }
     const b = browserBlock(ctx, img, { width: bw(img, L ? 980 : 1600, L ? 1300 : 1000), maxViewH: L ? 1240 : 940 });
     const n = W.node(b.el, { x: 0, y: b.h / 2, z: 40, w: b.w, h: b.h });
     W.light(0, 0, b.w * 1.15, b.h * 1.4);
@@ -113,7 +147,7 @@ launchScene('kit:launch/SCREEN', {
 
 // ------------------------------------------------------------------------------------- FEATURE
 launchScene('kit:launch/FEATURE', {
-  describe: 'One product feature: push to its region, cursor arrives, pauses, clicks with a ripple, accent ring; feature name as headline.',
+  describe: 'One product feature as headline: a web capture pushes to its region, the cursor clicks with a ripple, accent ring; any other picture stays whole on a card under a slow Ken-Burns move.',
   params: {
     image: IMAGE_DOC, feature: { type: 'string', default: '', doc: 'feature name (<= 6 words)' },
     bbox: { type: 'array', default: [0.1, 0.1, 0.8, 0.8], doc: 'feature region (image fractions)' },
@@ -123,6 +157,14 @@ launchScene('kit:launch/FEATURE', {
     const dur = ctx.dur, L = F.portrait;
     const img = p.image || {};
     const name = String(p.feature || p.label || '').trim();
+    if (isCard(img)) {
+      const shot = cardOnTable(ctx, p, F, W, mediaRegion(F, !!name));
+      const head = name ? headline(F, name, { eyebrow: 'Feature' }) : null;
+      return {
+        cues: [{ t: 0.1, sfx: 'move', gain_db: -16 }, ...(name ? [{ t: 0.4, sfx: 'appear', gain_db: -14 }] : [])],
+        render(t) { shot.render(t); if (head) head.update(t, 0.3); },
+      };
+    }
     const b = browserBlock(ctx, img, { width: bw(img, L ? 980 : 1500, L ? 1200 : 960), maxViewH: L ? 1140 : 900 });
     const n = W.node(b.el, { x: 0, y: b.h / 2, z: 40, w: b.w, h: b.h });
     W.light(0, 0, b.w * 1.15, b.h * 1.4);

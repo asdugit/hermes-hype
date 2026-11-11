@@ -291,6 +291,8 @@ def image_of(ev: Event) -> dict[str, Any] | None:
     if is_stub(ev) or ev.kind not in VISUAL_KINDS:
         return None
     data = ev.data or {}
+    if (data.get("media_rank") or {}).get("junk"):
+        return None             # a contact sheet / debug render / older retry (session.mediarank): never on screen
     path = ""
     if ev.kind == "artifact":
         if data.get("preview_path"):
@@ -307,7 +309,30 @@ def image_of(ev: Event) -> dict[str, Any] | None:
     w = data.get("w") or (size[0] if size else None) or (viewport[0] if viewport and len(viewport) == 2 else None)
     h = data.get("h") or (size[1] if size else None) or (viewport[1] if viewport and len(viewport) == 2 else None)
     return {"path": path, "w": w, "h": h, "url": data.get("url") or "", "full_page": bool(data.get("full_page")),
-            "page_title": data.get("page_title") or "", "source_kind": ev.kind}
+            "page_title": data.get("page_title") or "", "source_kind": ev.kind, "frame": picture_frame(ev)}
+
+
+#: capture target kinds that are real web pages (DOM rects, an address bar that means something)
+WEB_TARGETS = ("url", "html")
+
+
+def picture_frame(ev: Event) -> str:
+    """How a picture is presented: ``"browser"`` (address-bar window, cursor, focus ring) ONLY for a real web
+    page capture or a session screenshot of an http(s) page; ``"card"`` (borderless, soft shadow, slow
+    Ken-Burns move across the whole picture) for everything else: game/app/desktop screenshots, renders,
+    generated images, captured image files, PDF pages."""
+    data = ev.data or {}
+    url = str(data.get("url") or "")
+    if ev.kind == "product_capture":
+        tk = str(data.get("target_kind") or "")
+        if tk:
+            return "browser" if tk in WEB_TARGETS else "card"
+        return "browser" if re.match(r"(?:https?|file)://", url, re.I) and data.get("kind") not in (
+            "image", "video") and not url.lower().split("?")[0].endswith(IMAGE_EXTS) else "card"
+    if ev.kind == "screenshot" and re.match(r"https?://", url, re.I) and not url.lower().split("?")[0].endswith(
+            IMAGE_EXTS):
+        return "browser"
+    return "card"
 
 
 #: desktop capture kind -> its phone twin (the capture stage shoots both of every page)

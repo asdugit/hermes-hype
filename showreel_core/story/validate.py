@@ -134,6 +134,8 @@ class _Ctx:
         self.draft = draft if draft is not None and normalize_ws(draft.name) else None
         self.lock_name = lock_name
         self.renamed_from = ""      # the model's product name when it was replaced by the session's
+        self.used_pictures: set[str] = set()   # picture refs already on screen (a swap never repeats one)
+        self.all_refs: set[str] = set()        # every scene's first ref (a swap never steals a later scene's)
 
     def issue(self, code: str, path: str, message: str, severity: str = "error", fix: str = "") -> None:
         self.issues.append(Issue(code, path, message, severity))
@@ -154,6 +156,7 @@ def validate_storyboard(sb: Storyboard, facts: SessionFacts, target_seconds: flo
     ctx = _Ctx(facts, film_mode(mode or getattr(sb, "mode", None)), draft, lock_name)
     out = copy.deepcopy(sb)
     out.mode = ctx.mode  # type: ignore[assignment]
+    ctx.all_refs = {sc.refs[0] for sc in out.scenes if sc.refs}
     _check_product(out, ctx)
     _check_top(out, ctx)
     _check_identity_mentions(out, ctx)
@@ -165,6 +168,7 @@ def validate_storyboard(sb: Storyboard, facts: SessionFacts, target_seconds: flo
     kept = _check_structure(kept, ctx)
     if ctx.mode == "product":
         kept = _check_product_film(kept, ctx)
+        kept = _enrich_pictures(kept, ctx, target_seconds)
     else:
         kept = _check_chronology(kept, ctx)
     if ctx.mode == "speedrun":
@@ -420,6 +424,28 @@ def _has_content(scene_type: SceneType, ref: str, facts: SessionFacts) -> bool:
     return scene_type == T.MONTAGE
 
 
+def _set_aside(ev: Event | None) -> bool:
+    """True for a picture the session ranking set aside (session.mediarank: contact sheet, debug render)."""
+    return bool(ev is not None and ((ev.data or {}).get("media_rank") or {}).get("junk"))
+
+
+def _best_unused_picture(st: SceneType, ctx: _Ctx) -> str:
+    """The best-ranked showable picture no scene uses yet ('' when none is left: the scene is then dropped and
+    the film runs on fewer pictures rather than padding with junk)."""
+    facts = ctx.facts
+    kinds = accepted_kinds(st)
+    used = ctx.used_pictures | ctx.all_refs
+    best, score = "", -1.0
+    for ev in facts.events:
+        if ev.id in used or ev.kind not in kinds or image_of(ev) is None:
+            continue
+        rank = (ev.data or {}).get("media_rank") or {}
+        s = float(rank.get("score", 0.5)) + 0.3 * float(ev.weight or 0)
+        if s > score:
+            best, score = ev.id, s
+    return best
+
+
 def _check_primary(scene: StoryScene, path: str, ctx: _Ctx) -> bool:
     """Generic rule: the first ref must be a usable event of an accepted kind."""
     st = SceneType(scene.type)
@@ -427,6 +453,17 @@ def _check_primary(scene: StoryScene, path: str, ctx: _Ctx) -> bool:
         return True
     facts = ctx.facts
     usable = [r for r in scene.refs if _primary_usable(facts.kind(r), st) and _has_content(st, r, facts)]
+    if not usable and st in (T.HOOK, T.SCREEN, T.FEATURE) and any(_set_aside(facts.get(r)) for r in scene.refs):
+        swap = _best_unused_picture(st, ctx)
+        if swap:
+            ctx.issue("debug_media", f"{path}.refs", "the picture is a working/debug artefact (contact sheet, test "
+                      "render or older retry)", "warning", f"swapped for {swap}")
+            scene.refs = [swap]
+            scene.extra.pop("bbox", None)
+            scene.extra.pop("click", None)
+            usable = [swap]
+    if usable and st in (T.HOOK, T.SCREEN, T.FEATURE, T.SCROLL):
+        ctx.used_pictures.add(usable[0])
     if not usable:
         if scene.refs:
             kinds = ", ".join(sorted({facts.kind(r) or "?" for r in scene.refs}))
@@ -872,6 +909,77 @@ def _check_product_film(kept: list[tuple[int, StoryScene]], ctx: _Ctx) -> list[t
                   fix=f"{SceneType(s.type).value} dropped")
         kept.pop(k)
     return kept
+
+
+def _picture_keys(ev: Event) -> set[str]:
+    """Identity keys of a picture: its file stem without the ``e123_`` asset prefix, its source file, its hash."""
+    import re as _re
+    d = ev.data or {}
+    keys: set[str] = set()
+    for raw in (d.get("path"), d.get("preview_path"), d.get("src"), d.get("page_title"),
+                d.get("url") if ev.kind == "product_capture" and d.get("target_kind") == "image" else None):
+        if raw:
+            stem = _re.sub(r"^e\d+_", "", str(raw).replace("\\", "/").rsplit("/", 1)[-1]).rsplit(".", 1)[0].lower()
+            if stem and stem not in ("image", "poster", "frame"):
+                keys.add("n:" + stem)
+    h = ((d.get("media_rank") or {}).get("hash"))
+    if h:
+        keys.add("h:" + str(h))
+    return keys
+
+
+#: picture shots a product film aims for: one per ~10 s, at most 6 (a gallery, not a slideshow)
+PICTURES_PER_S = 1 / 10
+MAX_PICTURES = 6
+
+
+def _enrich_pictures(kept: list[tuple[int, StoryScene]], ctx: _Ctx, target_seconds: float) -> list[tuple[int, StoryScene]]:
+    """A product film with real pictures shows them: when the storyboard uses fewer picture shots than the film
+    has room for and the session has ranked, unused real shots (session.mediarank), add silent SCREEN beats of
+    the best ones right after the last picture shot (they cross-dissolve; no padding: never a set-aside picture,
+    never a repeat). Without such pictures nothing is added and type/stat beats carry the film."""
+    facts = ctx.facts
+    if not any((e.data or {}).get("media_rank") for e in facts.events):
+        return kept                      # an unranked session (older saved jobs, fixtures): unchanged
+    pic_types = (T.HOOK, T.SCREEN, T.FEATURE, T.SCROLL)
+    shown = [sc.refs[0] for _, sc in kept if sc.type in pic_types and sc.refs]
+    want = min(MAX_PICTURES, max(2, round(float(target_seconds or 30) * PICTURES_PER_S)))
+    if len(shown) >= want:
+        return kept
+    used = set(shown)
+    seen: set[str] = set()                # one picture = one shot: its captured copies and the file it came from
+    for r in shown:
+        ev = facts.by_id.get(r)
+        if ev is not None:
+            seen |= _picture_keys(ev)
+            used |= {str(x) for x in (ev.data or {}).get("source_ids") or []}
+    cands = []
+    for ev in facts.events:
+        rank = (ev.data or {}).get("media_rank") or {}
+        img = image_of(ev)
+        if not rank or img is None or ev.id in used or ev.kind not in accepted_kinds(T.SCREEN):
+            continue
+        cands.append((float(rank.get("score", 0.5)), ev.t, ev.id, ev))
+    cands.sort(key=lambda c: (-c[0], -c[1]))
+    adds: list[StoryScene] = []
+    for _, _, eid, ev in cands:
+        if len(shown) + len(adds) >= want:
+            break
+        keys = _picture_keys(ev)
+        if keys & seen:
+            continue
+        seen |= keys
+        adds.append(StoryScene(T.SCREEN, [eid], "", "", {}))
+    if not adds:
+        return kept
+    last = max((k for k, (_, sc) in enumerate(kept) if sc.type in pic_types), default=None)
+    if last is None:
+        last = next((k for k, (_, sc) in enumerate(kept) if sc.type == T.TITLE), 0)
+    at = last + 1
+    idx = kept[last][0] if kept else 0
+    ctx.issue("pictures_added", "$.scenes", f"{len(adds)} more of the session's best pictures shown", "warning",
+              "added " + ", ".join(sc.refs[0] for sc in adds))
+    return kept[:at] + [(idx, sc) for sc in adds] + kept[at:]
 
 
 def _best_product_ref(facts: SessionFacts, product: Product) -> str:

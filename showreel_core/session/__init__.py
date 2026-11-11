@@ -16,6 +16,7 @@ from ..contracts import Event, Product, Stats
 from .assets import AssetReport, collect_assets
 from .digest import build_digest, estimate_tokens
 from .extract import ExtractResult, extract_events
+from .mediarank import VISUAL_KINDS, name_signals, rank_media
 from .product import ProductReport, infer_product, link_previews
 from .reader import SessionData, list_recent_sessions, load_transcript, read_session, resolve_session_ref
 from .redact import Redactor, redact_events
@@ -67,9 +68,26 @@ def analyze_rows(rows: list[dict[str, Any]], meta: dict[str, Any] | None = None,
         report = infer_product(bundle.events, meta)          # inserts artifact events, renumbers ids
         if "error" in report.evidence:
             bundle.warnings.append(f"product inference failed: {report.evidence['error']}")
+        for ev in bundle.events:                            # working files never use up the copy budget
+            if ev.kind in VISUAL_KINDS and name_signals(str((ev.data or {}).get("src") or "")
+                                                        or str((ev.data or {}).get("path") or ""))[0]:
+                ev.weight = min(ev.weight, 0.02)
         bundle.assets = collect_assets(bundle.events, assets_dir, base_dir=meta.get("cwd") or None)
         link_previews(bundle.events)
         bundle.warnings += bundle.assets.errors
+        try:                                                # debug renders / contact sheets never reach a film
+            ranked = rank_media(bundle.events)
+            by_id = {e.id: e for e in bundle.events}
+            junk = {i for i, e in by_id.items() if ((e.data or {}).get("media_rank") or {}).get("junk")}
+            # best real pictures first (ranked: detail, colour, presented to the user), then the old picks
+            n = max(4, len(report.product.hero_event_ids))
+            heroes = list(ranked["kept"][:n])
+            heroes += [i for i in report.product.hero_event_ids if i not in junk and i not in heroes]
+            report.product.hero_event_ids = heroes[:n]
+            if ranked["junk"]:
+                report.evidence["media_set_aside"] = ranked["junk"]
+        except Exception as exc:  # noqa: BLE001 - ranking is an improvement, never a failure
+            bundle.warnings.append(f"media ranking failed: {type(exc).__name__}: {exc}")
         bundle.stats = compute_stats(bundle.events, rows, meta)
         red = redactor or Redactor()
         if redact:

@@ -5,7 +5,7 @@ import { h, css, fitSize } from './dom.js';
 import { seg, ease, pchip, clamp, lerp } from './motion.js';
 import { codeBlock, diffBlock } from './code.js';
 import { termBlock, termFont, termWidth } from './term.js';
-import { browserBlock, cursorBlock, ringBlock } from './media.js';
+import { browserBlock, cursorBlock, ringBlock, isCard, cardWidth, kenBurns } from './media.js';
 import { toolCard } from './cards.js';
 import { kineticLine, riseIn } from './type.js';
 import { COMMON, panelIn } from './scenes-panels.js';
@@ -101,14 +101,46 @@ function browserWidth(F, m, maxW, maxH) {
   return Math.round(Math.min(maxW, (maxH - 58) * aspect));
 }
 
+/**
+ * A picture that is not a web page (game/app screenshot, render, image file): the whole picture on a large
+ * borderless card, a slow Ken-Burns push/pan toward its focus box for the whole shot, no cursor, no ring.
+ * R = frame region the card lives in (default: the safe area). Returns {b, render(t)}.
+ */
+export function cardShot(ctx, p, F, R, o = {}) {
+  const dur = ctx.dur;
+  const img = p.image || {};
+  const b = browserBlock(ctx, img, { width: cardWidth(img, R.w * 1.0, R.h * 1.0) });
+  F.cam.appendChild(b.el);
+  const bx = (F.W - b.w) / 2, by = (F.H - b.h) / 2;
+  place(b.el, bx, by);
+  const z0 = Math.min((R.w * (o.fill || 0.96)) / b.w, (R.h * (o.fill || 0.96)) / b.h);
+  const kb = kenBurns(b, p.bbox, dur, Number(p.story_index) || 0);
+  const ax = R.x + R.w / 2, ay = R.y + R.h / 2;
+  return {
+    b,
+    render(t) {
+      css(b.el, { opacity: seg(t, -0.35, 0.15).toFixed(3) });
+      const [kx, ky, kz] = kb(t);
+      b.setView(kx, ky, kz);                 // the picture drifts inside a steady card (text never covered)
+      const u = seg(t, -0.4, dur + 0.6);
+      flatCam(F, t, bx + b.w / 2, by + b.h / 2, z0 * lerp(0.985, 1.015, u), { ax, ay, lift: o.lift || 0, drift: 1.2 });
+    },
+  };
+}
+
 // ------------------------------------------------------------------------------------- SCREEN
 defineDomScene('kit:base/SCREEN', {
-  describe: 'Real screenshot in a browser frame: establish wide, push to the focus box (>= 1.4x), hold with drift.',
+  describe: 'Real screenshot: a web capture in a browser frame (establish wide, push to the focus box >= 1.4x, hold with drift); any other picture (game, app, render) whole on a borderless card under a slow Ken-Burns push/pan.',
   params: { ...COMMON, image: IMAGE_DOC, bbox: { type: 'array', default: [0.1, 0.1, 0.8, 0.8], doc: 'focus box [x,y,w,h] as image fractions' } },
   build(ctx, p, F) {
     const dur = ctx.dur;
     const img = p.image || {};
     const L = F.portrait;
+    if (isCard(img)) {
+      const R = { x: F.safe.l - 40, y: F.safe.t - 30, w: F.W - F.safe.l - F.safe.r + 80, h: F.H - F.safe.t - F.safe.b + 60 };
+      const shot = cardShot(ctx, p, F, R, { lift: F.caps ? 40 : 0 });
+      return { cues: [{ t: 0.1, sfx: 'move', gain_db: -16 }], render(t) { shot.render(t); } };
+    }
     const width = browserWidth(F, { w: img.w || 1440, h: img.h || 900 }, L ? 960 : 1560, L ? 1300 : 900);
     const b = browserBlock(ctx, img, { width, maxViewH: L ? 1240 : 840 });
     F.cam.appendChild(b.el);
@@ -129,7 +161,7 @@ defineDomScene('kit:base/SCREEN', {
 
 // ------------------------------------------------------------------------------------- FEATURE
 defineDomScene('kit:base/FEATURE', {
-  describe: 'Product frame + one feature: push to the region, the cursor arrives, pauses, clicks (ripple), an accent ring and the feature name land.',
+  describe: 'Product frame + one feature: a web capture pushes to the region, the cursor clicks (ripple), an accent ring and the feature name land; any other picture stays whole on a card under a slow Ken-Burns move beside the feature name.',
   params: {
     ...COMMON, image: IMAGE_DOC,
     feature: { type: 'string', default: '', doc: 'feature name (<= 6 words), shown as the headline' },
@@ -140,6 +172,32 @@ defineDomScene('kit:base/FEATURE', {
     const dur = ctx.dur;
     const img = p.image || {};
     const L = F.portrait;
+    if (isCard(img)) {
+      const name = String(p.feature || p.label || '').trim();
+      const R = !name ? { x: F.safe.l - 40, y: F.safe.t - 30, w: F.W - F.safe.l - F.safe.r + 80, h: F.H - F.safe.t - F.safe.b + 60 }
+        : L ? { x: 50, y: F.safe.t, w: F.W - 100, h: F.H - F.safe.t - F.safe.b - 330 }
+          : { x: 760, y: F.safe.t - 20, w: F.W - 760 - 50, h: F.H - F.safe.t - F.safe.b + 40 };
+      const shot = cardShot(ctx, p, F, R);
+      let line = null, eyebrow = null;
+      if (name) {
+        const box = h('div', 'srb-abs');
+        eyebrow = h('div', 'srb-eyebrow', null, [h('i'), 'Feature']);
+        line = kineticLine(name, { className: 'srb-h1', emphasis: 'auto' });
+        const fs = L ? 84 : fitSize(name, 600, 3, 92, 64, 0.5);
+        line.el.style.cssText = `font-size:${fs}px;margin-top:26px;max-width:${L ? 840 : 600}px;`;
+        box.append(eyebrow, line.el);
+        box.style.cssText = L ? `left:${F.safe.l}px;top:${F.H - F.safe.b - 300}px;`
+          : `left:${F.safe.l}px;top:0;height:${F.H}px;display:flex;flex-direction:column;justify-content:center;`;
+        F.ov.append(box);
+      }
+      return {
+        cues: [{ t: 0.1, sfx: 'move', gain_db: -16 }, ...(name ? [{ t: 0.4, sfx: 'appear', gain_db: -14 }] : [])],
+        render(t) {
+          shot.render(t);
+          if (line) { riseIn(eyebrow, t, 0.3); line.update(t, 0.4, { stagger: 0.08 }); }
+        },
+      };
+    }
     const width = browserWidth(F, { w: img.w || 1440, h: img.h || 900 }, L ? 960 : 1480, L ? 1200 : 860);
     const b = browserBlock(ctx, img, { width, maxViewH: L ? 1140 : 800 });
     F.cam.appendChild(b.el);

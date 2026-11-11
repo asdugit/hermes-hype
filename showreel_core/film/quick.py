@@ -208,7 +208,7 @@ def pick_backdrop(datas: list[tuple[str, dict[str, Any]]]) -> dict[str, Any] | N
         return None
     found.sort(key=lambda r: (r[0], 0 if float(r[2].get("w") or 16) >= float(r[2].get("h") or 9) else 1, r[1]))
     d = found[0][2]
-    keep = {k: d[k] for k in ("asset", "w", "h", "url", "page_title") if d.get(k) not in (None, "")}
+    keep = {k: d[k] for k in ("asset", "w", "h", "url", "page_title", "frame") if d.get(k) not in (None, "")}
     return {"kind": "image", **keep}
 
 

@@ -781,14 +781,19 @@ OWN_TOOLS = frozenset({"hype_render", "hype_status", "hype"})
 _OWN_FILE = re.compile(r"(^|/)(hype-[^/]*\.(mp4|webm|mov)|contact_(16x9|9x16|1x1)\.(png|jpg))$", re.I)
 
 
-def own_output_event(ev: Any, own_dirs: list[str], after_first_film: bool) -> bool:
+def own_output_event(ev: Any, own_dirs: list[str], after_first_film: bool, this_job: tuple[str, ...] = ()) -> bool:
     """True for evidence that is Hype's own work: tool calls/results, delivered films, contact sheets, commands
-    that inspect them, and (once a film was made in this session) messages about the films."""
+    that inspect them, and (once a film was made in this session) messages about the films.
+
+    ``this_job``: the current job's folder(s). The session pictures this job copied into its own ``assets`` are the
+    session's evidence, not Hype output (a Roblox session lost every screenshot to this check: the film fell back
+    to contact sheets)."""
     if str(getattr(ev, "tool", "") or "") in OWN_TOOLS:
         return True
     data = getattr(ev, "data", None) or {}
     paths = [str(data.get(k) or "") for k in ("path", "src", "source")] + [str(getattr(ev, "title", "") or "")]
     norm = [x.replace("\\", "/").lower() for x in paths if x]
+    norm = [x for x in norm if not any(j and x.startswith(j) for j in this_job)]
     if any(_OWN_FILE.search(x) for x in norm) or any(d and x.startswith(d) for x in norm for d in own_dirs):
         return True
     text = " ".join([str(getattr(ev, "title", "") or ""), str(getattr(ev, "summary", "") or ""),
@@ -811,9 +816,11 @@ def _drop_own_outputs(run: _Run, bundle: Any) -> None:
             text = str(Path(d)).replace("\\", "/").lower()
             own_dirs += [text, text.replace(str(Path.home()).replace("\\", "/").lower(), "~", 1)]
     first = next((i for i, e in enumerate(events) if str(getattr(e, "tool", "") or "") in OWN_TOOLS), len(events))
+    jd = str(Path(run.job_dir)).replace("\\", "/").lower().rstrip("/") + "/"
+    this_job = (jd, jd.replace(str(Path.home()).replace("\\", "/").lower(), "~", 1))
     keep, dropped = [], []
     for i, ev in enumerate(events):
-        (dropped if own_output_event(ev, own_dirs, i >= first) else keep).append(ev)
+        (dropped if own_output_event(ev, own_dirs, i >= first, this_job) else keep).append(ev)
     if not dropped:
         return
     gone = {getattr(e, "id", "") for e in dropped}

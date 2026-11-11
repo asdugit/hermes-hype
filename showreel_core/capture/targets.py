@@ -599,8 +599,14 @@ def _plan_media(plan: TargetPlan, events: Sequence[Event], caps: dict[str, int])
     cands = []
     for ev, raw in _artifact_paths(events, set(MEDIA_KINDS)):
         kind = MEDIA_KINDS[str(ev.data["kind"])]
+        rank = ev.data.get("media_rank") or {}
+        if rank.get("junk"):                    # a contact sheet / debug render (session.mediarank)
+            plan.skipped.append(Skipped(raw or ev.id, "debug_media", ", ".join(rank.get("why") or [])[:80]))
+            continue
         delivered = bool(ev.data.get("delivered"))
         prio = {"video": 0.75, "image": 0.7, "pdf": 0.5}[kind] + (0.1 if delivered else 0.0)
+        if kind == "image" and rank:
+            prio += 0.2 * (float(rank.get("score", 0.5)) - 0.5)     # the best-looking pictures first
         cands.append((prio, -ev.t, kind, raw, ev, delivered))
     cands.sort(key=lambda c: (-c[0], c[1]))
     for prio, _, kind, raw, ev, delivered in cands:

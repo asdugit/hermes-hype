@@ -16,6 +16,48 @@ export function mediaOf(ctx, img) {
   return { image, w, h: hh, meta, asset: a };
 }
 
+/**
+ * True when a picture is presented as a borderless card (game/app screenshots, renders, image files: the
+ * session's `image.frame` = 'card'), false for real web captures (address-bar window, cursor, focus ring).
+ */
+export function isCard(meta) {
+  return !!(meta && typeof meta === 'object' && meta.frame === 'card');
+}
+
+/** Width of a card that shows the whole picture inside a maxW x maxH box (keeps the aspect). */
+export function cardWidth(meta, maxW, maxH) {
+  const w = Number(meta && meta.w) || 1440, hh = Number(meta && meta.h) || 900;
+  return Math.round(Math.min(maxW, (maxH * w) / hh));
+}
+
+/**
+ * Ken-Burns move over a card: t -> [cx, cy, z] in block px / zoom multiplier. Starts on the whole picture
+ * (z0 fits it), drifts continuously (never a hold) toward the focus box `bbox` (image fractions; a safe crop
+ * of >= 55 % of the picture, so the end zoom stays <= ~1.35x), easing in and out across the whole shot.
+ * With a whole-picture box it pushes 1.0 -> 1.1x and pans along the longer side (direction from `seed`).
+ */
+export function kenBurns(b, bbox, dur, seed = 0, o = {}) {
+  const bx = Array.isArray(bbox) && bbox.length === 4 ? bbox.map(Number) : [0, 0, 1, 1];
+  const whole = bx[2] >= 0.99 && bx[3] >= 0.99;
+  const dir = (seed % 2) ? -1 : 1;
+  const c0 = [b.w / 2, b.h / 2];
+  let c1, zEnd;
+  if (whole) {
+    zEnd = o.push || 1.1;
+    const land = b.w >= b.h;
+    const span = (1 - 1 / zEnd) / 2 * 0.9;          // stay inside the picture at the end zoom
+    c1 = land ? [b.w / 2 + dir * span * b.w, b.h / 2] : [b.w / 2, b.h / 2 + dir * span * b.h];
+  } else {
+    zEnd = Math.min(o.maxPush || 1.36, 1 / Math.max(bx[2], bx[3]));
+    c1 = [(bx[0] + bx[2] / 2) * b.w, b.chromeH + (bx[1] + bx[3] / 2) * b.natural];
+  }
+  const t0 = o.t0 ?? -0.4, t1 = dur + (o.tail ?? 0.6);
+  return (t) => {
+    const u = 0.5 - 0.5 * Math.cos(Math.PI * seg(t, t0, t1));       // sine in-out: always drifting
+    return [lerp(c0[0], c1[0], u), lerp(c0[1], c1[1], u), lerp(1, zEnd, u)];
+  };
+}
+
 /** Pretty URL for the address bar: no scheme, no trailing slash. */
 export function prettyUrl(u) {
   let s = String(u || '').trim();
@@ -53,11 +95,13 @@ export function addressText(meta, maxChars = 60, fallback = '') {
 export function browserBlock(ctx, img, o = {}) {
   const m = mediaOf(ctx, img);
   const width = o.width || 1400;
-  const chromeH = o.chrome === false ? 0 : 66;
+  const card = isCard(m.meta);
+  const chromeH = o.chrome === false || card ? 0 : 66;
   const scale = width / m.w;
   const natural = m.h * scale;
-  const viewH = Math.round(Math.min(o.viewH || natural, o.maxViewH || natural));
-  const el = h('div', 'srb-browser');
+  // a card always shows the whole picture (no viewport crop: it is not a scrolling page)
+  const viewH = card ? Math.round(natural) : Math.round(Math.min(o.viewH || natural, o.maxViewH || natural));
+  const el = h('div', card ? 'srb-browser srb-card' : 'srb-browser');
   el.style.cssText = `width:${width}px;height:${chromeH + viewH}px;`;
   if (chromeH) {
     const bar = h('div', 'srb-urlbar');
@@ -107,9 +151,17 @@ export function browserBlock(ctx, img, o = {}) {
     }
   }
   setScroll(0);
+  /** Ken-Burns view inside the frame: centre block point (cx, cy) at zoom z >= 1; the picture always covers
+   * the view (no empty edges). */
+  function setView(cx, cy, z = 1) {
+    const zz = Math.max(1, z);
+    const tx = clamp(width / 2 - cx * zz, width - width * zz, 0);
+    const ty = clamp(viewH / 2 - (cy - chromeH) * zz, viewH - natural * zz, 0);
+    css(cv, { transform: `translate(${tx.toFixed(2)}px, ${ty.toFixed(2)}px) scale(${(cs * zz).toFixed(5)})` });
+  }
   return {
-    el, w: width, h: chromeH + viewH, chromeH, viewH, natural, scrollable, media: m,
-    setScroll,
+    el, w: width, h: chromeH + viewH, chromeH, viewH, natural, scrollable, media: m, card,
+    setScroll, setView,
     /** image-fraction point -> block px (accounts for the current scroll) */
     pt(fx, fy) { return [fx * width, chromeH + fy * natural - scrollY]; },
     /** image-fraction rect [x,y,w,h] -> block px rect */
