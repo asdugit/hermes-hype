@@ -104,7 +104,8 @@ def _services(ctx: Any) -> list[dict[str, Any]]:
     except Exception:  # noqa: BLE001
         tts = False
     out.append(_check("narration (text_to_speech)", tts, "registered" if tts else "not registered here",
-                      "films get captions only; Edge TTS needs the edge-tts extra", False))
+                      "only matters for narrated films (narration is off by default): they fall back to music and "
+                      "on-screen type; Edge TTS needs the edge-tts extra", False))
     if tts:
         from .llm import edge_tts_problem
         problem = edge_tts_problem()
