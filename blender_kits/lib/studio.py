@@ -684,9 +684,9 @@ def _noir(lights: dict, world: Any, cyc_ob: Any, *, center: Vec3, r: float, e2: 
         nt.links.new(vol.outputs["Volume"], out.inputs["Volume"])
     ee = bpy.context.scene.eevee
     _try(ee, "use_volumetric_shadows", True)
-    _try(ee, "volumetric_shadow_samples", 32)
+    _try(ee, "volumetric_shadow_samples", 16)
     _try(ee, "volumetric_end", r * 60.0)
-    _try(ee, "volumetric_tile_size", "4")
+    _try(ee, "volumetric_tile_size", "8")
     # wet floor: roughness puddled by noise (mirror patches next to damp asphalt)
     if cyc_ob is not None and cyc_ob.data.materials:
         mat = cyc_ob.data.materials[0]
