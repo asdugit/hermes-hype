@@ -418,7 +418,8 @@ def _mood_blueprints() -> list[Blueprint]:
                      {"from": "verdict", "to": "end", "type": "dip-black", "dur": 0.5}),
         overlays=({"id": "open", "share": (0.0, 0.11), "scene": "kit:type/title",
                    "params": {"text": "<a 2-5 word hard-boiled opening line, typed over the evidence (no product "
-                                      "name)>", "band": "bottom", "reveal": "type", "scrim": 0.6, **theme_n}},
+                                      "name)>", "band": "bottom", "reveal": "type", "scrim": 0.6, "size": 84,
+                              **theme_n}},
                   {"id": "case", "share": (0.14, 0.26), "scene": "kit:type/lower-third",
                    "params": {"title": "<a 2-4 word case-file heading, e.g. EXHIBIT A>",
                               "sub": "{name}", **theme_n}},),
@@ -487,7 +488,7 @@ def _mood_blueprints() -> list[Blueprint]:
                      {"from": "feature2", "to": "end", "type": "dip-black", "dur": 0.9}),
         overlays=({"id": "open", "share": (0.0, 0.11), "scene": "kit:type/title",
                    "params": {"text": "<a 2-5 word hushed opening line, like the first words of a nature film>",
-                              "band": "bottom", "scrim": 0.55}},
+                              "band": "bottom", "scrim": 0.55, "size": 84}},
                   {"id": "species", "share": (0.15, 0.31), "scene": "kit:type/lower-third",
                    "params": {"title": "{name}", "sub": "<a playful Latin-style species name, 2-4 words>"}},),
         music=({"bed": "dream_a", "share": (0.0, 1.0)},), voice="narrated",

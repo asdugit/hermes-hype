@@ -111,3 +111,13 @@ def test_base_shot_that_runs_off_the_frame_becomes_a_whole_card():
     # already a card: nothing more to do
     _o, ch3 = shotfix.fix_worst(out, plan, critique=crit, per_shot={}, product={"timer"})
     assert not any("ran off" in c for c in ch3)
+
+
+def test_a_deliberate_push_in_is_not_undone_by_measured_edge_contact():
+    """The content box pushes a game canvas to fill the frame; the measured edge contact that follows is the point,
+    not a crop (a real run turned the pushed-in Brickfall canvas back into a small whole card)."""
+    film = {"shots": [{"id": "exhibit", "t0": 0, "t1": 6, "scene": "kit:base/SCREEN",
+                       "params": {"image": {"asset": "desk"}, "bbox": [0.22, 0.15, 0.56, 0.7]}}]}
+    plan = {"shots": [{"id": "exhibit", "product_visible": True}]}
+    out, ch = shotfix.fix_worst(film, plan, critique=None, per_shot={}, product={"desk"}, cropped=["exhibit"])
+    assert out["shots"][0]["params"]["bbox"] == [0.22, 0.15, 0.56, 0.7] and not ch

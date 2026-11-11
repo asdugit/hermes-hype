@@ -140,7 +140,11 @@ def fix_worst(film: dict[str, Any], plan: dict[str, Any], *, critique: dict[str,
         small = bool(d) and (not d.get("visible") or float(d.get("max_width") or 0.0) < SMALL)
         img = _image_of(p, prod)
         kit = _kit(scene)
-        cut_off = sid in crop or bool(CROP_WORDS.search(notes))
+        bb = p.get("bbox")
+        aimed = isinstance(bb, list) and len(bb) == 4 and float(bb[2]) < 0.9     # a deliberate push-in (content box)
+        # measured edge contact is a crop only when the shot did not aim at a region on purpose; the critic's words
+        # always count
+        cut_off = (sid in crop and not aimed) or bool(CROP_WORDS.search(notes))
         if wants and img is not None and kit == "base" and cut_off and not (
                 isinstance(p.get("image"), dict) and p["image"].get("frame") == "card"):
             # the base frame pushed the capture past the frame edges: show the picture whole on a card
