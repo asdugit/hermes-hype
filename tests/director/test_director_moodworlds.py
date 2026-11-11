@@ -101,3 +101,13 @@ def test_no_known_features_means_no_filler_labels(tmp_path: Path) -> None:
         blob = str(film)
         assert "Built to delight" not in blob and "Made with care" not in blob
         assert all(s["params"].get("feature") != "" for s in film["shots"])
+
+
+@pytest.mark.parametrize("bp_id", sorted(set(ASKS.values())))
+def test_mood_films_open_on_the_product_so_frame_0_is_lit(tmp_path: Path, bp_id: str) -> None:
+    """A type card on black at t=0 drew nothing (black X thumbnail, QA 'frame 0 mean luma 2.4'); the product's
+    browser frame is in at frame 0, with the opening line over it."""
+    b = T._screen_brief(tmp_path, "x")
+    bp = next(x for x in compose.blueprints() if x.id == bp_id)
+    first = compose._layout_shots(bp, 30.0, b)[0]
+    assert first["product"] and first["scene"] == "kit:base/SCREEN" and first["t0"] == 0.0
