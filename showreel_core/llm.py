@@ -24,29 +24,51 @@ AUX_TASK = "showreel"
 Dispatch = Callable[..., str]
 
 
-class JsonModeLlm:
-    """``ctx.llm`` proxy that sends the storyboard schema as prompt text and asks for JSON mode.
+def _json_mode_refused(exc: BaseException) -> bool:
+    """True when the provider rejected the JSON-output request itself (HTTP 400 about the format/schema)."""
+    msg = f"{type(exc).__name__}: {exc}".lower()
+    return ("400" in msg or "badrequest" in msg or "invalid_request" in msg) and any(
+        k in msg for k in ("schema", "response_format", "output_config", "json"))
 
-    Provider-native structured output rejects our storyboard schema on Anthropic models
-    (HTTP 400 "Schema is too complex", after ~3 minutes per attempt, so every film fell back to the
-    heuristic storyboard), and Hermes sends the schema with ``strict: false`` elsewhere, so it was never
-    enforced anyway. The schema still reaches the model verbatim in the prompt (Hermes appends
-    ``json_schema`` there too), and :mod:`showreel_core.story.validate` checks and repairs the reply.
+
+class JsonModeLlm:
+    """``ctx.llm`` proxy for JSON replies that works on every provider: the schema goes into the prompt as text.
+
+    Real E2E on Anthropic (Hermes 0.22.5): provider-native structured output answered the storyboard schema with
+    HTTP 400 "Schema is too complex" after ~3 minutes per attempt, and Hermes' ``json_mode`` maps to an
+    ``output_config`` schema Anthropic rejects at once ("'additionalProperties' must be explicitly set to false").
+    So: schema as prompt text, JSON mode first, and on a format refusal plain text from then on in this process
+    (the callers parse JSON out of the text; :mod:`showreel_core.story.validate` checks and repairs it).
     """
+
+    #: Set once a provider refused JSON mode: later calls in this process go straight to plain text.
+    plain_only = False
 
     def __init__(self, llm: Any) -> None:
         self._llm = llm
 
     def complete_structured(self, **kwargs: Any) -> Any:
         schema = kwargs.pop("json_schema", None)
+        wants_json = bool(kwargs.pop("json_mode", False)) or schema is not None
+        if not wants_json:
+            return self._llm.complete_structured(**kwargs)
+        head = str(kwargs.get("instructions", "")).rstrip()
         if schema is not None:
             try:
                 text = json.dumps(schema, ensure_ascii=False, sort_keys=True)
             except (TypeError, ValueError):
                 text = str(schema)
-            kwargs["instructions"] = (f"{kwargs.get('instructions', '').rstrip()}\n\n"
-                                      f"Reply with ONE JSON object that follows this JSON schema:\n{text}")
-            kwargs["json_mode"] = True
+            head += "\n\nReply with ONE JSON object that follows this JSON schema:\n" + text
+        kwargs["instructions"] = head + ("\n\nReply with only that JSON object: no prose before or after it, "
+                                         "no markdown fences.")
+        if not JsonModeLlm.plain_only:
+            try:
+                return self._llm.complete_structured(**kwargs, json_mode=True)
+            except Exception as exc:
+                if not _json_mode_refused(exc):
+                    raise
+                JsonModeLlm.plain_only = True
+                log.info("showreel: the model route refused JSON mode (%s); using plain-text JSON replies", exc)
         return self._llm.complete_structured(**kwargs)
 
     def __getattr__(self, name: str) -> Any:

@@ -6,19 +6,38 @@ import json
 from types import SimpleNamespace
 from typing import Any
 
+import pytest
+
 from showreel_core.llm import Host, JsonModeLlm
 from showreel_core.pipeline import director_llm
 
 
 class RecordingLlm:
-    def __init__(self, reply: Any) -> None:
+    def __init__(self, reply: Any, refuse_json: Exception | None = None) -> None:
         self.calls: list[dict[str, Any]] = []
         self.reply = reply
+        self.refuse_json = refuse_json
         self.extra = "kept"
 
     def complete_structured(self, **kwargs: Any) -> Any:
         self.calls.append(kwargs)
+        if self.refuse_json is not None and kwargs.get("json_mode"):
+            raise self.refuse_json
         return self.reply
+
+
+class BadRequestError(Exception):
+    pass
+
+
+ANTHROPIC_400 = BadRequestError("Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', "
+                                "'message': \"output_config.format.schema: For 'object' type, 'additionalProperties' "
+                                "must be explicitly set to false\"}}")
+
+
+@pytest.fixture(autouse=True)
+def _fresh_route(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(JsonModeLlm, "plain_only", False)
 
 
 SCHEMA = {"type": "object", "properties": {"title": {"type": "string"}}, "required": ["title"]}
@@ -39,6 +58,28 @@ def test_json_mode_proxy_leaves_plain_calls_alone() -> None:
     inner = RecordingLlm(SimpleNamespace(text="hi", parsed=None, content_type="text"))
     JsonModeLlm(inner).complete_structured(instructions="Say hi.", input=[])
     assert inner.calls[0] == {"instructions": "Say hi.", "input": []}
+
+
+def test_a_refused_json_mode_falls_back_to_plain_text_for_the_rest_of_the_process() -> None:
+    reply = SimpleNamespace(text='```json\n{"title": "Tempo"}\n```', parsed=None, content_type="text",
+                            provider="anthropic", model="m", usage=None)
+    inner = RecordingLlm(reply, refuse_json=ANTHROPIC_400)
+    call = Host(llm=inner).story_call()
+    out = call(instructions="I", input_text="digest", json_schema=SCHEMA, schema_name="sb", temperature=0.4,
+               max_tokens=100, timeout=10)
+    assert not out.error and out.text.startswith("```json")       # story parses JSON out of the text itself
+    assert [c.get("json_mode") for c in inner.calls] == [True, None] and JsonModeLlm.plain_only
+    assert all("json_schema" not in c for c in inner.calls)
+    call(instructions="I", input_text="again", json_schema=SCHEMA, schema_name="sb", temperature=0.4,
+         max_tokens=100, timeout=10)
+    assert inner.calls[-1].get("json_mode") is None and len(inner.calls) == 3   # no second refused call
+
+
+def test_other_errors_are_not_swallowed() -> None:
+    inner = RecordingLlm(None, refuse_json=TimeoutError("read timed out"))
+    with pytest.raises(TimeoutError):
+        JsonModeLlm(inner).complete_structured(instructions="I", input=[], json_schema=SCHEMA)
+    assert not JsonModeLlm.plain_only
 
 
 def test_story_route_uses_json_mode_end_to_end() -> None:
