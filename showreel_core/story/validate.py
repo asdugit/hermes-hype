@@ -54,6 +54,7 @@ from .onscreen import (
     is_test_page,
     looks_like_command,
     scrub_text,
+    unplaceholder,
 )
 from .schema import (
     CTA_CHARS,
@@ -313,8 +314,19 @@ def _keep(items: list[str], ok: object, path: str, why: str, ctx: _Ctx) -> list[
 
 # ------------------------------------------------------------------------ top level
 
+def _no_placeholder(text: str, path: str, ctx: _Ctx) -> str:
+    """On-screen/spoken text without echoed template slots ({product}, <call to action>) or filler copy
+    (Lorem ipsum, 'TODO:', a line of code such as 'from patchlib import patch')."""
+    one = ctx.product.one_liner if len(ctx.product.one_liner or "") <= TAGLINE_CHARS else ""
+    new = unplaceholder(text, name=ctx.product.name, tagline=one)
+    if new != text:
+        ctx.issue("placeholder_on_screen", path, f"{text[:60]!r} is template or filler text", "warning",
+                  f"now {new!r}" if new else "cleared")
+    return new
+
+
 def _check_top(sb: Storyboard, ctx: _Ctx) -> None:
-    sb.title = normalize_ws(sb.title)
+    sb.title = _no_placeholder(normalize_ws(sb.title), "$.title", ctx)
     name = ctx.product.name
     if sb.title and name and not same_product(sb.title, name) and (
             (ctx.renamed_from and same_product(sb.title, ctx.renamed_from)) or toolish_words(sb.title, name)):
@@ -331,7 +343,7 @@ def _check_top(sb: Storyboard, ctx: _Ctx) -> None:
         sb.title = trim_chars(sb.title, TITLE_CHARS)
         ctx.issue("title_long", "$.title", f"longer than {TITLE_CHARS} characters", "warning", "trimmed")
     for attr, limit, path in (("tagline", TAGLINE_CHARS, "$.tagline"), ("cta", CTA_CHARS, "$.cta")):
-        value = normalize_ws(getattr(sb, attr))
+        value = _no_placeholder(normalize_ws(getattr(sb, attr)), path, ctx)
         if has_loopback(value):   # 'Open it at localhost' reached a real END card
             new = "" if attr == "cta" else scrub_text(value, ctx.product.name)
             ctx.issue("loopback_on_screen", path, f"{value!r} names a loopback/dev-server address", "warning",
@@ -752,7 +764,7 @@ def _bad_numbers(text: str, facts: SessionFacts) -> list[str]:
 
 def _check_vo(scene: StoryScene, path: str, ctx: _Ctx) -> None:
     st = SceneType(scene.type)
-    vo = normalize_ws(scene.vo)
+    vo = _no_placeholder(normalize_ws(scene.vo), f"{path}.vo", ctx)
     if not vo:
         scene.vo = ""
         return
@@ -799,6 +811,7 @@ def _check_vo(scene: StoryScene, path: str, ctx: _Ctx) -> None:
 
 def _check_label(scene: StoryScene, path: str, ctx: _Ctx) -> None:
     label = normalize_ws(scene.label).rstrip(".")
+    label = _no_placeholder(label, f"{path}.label", ctx)
     if has_loopback(label):
         label = scrub_text(label, ctx.product.name)
         ctx.issue("loopback_on_screen", f"{path}.label", "names a loopback/dev-server address", "warning",

@@ -305,6 +305,56 @@ def is_long_page(ev: Any) -> bool:
     return bool(w and h >= 1.4 * w)
 
 
+# ------------------------------------------------------------------------------------------ placeholders
+
+#: template slots a model echoes back: ``{product}``, ``{{name}}``, ``{NAME}`` (prompt templates) and the engine's
+#: own ``<call to action>`` / ``<one real feature>`` hints (letters and spaces only, so ``List<String>`` or HTML stay)
+_SLOT_RE = re.compile(r"\{\{?\s*(product|product[ _]?name|name|title|brand|app|tagline|one[ _]?liner|benefit|cta|url|"
+                      r"feature|features|audience)\s*\}?\}|<([A-Za-z][A-Za-z' -]{0,60}\s[A-Za-z' -]{1,60})>",
+                      re.IGNORECASE)
+#: filler that is never real copy: Lorem ipsum anywhere, or a text that IS a to-do marker ('TODO', 'TBD: tagline')
+_FILLER_RE = re.compile(r"(?i)\blorem ipsum\b|\bdolor sit amet\b|^\W*(?:todo\s*[:\-–—]|"
+                        r"(?:tbd|fixme|placeholder|xxx+)\b\s*(?:[:\-–—]|$))")
+#: a line of program code as a caption/label ('from patchlib import patch' reached a real END card)
+_CODE_LINE_RE = re.compile(r"^\W*(?:from\s+[\w.]+\s+import\s+\S|import\s+[\w.]+(?:\s+as\s+\w+)?\s*;?\s*$|"
+                           r"def\s+\w+\s*\(|class\s+\w+\s*[(:]|(?:const|let|var)\s+\w+\s*=|print\s*\(|"
+                           r"console\.log\s*\(|#include\s*<|require\s*\(['\"])")
+
+
+def is_filler(text: Any) -> bool:
+    """True for placeholder copy that must never be on screen (Lorem ipsum, a bare TODO, a line of code)."""
+    return isinstance(text, str) and bool(_FILLER_RE.search(text) or _CODE_LINE_RE.match(text))
+
+
+def unplaceholder(text: str, *, name: str = "", tagline: str = "", cta: str = "") -> str:
+    """``text`` without template junk: a ``{name}`` / ``<product name>`` slot becomes the fact it stands for
+    (product name, tagline, CTA) or goes; filler ('Lorem ipsum', a bare 'TODO:', a line of code) clears the text.
+    Plain text comes back unchanged."""
+    if not isinstance(text, str) or not text.strip():
+        return text
+    if is_filler(text):
+        return ""
+    if "{" not in text and "<" not in text:
+        return text
+
+    def fill(m: re.Match[str]) -> str:
+        key = re.sub(r"[^a-z]", "", (m.group(1) or m.group(2) or "").lower())
+        if "tagline" in key or "benefit" in key or "liner" in key:
+            return tagline
+        if "calltoaction" in key or key == "cta":
+            return cta
+        if key in ("product", "productname", "name", "title", "brand", "app") or key.endswith("productname"):
+            raw = (m.group(1) or m.group(2) or "").strip()
+            return name.upper() if name and raw == raw.upper() else name
+        return ""
+    out = _SLOT_RE.sub(fill, text)
+    if out == text:
+        return text
+    out = re.sub(r"\s+([.,!?;:])", r"\1", re.sub(r"\s{2,}", " ", out)).strip(" -–—:,;")
+    out = re.sub(r"\s+\b(?:at|on|to|via|from|for|with|and|by|in)\s*([.!?]?)$", r"\1", out).strip()
+    return out if any(ch.isalnum() for ch in out) else ""
+
+
 # --------------------------------------------------------------------------------------------- loopback
 
 def has_loopback(text: Any) -> bool:

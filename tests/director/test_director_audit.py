@@ -82,3 +82,31 @@ def test_text_only_models_get_the_measured_review() -> None:
     for m in ("nousresearch/hermes-4-405b", "Hermes-3-Llama-3.1-70B", "openai/gpt-oss-120b", "moonshotai/kimi-k2"):
         assert not tiers.detect(m).vision, m
     assert tiers.detect("claude-haiku-4-5").vision and tiers.detect("hermes chat (default model)").vision
+
+
+def test_template_slots_and_filler_never_reach_a_directed_film(env: dict[str, Any]) -> None:
+    """The film prompt's starting template carries ``<call to action>`` / ``<one-line benefit>`` slots and
+    ``{name}``-style placeholders; a model that echoed them (or wrote Lorem ipsum / TODO) put them on screen."""
+    import copy
+
+    from director_fakes import FILM, TREATMENT, FakeLlm, critique
+    from test_director_anymodel import _GOOD
+    bad = copy.deepcopy(FILM)
+    bad["film"]["captions"] = [{"t0": 1, "t1": 3, "text": "<one-line benefit>"},
+                               {"t0": 3, "t1": 5, "text": "TODO: tagline"},
+                               {"t0": 5, "t1": 7, "text": "Lorem ipsum dolor"},
+                               {"t0": 7, "t1": 9, "text": "Meet {product}."}]
+    bad["film"]["overlays"][0]["params"].update(text="{NAME}", sub="<call to action>")
+    bad["plan"]["voiceover"] = [{"t": 1.0, "text": "Meet {product}, the fastest car alive."}]
+    llm = FakeLlm({"treatment": [TREATMENT], "film": [bad], "scene": ["```js\n" + _GOOD + "```"],
+                   "critic": [critique(9.0)]})
+    res = run(env["brief"], llm=llm, renderer=FakeRenderer(), effort="quick", job_dir=env["job"],
+              library_dir=env["library"], catalog=env["catalog"], tier=tiers.detect("claude-opus-5-5"),
+              budget=FREE_QUICK)
+    assert res.ok, res.error
+    shown = json.dumps([res.film.get("captions"), res.film.get("overlays"), res.film.get("shots")])
+    for junk in ("<one-line", "<call to", "{NAME}", "{product}", "TODO:", "Lorem"):
+        assert junk not in shown, junk
+    texts = [c["text"] for c in res.film["captions"]]
+    assert texts == ["A red car.", "Meet Red Car."]                  # filler-only captions are dropped, not blank
+    assert res.film["overlays"][0]["params"]["text"] == "RED CAR"

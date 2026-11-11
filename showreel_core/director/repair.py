@@ -579,6 +579,9 @@ def onscreen(film: dict[str, Any], plan: dict[str, Any] | None = None, *, produc
     fixes = so.scrub_film(film, name=name, url=url)
     nofacts = SimpleNamespace(events=[])          # a Directed film has no session events: only the product's
     trusted = list(getattr(product, "run_commands", None) or [])   # detected commands are trusted
+    one = str(getattr(product, "one_liner", "") or "")
+    slots = {"name": name or str(getattr(product, "name", "") or ""), "tagline": one if len(one) <= 60 else "",
+             "cta": ""}                           # echoed template slots ({name}, <call to action>) never show
 
     def walk(o: Any, key: str, path: str) -> Any:
         if isinstance(o, dict):
@@ -588,25 +591,36 @@ def onscreen(film: dict[str, Any], plan: dict[str, Any] | None = None, *, produc
         if not isinstance(o, str) or not o.strip():
             return o
         k = key.lower()
-        new = o
+        new = so.unplaceholder(o, **slots) if k in _TEXT_PARAM_KEYS or k in _CMD_PARAM_KEYS else o
         if k in _CMD_PARAM_KEYS:
-            if so.looks_like_command(o) or _MACHINE_PATH.match(o.strip()):
-                new = so.approved_cta(o, product, nofacts, trusted)
+            if new and (so.looks_like_command(new) or _MACHINE_PATH.match(new.strip())):
+                new = so.approved_cta(new, product, nofacts, trusted)
         elif k in _URL_KEYS or k == "address":
             if _MACHINE_PATH.match(o.strip()):
                 new = url if url and not _MACHINE_PATH.match(url) else ""
         elif k in _TEXT_PARAM_KEYS:
-            new = so.display_text_paths(o)
+            new = so.display_text_paths(new)
         if new != o:
             fixes.append(f"{path}: {o[:60]!r} -> {new[:60]!r}")
         return new
     for sect in ("shots", "overlays", "captions"):
         if isinstance(film.get(sect), list):
             film[sect] = walk(film[sect], "", sect)
+    if isinstance(film.get("captions"), list):         # a caption that was only filler goes (empty text is invalid)
+        kept = [c for c in film["captions"] if not (isinstance(c, dict) and isinstance(c.get("text"), str)
+                                                     and not c["text"].strip())]
+        if len(kept) != len(film["captions"]):
+            fixes.append(f"captions: {len(film['captions']) - len(kept)} empty caption(s) dropped")
+            film["captions"] = kept
     for i, line in enumerate((plan or {}).get("voiceover") or []):
         if isinstance(line, dict) and isinstance(line.get("text"), str) and so.has_loopback(line["text"]):
             line["text"] = so.scrub_sentences(line["text"])
             fixes.append(f"plan.voiceover[{i}]: loopback sentence dropped")
+        if isinstance(line, dict) and isinstance(line.get("text"), str):
+            spoken = so.unplaceholder(line["text"], **slots)
+            if spoken != line["text"]:
+                line["text"] = spoken
+                fixes.append(f"plan.voiceover[{i}]: template placeholder removed")
     return fixes
 
 
