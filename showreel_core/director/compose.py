@@ -463,7 +463,43 @@ def _mood_blueprints() -> list[Blueprint]:
         voice="sparse", finish={"grain": 0.01, "vignette": 0.12}, background="#000", recipe="launch-keynote",
         keywords=("keynote", "apple", "unveil", "launch event", "premium", "minimal", "clean", "elegant", "wwdc",
                   "stage", "announcement"), seconds=(18.0, 50.0))
-    return [noir, keynote]
+    doc = Blueprint(
+        id="screen-documentary", name="Nature documentary (software)", kind="screen",
+        fits="software / web apps; 'nature documentary', 'Attenborough', 'wildlife', 'hushed narrator', calm, slow",
+        look="a hushed nature film about the product: slow observational pushes over the real product shown "
+             "large, a Latin species lower third, quiet title cards, long crossfades, warm film stock",
+        shots=(
+            {"id": "open", "share": (0.0, 0.10), "scene": "kit:type/title", "product": False,
+             "params": {"text": "<a 2-5 word hushed opening line, like the first words of a nature film>",
+                        "scrim": 0.0}, "beat": "dawn, silence, one quiet line"},
+            {"id": "habitat", "share": (0.10, 0.36), "scene": "kit:base/SCREEN", "product": True,
+             "params": {"image": {"asset": "{asset1}"}, "bbox": [0.05, 0.04, 0.8, 0.8]},
+             "beat": "the creature in its habitat: the whole product, observed, the camera drifting closer"},
+            {"id": "feature1", "share": (0.36, 0.58), "scene": "kit:base/FEATURE", "product": True,
+             "params": {"image": {"asset": "{asset2}"}, "feature": "{feature1}", **WHOLE},
+             "beat": "a behaviour, observed close"},
+            {"id": "observe", "share": (0.58, 0.66), "scene": "kit:type/title", "product": False,
+             "params": {"text": "<a 3-7 word hushed observation about how it behaves, no numbers>", "scrim": 0.0},
+             "beat": "the narrator's quiet aside"},
+            {"id": "feature2", "share": (0.66, 0.88), "scene": "kit:base/FEATURE", "product": True,
+             "params": {"image": {"asset": "{asset3}"}, "feature": "{feature2}", **WHOLE},
+             "beat": "a second behaviour"},
+            {"id": "end", "share": (0.88, 1.0), "scene": "kit:type/end-lockup", "product": False,
+             "params": {"title": "{name}", "tagline": "{tagline}", "cta": "{cta}", "scrim": 0.0},
+             "beat": "the name, quietly"},
+        ),
+        transitions=({"from": "open", "to": "habitat", "type": "crossfade", "dur": 0.9},
+                     {"from": "habitat", "to": "feature1", "type": "crossfade", "dur": 0.8},
+                     {"from": "feature1", "to": "observe", "type": "crossfade", "dur": 0.8},
+                     {"from": "observe", "to": "feature2", "type": "crossfade", "dur": 0.8},
+                     {"from": "feature2", "to": "end", "type": "crossfade", "dur": 0.9}),
+        overlays=({"id": "species", "share": (0.14, 0.31), "scene": "kit:type/lower-third",
+                   "params": {"title": "{name}", "sub": "<a playful Latin-style species name, 2-4 words>"}},),
+        music=({"bed": "dream_a", "share": (0.0, 1.0)},), voice="narrated",
+        finish={"grain": 0.035, "vignette": 0.2}, background="#000", recipe="nature-documentary",
+        keywords=("nature", "documentary", "attenborough", "wildlife", "narrat", "hushed", "observ", "habitat",
+                  "national geographic", "planet earth"), seconds=(18.0, 50.0))
+    return [noir, keynote, doc]
 
 
 def blueprints(*, kits_root: Path | None = None, catalog: Any = None, blender: bool = False) -> list[Blueprint]:
@@ -637,12 +673,13 @@ def default_pick(bps: list[Blueprint], brief: Brief) -> dict[str, Any]:
     ranked = rank(bps, brief.direction, brief)
     best = ranked[0][1] if ranked and ranked[0][0] > 0.6 else None
     if best is None:
-        ids = [b.id for _, b in ranked]
+        ok = [(sc, b) for sc, b in ranked if sc >= 0]      # a mood ranks its forbidden worlds below zero
+        ids = [b.id for _, b in ok]
         for want in (("studio-reveal", "boss-battle") if physical(brief) else ("device-reveal", "screen-launch")):
             if want in ids:
-                best = next(b for _, b in ranked if b.id == want)
+                best = next(b for _, b in ok if b.id == want)
                 break
-        best = best or (ranked[0][1] if ranked else bps[0])
+        best = best or (ok[0][1] if ok else ranked[0][1] if ranked else bps[0])
     d = brief.direction.lower()
     time = next((t for t in TIMES if t in d), "night" if "night" in d or "noir" in d else "golden")
     return {"blueprint": best.id, "time": time, "accent": "#E8384A", "voice": best.voice, "title": "",

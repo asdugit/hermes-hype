@@ -75,7 +75,7 @@ WORLDS: tuple[MoodWorld, ...] = (
                "observational camera, long takes and few cuts (crossfades), a hushed narrator, a species lower "
                "third; in the Blender meadow (`blender:meadow/oner`, `time_of_day` dawn) when Blender is "
                "available; never pop type, hard energetic cuts or neon."),
-        prefer=("meadow-documentary", "nature-documentary"),
+        prefer=("meadow-documentary", "nature-documentary", "screen-documentary"),
         avoid=("kit:pixel/", "kit:comic/", "kit:terminal/", "kit:launch/"),
         params={"blender:meadow/": {"time_of_day": "dawn"}, "kit:nature/": {"time": "dawn"}},
         beds=("dream_a", "cinematic_b"), bed="dream_a"),
