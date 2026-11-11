@@ -52,7 +52,8 @@ function tube(ctx, p, F, def) {
   scr.style.cssText = `width:${W}px;height:${H}px;`;
   F.cam.appendChild(scr);
   const scan = h('div', 'tm-scan'), roll = h('div', 'tm-roll'), flick = h('div', 'tm-flick'), beam = h('div', 'tm-beam');
-  F.ov.append(roll, scan, flick, beam);
+  const warm = h('div', 'tm-warm');        // power-on warm-up glow of the phosphor (fades in the first 0.5 s)
+  F.ov.append(roll, scan, flick, warm, beam);
   const dur = Number(ctx.dur) || 4;
   const powerOn = p.power_on ?? def.powerOn ?? false;
   const powerOff = p.power_off ?? def.powerOff ?? false;
@@ -111,27 +112,30 @@ function tube(ctx, p, F, def) {
     css(flick, { opacity: fl.toFixed(4) });
     const ry = (((t * 0.085 + phase) % 1.5) - 0.35) * H;
     css(roll, { transform: `translate3d(0,${ry.toFixed(1)}px,0)` });
-    // power on: dot -> horizontal line -> picture; degauss wobble after
-    let sx = 1, sy = 1, br = 1, dx = 0, beamOp = 0, bw = 0, bh = 0;
+    // power on (warm): the picture is up from the first frame, over-bright and slightly squashed, while a raster
+    // line sweeps the glass top -> bottom; then the degauss wobble. Frame 0 is the film's thumbnail (the X poster),
+    // so the tube never opens dark (the old dot -> line -> picture start made frame 0 black: luma 3.8).
+    let sx = 1, sy = 1, br = 1, dx = 0, beamOp = 0, bw = 0, bh = 0, by = H / 2, warmOp = 0;
     if (powerOn && t < 0.75) {
-      const a = seg(t, -0.02, 0.08, ease.outQuad), b = seg(t, 0.06, 0.2, ease.outCubic), c = seg(t, 0.18, 0.42, ease.outCubic);
-      sx = b; sy = lerp(0.004, 1, c); br = lerp(4, 1, seg(t, 0.2, 0.6, ease.outCubic));
-      beamOp = a * (1 - seg(t, 0.2, 0.32));
-      bw = lerp(14, W * 0.9, b); bh = lerp(14, 6, b);
-      dx = t > 0.4 ? Math.sin((t - 0.4) * 70) * 7 * Math.exp(-(t - 0.4) * 9) : 0;
+      const c = seg(t, -0.04, 0.3, ease.outCubic), u = seg(t, -0.02, 0.32, ease.inOutQuad);
+      sx = lerp(0.985, 1, c); sy = lerp(0.9, 1, c); br = lerp(1.9, 1, seg(t, 0, 0.5, ease.outCubic));
+      beamOp = 0.9 * (1 - seg(t, 0.28, 0.4)); warmOp = 1 - seg(t, 0.05, 0.55, ease.outCubic);
+      bw = W * 0.94; bh = 10; by = lerp(H * 0.07, H * 0.93, u);
+      dx = t > 0.32 ? Math.sin((t - 0.32) * 70) * 6 * Math.exp(-(t - 0.32) * 9) : 0;
     }
     if (powerOff && t > offAt) {
       const a = seg(t, offAt, offAt + 0.14, ease.inCubic), b = seg(t, offAt + 0.12, offAt + 0.26, ease.inCubic);
       sy = lerp(1, 0.004, a); sx = 1 - b; br = lerp(1, 3.5, a);
       beamOp = seg(t, offAt + 0.1, offAt + 0.16) * (1 - seg(t, offAt + 0.26, offAt + 0.45));
-      bw = lerp(W * 0.9, 10, b); bh = lerp(6, 10, b);
+      bw = lerp(W * 0.9, 10, b); bh = lerp(6, 10, b); by = H / 2;
     }
     const on = sx > 0.0005 && sy > 0.0005;
     css(scr, {
       transform: `translate3d(${dx.toFixed(2)}px,0,0) scale(${Math.max(0.0001, sx).toFixed(4)},${Math.max(0.0001, sy).toFixed(4)})`,
       filter: br > 1.01 ? `brightness(${br.toFixed(3)})` : 'none', visibility: on ? 'visible' : 'hidden',
     });
-    css(beam, { opacity: clamp(beamOp).toFixed(3), left: `${(W / 2 - bw / 2).toFixed(1)}px`, top: `${(H / 2 - bh / 2).toFixed(1)}px`,
+    css(warm, { opacity: clamp(warmOp).toFixed(3) });
+    css(beam, { opacity: clamp(beamOp).toFixed(3), left: `${(W / 2 - bw / 2).toFixed(1)}px`, top: `${(by - bh / 2).toFixed(1)}px`,
       width: `${bw.toFixed(1)}px`, height: `${bh.toFixed(1)}px` });
   }
   return { scr, M, W, H, pre, mount, clip, disp, bar, barHtml, barCols, barEl, update, cues, pad };

@@ -74,9 +74,9 @@ function contentPane(ctx, F, T, c, o) {
   if (kind === 'image') {
     const fs = o.fs || 24;
     const mp = mediaPane(ctx, F, T, c, { fs, maxW: o.maxW, maxH: o.maxH, cx: o.cx, cy: o.cy, phosphor: o.phosphor, title: o.title });
-    const st = { ascii: o.t0, dither: o.t0 + 0.3, real: o.t0 + 0.6, scan: 0.16 };
+    const st = o.st || { ascii: o.t0, dither: o.t0 + 0.3, real: o.t0 + 0.6, scan: 0.16 };
     if (o.title) mp.pre.innerHTML = box(o.title, mp.inner, Array.from({ length: mp.rows }, () => txt('', '')), { right: fit(prettyUrl(c.url || ''), 30) }).join('\n');
-    return { els: [mp.wrap], w: mp.w, h: mp.h, x: mp.x, y: mp.y, cues: [{ t: o.t0, sfx: 'appear', gain_db: -12 }], update: (t) => mp.update(t, st), mp, kind };
+    return { els: [mp.wrap], w: mp.w, h: mp.h, x: mp.x, y: mp.y, cues: [{ t: Math.max(0.02, st.ascii), sfx: 'appear', gain_db: -12 }], update: (t) => mp.update(t, st), mp, kind };
   }
   const maxCols = Math.floor(o.maxW / ((o.fs || 24) * ADV)) - 4;
   let pane;
@@ -105,13 +105,15 @@ tubeScene('kit:terminal/HOOK', {
     const labH = labLines.length * labZ * 1.0 + (label ? 30 : 0);
     const lab = label ? T.disp(B.x, B.y + (L ? 10 : -6), labZ, 'h') : null;
     if (lab) { lab.style.width = `${B.w}px`; lab.style.whiteSpace = 'pre'; }
-    const ty = typing(labLines.join('\n'), 0.55, { cps: 32, maxDur: 1.0, seed: 1 });
+    const ty = typing(labLines.join('\n'), 0.4, { cps: 32, maxDur: 1.0, seed: 1 });
     const kind = hero.kind || (hero.w ? 'image' : 'code');
     const fs = kind === 'image' ? (L ? 22 : 24) : L ? 30 : 40;
     const ps = clamp(Number(p.product_scale) || 1, 0.5, 3);
     const avail = { w: B.w * (kind === 'image' ? ps : 1), h: (B.h - labH) * (kind === 'image' ? ps : 1) };
+    // frame 0 is the thumbnail: the capture is already up as phosphor ASCII when the warm tube opens, resolves to
+    // dither and the real picture after the raster sweep; text heroes (test run / code) start printing at once
     const pane = contentPane(ctx, F, T, hero, { fs, maxW: avail.w, maxH: avail.h, cx: F.W / 2, cy: B.y + labH + avail.h / 2,
-      t0: 0.45, fast: true, phosphor: p.phosphor, maxRows: L ? 14 : 10 });
+      t0: 0.05, st: { ascii: -0.2, dither: 0.38, real: 0.72, scan: 0.16 }, fast: true, phosphor: p.phosphor, maxRows: L ? 14 : 10 });
     T.bar('', '');
     return {
       cues: [...pane.cues, ...(label ? ty.cues({ every: 4, max: 10, gain_db: -16 }) : [])],
@@ -120,7 +122,7 @@ tubeScene('kit:terminal/HOOK', {
         if (lab) {
           const n = ty.count(t);
           const s = [...ty.chars].slice(0, n).join('').split('\n');
-          lab.set(s.map((l, i) => (i === 0 ? sp('d', l.slice(0, 2)) + esc(l.slice(2)) : esc(l)) + (i === s.length - 1 && t > 0.45 ? `<span class="c${n < ty.n || blink(t - ty.end) ? '' : ' off'}" style="width:.45em"> </span>` : '')).join('\n'));
+          lab.set(s.map((l, i) => (i === 0 ? sp('d', l.slice(0, 2)) + esc(l.slice(2)) : esc(l)) + (i === s.length - 1 && t > 0.3 ? `<span class="c${n < ty.n || blink(t - ty.end) ? '' : ' off'}" style="width:.45em"> </span>` : '')).join('\n'));
         }
       },
     };

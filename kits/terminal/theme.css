@@ -88,6 +88,8 @@
 .sr-theme-terminal .tm-roll { position: absolute; left: 0; right: 0; height: 34%; pointer-events: none;
   background: linear-gradient(180deg, rgba(var(--ph-rgb), 0), rgba(var(--ph-rgb), .035) 50%, rgba(var(--ph-rgb), 0)); }
 .sr-theme-terminal .tm-flick { position: absolute; inset: 0; pointer-events: none; background: #000; }
+.sr-theme-terminal .tm-warm { position: absolute; inset: 0; pointer-events: none; opacity: 0; mix-blend-mode: screen;
+  background: radial-gradient(ellipse 70% 65% at 50% 50%, rgba(var(--ph-rgb), .26), rgba(var(--ph-rgb), .1) 70%, rgba(var(--ph-rgb), .04)); }
 .sr-theme-terminal .tm-beam { position: absolute; pointer-events: none; background: var(--ph-hot); border-radius: 50%;
   box-shadow: 0 0 24px 8px rgba(var(--ph-rgb), .8), 0 0 80px 30px rgba(var(--ph-rgb), .35); }
 .sr-theme-terminal .tm-scr { position: absolute; inset: 0; transform-origin: 50% 50%; }
