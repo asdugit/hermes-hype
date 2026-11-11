@@ -211,10 +211,31 @@ HOW TO WORK
   knight is knocked back 12 px with a red flash and a floating -42" is useful.
 
 Reply with one JSON object matching the schema."""
-    parts = [_direction_block(brief), _product_text(brief), _film_frame(brief),
+    parts = [_direction_block(brief), _product_text(brief), _film_frame(brief), blender_rule(brief),
              recipes.overview(physical=_physical(brief)), _recipe_hint(brief), catalog.overview(),
              catalog.recipes_text(budget=6000), _digest_block(brief)]
     return instructions, "\n\n".join(p for p in parts if p)
+
+
+def blender_rule(brief: Brief) -> str:
+    """When Blender is available the user wants 3D Blender worlds; the three.js nature kit is only the fallback."""
+    if not brief.capabilities.blender:
+        return ""
+    model = next((a.name for a in brief.assets if a.type == "model"), "")
+    return ("## 3D (Blender is available: USE IT)\n"
+            "The user decided that 3D worlds are made in Blender: `blender:<kit>/<scene>` shots render the product as "
+            "a real 3D model with smooth spline cameras and look far better than the browser kits' 3D. The browser "
+            "`kit:nature/*` meadow is ONLY the fallback when Blender is missing - do not use it here.\n"
+            "- meadow / field / nature / anime-sky / dreamy worlds -> `blender:meadow/oner` (one continuous 25.4 s "
+            "camera move; split it into shots with `t_offset`, `time_of_day` sunset|golden|dawn; keep "
+            "t_offset + shot duration <= `length`)\n"
+            "- product reveals, keynotes, studio, luxury -> `blender:studio/product_hero` (move orbit|dolly|turntable, "
+            "env studio|light|sunset|accent, `paint` = the product's real colour as hex) and "
+            "`blender:studio/product_float`\n"
+            "- app screens -> `blender:device/device_hero|device_feature|device_scroll|device_trio|device_end`\n"
+            + (f"- the product's 3D model asset is `{model}` (Blender scenes use it by default)\n" if model else "")
+            + "Words go on top as `kit:type/*` overlays (lower-third, title, end-lockup); 2D style kits remain fine "
+              "for acts that are not 3D worlds (pixel, comic, terminal...).")
 
 
 def _physical(brief: Brief) -> bool:
@@ -288,7 +309,7 @@ PLAN RULES
   everything they need in the spec.
 
 Reply with one JSON object: {{"film": {{...}}, "plan": {{...}}}}."""
-    parts = [_direction_block(brief), _product_text(brief), _film_frame(brief),
+    parts = [_direction_block(brief), _product_text(brief), _film_frame(brief), blender_rule(brief),
              "## Approved treatment\n" + _json(treatment), recipe_block(brief, catalog, treatment),
              _bar_hint(catalog), catalog.full(), catalog.recipes_text(), "## Scene SDK reference\n" + catalog.sdk]
     return instructions, "\n\n".join(p for p in parts if p)
