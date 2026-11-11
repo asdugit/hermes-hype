@@ -21,7 +21,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
-from .checks import references
+from .checks import blender_product_shot, references
 
 HERO_WIDTH = 0.25          # product width / frame width that reads as the hero
 TARGET_WIDTH = 0.35        # what a prominence repair aims for
@@ -158,7 +158,7 @@ def static_check(film: dict[str, Any], plan: dict[str, Any], product: set[str], 
     for s in film.get("shots") or []:
         want = bool((intents.get(s["id"]) or {}).get("product_visible"))
         refs = references(s.get("params") or {}, product)
-        if want and not refs:
+        if want and not refs and not blender_product_shot(s):      # Blender product scenes default to it
             errors.append(f"shot `{s['id']}` is planned as product-visible but its params never reference the "
                           f"product media ({sorted(product)}): pass the asset name to the scene's media param")
         if refs:

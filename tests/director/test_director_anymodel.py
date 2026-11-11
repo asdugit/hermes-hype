@@ -294,3 +294,10 @@ def test_custom_scene_used_only_as_an_overlay_is_kept(env: dict[str, Any]) -> No
     chk = check_film(obj, env["brief"], env["catalog"], max_custom=3)
     assert chk.value is not None, chk.errors
     assert {c["name"] for c in chk.value[1]["custom_scenes"]} == {"boss-battle", "vhs-deck"}
+
+
+def test_blender_product_shots_need_no_product_param() -> None:
+    from showreel_core.director import prominence as pm
+    film = {"shots": [{"id": "m", "t0": 0, "t1": 10, "scene": "blender:meadow/oner", "params": {"t_offset": 0}}]}
+    errs, _ = pm.static_check(film, {"shots": [{"id": "m", "product_visible": True}]}, {"car", "car3d"}, "16:9")
+    assert errs == []
