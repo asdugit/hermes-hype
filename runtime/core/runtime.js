@@ -439,7 +439,7 @@ export class Runtime {
           enterScene(F.seed, item.id, Math.round((item.t0 + lt) * F.fps), item.t0 + lt);
           try { def.render(ctx, lt, inst.p); } finally { leaveScene(); }
           applyFit(inst.fit, lt);
-          inst.halos.push(...fixContrast(inst.surf.root, this.stage, { W: F.w, H: F.h, minSize, picSize: Number((F.qa && F.qa.min_text_px) || 22) * k, base, scope: el }).map((b) => `${b.text} ${b.ratio.toFixed(2)}`));
+          inst.halos.push(...fixContrast(inst.surf.root, this.stage, { W: F.w, H: F.h, minSize, picSize: 14 * k, base, scope: el }).map((b) => `${b.text} ${b.ratio.toFixed(2)}`));
         }
       } catch (e) {
         this.warnings.push(`${item.kind} ${item.id}: contrast pass skipped (${errText(e)})`);
