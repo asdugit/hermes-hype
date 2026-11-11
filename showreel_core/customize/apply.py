@@ -191,6 +191,30 @@ def caption_style(base: dict[str, Any], mode: str, tokens: dict[str, str]) -> di
     return cs
 
 
+def theme_captions(cs: dict[str, Any], tokens: dict[str, str], style: str) -> dict[str, Any]:
+    """Caption plate/colour following the theme (kits hard-code theirs in kit.json ``caption_style``)."""
+    import re
+    cs = dict(cs or {})
+    if not tokens:
+        return cs
+    if style == "terminal" and tokens.get("accent"):
+        cs["color"] = tokens["accent"]
+        cs["bg"] = V.rgba(V.mix(tokens.get("bg") or tokens["accent"], "#000000", 0.3 if tokens.get("bg") else 0.955), 0.9)
+        return cs
+    if style == "comic" and (tokens.get("accent3") or tokens.get("accent2")):
+        plate = tokens.get("accent3") or tokens["accent2"]
+        cs.update(bg=plate, color=V.ink_on(plate))
+        return cs
+    nums = re.findall(r"[\d.]+", str(cs.get("bg") or ""))
+    plate_hex = V.colour(cs.get("bg")) or (V.hexof(*map(float, nums[:3])) if len(nums) >= 3 else "")
+    dark_plate = bool(plate_hex) and V.lum(plate_hex) < 0.35
+    if tokens.get("bg") and dark_plate and V.lum(tokens["bg"]) < 0.35:
+        cs["bg"] = V.rgba(V.mix(tokens["bg"], "#000000", 0.35), 0.86)
+        if cs.get("color") and tokens.get("text"):
+            cs["color"] = tokens["text"]
+    return cs
+
+
 def apply_film(film: dict[str, Any], assets: dict[str, Any], *, style: str, knobs: dict[str, Any],
                spec: dict[str, Any], wrapped: bool = False, kit: dict[str, Any] | None = None) -> list[str]:
     """Customize a Quick film in place (and its asset specs). Returns notes for the job log."""
@@ -294,8 +318,10 @@ def apply_film(film: dict[str, Any], assets: dict[str, Any], *, style: str, knob
             (s.get("params") or {}).pop("_captions", None)
         notes.append("captions off")
     elif cap in ("bold", "minimal", "boxed") or tokens.get("body_font"):
-        film["caption_style"] = caption_style(film.get("caption_style") or {}, cap, tokens)
+        film["caption_style"] = caption_style(theme_captions(film.get("caption_style") or {}, tokens, style), cap, tokens)
         notes.append(f"captions {cap or 'restyled'}")
+    elif tokens and film.get("captions"):
+        film["caption_style"] = theme_captions(film.get("caption_style") or {}, tokens, style)
     # music (the pipeline's audio stage plays film.music[0].bed; "none" handled by the deps wrapper)
     bed = str(knobs.get("music") or spec.get("music") or "")
     if not bed and energy in ("calm", "high"):

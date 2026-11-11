@@ -440,3 +440,14 @@ def test_pixel_palette_override_changes_the_drawn_pixels(tmp_path):
         pngs.append(asyncio.run(go()))
     changed, frac = pixel_diff(pngs[0], pngs[1])
     assert frac > 0.05, frac
+
+
+def test_captions_follow_the_theme():
+    term = {"font": "IBM Plex Mono", "color": "#FFB13B", "bg": "rgba(12,8,5,0.9)"}
+    cs = A.theme_captions(term, {"accent": "#4BFF86", "bg": "#040905"}, "terminal")
+    assert cs["color"] == "#4BFF86" and cs["bg"].startswith("rgba(")
+    comic = A.theme_captions({"color": "#14110F", "bg": "#FFD23A"}, V.PALETTES["neon"], "comic")
+    assert comic["bg"] == V.PALETTES["neon"]["accent3"] and comic["color"] in ("#0B0C10", "#FFFFFF")
+    launch = A.theme_captions({"bg": "rgba(10,11,13,0.72)"}, {"bg": "#2A0E2E", "text": "#FFF4FB"}, "launch")
+    assert launch["bg"] != "rgba(10,11,13,0.72)"
+    assert A.theme_captions({"bg": "rgba(251,246,236,0.94)", "color": "#2B2622"}, {"bg": "#101010"}, "ink")["color"] == "#2B2622"
