@@ -1,4 +1,4 @@
-// Auteur kit "comic" — code pages: CODE, DIFF, TERMINAL (the frame-B page), MONTAGE (a strip being inked).
+// Hype kit "comic" — code pages: CODE, DIFF, TERMINAL (the frame-B page), MONTAGE (a strip being inked).
 
 import { comicScene, snapIn } from './lib/page.js';
 import { h, css, kindIcon, clock } from '../base/dom.js';

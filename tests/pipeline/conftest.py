@@ -167,8 +167,8 @@ def make_deps(rec: Recorder, *, bundle: SavedSession | None = None, render_fail:
 def env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     """Isolated job store + delivery folder."""
     data, videos = tmp_path / "data", tmp_path / "videos"
-    monkeypatch.setenv("AUTEUR_DATA_DIR", str(data))
-    monkeypatch.setenv("AUTEUR_VIDEOS_DIR", str(videos))
+    monkeypatch.setenv("HYPE_DATA_DIR", str(data))
+    monkeypatch.setenv("HYPE_VIDEOS_DIR", str(videos))
     from showreel_core import pipeline as _p
     monkeypatch.setattr(_p, "TTS_RETRY_DELAYS_S", (0.01, 0.01))
     return {"store": JobStore(data), "videos": videos, "tmp": tmp_path}

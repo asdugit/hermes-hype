@@ -8,7 +8,7 @@ import { drawText } from '../../../../kits/pixel/core/text.js';
 import { heroFrames, HERO_IDS } from '../../../../kits/pixel/art/heroes.js';
 import { writeScreen } from './png.mjs';
 
-const out = process.argv[2] || join(tmpdir(), 'auteur-k1');
+const out = process.argv[2] || join(tmpdir(), 'hype-k1');
 mkdirSync(out, { recursive: true });
 
 export function heroSheet() {

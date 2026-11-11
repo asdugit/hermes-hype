@@ -1,4 +1,4 @@
-// Auteur kits/base — CODE and DIFF panel blocks (paper editor panels).
+// Hype kits/base — CODE and DIFF panel blocks (paper editor panels).
 // A block is {el, w, h, update(t), rowTop(i), rowsRect(a, b), cues}; sizes in reference px.
 // update(t) is a pure function of the shot-local time t.
 

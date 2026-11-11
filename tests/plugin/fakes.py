@@ -80,7 +80,7 @@ class FakeCtx:
         return json.dumps(self.tts(args))
 
 
-def load_plugin(name: str = "auteur_plugin_under_test") -> Any:
+def load_plugin(name: str = "hype_plugin_under_test") -> Any:
     """Import the repo root as Hermes does (a package whose __init__ has register())."""
     if name in sys.modules:
         return sys.modules[name]

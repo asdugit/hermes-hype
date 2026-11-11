@@ -1,24 +1,24 @@
 manifest_version: 2
-name: auteur
+name: hype
 version: "1.0.0"
 description: >-
-  An engine inside a plugin: /auteur reads the Hermes session itself and turns what you built into a narrated
+  An engine inside a plugin: /hype reads the Hermes session itself and turns what you built into a narrated
   launch trailer, with no prompting and no explaining. The product is the hero; a short proof beat shows the
   session's real diffs, terminal output, tests and numbers. Presets: 7 styles (launch, cinematic, pixel, terminal,
-  blueprint, comic, ink), 30/60/90 s, 16:9 or 9:16, plus /auteur lore (the making-of) and /auteur speedrun.
+  blueprint, comic, ink), 30/60/90 s, 16:9 or 9:16, plus /hype lore (the making-of) and /hype speedrun.
   Every preset is customizable: key=value knobs (accent, palette, font, music, energy, voice, title, logo,
-  language...) or plain words after the style ("/auteur launch pink and playful"), applied as one validated
+  language...) or plain words after the style ("/hype launch pink and playful"), applied as one validated
   change set over the preset film. Free roam: a free-text direction without a preset goes to the Director engine,
-  which writes, renders, critiques and revises a one-off film. Surfaces: /auteur, the auteur_render tool, a
-  Desktop studio and hermes auteur render. Renders locally with headless Chromium and ffmpeg; narration uses your
+  which writes, renders, critiques and revises a one-off film. Surfaces: /hype, the hype_render tool, a
+  Desktop studio and hermes hype render. Renders locally with headless Chromium and ffmpeg; narration uses your
   Hermes TTS. Opt-in: "blender" / "use blender" renders 3D shots with your own installed Blender, run headless as
   a subprocess (never downloaded).
 author: asdugit
 license: AGPL-3.0-or-later
-homepage: https://github.com/asdugit/hermes-auteur
+homepage: https://github.com/asdugit/hermes-hype
 tags: [video, trailer, demo, desktop, tts, ffmpeg, chromium, blender, director]
 requires_hermes: ">=0.22.5"
-provides_tools: [auteur_render, auteur_status]
+provides_tools: [hype_render, hype_status]
 provides_hooks: []
 config_schema:
   default_style:
@@ -26,7 +26,7 @@ config_schema:
     choices: [launch, cinematic, pixel, terminal, blueprint, comic, ink]
     default: launch
     label: Default style
-    description: Look used when /auteur names no style.
+    description: Look used when /hype names no style.
   default_seconds:
     type: int
     default: 60
@@ -75,14 +75,14 @@ config_schema:
     description: >-
       browser = three.js in headless Chromium (no install). blender = render 3D shots with your Blender 4.2+
       (headless subprocess on files in the job folder; much nicer camera work and real 3D products, slower).
-      auto = Blender when it is installed. Also per film: /auteur ... blender, or "use blender" in a direction.
+      auto = Blender when it is installed. Also per film: /hype ... blender, or "use blender" in a direction.
   blender_path:
     type: str
     default: ""
     label: Blender executable (optional)
     description: >-
-      Path to blender / blender.exe. Empty = AUTEUR_BLENDER, PATH, then the usual install folders (incl. where
-      the Hermes blender plugin installs it). Auteur never downloads Blender.
+      Path to blender / blender.exe. Empty = HYPE_BLENDER, PATH, then the usual install folders (incl. where
+      the Hermes blender plugin installs it). Hype never downloads Blender.
   customize:
     type: str
     default: ""

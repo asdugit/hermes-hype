@@ -1,4 +1,4 @@
-"""Customization on every surface: the ``/auteur`` parser hook, the ``auteur_render`` tool, the CLI and the
+"""Customization on every surface: the ``/hype`` parser hook, the ``hype_render`` tool, the CLI and the
 Desktop API all end in :func:`set_customize` on an ``Options`` (persisted in ``options.hints["customize"]``)::
 
     {"preset": "pixel", "text": "make the boss a giant bug", "knobs": {"accent": "#00E5FF", ...},
@@ -15,7 +15,7 @@ from . import knobs as K
 from .route import route
 
 HINT = "customize"
-#: tool schema additions (merged into ``auteur_render``'s schema by :func:`extend_schema`)
+#: tool schema additions (merged into ``hype_render``'s schema by :func:`extend_schema`)
 TOOL_PROPS: dict[str, Any] = {
     "customize": {"type": "string", "description": (
         "Free-text customization of the chosen preset (style), e.g. 'pink and playful with a punchier ending'. "
@@ -155,7 +155,7 @@ def refine_command(cmd: Any, text: str, *, styles: set[str], base: Any, reparse:
         cmd.messages = [m for m in cmd.messages if not m.startswith("Customizing the ")]
     if ex.unknown:
         cmd.messages.append(K.unknown_message(ex.unknown))
-    # "a preset named": a style or mode at the edges ("/auteur pixel ..."); a style word inside the sentence
+    # "a preset named": a style or mode at the edges ("/hype pixel ..."); a style word inside the sentence
     # ("for launch day", "in pixel art") stays a Director hint
     preset_named = bool({"style", "mode"} & set(opts.explicit))
     _opts, msgs = set_customize(opts, text=free, knobs=ex.knobs, preset_named=preset_named, force=ex.force,
@@ -167,7 +167,7 @@ def refine_command(cmd: Any, text: str, *, styles: set[str], base: Any, reparse:
 # ------------------------------------------------------------------------------------------- tool / CLI / API
 
 def extend_schema(schema: dict[str, Any]) -> dict[str, Any]:
-    """Add ``customize`` + ``knobs`` to the ``auteur_render`` tool schema (in place; idempotent)."""
+    """Add ``customize`` + ``knobs`` to the ``hype_render`` tool schema (in place; idempotent)."""
     props = schema.setdefault("parameters", schema).setdefault("properties", {}) if "parameters" in schema \
         else schema.setdefault("properties", {})
     for k, v in TOOL_PROPS.items():
@@ -176,7 +176,7 @@ def extend_schema(schema: dict[str, Any]) -> dict[str, Any]:
 
 
 def from_tool_args(opts: Any, args: dict[str, Any]) -> Any:
-    """``auteur_render`` args -> customization on ``opts`` (messages are logged by the job)."""
+    """``hype_render`` args -> customization on ``opts`` (messages are logged by the job)."""
     knobs = args.get("knobs") if isinstance(args.get("knobs"), dict) else {}
     text = str(args.get("customize") or "")
     if not (knobs or text):
@@ -189,7 +189,7 @@ def from_tool_args(opts: Any, args: dict[str, Any]) -> Any:
 
 
 def add_cli_args(parser: Any) -> None:
-    """``hermes auteur render --customize TEXT --set KEY=VALUE ...``."""
+    """``hermes hype render --customize TEXT --set KEY=VALUE ...``."""
     parser.add_argument("--customize", default="", help="free-text customization of the chosen preset (--style)")
     parser.add_argument("--set", dest="knobs", action="append", default=[], metavar="KEY=VALUE",
                         help="preset knob (repeatable): " + ", ".join(K.KNOBS))

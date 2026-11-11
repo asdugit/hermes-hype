@@ -1,4 +1,4 @@
-// Auteur kits/base — TERMINAL block (the one dark panel): command types, output streams line by
+// Hype kits/base — TERMINAL block (the one dark panel): command types, output streams line by
 // line, then a PASS / exit badge pops. Pure function of t.
 
 import { h, css, ICONS } from './dom.js';

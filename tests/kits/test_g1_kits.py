@@ -132,7 +132,7 @@ def test_every_scene_renders_clean(tmp_path, kit, theme, aspect):
 
     film, assets = _gallery(kit, aspect, theme)
     job = build_job(film, tmp_path / "job", assets=assets)
-    with render_slot(os.environ.get("AUTEUR_RENDER_SLOT_DIR"), "pytest-kits-g1"):
+    with render_slot(os.environ.get("HYPE_RENDER_SLOT_DIR"), "pytest-kits-g1"):
         r = dryrun(job, per_shot=2)
     assert r.ready_error == "" and r.error is None, r.summary()
     assert r.scene_errors == [] and r.page_errors == [], r.summary()

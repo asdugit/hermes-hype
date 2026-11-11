@@ -269,7 +269,7 @@ BLENDER_QUICK: dict[str, dict[str, dict[str, Any]]] = {
                                   "defocus": 0.85}}},
 }
 BLENDER_TYPES = ("HOOK", "TITLE", "FEATURE", "SCROLL", "END")
-#: dev placeholder (AUTEUR_BLENDER_PLACEHOLDER=1): every product type -> the hello scene
+#: dev placeholder (HYPE_BLENDER_PLACEHOLDER=1): every product type -> the hello scene
 PLACEHOLDER_ENTRY = {"scene": "blender:_test/hello", "params": {"color": "#E5484D", "spin": 120}}
 PRODUCT3D_ASSET = "product3d"
 
@@ -282,7 +282,7 @@ def blender_quick_table(kits_root: Path | None = None) -> dict[str, dict[str, di
     table: dict[str, dict[str, dict[str, Any]]] = {}
     for typ in BLENDER_TYPES:
         row = dict(BLENDER_QUICK.get(typ) or {})
-        if os.environ.get("AUTEUR_BLENDER_PLACEHOLDER") == "1":
+        if os.environ.get("HYPE_BLENDER_PLACEHOLDER") == "1":
             for kind in ("model", "screen"):
                 row.setdefault(kind, PLACEHOLDER_ENTRY)
         for kind, entry in list(row.items()):

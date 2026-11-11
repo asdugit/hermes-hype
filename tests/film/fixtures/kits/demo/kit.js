@@ -20,7 +20,7 @@ sr.defineScene('kit:demo/bars', {
   layer: '2d',
   describe: 'Gradient backdrop, noise-driven bars, a frames asset and a kinetic title.',
   params: {
-    title: { type: 'string', default: 'Auteur', doc: 'headline' },
+    title: { type: 'string', default: 'Hype', doc: 'headline' },
     clip: { type: 'asset', default: null, doc: 'frames asset shown on the right' },
   },
   render(ctx, t, p) {

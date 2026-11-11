@@ -115,16 +115,16 @@ def test_pdf_info(tmp_path):
 
 
 def test_real_car_clip_if_present(tmp_path, ffmpeg_bin):
-    """WP-K2's procedural car clip (dev machines only: set AUTEUR_TESTMEDIA to its folder).
+    """WP-K2's procedural car clip (dev machines only: set HYPE_TESTMEDIA to its folder).
 
     ``car_alpha/`` holds the ground-truth matte; glass that mirrors the backdrop at the silhouette
     edge is a known miss, so the bar is a mean IoU of 0.85, not 0.95.
     """
     import os
 
-    root = Path(os.environ.get("AUTEUR_TESTMEDIA", "")) if os.environ.get("AUTEUR_TESTMEDIA") else None
+    root = Path(os.environ.get("HYPE_TESTMEDIA", "")) if os.environ.get("HYPE_TESTMEDIA") else None
     if root is None or not (root / "car.mp4").is_file():
-        pytest.skip("set AUTEUR_TESTMEDIA to the folder holding car.mp4 (+ car_alpha/)")
+        pytest.skip("set HYPE_TESTMEDIA to the folder holding car.mp4 (+ car_alpha/)")
     a = video_asset(root / "car.mp4", tmp_path / "out", ffmpeg=ffmpeg_bin)
     assert a.error is None and a.cutout and a.cutout["ok"] and a.cutout["count"] > 0
     gt_dir = root / "car_alpha"

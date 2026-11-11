@@ -1,4 +1,4 @@
-// Auteur kit "blueprint" — the sheet: every kit:blueprint scene is a DOM scene drawn on a cyanotype sheet with a
+// Hype kit "blueprint" — the sheet: every kit:blueprint scene is a DOM scene drawn on a cyanotype sheet with a
 // registered drafting grid, a zoned double border, low-frequency mottling, a title block, an SVG drawing layer
 // (plotted strokes), an HTML lettering layer and the pen on top. The camera is orthographic and calm: a 1-2 % scale
 // drift, pans along the sheet and detail zooms; never hand-held.

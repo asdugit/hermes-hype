@@ -1,4 +1,4 @@
-// Auteur kit "blueprint" — listing scenes: CODE (annotated listing), DIFF (revision cloud + REV B), TERMINAL
+// Hype kit "blueprint" — listing scenes: CODE (annotated listing), DIFF (revision cloud + REV B), TERMINAL
 // (run listing + gauge drawing + PASS stamp), MONTAGE (parts list + detail views of the tool calls).
 
 import { css } from '../base/dom.js';

@@ -1,4 +1,4 @@
-/* Auteur kits/base — style-neutral components driven ONLY by theme tokens (--sr-*).
+/* Hype kits/base — style-neutral components driven ONLY by theme tokens (--sr-*).
    A style re-skins every base scene with CSS alone: define the tokens on .sr-theme-<name>
    (see KIT.md "Theme tokens") and, if needed, override the documented component classes
    under .sr-theme-<name>. Sizes are reference px at a 1080 short side (the frame is scaled).

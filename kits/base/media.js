@@ -1,4 +1,4 @@
-// Auteur kits/base — browser frame + device frame + cursor/ripple + highlight ring blocks for the
+// Hype kits/base — browser frame + device frame + cursor/ripple + highlight ring blocks for the
 // product media scenes (HOOK image, SCREEN, FEATURE, SCROLL, BEFORE_AFTER images).
 
 import { h, css, ICONS } from './dom.js';

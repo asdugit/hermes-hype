@@ -1,4 +1,4 @@
-// Auteur kit "type": overlay scenes (screen-space type above shots): title, lower third, CTA pill,
+// Hype kit "type": overlay scenes (screen-space type above shots): title, lower third, CTA pill,
 // end lockup, kinetic words, speedrun split timer. Theme-token driven like kits/base (p.theme).
 // Every overlay enters with rise + blur (outQuint, 0.5 s) and exits faster (0.3 s) before its t1.
 
@@ -193,7 +193,7 @@ defineDomScene('kit:type/end-lockup', {
     ...THEME,
     title: { type: 'string', default: '', doc: 'product name' }, tagline: { type: 'string', default: '', doc: 'one line' },
     cta: { type: 'string', default: '', doc: 'command / link' }, url: { type: 'string', default: '', doc: 'URL' },
-    credit: { type: 'string', default: 'made with Hermes \u00b7 Auteur', doc: 'credit line' },
+    credit: { type: 'string', default: 'made with Hermes \u00b7 Hype', doc: 'credit line' },
     scrim: { type: 'number', default: 0.55, doc: 'darkening of the picture behind (0..1)' },
   },
   build(ctx, p, F) {

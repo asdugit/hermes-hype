@@ -45,7 +45,7 @@ def test_locate_env_then_config(tmp_path, fake_versions):
     env_b = _exe(tmp_path / "a", "envblender.exe")
     cfg_b = _exe(tmp_path / "b", "cfgblender.exe")
     fake_versions.update({"envblender.exe": ((5, 1, 0), "5.1.0"), "cfgblender.exe": ((4, 2, 1), "4.2.1")})
-    got = loc.locate(str(cfg_b), environ={"AUTEUR_BLENDER": str(env_b)}, search_standard=False)
+    got = loc.locate(str(cfg_b), environ={"HYPE_BLENDER": str(env_b)}, search_standard=False)
     assert got.ok and got.source == "env" and got.version == (5, 1, 0)
     got = loc.locate(str(cfg_b), environ={}, search_standard=False)
     assert got.ok and got.source == "config"
@@ -58,7 +58,7 @@ def test_locate_errors_are_user_facing(tmp_path, fake_versions):
     fake_versions["old.exe"] = ((3, 6, 5), "3.6.5")
     bad = loc.locate(str(tmp_path / "missing.exe"), environ={}, search_standard=False)
     assert bad.reason == "bad_path" and "does not exist" in bad.message
-    assert "hermes plugins install blender" in bad.message and "AUTEUR_BLENDER" in bad.message
+    assert "hermes plugins install blender" in bad.message and "HYPE_BLENDER" in bad.message
     too_old = loc.locate(str(old), environ={}, search_standard=False)
     assert too_old.reason == "too_old" and "4.2" in too_old.message
     none = loc.locate(None, environ={}, search_standard=False)
@@ -144,7 +144,7 @@ def _timeline(img: Path) -> dict:
 
 @pytest.fixture
 def placeholder(monkeypatch):
-    monkeypatch.setenv("AUTEUR_BLENDER_PLACEHOLDER", "1")
+    monkeypatch.setenv("HYPE_BLENDER_PLACEHOLDER", "1")
 
 
 def test_quick_maps_product_shots_to_blender_and_reverts(tmp_path, placeholder, monkeypatch):
@@ -179,7 +179,7 @@ def test_quick_maps_product_shots_to_blender_and_reverts(tmp_path, placeholder, 
 
 def test_quick_table_drops_missing_scenes(monkeypatch):
     from showreel_core.film import quick
-    monkeypatch.delenv("AUTEUR_BLENDER_PLACEHOLDER", raising=False)
+    monkeypatch.delenv("HYPE_BLENDER_PLACEHOLDER", raising=False)
     monkeypatch.setattr(quick, "BLENDER_QUICK", {"TITLE": {"model": {"scene": "blender:nope/none"}}})
     assert quick.blender_quick_table() == {}
 
@@ -282,7 +282,7 @@ def test_quick_table_substitutes_tokens(tmp_path, monkeypatch):
     from PIL import Image
 
     from showreel_core.film import quick
-    monkeypatch.delenv("AUTEUR_BLENDER_PLACEHOLDER", raising=False)
+    monkeypatch.delenv("HYPE_BLENDER_PLACEHOLDER", raising=False)
     monkeypatch.setattr(quick, "BLENDER_QUICK", {"FEATURE": {"screen": {"scene": "blender:_test/hello", "params": {
         "image": "{media}", "feature": "{label}", "bbox": "{data:bbox}", "click": "{data:click}", "accent": "{accent}"}}}})
     img = tmp_path / "shot.png"
@@ -317,7 +317,7 @@ def test_quick_916_uses_the_phone_capture_and_keeps_the_top_band_for_words(tmp_p
     from PIL import Image
 
     from showreel_core.film import quick
-    monkeypatch.delenv("AUTEUR_BLENDER_PLACEHOLDER", raising=False)
+    monkeypatch.delenv("HYPE_BLENDER_PLACEHOLDER", raising=False)
     wide, tall = tmp_path / "desk.png", tmp_path / "mobile_390x844.png"
     Image.new("RGB", (64, 36), (20, 30, 200)).save(wide)
     Image.new("RGB", (39, 84), (200, 30, 20)).save(tall)

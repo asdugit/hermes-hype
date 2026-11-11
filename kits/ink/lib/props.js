@@ -1,4 +1,4 @@
-// Auteur kit "ink" — props drawn on the page: sticky notes, tape, taped screenshots, luggage tags, speech
+// Hype kit "ink" — props drawn on the page: sticky notes, tape, taped screenshots, luggage tags, speech
 // bubbles, a legal pad, the little terminal machine, a corkboard, index cards, the desk/laptop/lamp set and the
 // film strip motif. Each returns a positioned element (absolute div + SVG art + DOM text) and the handles the
 // scene animates. All art is built once; wobble is seeded from the prop key.

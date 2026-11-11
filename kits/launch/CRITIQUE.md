@@ -87,7 +87,7 @@ Everything renders, no page errors, CSS module scripts load fine over the loopba
 - Remaining `clip` QA flags are by design: partially typed rows (width reveal) and pushed-in long code lines
   running off the frame edge.
 
-## W3 integration, look 1 — first real Quick film through the pipeline (Auteur session, LLM storyboard, 30 s)
+## W3 integration, look 1 — first real Quick film through the pipeline (Hype session, LLM storyboard, 30 s)
 Real pipeline: capture (6 media shots) -> hermes-cli storyboard (8 scenes, repaired) -> edge TTS -> launch, both
 aspects. Rendered fine (0 page errors, video QA ok). 16:9 ~6.5/10, 9:16 ~5.5/10.
 - Browser chrome shows local file paths as the URL ("~/showreel-work/research/wp-k1-pixel/rend...", ".../board_1.png")

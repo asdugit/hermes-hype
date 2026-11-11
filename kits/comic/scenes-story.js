@@ -1,4 +1,4 @@
-// Auteur kit "comic" — story pages: TITLE (cover), PROBLEM, PLAN, STATS, CALLOUT, END (back cover).
+// Hype kit "comic" — story pages: TITLE (cover), PROBLEM, PLAN, STATS, CALLOUT, END (back cover).
 
 import { comicScene, snapIn } from './lib/page.js';
 import { h, css, fitSize } from '../base/dom.js';
@@ -423,7 +423,7 @@ comicScene('kit:comic/CALLOUT', {
 
 // ------------------------------------------------------------------------------------- END
 comicScene('kit:comic/END', {
-  describe: 'Back cover / thumbnail: big masthead title and tagline, a dashed TRY IT TODAY! coupon stamped on with the CTA command and repo URL, the "made with Hermes · Auteur" credit; the hero stands on the right over a blue sunburst. Speedrun adds a PB burst.',
+  describe: 'Back cover / thumbnail: big masthead title and tagline, a dashed TRY IT TODAY! coupon stamped on with the CTA command and repo URL, the "made with Hermes · Hype" credit; the hero stands on the right over a blue sunburst. Speedrun adds a PB burst.',
   params: { ...pick(END_DEF.params, ['title', 'cta', 'url', 'credit', 'tagline', 'pb_display']) },
   build(ctx, p, F, P) {
     const L = !F.portrait, W = F.W, H = F.H, S = F.safe;

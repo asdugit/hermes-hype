@@ -1,4 +1,4 @@
-// Auteur kit "comic" — product media printed into panels: the screenshot first appears as a coarse colour
+// Hype kit "comic" — product media printed into panels: the screenshot first appears as a coarse colour
 // halftone (Ben-Day print), then the real pixels grow in through the dot screen; a faint print screen stays on.
 // Also the comic browser frame (yellow address caption) and hero content blocks (image | terminal | diff | code).
 

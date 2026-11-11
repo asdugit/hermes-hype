@@ -1,4 +1,4 @@
-// Auteur kit "blueprint" (signature style): the session as an engineering drawing. Cyanotype sheet, zoned border,
+// Hype kit "blueprint" (signature style): the session as an engineering drawing. Cyanotype sheet, zoned border,
 // title block that stamps its REV, white object lines plotted on by a pen at plotter cadence, cyan dimensions and
 // leaders, redline reserved for revisions (clouds, deltas, strikes). Registers the 'blueprint' theme (replaces the
 // kits/base starter), kit:blueprint/<TYPE> for all 15 storyboard types and the sheet-slide / plot-wipe transitions.

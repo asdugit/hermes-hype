@@ -1,6 +1,6 @@
 """ffmpeg resolution, capability probing, command builders and probes that need no ffprobe.
 
-Resolution order: ``AUTEUR_FFMPEG`` / ``FFMPEG_PATH`` env -> Hermes ``pm`` (lazy import)
+Resolution order: ``HYPE_FFMPEG`` / ``FFMPEG_PATH`` env -> Hermes ``pm`` (lazy import)
 -> ``shutil.which("ffmpeg")`` -> :class:`RenderError` with an install hint.
 
 Everything that inspects media parses ``ffmpeg -i`` / ``-progress`` output, because ffprobe
@@ -21,7 +21,7 @@ from typing import Any
 
 from .errors import RenderError
 
-ENV_VARS = ("AUTEUR_FFMPEG", "FFMPEG_PATH")
+ENV_VARS = ("HYPE_FFMPEG", "FFMPEG_PATH")
 NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
 # Output colour tags written on every encode (sRGB page -> BT.709 limited range).
@@ -72,7 +72,7 @@ def resolve_ffmpeg(env: Mapping[str, str] | None = None, *,
     if w:
         return FFmpegInfo(str(Path(w)), "path")
     raise RenderError("no_ffmpeg", "ffmpeg was not found",
-                      hint="Run `hermes pm install ffmpeg`, install ffmpeg on PATH, or set AUTEUR_FFMPEG.")
+                      hint="Run `hermes pm install ffmpeg`, install ffmpeg on PATH, or set HYPE_FFMPEG.")
 
 
 # ------------------------------------------------------------------------ capabilities

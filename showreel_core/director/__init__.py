@@ -1,4 +1,4 @@
-"""Auteur Director Engine: free-text direction -> a bespoke film.json with custom scenes, quality-locked by
+"""Hype Director Engine: free-text direction -> a bespoke film.json with custom scenes, quality-locked by
 validation, dry runs, a vision critic and revision rounds (see STUDIO.md and SDK.md).
 
 Entry points: :func:`run` and :func:`revise` (never raise; return :class:`DirectorResult`).

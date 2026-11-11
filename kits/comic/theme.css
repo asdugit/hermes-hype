@@ -1,4 +1,4 @@
-/* Auteur style "comic": a motion comic. Newsprint paper, 4 process inks + overprints, true halftone, 8 px panel
+/* Hype style "comic": a motion comic. Newsprint paper, 4 process inks + overprints, true halftone, 8 px panel
    borders, hard offset shadows (never blur), Bangers lettering with stroke-behind-fill, Comic Neue balloons and
    captions, Space Mono for real code/terminal text. Tokens re-skin every kit:base scene (theme "comic"); .cx-*
    classes style the page/panel/lettering components used by the kit:comic/* scenes. No CSS animation: every

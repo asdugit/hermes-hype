@@ -1,9 +1,9 @@
 """REAL Blender (opt in: ``pytest --runslow tests/blender``): hello.py at 160x90, 3 frames, preview + final tiers,
 and one keyframe-only film through Blender + Chromium.
 
-Needs a Blender >= 4.2 (AUTEUR_BLENDER or the usual locations; skipped otherwise). On a shared dev PC set
-AUTEUR_DEV_BLENDER_LOCK / AUTEUR_DEV_GPULOCK_DIR / AUTEUR_DEV_MIN_FREE_GB (see devguard.py) and
-AUTEUR_RENDER_SLOT_DIR for the Chromium part.
+Needs a Blender >= 4.2 (HYPE_BLENDER or the usual locations; skipped otherwise). On a shared dev PC set
+HYPE_DEV_BLENDER_LOCK / HYPE_DEV_GPULOCK_DIR / HYPE_DEV_MIN_FREE_GB (see devguard.py) and
+HYPE_RENDER_SLOT_DIR for the Chromium part.
 """
 from __future__ import annotations
 
@@ -36,7 +36,7 @@ def test_hello_renders(tmp_path, blender, tier):
     job = runner.make_job(SCENE, tmp_path / tier, dur=3 / 30, fps=30, res=(160, 90), tier=tier, seed=7,
                           params={"color": "#3E63DD", "spin": 45})
     events = []
-    r = runner.run_job(job, blender, progress=events.append, lock=lambda: dev_lock("auteur-A-tests"),
+    r = runner.run_job(job, blender, progress=events.append, lock=lambda: dev_lock("hype-A-tests"),
                        min_free_gb=min_free_gb(), timeout_s=300)
     assert r.ok, (r.error, r.traceback[-2000:])
     assert r.frames_rendered == [1, 2, 3] and not r.blank and not r.frames_bad
@@ -46,7 +46,7 @@ def test_hello_renders(tmp_path, blender, tier):
     assert [e["phase"] for e in events].count("frame") == 3
     # deterministic: same job, same pixels
     again = runner.run_job({**job, "out_dir": str(tmp_path / f"{tier}_2")}, blender, resume=False,
-                           lock=lambda: dev_lock("auteur-A-tests"), min_free_gb=min_free_gb(), timeout_s=300)
+                           lock=lambda: dev_lock("hype-A-tests"), min_free_gb=min_free_gb(), timeout_s=300)
     assert again.ok
     from PIL import Image, ImageChops
     a = Image.open(runner.frame_path(job, 2)).convert("RGB")
@@ -58,7 +58,7 @@ def test_scene_error_is_reported(tmp_path, blender):
     bad = tmp_path / "bad_scene.py"
     bad.write_text("PARAMS = {}\ndef build(sc):\n    raise RuntimeError('scene exploded on purpose')\n", encoding="utf-8")
     job = runner.make_job(bad, tmp_path / "out", dur=0.1, fps=30, res=(160, 90))
-    r = runner.run_job(job, blender, lock=lambda: dev_lock("auteur-A-tests"), min_free_gb=min_free_gb(),
+    r = runner.run_job(job, blender, lock=lambda: dev_lock("hype-A-tests"), min_free_gb=min_free_gb(),
                        timeout_s=300)
     assert not r.ok and "scene exploded on purpose" in r.error and "Traceback" in r.traceback
 
@@ -73,7 +73,7 @@ def test_film_keyframes_through_blender_and_browser(tmp_path, blender):
     fp = tmp_path / "film.json"
     fp.write_text(json.dumps(film), encoding="utf-8")
     r = render_film(fp, tmp_path / "out" / "kf.mp4", tier="preview", keyframes=[0.5, 1.5],
-                    lock=lambda: dev_lock("auteur-A-tests"), min_free_gb=min_free_gb())
+                    lock=lambda: dev_lock("hype-A-tests"), min_free_gb=min_free_gb())
     assert r.ok, r.error
     assert len(r.stills) == 2 and all(Path(s).is_file() for s in r.stills)
     assert r.blender["shots"][0]["frames"] == 2          # frame 1 (poster) + the frame shown at t=0.5

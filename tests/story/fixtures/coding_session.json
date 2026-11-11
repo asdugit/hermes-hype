@@ -534,7 +534,7 @@
    "kind": "product_capture",
    "tool": "",
    "title": "Tally report",
-   "summary": "Auteur capture of report.html (full page)",
+   "summary": "Hype capture of report.html (full page)",
    "data": {
     "path": "assets/capture_report_full.png",
     "url": "file:///~/projects/tally/report.html",
@@ -554,7 +554,7 @@
    "kind": "product_capture",
    "tool": "",
    "title": "Tally report",
-   "summary": "Auteur capture of report.html",
+   "summary": "Hype capture of report.html",
    "data": {
     "path": "assets/capture_report.png",
     "url": "file:///~/projects/tally/report.html",

@@ -574,7 +574,7 @@ def _run_sync(coro_fn: Callable[[], Awaitable[Any]]) -> Any:
     except RuntimeError:
         return asyncio.run(coro_fn())  # type: ignore[arg-type]
     box: list[Any] = []
-    t = threading.Thread(target=lambda: box.append(asyncio.run(coro_fn())), name="auteur-render")  # type: ignore[arg-type]
+    t = threading.Thread(target=lambda: box.append(asyncio.run(coro_fn())), name="hype-render")  # type: ignore[arg-type]
     t.start()
     t.join()
     return box[0]

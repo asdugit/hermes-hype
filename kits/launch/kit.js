@@ -1,4 +1,4 @@
-// Auteur kit "launch" (flagship style): paper UI panels on a lit graphite table shot by a look-at camera,
+// Hype kit "launch" (flagship style): paper UI panels on a lit graphite table shot by a look-at camera,
 // lime accent, Geist + one serif-italic emphasis word. Registers the 'launch' theme for kit:base scenes and
 // overrides scene types with table-world versions (kit:launch/<TYPE>).
 

@@ -1,4 +1,4 @@
-// Auteur kits/base — DOM helpers for 'dom' layer scenes (SDK §4): element builder, a cached style
+// Hype kits/base — DOM helpers for 'dom' layer scenes (SDK §4): element builder, a cached style
 // setter (writes only changed properties; the final DOM is still a pure function of t), the scene
 // frame (reference-size layout + theme), word splitting and theme registry.
 

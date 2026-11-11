@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 import { encodePNG } from './png.mjs';
 import { makeCtx } from './fakectx.mjs';
 
-const [file, exp, size, dur, times, pjson, outdir = join(tmpdir(), 'auteur-k1'), scaleArg = '2'] = process.argv.slice(2);
+const [file, exp, size, dur, times, pjson, outdir = join(tmpdir(), 'hype-k1'), scaleArg = '2'] = process.argv.slice(2);
 const [w, h] = size.split('x').map(Number), scale = Number(scaleArg);
 const mod = await import(pathToFileURL(resolve(file)).href);
 const scene = mod[exp];

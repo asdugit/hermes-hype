@@ -1,4 +1,4 @@
-// Auteur kit · nature — anime meadow worlds (sky, mountains, meadow, petals, light) with the PRODUCT flying
+// Hype kit · nature — anime meadow worlds (sky, mountains, meadow, petals, light) with the PRODUCT flying
 // through them. Registers building blocks (ctx.kit('nature')) and three scenes. See KIT.md for the catalog.
 import { sr } from '../../runtime/showreel.js';
 import { buildWorld, SLOPE } from './lib/world.js';

@@ -623,7 +623,7 @@ def browser_handoff(film: dict[str, Any], shot_id: str, t: float, res: tuple[int
                     *, assets: Mapping[str, Any] | None = None, scenes: Mapping[str, Any] | None = None,
                     gpu: bool = False) -> Path | None:
     """Capture the browser frame of ``shot_id`` at film time ``t`` (its end) as a PNG via the preview machinery
-    (one temporary job with only that shot; takes a render slot when AUTEUR_RENDER_SLOT_DIR is set).
+    (one temporary job with only that shot; takes a render slot when HYPE_RENDER_SLOT_DIR is set).
 
     The mini film starts at the source shot: it is moved to t0 = 0 and the film lasts exactly the shot (shot-local
     timings are unchanged). Keeping the film's ``dur`` and the shot's ``t0`` made ``build_job`` reject the mini film
@@ -650,7 +650,7 @@ def browser_handoff(film: dict[str, Any], shot_id: str, t: float, res: tuple[int
     specs = {n: s for n, s in (assets or {}).items() if n in mini["assets"]}
     job = out_png.parent / f"_job_{shot_id}"
     build_job(mini, job, assets=specs, scenes=scenes or {})
-    with render_slot(os.environ.get("AUTEUR_RENDER_SLOT_DIR")):
+    with render_slot(os.environ.get("HYPE_RENDER_SLOT_DIR")):
         stills, _info = asyncio.run(capture_keyframes(job, [t_local], w=int(res[0]), h=int(res[1]), gpu=gpu))
     if not stills:
         return None

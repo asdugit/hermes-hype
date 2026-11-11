@@ -4,7 +4,7 @@ and a ledger that persists every call, counts tokens/cost and enforces the call 
 Call signature (:class:`DirectorLlm`)::
 
     llm(purpose="treatment", instructions=..., text=..., images=[Image(...)], json_schema={...} | None,
-        schema_name="auteur.treatment", temperature=0.7, max_tokens=6000, timeout=240) -> LlmReply
+        schema_name="hype.treatment", temperature=0.7, max_tokens=6000, timeout=240) -> LlmReply
 
 ``json_schema=None`` asks for free text (scene code). Adapters never raise; errors come back in
 ``LlmReply.error``. :class:`CallLedger` raises :class:`BudgetExceeded` / :class:`Cancelled` *before* a call.
@@ -87,7 +87,7 @@ def _parse_if_json(text: str, wanted: bool) -> Any:
 
 # ----------------------------------------------------------------------------- Hermes ctx.llm
 
-def hermes_llm(ctx_llm: Any, task: str | None = "auteur") -> DirectorLlm:
+def hermes_llm(ctx_llm: Any, task: str | None = "hype") -> DirectorLlm:
     """Adapt ``ctx.llm`` (``agent.plugin_llm.PluginLlm``) to :class:`DirectorLlm`.
 
     Uses ``complete_structured`` for every call (text + image input blocks). If the ``task`` slot is
@@ -101,7 +101,7 @@ def hermes_llm(ctx_llm: Any, task: str | None = "auteur") -> DirectorLlm:
         blocks: list[dict[str, Any]] = [{"type": "text", "text": text}]
         blocks += [{"type": "image", "data": im.data, "mime_type": im.mime_type} for im in images]
         base = dict(instructions=instructions, input=blocks, temperature=temperature, max_tokens=max_tokens,  # noqa: C408
-                    timeout=timeout, purpose=f"auteur.{purpose}")
+                    timeout=timeout, purpose=f"hype.{purpose}")
         modes = [dict(json_schema=json_schema, schema_name=schema_name), dict(json_mode=True)] if json_schema \
             else [dict()]  # noqa: C408
         t0 = time.monotonic()
@@ -162,7 +162,7 @@ def hermes_cli_llm(*, exe: str | None = None, workdir: Path | None = None, extra
         if not exe:
             return LlmReply(error="the `hermes` command is not on PATH")
         t0 = time.monotonic()
-        with tempfile.TemporaryDirectory(prefix="auteur-director-", dir=str(workdir) if workdir else None) as tmp:
+        with tempfile.TemporaryDirectory(prefix="hype-director-", dir=str(workdir) if workdir else None) as tmp:
             paths = []
             for i, im in enumerate(images):
                 p = Path(im.path) if im.path and Path(im.path).is_file() else Path(tmp) / f"image{i + 1}.png"

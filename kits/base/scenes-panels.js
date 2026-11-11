@@ -1,4 +1,4 @@
-// Auteur kits/base — panel scenes: PROBLEM, PLAN, CODE, DIFF, TERMINAL (flat 2.5D, theme tokens only).
+// Hype kits/base — panel scenes: PROBLEM, PLAN, CODE, DIFF, TERMINAL (flat 2.5D, theme tokens only).
 
 import { defineDomScene, flatCam, place, fitZoom, centerBox } from './scene.js';
 import { css } from './dom.js';

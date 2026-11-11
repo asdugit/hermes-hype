@@ -1,4 +1,4 @@
-// Auteur kit "comic" (style "comic"): the session as an issue of a motion comic. Every Quick-mode scene type is a
+// Hype kit "comic" (style "comic"): the session as an issue of a motion comic. Every Quick-mode scene type is a
 // page of ink-bordered panels with true halftone, sunbursts, speech balloons, captions and onomatopoeia; the camera
 // moves panel to panel. Registers the "comic" theme (replaces the kits/base starter), the kit:comic/* scenes and
 // the kit:comic/* transitions (page-turn, splat-iris, panel-glide).

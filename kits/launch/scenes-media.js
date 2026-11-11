@@ -1,4 +1,4 @@
-// Auteur kit "launch" — product media scenes on the table: HOOK, SCREEN, FEATURE, SCROLL, BEFORE_AFTER, MONTAGE.
+// Hype kit "launch" — product media scenes on the table: HOOK, SCREEN, FEATURE, SCROLL, BEFORE_AFTER, MONTAGE.
 
 import { launchScene, camTrack, fitRect, nodeIn, pushTrack, panelWires, productScale } from './stage.js';
 import { h, css, fitSize } from '../base/dom.js';

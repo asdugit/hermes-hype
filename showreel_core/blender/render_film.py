@@ -9,7 +9,7 @@
 3. Audio: the page's merged cues (explicit + scene + transition + Blender scene cues) ->
    ``audio.film_audio.render_film_audio`` (cue-sheet music + SFX + narration) -> ``render.ffmpeg.mux``.
 Assets in film.json may carry ``"src"`` (relative to the film file), including 3D models (``"type": "model"``) that
-only Blender shots use. Set ``AUTEUR_RENDER_SLOT_DIR`` to share Chromium render slots with other jobs.
+only Blender shots use. Set ``HYPE_RENDER_SLOT_DIR`` to share Chromium render slots with other jobs.
 ``--keyframes`` renders only the Blender frames those film times show and writes PNG stills instead of a video.
 """
 from __future__ import annotations
@@ -96,7 +96,7 @@ def render_film(film_path: Path, out: Path, *, tier: str = "preview", aspect: st
         build_job(film2, job, scenes=scenes, assets={**bp.browser_assets, **bp.manifest})
         fw, fh = (int(v) for v in film2.get("size") or (1920, 1080))
         w, h = size or (fw, fh)
-        slot = os.environ.get("AUTEUR_RENDER_SLOT_DIR")
+        slot = os.environ.get("HYPE_RENDER_SLOT_DIR")
         t1 = time.perf_counter()
         if keyframes:
             with render_slot(slot):

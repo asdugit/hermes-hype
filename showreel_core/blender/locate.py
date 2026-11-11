@@ -1,10 +1,10 @@
 """Find the user's Blender (BLENDER.md "Detection").
 
-Order: ``AUTEUR_BLENDER`` env -> plugin config ``blender_path`` -> ``blender`` on PATH -> standard install
+Order: ``HYPE_BLENDER`` env -> plugin config ``blender_path`` -> ``blender`` on PATH -> standard install
 locations (incl. where the official Hermes ``blender`` plugin installs it). Requires Blender >= 4.2 (EEVEE Next);
 the version comes from ``blender --version``. Never raises: :func:`locate` returns :class:`BlenderFound` or
 :class:`BlenderMissing` (both have ``ok`` and ``to_dict()``), and ``BlenderMissing.message`` is user-facing.
-Auteur never downloads Blender itself.
+Hype never downloads Blender itself.
 """
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any
 
 MIN_VERSION = (4, 2, 0)
-ENV_VAR = "AUTEUR_BLENDER"
+ENV_VAR = "HYPE_BLENDER"
 VERSION_TIMEOUT_S = 60.0
 _VERSION_RE = re.compile(r"Blender\s+(\d+)\.(\d+)(?:\.(\d+))?")
 _cache: dict[tuple[str, int, int], tuple[tuple[int, int, int], str] | None] = {}
@@ -27,8 +27,8 @@ _cache: dict[tuple[str, int, int], tuple[tuple[int, int, int], str] | None] = {}
 INSTALL_HINT = (
     "Install Blender 4.2 or newer with the official Hermes plugin (`hermes plugins install blender`; it puts "
     "Blender 5.1+ in %LOCALAPPDATA%\\Programs\\Blender Foundation on Windows, ~/Applications on macOS, "
-    "~/.local/opt on Linux), or point Auteur at an existing Blender: set AUTEUR_BLENDER=<path to the blender "
-    "executable> or the Auteur setting `blender_path`.")
+    "~/.local/opt on Linux), or point Hype at an existing Blender: set HYPE_BLENDER=<path to the blender "
+    "executable> or the Hype setting `blender_path`.")
 
 
 @dataclass(frozen=True)
@@ -165,7 +165,7 @@ def locate(config_path: str | None = None, *, environ: dict[str, str] | None = N
             return "did not run (`blender --version` printed no version)"
         v, vs = parsed
         if v < MIN_VERSION:
-            return f"is Blender {vs}; Auteur needs 4.2 or newer"
+            return f"is Blender {vs}; Hype needs 4.2 or newer"
         return BlenderFound(path=p, version=v, version_string=vs, source=source)
 
     for source, value in (("env", env.get(ENV_VAR)), ("config", config_path)):
@@ -174,7 +174,7 @@ def locate(config_path: str | None = None, *, environ: dict[str, str] | None = N
             got = check(p, source)
             if isinstance(got, BlenderFound):
                 return got
-            label = ENV_VAR if source == "env" else "the Auteur setting blender_path"
+            label = ENV_VAR if source == "env" else "the Hype setting blender_path"
             reason = "too_old" if "needs 4.2" in got else ("bad_path" if got == "does not exist" else "unrunnable")
             return BlenderMissing(reason, f"Blender from {label} ({p}) {got}. {INSTALL_HINT}", tuple(tried),
                                   ((str(p), got),))

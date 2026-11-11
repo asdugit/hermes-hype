@@ -95,8 +95,8 @@ def hermes_adapter(root: str | None) -> Any:
         from agent.plugin_llm import PluginLlm
     except ImportError as exc:  # pragma: no cover - environment dependent
         raise SystemExit(f"--llm hermes needs the Hermes venv and agent code at {root}: {exc}") from exc
-    # public facade; the trust policy comes from the user's config (plugins.entries.auteur-dev)
-    plugin_llm = PluginLlm(plugin_id="auteur-dev")
+    # public facade; the trust policy comes from the user's config (plugins.entries.hype-dev)
+    plugin_llm = PluginLlm(plugin_id="hype-dev")
     return hermes_llm(plugin_llm, task=None)
 
 
@@ -121,7 +121,7 @@ def hermes_cli_adapter(max_turns: int = 1) -> Any:
         query = (f"{instructions}\n\n{input_text}\n\n# JSON schema ({schema_name})\n"
                  f"{json.dumps(json_schema, separators=(',', ':'))}\n\n"
                  "Answer directly: do not call any tools. Reply with the JSON object only.")
-        with tempfile.TemporaryDirectory(prefix="auteur-story-") as tmp:
+        with tempfile.TemporaryDirectory(prefix="hype-story-") as tmp:
             qf = Path(tmp) / "query.txt"
             qf.write_text(query, encoding="utf-8")
             try:

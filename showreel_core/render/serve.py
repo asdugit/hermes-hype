@@ -88,7 +88,7 @@ class PageServer:
         handler = type("Handler", (_Handler,), {"token": self.token})
         self._httpd = _Server(("127.0.0.1", 0), partial(handler, directory=str(self.root)))
         self._thread = threading.Thread(target=self._httpd.serve_forever, kwargs={"poll_interval": 0.2},
-                                        name="auteur-page-server", daemon=True)
+                                        name="hype-page-server", daemon=True)
         self._thread.start()
         return self
 

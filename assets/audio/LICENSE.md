@@ -13,7 +13,7 @@ audio** in these files: every sound is synthesized from oscillators, noise and f
   harp, marimba, brass, slap bass, ukulele, pizzicato) are additive/subtractive/physical models in
   `tools/compose/orchestra.py` — synthesized like everything else, no sampled instruments.
 
-Licence: same as the repository (see `LICENSE`), © the Auteur authors.
+Licence: same as the repository (see `LICENSE`), © the Hype authors.
 
 Method credits (no code copied): the synthesis approach (PolyBLEP oscillators, sync-point SFX placement,
 loudness-normalised SFX, master chain with true-peak verification) was informed by reading **mgaudio**

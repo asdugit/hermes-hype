@@ -149,7 +149,7 @@ def validate_storyboard(sb: Storyboard, facts: SessionFacts, target_seconds: flo
     ``mode`` overrides ``sb.mode`` (the user's choice is authoritative). ``draft`` is the product the session
     stage detected (or the brief named); with ``lock_name`` (a strong name: brief, README, package, page title)
     the film keeps that product's name - the model may only shorten or tidy it. Without the lock the model may
-    correct a weak draft name, but never to a tool, stage or capture label ("Auteur Product Capture").
+    correct a weak draft name, but never to a tool, stage or capture label ("Hype Product Capture").
     """
     ctx = _Ctx(facts, film_mode(mode or getattr(sb, "mode", None)), draft, lock_name)
     out = copy.deepcopy(sb)
@@ -233,7 +233,7 @@ def _check_identity(p: Product, ctx: _Ctx) -> None:
     if draft is None:
         bad = toolish_words(p.name)
         if bad and p.name:
-            ctx.issue("product_name_toolish", path, f"{p.name!r} names Auteur/Hermes machinery "
+            ctx.issue("product_name_toolish", path, f"{p.name!r} names Hype/Hermes machinery "
                       f"({', '.join(bad)}), not the product the session built", "warning")
         return
     want = trim_chars(normalize_ws(draft.name), TITLE_CHARS)
@@ -249,7 +249,7 @@ def _check_identity(p: Product, ctx: _Ctx) -> None:
         bad = toolish_words(p.name, want)
         if not ctx.lock_name and not bad:
             return                      # a weak draft name (project directory) corrected by the model
-    why = (f"it names Auteur/Hermes machinery ({', '.join(bad)})" if bad
+    why = (f"it names Hype/Hermes machinery ({', '.join(bad)})" if bad
            else "the session's product has another name")
     ctx.issue("product_renamed", path,
               f"the product this session built is {want!r} (from its README/package/page title or the brief); "

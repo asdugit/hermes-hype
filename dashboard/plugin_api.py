@@ -1,4 +1,4 @@
-"""Auteur dashboard API: ``/api/plugins/auteur/*`` for the Desktop pane (SPEC 3.9).
+"""Hype dashboard API: ``/api/plugins/hype/*`` for the Desktop pane (SPEC 3.9).
 
 Hermes imports this file on its own (not as part of the plugin package), so the core package and the
 pane read models (``pane_data.py`` beside this file) are loaded by path under private module names.
@@ -43,8 +43,8 @@ from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 
 ROOT = Path(__file__).resolve().parents[1]
-CORE_NAME = "_auteur_dashboard_core"
-PANE_NAME = "_auteur_pane_data"
+CORE_NAME = "_hype_dashboard_core"
+PANE_NAME = "_hype_pane_data"
 API_VERSION = 2
 BODY_LIMIT = 512 * 1024
 THUMB_LIMIT = 600 * 1024

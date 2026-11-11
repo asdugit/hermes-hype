@@ -1,4 +1,4 @@
-// Auteur kit "ink" (style "ink"): a warm hand-drawn illustrated explainer. Every Quick-mode scene type is a
+// Hype kit "ink" (style "ink"): a warm hand-drawn illustrated explainer. Every Quick-mode scene type is a
 // page of warm paper where seeded Rough.js strokes draw on, the user and the little robot helper act out the beat
 // from a small pose library, sticky notes, arrows and handwritten notes annotate it, and real product captures are
 // taped onto the page; ink-bleed and paper-slide transitions; a gentle hand-held camera. Registers the "ink" theme

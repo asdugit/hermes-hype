@@ -3,17 +3,17 @@
 ## 1.0.0 (2026-11-11)
 
 First public release, built for the Nous Research Hermes Agent plugin hackathon. Formerly Showreel: the plugin
-was renamed to Auteur (`/auteur`, `auteur_render`, `hermes auteur`) because the catalog name `showreel` already
+was renamed to Hype (`/hype`, `hype_render`, `hermes hype`) because the catalog name `showreel` already
 belongs to another plugin.
 
 **Zero prompting**
-- `/auteur` reads the current session read-only (prompts, tool calls, diffs, terminal output, tests,
+- `/hype` reads the current session read-only (prompts, tool calls, diffs, terminal output, tests,
   screenshots) and finds the product it built. Nothing to explain, nothing to paste into another AI.
-- Product capture: Auteur screenshots the app the session built (HTML files and `localhost` URLs from the
+- Product capture: Hype screenshots the app the session built (HTML files and `localhost` URLs from the
   session) in its own headless Chromium. It never starts servers.
 - Truth on screen: code, commands, output and stats are verbatim from the session; the model picks, orders and
   narrates them. Redaction of secrets, emails and home paths runs before the model and the render.
-- Earlier Auteur films of the same session (their tool calls, MP4s and contact sheets) are left out of the
+- Earlier Hype films of the same session (their tool calls, MP4s and contact sheets) are left out of the
   evidence, so a second film is about the product, not about the first film.
 
 **Presets, fully customizable**
@@ -25,12 +25,12 @@ belongs to another plugin.
   or captions only.
 - Knobs on every preset, with no model call: accent, palette, bg, text, font, music, energy, narration, voice,
   voice_speed, title, tagline, cta, product, logo (a corner bug), captions, transitions, length, aspect and
-  language. They work as `key=value` in `/auteur`, as the tool's `knobs`, as `hermes auteur render --set`,
+  language. They work as `key=value` in `/hype`, as the tool's `knobs`, as `hermes hype render --set`,
   from the Desktop knobs row, and as defaults in the `customize` setting. Unknown keys get a friendly list.
 - `energy=high` keeps the requested length: it cuts the dead air after each line and spends it on more shots
   (cut-ins of the product) and product holds; the narration is never sped up. *Playful* requests spring the type
   (theme `motion: bouncy`) and bring the candy palette.
-- Free-text customization of a named preset (`/auteur launch pink and playful with a punchier ending`): a
+- Free-text customization of a named preset (`/hype launch pink and playful with a punchier ending`): a
   keyword reader (no model) plus one small model call over the preset's own film. The reply is parsed tolerantly,
   validated and repaired: params must be declared by the scene, facts are never rewritten, TITLE and END stay.
   Edits run on the timeline, so narration, captions and cues move with their shot. Cached per job, so the second
@@ -74,10 +74,10 @@ belongs to another plugin.
   in the top band above the device.
 
 **Everywhere in Hermes**
-- `/auteur` in Desktop, the TUI, the CLI and messaging. In messaging the finished video is sent back to the
+- `/hype` in Desktop, the TUI, the CLI and messaging. In messaging the finished video is sent back to the
   chat.
-- Agent tools `auteur_render` and `auteur_status`, with a bundled skill.
-- `hermes auteur render|styles|doctor|status`.
+- Agent tools `hype_render` and `hype_status`, with a bundled skill.
+- `hermes hype render|styles|doctor|status`.
 - Desktop studio (pane and page): style gallery with preview loops, *Customize this preset* or *Free roam*, live
   progress with a calibrated ETA, watch the Director work, storyboard editing with re-render and no model call,
   result player, revise, library. Also palette commands, a status-bar chip and a tool-media card.

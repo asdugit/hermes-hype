@@ -1,4 +1,4 @@
-// Auteur kit "terminal" — the tube: every kit:terminal scene is a DOM scene on the base frame (reference px at a
+// Hype kit "terminal" — the tube: every kit:terminal scene is a DOM scene on the base frame (reference px at a
 // 1080 short side) with the phosphor theme, a screen layer that powers on/off like a CRT, CSS scanlines, a slow
 // roll bar and a 2-3 % brightness flicker (the only "camera": a CRT never parks because the tube itself breathes).
 // Wide halation, curvature and misconvergence are the ffmpeg `crt` post chain (kit.json "style.post").

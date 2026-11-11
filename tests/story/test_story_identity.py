@@ -1,7 +1,7 @@
 """Product identity (ISSUES #40): the film names the product the session built, from session facts.
 
-Real E2E: a customized comic film of an Orbit Notes session named the product "Auteur Product Capture"
-(the capture stage that photographed it) and wrote "Meet Auteur's product capture" in the narration.
+Real E2E: a customized comic film of an Orbit Notes session named the product "Hype Product Capture"
+(the capture stage that photographed it) and wrote "Meet Hype's product capture" in the narration.
 """
 import json
 
@@ -34,26 +34,26 @@ def _webapp():
                                   kind="web_app", features=["Task list", "Dark mode toggle"])
 
 
-def _renamed(events, stats, draft, name="Auteur Product Capture"):
-    """A storyboard JSON that is right except that it calls the product after Auteur's capture stage."""
+def _renamed(events, stats, draft, name="Hype Product Capture"):
+    """A storyboard JSON that is right except that it calls the product after Hype's capture stage."""
     obj = storyboard_to_json(build_heuristic_storyboard(events, stats, StoryOptions(seconds=30), "", draft))
     obj["product"]["name"] = name
     obj["product"]["one_liner"] = "Captures a product's web pages as product_capture events."
     obj["title"] = name
     obj["tagline"] = f"{name}: your app, photographed"
-    obj["scenes"][1]["vo"] = "Meet Auteur's product capture, your app's camera crew."
+    obj["scenes"][1]["vo"] = "Meet Hype's product capture, your app's camera crew."
     return obj
 
 
 def test_identity_helpers():
     assert same_product("Tempo", "Tempo — focus timer")
     assert same_product("orbit-notes", "Orbit Notes")
-    assert not same_product("Auteur Product Capture", "Orbit Notes")
+    assert not same_product("Hype Product Capture", "Orbit Notes")
     assert not same_product("Tempo", "Tempora")
-    assert toolish_words("Auteur Product Capture", "Orbit Notes") == ["auteur", "capture", "product capture"]
-    assert toolish_words("Auteur", "Auteur") == []          # a session that built Auteur itself
+    assert toolish_words("Hype Product Capture", "Orbit Notes") == ["hype", "capture", "product capture"]
+    assert toolish_words("Hype", "Hype") == []          # a session that built Hype itself
     assert toolish_words("WEBPRODUCT") == ["webproduct"]
-    assert replace_name("Meet Auteur's product capture, your crew.", "Auteur Product Capture",
+    assert replace_name("Meet Hype's product capture, your crew.", "Hype Product Capture",
                         "Orbit Notes") == "Meet Orbit Notes, your crew."
 
 
@@ -66,9 +66,9 @@ def test_locked_name_survives_a_model_that_renames_the_product():
     sb = rep.storyboard
     assert sb.product.name == "Focusfox" and sb.title == "Focusfox"
     assert sb.product.one_liner == draft.one_liner
-    assert "Auteur" not in sb.tagline and "Focusfox" in sb.tagline
+    assert "Hype" not in sb.tagline and "Focusfox" in sb.tagline
     assert sb.scenes[1].vo == "Meet Focusfox, your app's camera crew."
-    assert not any("auteur" in (s.vo + s.label).lower() for s in sb.scenes)
+    assert not any("hype" in (s.vo + s.label).lower() for s in sb.scenes)
     # the rename is an error: the model was asked to repair it, with the right name in the problem list
     assert len(llm.calls) == 2
     assert "'Focusfox'" in llm.calls[1]["input_text"] and "product_renamed" not in llm.calls[1]["input_text"]
@@ -102,7 +102,7 @@ def test_no_draft_keeps_the_model_name_with_a_warning():
     events, stats, draft = _webapp()
     sb = storyboard_from_json(_renamed(events, stats, draft), source="llm", mode="product")
     res = validate_storyboard(sb, SessionFacts(events, stats), 30, "product")
-    assert res.storyboard.product.name == "Auteur Product Capture"
+    assert res.storyboard.product.name == "Hype Product Capture"
     assert any(i.code == "product_name_toolish" and i.severity == "warning" for i in res.issues)
 
 

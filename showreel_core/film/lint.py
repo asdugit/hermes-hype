@@ -308,7 +308,7 @@ def lint_paths(paths: Iterable[Path]) -> dict[str, list[LintIssue]]:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(prog="python -m showreel_core.film.lint", description="Lint Auteur scene/kit JS.")
+    ap = argparse.ArgumentParser(prog="python -m showreel_core.film.lint", description="Lint Hype scene/kit JS.")
     ap.add_argument("paths", nargs="+", type=Path)
     ap.add_argument("--json", action="store_true")
     a = ap.parse_args(argv)

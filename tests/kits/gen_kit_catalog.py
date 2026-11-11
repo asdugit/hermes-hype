@@ -4,7 +4,7 @@
 
 Builds a tiny job that loads the three kits, reads every scene's id/describe/params from the page and rewrites
 the block between ``<!-- scenes:begin -->`` and ``<!-- scenes:end -->`` in each KIT.md (the rest is hand-written).
-Takes a render slot when AUTEUR_RENDER_SLOT_DIR is set.
+Takes a render slot when HYPE_RENDER_SLOT_DIR is set.
 """
 from __future__ import annotations
 
@@ -60,7 +60,7 @@ async def read_scenes() -> list[dict]:
 
 
 def main() -> int:
-    with render_slot(os.environ.get("AUTEUR_RENDER_SLOT_DIR"), "gen-kit-catalog"):
+    with render_slot(os.environ.get("HYPE_RENDER_SLOT_DIR"), "gen-kit-catalog"):
         scenes = asyncio.run(read_scenes())
     for kit in KITS:
         md = ROOT / "kits" / kit / "KIT.md"

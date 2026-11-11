@@ -1,4 +1,4 @@
-// Auteur kit "blueprint" — the plotter. Strokes are drawn on at a constant pen speed (px/s) in a planned order
+// Hype kit "blueprint" — the plotter. Strokes are drawn on at a constant pen speed (px/s) in a planned order
 // with short pen-up moves between them, so drawing time follows path length (plotter cadence). Fills pop when their
 // stroke lands; lettering is revealed left -> right with the pen riding the reveal edge. Pure function of t.
 

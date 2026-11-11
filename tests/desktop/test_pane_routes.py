@@ -225,7 +225,7 @@ def test_post_text_for_quick_and_directed_films(api: dict[str, Any]) -> None:
                  storyboard={"title": "Tiny Todo", "tagline": "Todos in one keystroke", "scenes": []})
     text = c.get(f"{P}/jobs/{quick['id']}/post-text").json()["text"]
     assert text.startswith("Tiny Todo: Todos in one keystroke") and "speedrun" in text and "(pixel, 58 s)" in text
-    assert text.endswith("#HermesAgent #Auteur") and len(text) <= 280
+    assert text.endswith("#HermesAgent #Hype") and len(text) <= 280
     directed = store.create("s1", {"direction": "anime finale"}, kind="directed")
     store.update(directed["id"], stage="done", title="Red Car")
     write_json(store.job_dir(directed["id"]) / "director" / "treatment.json", {"logline": "A car levels up."})

@@ -1,4 +1,4 @@
-// Auteur kit "brand": customization overlays (showreel_core/customize). `kit:brand/logo` is the user's logo as
+// Hype kit "brand": customization overlays (showreel_core/customize). `kit:brand/logo` is the user's logo as
 // a corner bug above every shot (the `logo=` knob), drawn with smoothing, eased in over the first half second.
 
 import { sr } from '../../runtime/showreel.js';

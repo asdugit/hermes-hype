@@ -53,7 +53,7 @@ def test_quick_film_end_to_end_to_a_fake_mp4(env: dict[str, Any]) -> None:
     assert out.is_file() and out.read_bytes().startswith(b"\x00\x00\x00\x18ftyp")
     delivered = Path(final["delivered"]["16:9"])
     assert delivered.parent == env["videos"] and delivered.read_bytes() == out.read_bytes()
-    assert delivered.name.startswith("auteur-") and delivered.name.endswith("-16x9.mp4")
+    assert delivered.name.startswith("hype-") and delivered.name.endswith("-16x9.mp4")
     assert final["storyboard_source"] == "heuristic"          # no model: heuristic storyboard
     assert final["storyboard"]["scenes"] and final["title"]
     assert set(final["stages"]) >= {"reading", "storyboard", "voice", "layout", "render", "mix", "qa"}
@@ -321,7 +321,7 @@ def test_product_capture_events_join_the_evidence(env: dict[str, Any]) -> None:
         rec.add("capture", len(events))
         assert kw["budget_s"] > 0 and kw["cancel"] is not None
         kw["progress"](1, 2, "desktop")
-        return [Event("e900", 1.0, "product_capture", "auteur_capture", "Focusfox home", "captured",
+        return [Event("e900", 1.0, "product_capture", "hype_capture", "Focusfox home", "captured",
                       {"path": str(shot), "url": "http://localhost:3000/", "viewport": [1920, 1080],
                        "full_page": False, "page_title": "Focusfox", "kind": "viewport"}, True, 0.95)]
 
@@ -528,7 +528,7 @@ def test_directed_job_reports_a_long_eta_while_planning(env: dict[str, Any]) -> 
 
 def test_earlier_films_of_the_session_are_not_evidence(env: dict[str, Any]) -> None:
     """Real E2E: a later film of the Tempo session listed the earlier films' MP4s as artifacts, the contact sheets as
-    product screenshots and the agent's auteur calls/answers as events."""
+    product screenshots and the agent's hype calls/answers as events."""
     from showreel_core.contracts import Event
     from showreel_core.pipeline import own_output_event
     store, rec = env["store"], Recorder()
@@ -536,14 +536,14 @@ def test_earlier_films_of_the_session_are_not_evidence(env: dict[str, Any]) -> N
     n0 = len(bundle.events)
     vids = str(env["videos"]).replace("\\", "/")
     extra = [
-        Event("x1", 900.0, "tool_other", "auteur_render", "auteur_render", "", {}),
-        Event("x2", 901.0, "screenshot", "auteur_status", "20261111-0335-4439/contact_16x9.png", "",
+        Event("x1", 900.0, "tool_other", "hype_render", "hype_render", "", {}),
+        Event("x2", 901.0, "screenshot", "hype_status", "20261111-0335-4439/contact_16x9.png", "",
               {"path": str(store.root / "jobs" / "j" / "contact_16x9.png")}),
-        Event("x3", 902.0, "artifact", "", "videos/auteur-tempo-4439-16x9.mp4", "",
-              {"path": f"{vids}/auteur-tempo-4439-16x9.mp4"}),
-        Event("x4", 903.0, "terminal", "terminal", f"F='{vids}/auteur-tempo-4439-16x9.mp4'", "",
+        Event("x3", 902.0, "artifact", "", "videos/hype-tempo-4439-16x9.mp4", "",
+              {"path": f"{vids}/hype-tempo-4439-16x9.mp4"}),
+        Event("x4", 903.0, "terminal", "terminal", f"F='{vids}/hype-tempo-4439-16x9.mp4'", "",
               {"cmd": "ffmpeg -i ..."}),
-        Event("x5", 904.0, "final_answer", "", "The lore cut is rendered", "Your Auteur film is ready", {}),
+        Event("x5", 904.0, "final_answer", "", "The lore cut is rendered", "Your Hype film is ready", {}),
     ]
     bundle.events = list(bundle.events) + extra
     bundle.product.hero_event_ids = ["x2", *bundle.product.hero_event_ids]
@@ -552,12 +552,12 @@ def test_earlier_films_of_the_session_are_not_evidence(env: dict[str, Any]) -> N
     final = run_job(_job(store, seconds=30)["id"], _host()[0], store=store, deps=make_deps(rec, bundle=bundle))
     assert final["stage"] == "done", final.get("error")
     assert any("left out 5 event(s)" in e["msg"] for e in final["log"])
-    assert any("build time ends at the first Auteur call" in e["msg"] for e in final["log"])
-    assert bundle.stats.duration_s <= 900.0             # active time up to the first auteur_render call
+    assert any("build time ends at the first Hype call" in e["msg"] for e in final["log"])
+    assert bundle.stats.duration_s <= 900.0             # active time up to the first hype_render call
     saved = json.loads((store.job_dir(final["id"]) / "session.json").read_text(encoding="utf-8"))
     ids = {e["id"] for e in saved["events"]}
     assert not ids & {"x1", "x2", "x3", "x4", "x5"} and len(ids) >= n0
     assert "x2" not in saved["product"]["hero_event_ids"]
-    # a session that BUILT Auteur (no film tool call) keeps its own talk about "auteur"
-    dev = Event("d1", 5.0, "assistant_note", "", "Wiring the film pipeline", "auteur pipeline tests pass", {})
+    # a session that BUILT Hype (no film tool call) keeps its own talk about "hype"
+    dev = Event("d1", 5.0, "assistant_note", "", "Wiring the film pipeline", "hype pipeline tests pass", {})
     assert not own_output_event(dev, [], after_first_film=False)

@@ -1,4 +1,4 @@
-// Auteur kit "terminal" — media scenes: HOOK, SCREEN, FEATURE, SCROLL, BEFORE_AFTER. Product captures are shown
+// Hype kit "terminal" — media scenes: HOOK, SCREEN, FEATURE, SCROLL, BEFORE_AFTER. Product captures are shown
 // in box-drawn panes as phosphor ASCII -> ordered dither -> the real image (raster-scan resolve); zoom happens in
 // discrete steps (terminal zoom), the pointer is a pixel-art hardware sprite, the click is an inverse-video flash.
 

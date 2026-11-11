@@ -1,5 +1,5 @@
 /**
- * Auteur desktop/plugin.js rendered in jsdom with the real React 19 and React Query 5, a stub SDK and a
+ * Hype desktop/plugin.js rendered in jsdom with the real React 19 and React Query 5, a stub SDK and a
  * fake plugin backend, then driven like a user.
  *
  * Run: cd tests/desktop && npm install && node render_check.mjs        (exit 0 = every check passed)
@@ -222,7 +222,7 @@ function server(method, url, body) {
       return newJob(job.session_id, { ...job.options, aspects: body.aspects }, { parent: job.id })
     }
     if (sub === '/revise') return newJob(job.session_id, { ...job.options, notes: body.notes }, { parent: job.id })
-    if (sub === '/post-text') return { id: job.id, text: `${job.title}: made with /auteur\n\n#HermesAgent #Auteur` }
+    if (sub === '/post-text') return { id: job.id, text: `${job.title}: made with /hype\n\n#HermesAgent #Hype` }
     if (sub === '/director-log') {
       S.dlogCalls.push(Number(q.since || 0))
       return Number(q.since || 0) === 0 ? DIR.first : { ...DIR.first, ...DIR.more }
@@ -244,7 +244,7 @@ const kept = new Map()
 const disposers = []
 function makeCtx(into) {
   return {
-    source: 'plugin:auteur',
+    source: 'plugin:hype',
     register: c => { into.push(c); return () => {} },
     registerMany: cs => { cs.forEach(c => into.push(c)); return () => {} },
     rest: async (p, opts = {}) => {
@@ -281,14 +281,14 @@ const focus = sid => stub.host.state.focusedStoredSessionId.set(sid)
 plugin.register(makeCtx(registered))
 const reg = area => registered.filter(c => c.area === area)
 const pane = reg('panes')[0]
-check(plugin.id === 'auteur' && pane && pane.title === 'Auteur' && pane.data.placement === 'right', '1 a right-side pane titled Auteur')
-check(reg('routes')[0]?.data.path === '/auteur' && reg('sidebar.nav')[0]?.data.label === 'Auteur' && reg('sidebar.nav')[0]?.data.codicon, '1 a /auteur page with a sidebar entry')
+check(plugin.id === 'hype' && pane && pane.title === 'Hype' && pane.data.placement === 'right', '1 a right-side pane titled Hype')
+check(reg('routes')[0]?.data.path === '/hype' && reg('sidebar.nav')[0]?.data.label === 'Hype' && reg('sidebar.nav')[0]?.data.codicon, '1 a /hype page with a sidebar entry')
 const palette = reg('palette').map(c => c.data)
-check(palette.length === 4 && ['trailer', 'lore', 'speedrun', 'open'].every(k => palette.some(p => p.id === `auteur.${k}`)) && palette.some(p => p.label === 'Auteur: make a trailer of this chat'), '1 four palette commands (trailer, lore, speedrun, open)')
+check(palette.length === 4 && ['trailer', 'lore', 'speedrun', 'open'].every(k => palette.some(p => p.id === `hype.${k}`)) && palette.some(p => p.label === 'Hype: make a trailer of this chat'), '1 four palette commands (trailer, lore, speedrun, open)')
 check(reg('statusBar.right').length === 1, '1 a status-bar chip')
 const toolCard = reg('transcript.toolMedia')[0]
-check(toolCard && toolCard.data.tools.includes('auteur_render') && toolCard.data.tools.includes('auteur_status'), '1 a tool-media card for auteur_render / auteur_status')
-check(listeners.has('plugin.auteur.job.progress'), '1 listens to plugin.auteur.job.progress')
+check(toolCard && toolCard.data.tools.includes('hype_render') && toolCard.data.tools.includes('hype_status'), '1 a tool-media card for hype_render / hype_status')
+check(listeners.has('plugin.hype.job.progress'), '1 listens to plugin.hype.job.progress')
 
 // ── 2 no chat ────────────────────────────────────────────────────────────────────────────────────
 {
@@ -389,18 +389,18 @@ check(listeners.has('plugin.auteur.job.progress'), '1 listens to plugin.auteur.j
   click(byText(v.div, 'button', 'Cancel'))
   await waitFor(() => calls('POST', `/jobs/${job.id}/cancel`).length === 1, '4 Cancel posts /cancel')
   Object.assign(job, { stage: 'mix', pct: 0.9, eta_s: 10 })
-  listeners.get('plugin.auteur.job.progress')({ type: 'plugin.auteur.job.progress', payload: { id: job.id, session_id: 's-live', stage: 'mix', pct: 0.9, eta_s: 10, note: 'mixing music and voice' } })
+  listeners.get('plugin.hype.job.progress')({ type: 'plugin.hype.job.progress', payload: { id: job.id, session_id: 's-live', stage: 'mix', pct: 0.9, eta_s: 10, note: 'mixing music and voice' } })
   await waitFor(() => $(v.div, '.srl-pct')?.textContent === '90%', '4 a progress event moves the bar')
   // status chip while it runs
   const chip = await mount(reg('statusBar.right')[0].render())
-  await waitFor(() => chip.div.textContent.includes('Auteur 90%'), '11 chip shows the running percent')
+  await waitFor(() => chip.div.textContent.includes('Hype 90%'), '11 chip shows the running percent')
   snap('chip', chip, 'bar')
   click($(chip.div, 'button'))
-  check(stub.calls.navigate.includes('/auteur'), '11 the chip opens the studio')
+  check(stub.calls.navigate.includes('/hype'), '11 the chip opens the studio')
   Object.assign(job, { stage: 'done', pct: 1, finished: Date.now() / 1000, outputs: { '16:9': 'C:/videos/tiny.mp4' }, duration_s: 30.5 })
-  listeners.get('plugin.auteur.job.progress')({ payload: { id: job.id, session_id: 's-live', stage: 'done', pct: 1 } })
+  listeners.get('plugin.hype.job.progress')({ payload: { id: job.id, session_id: 's-live', stage: 'done', pct: 1 } })
   await waitFor(() => tabSelected(v.div, 'Result'), '4 a finished film opens on Result')
-  check(osNotes.filter(n => n.title === 'Auteur ready').length === 1, '4 exactly one native "Auteur ready" notification')
+  check(osNotes.filter(n => n.title === 'Hype ready').length === 1, '4 exactly one native "Hype ready" notification')
   await chip.unmount()
   await v.unmount()
   delete S.jobs[old.id]
@@ -552,7 +552,7 @@ check(listeners.has('plugin.auteur.job.progress'), '1 listens to plugin.auteur.j
   kept.set('tab.pane', 'make')
   const v = await mount(pane.render())
   await openTab(v, 'Make')
-  await waitFor(() => v.div.textContent.includes('The Auteur backend is not running'), '9 a banner when the backend is off')
+  await waitFor(() => v.div.textContent.includes('The Hype backend is not running'), '9 a banner when the backend is off')
   snap('backend-off', v)
   check($(v.div, '.srl-make-go button')?.disabled === true, '9 Make is disabled while it is off')
   await v.unmount()
@@ -563,7 +563,7 @@ check(listeners.has('plugin.auteur.job.progress'), '1 listens to plugin.auteur.j
 // ── 10 palette ───────────────────────────────────────────────────────────────────────────────────
 {
   focus('s-pal')
-  palette.find(p => p.id === 'auteur.speedrun').run()
+  palette.find(p => p.id === 'hype.speedrun').run()
   await waitFor(() => calls('POST', '/jobs').some(c => c.body.session_id === 's-pal'), '10 the palette starts a film')
   const o = calls('POST', '/jobs').find(c => c.body.session_id === 's-pal').body.options
   check(o.mode === 'speedrun' && o.direction === '', '10 a speedrun of the focused chat')
@@ -575,9 +575,9 @@ check(listeners.has('plugin.auteur.job.progress'), '1 listens to plugin.auteur.j
   const fallback = jsx('video', { 'data-fallback': 'core' })
   const v = await mount(toolCard.data.render({ file: { kind: 'video', path: 'C:/v/x.mp4', name: 'x.mp4' }, result: JSON.stringify({ job_id: '20261106-160000-7e7e', title: 'Tiny Todo', style: 'pixel', duration_s: 31 }), args: {}, sessionId: 's-res', fallback }))
   snap('toolcard', v, 'card')
-  check(Boolean($(v.div, 'video[data-fallback=core]')) && v.div.textContent.includes('Tiny Todo') && v.div.textContent.includes('pixel'), '12 a video gets the Auteur card around the core player')
-  click(byText(v.div, 'button', 'Open in Auteur'))
-  check(stub.calls.navigate.filter(p => p === '/auteur').length >= 2, '12 Open in Auteur')
+  check(Boolean($(v.div, 'video[data-fallback=core]')) && v.div.textContent.includes('Tiny Todo') && v.div.textContent.includes('pixel'), '12 a video gets the Hype card around the core player')
+  click(byText(v.div, 'button', 'Open in Hype'))
+  check(stub.calls.navigate.filter(p => p === '/hype').length >= 2, '12 Open in Hype')
   click(byText(v.div, 'button', 'Reveal'))
   await waitFor(() => revealed.includes('C:/v/x.mp4'), '12 Reveal')
   await v.unmount()

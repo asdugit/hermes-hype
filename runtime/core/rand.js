@@ -1,4 +1,4 @@
-// Seeded randomness for the Auteur runtime: string/number seed mixing and a small fast PRNG.
+// Seeded randomness for the Hype runtime: string/number seed mixing and a small fast PRNG.
 // Every random-looking value in a film comes from here, so a frame is a pure function of (seed, t).
 
 /** 32-bit FNV-1a over a string, finished with a murmur3-style avalanche. */

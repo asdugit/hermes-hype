@@ -5,7 +5,7 @@
 
 ``film.json`` assets may carry ``"src"`` (relative to the film file) and are prepared into the job; scenes are
 read from ``--scenes`` (default: ``<film dir>/scenes``): ``X.js`` -> ``custom:X``, ``lib-X.js`` -> ``lib:X``.
-Set ``AUTEUR_RENDER_SLOT_DIR`` (or ``--slot-dir``) to share render slots with other jobs on one machine.
+Set ``HYPE_RENDER_SLOT_DIR`` (or ``--slot-dir``) to share render slots with other jobs on one machine.
 """
 from __future__ import annotations
 
@@ -54,7 +54,7 @@ class PreviewResult:
 
 
 @contextlib.contextmanager
-def render_slot(slot_dir: str | Path | None, who: str = "auteur-preview", *, stale_s: float = 900,
+def render_slot(slot_dir: str | Path | None, who: str = "hype-preview", *, stale_s: float = 900,
                 wait_s: float = 600) -> Iterator[Path | None]:
     """Hold one of ``render.slot1..3`` in ``slot_dir`` (cooperative lock); no-op when ``slot_dir`` is None."""
     if not slot_dir:
@@ -259,7 +259,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     ap.add_argument("--video", action="store_true", help="also render preview.mp4 (at --size)")
     ap.add_argument("--gpu", default="off", choices=("auto", "on", "off"))
     ap.add_argument("--lenient", action="store_true", help="keep going past scene/setup errors (collect them all)")
-    ap.add_argument("--slot-dir", default=os.environ.get("AUTEUR_RENDER_SLOT_DIR"))
+    ap.add_argument("--slot-dir", default=os.environ.get("HYPE_RENDER_SLOT_DIR"))
     ap.add_argument("--json", action="store_true", help="print the full result as JSON")
     a = ap.parse_args(argv)
     times = [float(x) for x in a.keyframes.split(",") if x.strip()] if a.keyframes else None

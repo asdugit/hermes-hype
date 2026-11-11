@@ -1,4 +1,4 @@
-"""Shared contracts between Auteur stages (see SPEC.md section 3).
+"""Shared contracts between Hype stages (see SPEC.md section 3).
 
 Owned by the orchestrator. Work packages import from here; propose changes in your
 report instead of editing this file. Everything is plain dataclasses + JSON-able dicts
@@ -19,13 +19,13 @@ EventKind = Literal[
     "web_search", "web_extract", "todo", "delegate", "skill", "clarify", "tool_other",
     # product-first additions (2026-11-06):
     "artifact",          # a deliverable the session produced: {path, kind: web|image|video|audio|pdf|doc|data|code|other, preview_path?}
-    "product_capture",   # captured by Auteur itself from the running product: {path, url, viewport:[w,h], full_page: bool, page_title}
+    "product_capture",   # captured by Hype itself from the running product: {path, url, viewport:[w,h], full_page: bool, page_title}
 ]
 
 # What the film is about (user-facing command words in parentheses):
-#   "product"   (/auteur)          launch trailer for what was built; the session supplies proof. DEFAULT.
-#   "making_of" (/auteur lore)     the build story is the hero (aliases: bts, process, making-of).
-#   "speedrun"  (/auteur speedrun) the build story as a speedrun: live split timer, milestone splits, time-lapse pacing.
+#   "product"   (/hype)          launch trailer for what was built; the session supplies proof. DEFAULT.
+#   "making_of" (/hype lore)     the build story is the hero (aliases: bts, process, making-of).
+#   "speedrun"  (/hype speedrun) the build story as a speedrun: live split timer, milestone splits, time-lapse pacing.
 FilmMode = Literal["product", "making_of", "speedrun"]
 MODE_ALIASES: dict[str, str] = {
     "trailer": "product", "product": "product", "launch": "product",
@@ -67,7 +67,7 @@ class Event:
       file_patch: {path, lang, hunks: [{header, lines: [[op, text]]}], adds, dels}
       terminal:   {cmd, output_lines: [str], exit_code: int|None, elapsed_s: float|None}
       screenshot / image_generated: {path (copied into job assets), w, h, url?}
-      product_capture (Auteur's own capture of the running product, capture/; tool "auteur_capture"):
+      product_capture (Hype's own capture of the running product, capture/; tool "hype_capture"):
                   {path, url, viewport: [w, h], full_page, page_title,
                    kind: viewport|full|mobile|mobile_full|element|interaction|pdf_page|image|video,
                    size, dpr, label, target_kind: url|html|image|video|pdf, source_ids, quality: ok|blank|error_overlay,

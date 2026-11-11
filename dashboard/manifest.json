@@ -1,6 +1,6 @@
 {
-  "name": "auteur",
-  "label": "Auteur",
+  "name": "hype",
+  "label": "Hype",
   "version": "1.0.0",
   "api": "plugin_api.py"
 }

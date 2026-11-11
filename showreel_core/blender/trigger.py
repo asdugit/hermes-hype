@@ -1,4 +1,4 @@
-"""Does the user ask for Blender? (``/auteur ... blender`` args are parsed in commands.py; this reads free text.)
+"""Does the user ask for Blender? (``/hype ... blender`` args are parsed in commands.py; this reads free text.)
 
 ``blender_requested("make it cinematic, use blender")`` -> True; ``"no blender please"`` -> False; no mention -> None.
 A kitchen/smoothie blender (the product, not the engine) does not count.

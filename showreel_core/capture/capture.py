@@ -33,7 +33,7 @@ SHOT_WEIGHTS = {"viewport": 0.95, "full": 0.8, "element": 0.78, "mobile": 0.75, 
                 "interaction": 0.6, "pdf_page": 0.7}
 MEDIA_WEIGHTS = {"video": 0.9, "image": 0.85}
 QUALITY_FACTOR = {"ok": 1.0, "blank": 0.2, "error_overlay": 0.2}
-TOOL = "auteur_capture"
+TOOL = "hype_capture"
 
 
 @dataclass
@@ -78,7 +78,7 @@ def _run_async(fn: Callable[[], Awaitable[Any]]) -> Any:
             box.append(asyncio.run(fn()))  # type: ignore[arg-type]
         except BaseException as e:
             err.append(e)
-    t = threading.Thread(target=runner, name="auteur-capture")
+    t = threading.Thread(target=runner, name="hype-capture")
     t.start()
     t.join()
     if err:
@@ -304,7 +304,7 @@ def _shot_event(eid: str, t: float, wr: WebResult, s: Shot, first_viewport: bool
     what = s.label or s.kind
     where = url if len(url) <= 80 else url[:77] + "..."
     return Event(id=eid, t=t, kind="product_capture", tool=TOOL, title=f"{title or where} · {what}"[:120],
-                 summary=f"Auteur capture of {where} ({what})"[:160], data=data, ok=True, weight=round(weight, 3))
+                 summary=f"Hype capture of {where} ({what})"[:160], data=data, ok=True, weight=round(weight, 3))
 
 
 def _media_event(eid: str, t: float, tgt: CaptureTarget, a: MediaAsset) -> Event:
@@ -326,7 +326,7 @@ def _media_event(eid: str, t: float, tgt: CaptureTarget, a: MediaAsset) -> Event
         data["cutout"] = cut
     name = Path(tgt.path).name
     return Event(id=eid, t=t, kind="product_capture", tool=TOOL, title=f"{name} · {a.kind}"[:120],
-                 summary=f"Auteur {a.kind} asset {name} ({a.w}x{a.h}"
+                 summary=f"Hype {a.kind} asset {name} ({a.w}x{a.h}"
                          f"{', cutout ' + str(cut.get('grade')) if cut else ''})"[:160],
                  data=data, ok=True, weight=round(min(1.0, weight), 3))
 

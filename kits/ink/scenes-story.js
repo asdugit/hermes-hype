@@ -1,4 +1,4 @@
-// Auteur kit "ink" — story pages: TITLE (style frame A), PROBLEM, PLAN (style frame B / V), STATS, CALLOUT, END.
+// Hype kit "ink" — story pages: TITLE (style frame A), PROBLEM, PLAN (style frame B / V), STATS, CALLOUT, END.
 
 import { inkScene } from './lib/page.js';
 import { h, css } from '../base/dom.js';
@@ -397,11 +397,11 @@ inkScene('kit:ink/CALLOUT', {
 
 // ------------------------------------------------------------------------------------------------ END
 inkScene('kit:ink/END', {
-  describe: 'End card (thumbnail frame): the user and the robot wave side by side, the title lockup with the film strip running under it, the CTA command written on a paper luggage tag, the repo URL and the "made with Hermes \u00b7 Auteur" credit; speedrun adds a PB sticky note.',
+  describe: 'End card (thumbnail frame): the user and the robot wave side by side, the title lockup with the film strip running under it, the CTA command written on a paper luggage tag, the repo URL and the "made with Hermes \u00b7 Hype" credit; speedrun adds a PB sticky note.',
   params: { ...pick(END_DEF.params, ['title', 'cta', 'url', 'credit', 'tagline', 'pb_display']) },
   build(ctx, p, F, P) {
     const L = !F.portrait, W = F.W, H = F.H, S = F.safe, T = clockOf(ctx.dur), D = ctx.dur;
-    const title = String(p.title || '').trim() || 'Auteur';
+    const title = String(p.title || '').trim() || 'Hype';
     const tag = clip(p.tagline || '', 80);
     // cast
     const uo = L ? [400, 1010] : [370, 1200], us = L ? 1.0 : 0.95;

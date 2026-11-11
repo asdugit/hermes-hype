@@ -1,4 +1,4 @@
-// palette.js — "Auteur Dusk 32": the pixel kit's only colours (original, CC0).
+// palette.js — "Hype Dusk 32": the pixel kit's only colours (original, CC0).
 // Every surface the kit draws is an index buffer into this table; 255 = transparent.
 
 /** Token name -> hex, in index order (index = position). */

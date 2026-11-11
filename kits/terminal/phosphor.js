@@ -1,4 +1,4 @@
-// Auteur kit "terminal" — product media in the tube. A screenshot is painted once into three plates:
+// Hype kit "terminal" — product media in the tube. A screenshot is painted once into three plates:
 // ASCII (phosphor characters by luminance), ordered dither (Bayer 4x4 phosphor dots) and the real image; the
 // shot resolves ASCII -> dither -> real with a bright raster line sweeping down the glass (whole frames, no
 // fades: a CRT redraws, it does not dissolve). Plates are drawn in setup; render only moves clip edges.

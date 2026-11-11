@@ -43,7 +43,7 @@ def at_least(major: int, minor: int = 0) -> bool:
 def require_min() -> None:
     """Raise unless Blender >= 4.2 (EEVEE Next, the 4.x Principled BSDF names, slotted actions are optional)."""
     if version() < MIN_VERSION:
-        raise CompatError(f"Blender {version_string()} is too old: Auteur needs Blender 4.2 or newer")
+        raise CompatError(f"Blender {version_string()} is too old: Hype needs Blender 4.2 or newer")
 
 
 def _engine_items() -> set[str]:

@@ -1,4 +1,4 @@
-"""Read models for the Auteur Desktop pane (stdlib + optional Pillow; no FastAPI, no core imports).
+"""Read models for the Hype Desktop pane (stdlib + optional Pillow; no FastAPI, no core imports).
 
 ``plugin_api.py`` loads this file by path and calls these functions from the thread pool. Everything
 here reads files a job or the Director already wrote: job records, ``<job>/director/`` artefacts
@@ -522,13 +522,13 @@ def post_text(job: dict[str, Any], tagline: str = "", logline: str = "") -> str:
     directed = bool(str(opts.get("direction") or "").strip()) or job.get("kind") == "directed"
     style = str(opts.get("style") or "").strip()
     dur = job.get("duration_s") or opts.get("seconds")
-    tail = "\n\n#HermesAgent #Auteur"
+    tail = "\n\n#HermesAgent #Hype"
     if directed:
-        body = "Directed from one line of text with /auteur in Hermes Agent."
+        body = "Directed from one line of text with /hype in Hermes Agent."
         hook = logline or tagline
     else:
         body = _MODE_LINES.get(str(opts.get("mode") or "product"), _MODE_LINES["product"])
-        made = "Made with /auteur" + (f" ({style}, {round(float(dur))} s)." if style and dur else ".")
+        made = "Made with /hype" + (f" ({style}, {round(float(dur))} s)." if style and dur else ".")
         body = f"{body} {made}"
         hook = tagline
     head = f"{title}: {hook}" if hook else title

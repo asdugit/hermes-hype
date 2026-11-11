@@ -1,4 +1,4 @@
-// Auteur kit "blueprint" — lettering parts shared by the scenes: sheet header (kick + title line), margin notes,
+// Hype kit "blueprint" — lettering parts shared by the scenes: sheet header (kick + title line), margin notes,
 // the "frame + dimensions" around a rectangle, stamps, and run numbers stated in a test run's output.
 
 import { h, css } from '../base/dom.js';

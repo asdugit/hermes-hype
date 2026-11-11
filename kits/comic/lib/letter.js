@@ -1,4 +1,4 @@
-// Auteur kit "comic" — lettering: narrator captions, speech balloons (pop from the tail, words by phrase,
+// Hype kit "comic" — lettering: narrator captions, speech balloons (pop from the tail, words by phrase,
 // one stressed word in red bold italic), onomatopoeia that slams in, masthead/headline display lettering.
 // Each block returns {el, update(t)} where update is a pure function of the shot-local time t.
 

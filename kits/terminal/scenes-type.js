@@ -1,4 +1,4 @@
-// Auteur kit "terminal" — type scenes: TITLE (boot log + block-letter logo), STATS (odometer drums),
+// Hype kit "terminal" — type scenes: TITLE (boot log + block-letter logo), STATS (odometer drums),
 // CALLOUT (one hot `# comment` line), END ($ exit -> logout -> lockup -> tube switches off).
 
 import { css } from '../base/dom.js';
@@ -46,7 +46,7 @@ tubeScene('kit:terminal/TITLE', {
     // boot log (texture, the real names only)
     const bootFs = L ? 22 : 22, bootCols = L ? 38 : 58;
     const bootLines = [
-      row(sp('m', 'AUTEUR ') + sp('d', '\u00b7 tty1 \u00b7 phosphor ' + (String(p.phosphor || 'p3').toUpperCase())), 0),
+      row(sp('m', 'HYPE ') + sp('d', '\u00b7 tty1 \u00b7 phosphor ' + (String(p.phosphor || 'p3').toUpperCase())), 0),
       txt('', ''),
       leader(`load ${fit(title, 30)}`, '[  OK  ]', bootCols, 'm'),
       ...(p.tagline ? [leader('tagline', '[  OK  ]', bootCols, 'm')] : []),
@@ -195,17 +195,17 @@ tubeScene('kit:terminal/CALLOUT', {
 
 // --------------------------------------------------------------------------------------------- END
 tubeScene('kit:terminal/END', {
-  describe: 'End card: `$ exit` -> logout, then the block-letter name, the CTA as a hot prompt line, the URL and the "made with Hermes · Auteur" credit (speedrun: the PB time); the tube switches off in the last 0.45 s (the frame before is the thumbnail).',
+  describe: 'End card: `$ exit` -> logout, then the block-letter name, the CTA as a hot prompt line, the URL and the "made with Hermes · Hype" credit (speedrun: the PB time); the tube switches off in the last 0.45 s (the frame before is the thumbnail).',
   powerOff: true,
   params: {
     title: { type: 'string', default: '', doc: 'product name' }, cta: { type: 'string', default: '', doc: 'command or link to try it' },
-    url: { type: 'string', default: '', doc: 'repo / site URL' }, credit: { type: 'string', default: 'made with Hermes \u00b7 Auteur', doc: 'small credit line' },
+    url: { type: 'string', default: '', doc: 'repo / site URL' }, credit: { type: 'string', default: 'made with Hermes \u00b7 Hype', doc: 'small credit line' },
     tagline: { type: 'string', default: '', doc: 'optional line under the title' }, pb_display: { type: 'string', default: '', doc: 'speedrun final time (PB)' },
   },
   build(ctx, p, F, T) {
     const dur = ctx.dur, L = F.portrait, M = T.M;
     const W = F.W - M.l - M.r;
-    const title = String(p.title || '').trim() || 'auteur';
+    const title = String(p.title || '').trim() || 'hype';
     const exitTy = typing('exit', 0.15, { cps: 14, seed: 2 });
     const head = T.pre(M.l, L ? M.t - 6 : M.t + 10, 26);
     const lb = logoBlock(title, W * 0.8, L ? 14 : 16, 8, 2);

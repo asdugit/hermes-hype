@@ -181,7 +181,7 @@ def _bar_hint(catalog: Catalog) -> str:
 def treatment_prompt(brief: Brief, catalog: Catalog) -> tuple[str, str]:
     """Treatment step: the creative plan (no code, no timings below the act level)."""
     instructions = f"""\
-You are the Director of Auteur Studio: a senior commercial director and motion designer who makes short product
+You are the Director of Hype Studio: a senior commercial director and motion designer who makes short product
 films that people watch twice. You are writing the TREATMENT for one film: the creative plan that a film script and
 custom animation code will be written from. You will not write code here.
 
@@ -255,7 +255,7 @@ def _recipe_hint(brief: Brief) -> str:
 def film_prompt(brief: Brief, catalog: Catalog, treatment: dict[str, Any], *, max_custom: int) -> tuple[str, str]:
     """Film step: treatment -> film.json (SDK section 2) + a plan with shot intents and custom scene specs."""
     instructions = f"""\
-You are the Director of Auteur Studio. Turn the approved TREATMENT into the FILM SCRIPT: a film.json the runtime
+You are the Director of Hype Studio. Turn the approved TREATMENT into the FILM SCRIPT: a film.json the runtime
 renders frame by frame, plus a PLAN that tells the engine what each shot must show and specifies every custom scene
 precisely enough that a separate animator (who sees only your spec, the SDK and the kit docs) can code it.
 
@@ -370,7 +370,7 @@ def scene_prompt(brief: Brief, catalog: Catalog, spec: dict[str, Any], shots: li
     sid = f"custom:{spec.get('name')}"
     instructions = f"""\
 You are a senior creative coder and motion designer (demoscene precision, feature-animation taste). Write ONE scene
-module for Auteur's runtime, exactly to the spec. The scene is rendered frame by frame, out of order, at the shot's
+module for Hype's runtime, exactly to the spec. The scene is rendered frame by frame, out of order, at the shot's
 surface size, then composited into the film. It must look finished: this is a commercial, not a prototype.
 
 Compose it from the kit building blocks listed below (ctx.kit('<kit>').<block>): worlds, skies, sprites, product
@@ -407,7 +407,7 @@ def scene_repair_prompt(brief: Brief, catalog: Catalog, spec: dict[str, Any], co
     """Fix a scene that failed lint or the dry run; keep everything that works."""
     sid = f"custom:{spec.get('name')}"
     instructions = f"""\
-You are a senior creative coder fixing an Auteur scene module (`{sid}`) that failed the engine's checks. Fix every
+You are a senior creative coder fixing a Hype scene module (`{sid}`) that failed the engine's checks. Fix every
 error below at its root cause. Keep the look, timing and structure that are not involved in the errors. Do not
 simplify the scene to make errors go away unless the error cannot be fixed otherwise.
 
@@ -430,7 +430,7 @@ def scene_revise_prompt(brief: Brief, catalog: Catalog, spec: dict[str, Any], co
             "\nThe attached contact sheet(s) show what your current code renders; this scene is in cells "
             + ", ".join(cells) + ". Look at them before changing anything.")
     instructions = f"""\
-You are a senior creative coder revising an Auteur scene module (`{sid}`) after a creative director reviewed
+You are a senior creative coder revising a Hype scene module (`{sid}`) after a creative director reviewed
 rendered keyframes.{seen} Apply each fix below precisely and visibly; keep everything the review did not criticise
 (do not rewrite working parts: regressions are worse than an unfixed polish issue). Improve craft where the fix
 asks for it (depth, light, motion, composition, legibility); do not add clutter.
@@ -474,7 +474,7 @@ def scene_patch_prompt(brief: Brief, catalog: Catalog, spec: dict[str, Any], cod
     job = ("fix the errors below at their root cause" if errors else
            "apply each review fix below precisely and visibly")
     instructions = f"""\
-You are a senior creative coder making SURGICAL edits to an Auteur scene module (`{sid}`):{' ' + job}.{seen}
+You are a senior creative coder making SURGICAL edits to a Hype scene module (`{sid}`):{' ' + job}.{seen}
 Keep everything the review did not criticise; regressions are worse than an unfixed polish issue. Prefer kit
 building blocks (ctx.kit(...)) over hand-drawn code when a fix needs new drawing.
 
@@ -572,7 +572,7 @@ def revise_patch_prompt(brief: Brief, catalog: Catalog, treatment: dict[str, Any
                         ) -> tuple[str, str]:
     """Film-level revision as a PATCH: only the shots/lists that change come back (untouched shots stay exact)."""
     instructions = f"""\
-You are the Director of Auteur Studio revising your film after review. Fix what the review (and the user's
+You are the Director of Hype Studio revising your film after review. Fix what the review (and the user's
 notes, if any: they come first) asks for that can be fixed in film.json or the plan: timing, kit-scene params,
 scene choice, transitions, music, cues, captions, overlays, narration.{" The attached contact sheet(s) show the "
 "current render (cells are listed in the review)." if seen else ""}

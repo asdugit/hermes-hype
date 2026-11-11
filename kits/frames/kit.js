@@ -1,4 +1,4 @@
-// Auteur kit "frames": full-bleed player for pre-rendered frame sequences (Blender shots, see BLENDER.md).
+// Hype kit "frames": full-bleed player for pre-rendered frame sequences (Blender shots, see BLENDER.md).
 // The Blender pass rewrites every `blender:<kit>/<scene>` shot to `kit:frames/play` with
 // params {asset, offset, fps, fit, alpha}. Frame index for shot-local t: floor((t + offset) * fps + 0.5), clamped,
 // the same rounding the host uses to pick keyframe-only frames (showreel_core/blender/film.py frames_for_times).

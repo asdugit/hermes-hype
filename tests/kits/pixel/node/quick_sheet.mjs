@@ -26,7 +26,7 @@ export const DATA = {
   SCROLL: { scroll: [0, 1] },
 };
 
-const out = process.argv[2] || join(tmpdir(), 'auteur-k1');
+const out = process.argv[2] || join(tmpdir(), 'hype-k1');
 const T = Number(process.argv[3] || 2.6);
 if (import.meta.url.endsWith(process.argv[1].replace(/\\/g, '/').split('/').pop())) {
   mkdirSync(out, { recursive: true });

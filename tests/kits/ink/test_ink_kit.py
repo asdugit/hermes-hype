@@ -132,7 +132,7 @@ def test_flat_shadows_only():
 
 
 def test_optional_bools_default_to_null():
-    """A false default masks the scene default once kits/base applies param defaults (hermes-auteur pitfall)."""
+    """A false default masks the scene default once kits/base applies param defaults (hermes-hype pitfall)."""
     hits = []
     for p in sources(KIT, (".js",)):
         hits += [f"{p.name}: {m}" for m in re.findall(r"type:\s*'bool',\s*default:\s*false", code(p))]

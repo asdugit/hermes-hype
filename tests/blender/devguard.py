@@ -1,8 +1,8 @@
 """Dev-machine etiquette for REAL Blender runs in tests and dev scripts (not shipped runtime code).
 
-* ``AUTEUR_DEV_BLENDER_LOCK``: path of a one-Blender-at-a-time lock file (O_EXCL create, "<who> <pid> <iso>").
-* ``AUTEUR_DEV_GPULOCK_DIR``: directory holding a ``gpulock.py`` exposing ``gpu(who)`` (the dev PC's GPU lock).
-* ``AUTEUR_DEV_MIN_FREE_GB``: free RAM required before starting Blender (default 3.5).
+* ``HYPE_DEV_BLENDER_LOCK``: path of a one-Blender-at-a-time lock file (O_EXCL create, "<who> <pid> <iso>").
+* ``HYPE_DEV_GPULOCK_DIR``: directory holding a ``gpulock.py`` exposing ``gpu(who)`` (the dev PC's GPU lock).
+* ``HYPE_DEV_MIN_FREE_GB``: free RAM required before starting Blender (default 3.5).
 All optional: unset = no extra locking (CI / other machines).
 """
 from __future__ import annotations
@@ -18,12 +18,12 @@ from pathlib import Path
 
 
 def min_free_gb() -> float:
-    return float(os.environ.get("AUTEUR_DEV_MIN_FREE_GB", "3.5"))
+    return float(os.environ.get("HYPE_DEV_MIN_FREE_GB", "3.5"))
 
 
 @contextlib.contextmanager
-def blender_lock(who: str = "auteur-A", poll_s: float = 0.5, stale_s: float = 3 * 3600) -> Iterator[None]:
-    path = os.environ.get("AUTEUR_DEV_BLENDER_LOCK")
+def blender_lock(who: str = "hype-A", poll_s: float = 0.5, stale_s: float = 3 * 3600) -> Iterator[None]:
+    path = os.environ.get("HYPE_DEV_BLENDER_LOCK")
     if not path:
         yield
         return
@@ -50,8 +50,8 @@ def blender_lock(who: str = "auteur-A", poll_s: float = 0.5, stale_s: float = 3 
 
 
 @contextlib.contextmanager
-def gpu_lock(who: str = "auteur-A") -> Iterator[None]:
-    d = os.environ.get("AUTEUR_DEV_GPULOCK_DIR")
+def gpu_lock(who: str = "hype-A") -> Iterator[None]:
+    d = os.environ.get("HYPE_DEV_GPULOCK_DIR")
     if not d:
         yield
         return
@@ -63,7 +63,7 @@ def gpu_lock(who: str = "auteur-A") -> Iterator[None]:
 
 
 @contextlib.contextmanager
-def dev_lock(who: str = "auteur-A") -> Iterator[None]:
+def dev_lock(who: str = "hype-A") -> Iterator[None]:
     """Both locks (Blender first, then the GPU) for one real Blender run."""
     with blender_lock(who), gpu_lock(who):
         yield

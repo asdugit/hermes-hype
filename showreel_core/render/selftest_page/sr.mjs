@@ -24,7 +24,7 @@ const CODE = [
   '        ffmpeg.write(page.capture())',
   '    return "out.mp4"',
 ];
-const TITLE = 'Auteur renderer selftest';
+const TITLE = 'Hype renderer selftest';
 title.innerHTML = [...TITLE].map((c) => `<span>${c === ' ' ? '&nbsp;' : c}</span>`).join('');
 const letters = [...title.children];
 

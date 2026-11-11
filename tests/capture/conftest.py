@@ -132,8 +132,8 @@ def has_browser() -> None:
 
 @contextlib.contextmanager
 def _slot() -> Iterator[None]:
-    """Honour the shared dev-machine render slots when AUTEUR_RENDER_SLOTS_DIR is set."""
-    root = os.environ.get("AUTEUR_RENDER_SLOTS_DIR")
+    """Honour the shared dev-machine render slots when HYPE_RENDER_SLOTS_DIR is set."""
+    root = os.environ.get("HYPE_RENDER_SLOTS_DIR")
     if not root:
         yield
         return

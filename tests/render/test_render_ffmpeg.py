@@ -44,7 +44,7 @@ def test_resolve_env_precedence(tmp_path):
     other = tmp_path / "other"
     other.write_bytes(b"")
     other.chmod(0o755)
-    info = ff.resolve_ffmpeg({"AUTEUR_FFMPEG": str(exe), "FFMPEG_PATH": str(other)},
+    info = ff.resolve_ffmpeg({"HYPE_FFMPEG": str(exe), "FFMPEG_PATH": str(other)},
                              pm_lookup=lambda n: None, which=lambda n: None)
     assert (info.path, info.source) == (str(exe), "env")
     info = ff.resolve_ffmpeg({"FFMPEG_PATH": str(other)}, pm_lookup=lambda n: None, which=lambda n: None)
@@ -53,7 +53,7 @@ def test_resolve_env_precedence(tmp_path):
 
 def test_resolve_bad_env():
     with pytest.raises(RenderError) as ei:
-        ff.resolve_ffmpeg({"AUTEUR_FFMPEG": "/does/not/exist"}, pm_lookup=lambda n: None, which=lambda n: None)
+        ff.resolve_ffmpeg({"HYPE_FFMPEG": "/does/not/exist"}, pm_lookup=lambda n: None, which=lambda n: None)
     assert ei.value.code == "bad_env_ffmpeg"
 
 

@@ -15,8 +15,8 @@ from .dsp import SR
 
 
 def ffmpeg() -> str:
-    """Resolve ffmpeg: $AUTEUR_FFMPEG / $FFMPEG_PATH, the Hermes-managed build, then PATH."""
-    for env in ("AUTEUR_FFMPEG", "FFMPEG_PATH"):
+    """Resolve ffmpeg: $HYPE_FFMPEG / $FFMPEG_PATH, the Hermes-managed build, then PATH."""
+    for env in ("HYPE_FFMPEG", "FFMPEG_PATH"):
         if os.environ.get(env):
             return os.environ[env]
     homes = [Path(os.environ["HERMES_HOME"])] if os.environ.get("HERMES_HOME") else []
@@ -27,7 +27,7 @@ def ffmpeg() -> str:
                 return str(cand)
     found = shutil.which("ffmpeg")
     if not found:
-        raise RuntimeError("ffmpeg not found (set AUTEUR_FFMPEG)")
+        raise RuntimeError("ffmpeg not found (set HYPE_FFMPEG)")
     return found
 
 

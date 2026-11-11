@@ -1,4 +1,4 @@
-"""Auteur Blender entry point (runs INSIDE Blender's Python).
+"""Hype Blender entry point (runs INSIDE Blender's Python).
 
     blender -b --factory-startup --python-exit-code 1 -P blender_kits/lib/entry.py -- <job.json>
 

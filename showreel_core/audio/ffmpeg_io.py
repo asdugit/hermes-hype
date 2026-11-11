@@ -28,7 +28,7 @@ def _resolve() -> tuple[str | None, str]:
 
 
 def find_ffmpeg() -> str | None:
-    """$AUTEUR_FFMPEG / $FFMPEG_PATH -> Hermes pm-managed ffmpeg -> PATH (``render.ffmpeg.resolve_ffmpeg``).
+    """$HYPE_FFMPEG / $FFMPEG_PATH -> Hermes pm-managed ffmpeg -> PATH (``render.ffmpeg.resolve_ffmpeg``).
 
     Never installs anything; ``None`` when nothing usable is found.
     """
@@ -40,7 +40,7 @@ def require_ffmpeg(ffmpeg: str | None = None) -> str:
         return ffmpeg
     exe, problem = _resolve()
     if not exe:
-        raise AudioError(f"ffmpeg not found: {problem or 'run `hermes pm install ffmpeg` or set AUTEUR_FFMPEG'}")
+        raise AudioError(f"ffmpeg not found: {problem or 'run `hermes pm install ffmpeg` or set HYPE_FFMPEG'}")
     return exe
 
 
