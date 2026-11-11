@@ -37,6 +37,7 @@ from .facts import (
     image_of,
     is_stub,
     looks_like_test_pass,
+    portrait_twin,
     terminal_ok,
 )
 from .rules import (
@@ -104,9 +105,10 @@ def solve_timeline(storyboard: Storyboard, events: list[Event], stats: Stats | N
     hb, bar = 2 * beat, 4 * beat
     target = max(bar, float(target_seconds or 60.0))
 
+    portrait = int(h) > int(w)
     plans: list[_Plan] = []
     for i, scene in enumerate(storyboard.scenes):
-        plan = _plan_scene(i, scene, storyboard, facts, voice_durations, beat, mode)
+        plan = _plan_scene(i, scene, storyboard, facts, voice_durations, beat, mode, portrait)
         if plan is not None:
             plans.append(plan)
     for p in plans:
@@ -139,9 +141,9 @@ def _r(x: float) -> float:
 
 
 def _plan_scene(i: int, scene: StoryScene, sb: Storyboard, facts: SessionFacts, voice: dict[int, float],
-                beat: float, mode: str) -> _Plan | None:
+                beat: float, mode: str, portrait: bool = False) -> _Plan | None:
     st = SceneType(scene.type)
-    data = resolve_scene_data(scene, sb, facts)
+    data = resolve_scene_data(scene, sb, facts, portrait=portrait)
     if data is None:
         return None
     lo, hi, _ = SCENE_RULES[st]
@@ -317,11 +319,21 @@ def _captions(vo: str, t0: float, dur: float) -> list[Caption]:
 
 # ---------------------------------------------------------------------- resolution
 
-def resolve_scene_data(scene: StoryScene, sb: Storyboard, facts: SessionFacts) -> dict[str, Any] | None:
-    """Verbatim content for a scene's template, or None when its refs cannot supply it."""
+def resolve_scene_data(scene: StoryScene, sb: Storyboard, facts: SessionFacts,
+                       portrait: bool = False) -> dict[str, Any] | None:
+    """Verbatim content for a scene's template, or None when its refs cannot supply it.
+
+    ``portrait`` (9:16 films): a landscape desktop capture is swapped for the phone capture of the same page
+    (HOOK, SCREEN, FEATURE, SCROLL); its focus box is then measured on the phone picture.
+    """
     st = SceneType(scene.type)
     ex = scene.extra or {}
     ev = facts.get(scene.refs[0]) if scene.refs else None
+    if portrait and ev is not None and st in (T.HOOK, T.SCREEN, T.FEATURE, T.SCROLL):
+        twin = portrait_twin(ev, facts.events)
+        if twin is not None:
+            ev = twin
+            ex = {k: v for k, v in ex.items() if k not in ("bbox", "click", "scroll")}
     if ev is not None and is_stub(ev) and st != T.MONTAGE:
         return None
     product = getattr(sb, "product", None)

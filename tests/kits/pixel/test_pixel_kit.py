@@ -108,6 +108,20 @@ def test_every_scene_renders(node_report):
     assert not node_report["errors"], node_report["errors"][:5]
 
 
+def test_quick_hook_opens_lit(node_report):
+    """Frame 0 is the film's thumbnail: qa/video.py warns below mean luma 16 (a real E2E pixel film had 10.2)."""
+    for size, luma in node_report["hookLuma"].items():
+        assert luma >= 24, (size, luma)
+
+
+def test_quick_title_press_start_clears_the_caption_band(node_report):
+    """With captions up, PRESS START blinks under the tagline, not on the caption line (real 9:16 E2E film)."""
+    for size, box in node_report["titlePress"].items():
+        assert box is not None, size
+        w, h = (int(v) for v in size.split("x"))
+        assert box["y1"] <= h * (0.68 if h > w else 0.76), (size, box)
+
+
 def test_palette_discipline(node_report):
     assert not node_report["offPalette"], node_report["offPalette"][:5]
 

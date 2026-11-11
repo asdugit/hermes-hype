@@ -53,4 +53,22 @@ for (const sc of SCENES) {
 // boss-battle schedule invariants
 const B = schedule(13, { attacks: [{ by: 'boss', kind: 'blade', dmg: [48, 52, 61] }], menu: ['FIGHT', 'ITEM', 'BUY', 'RUN'], pick: 'BUY', party: ['knight', 'mage', 'rogue'], timings: {} });
 results.schedule = { click: B.click, menuT: B.menuT, moves: B.moves, hits: B.hits.map(h => h.t), pickIdx: B.pickIdx };
+// frame 0 of a Quick film is its thumbnail: the HOOK opens lit (a real E2E film opened at mean luma 10)
+const lumaOf = (d) => { let s = 0; for (let i = 0; i < d.length; i += 4) s += 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2]; return s / (d.length / 4); };
+results.hookLuma = {};
+const hookScene = SCENES.find(s => s.id === 'kit:pixel/HOOK');
+for (const [w, h] of [[480, 270], [270, 480]]) {
+  const params = { data: DATA.HOOK, image: 'car' }, ctx = makeCtx(w, h, DUR, params);
+  hookScene.def.render(ctx, 0, params);
+  results.hookLuma[`${w}x${h}`] = +lumaOf(ctx.g.last.data).toFixed(1);
+}
+// Quick TITLE with captions up: PRESS START blinks above the caption band (it sat on the caption line in 9:16)
+results.titlePress = {};
+const titleScene = SCENES.find(s => s.id === 'kit:pixel/TITLE');
+for (const [w, h] of [[480, 270], [270, 480]]) {
+  const params = { data: DATA.TITLE, media: 'car', _captions: true }, ctx = makeCtx(w, h, DUR, params);
+  let box = null;
+  for (const t of [1.65, 1.7, 1.8, 2.0, 2.4, 2.6]) { ctx.qaBoxes.length = 0; titleScene.def.render(ctx, t, params); box = ctx.qaBoxes.find(b => /PRESS START/.test(b.text)) || box; }
+  results.titlePress[`${w}x${h}`] = box ? { y1: box.y + box.h, h } : null;
+}
 console.log(JSON.stringify(results));

@@ -10,7 +10,7 @@ import { WORLDS } from './../bg/worlds.js';
 import { heroFrames, idleCel, HERO_ANCHOR } from './../art/heroes.js';
 import { monster } from './../art/monsters.js';
 import { item } from './../art/items.js';
-import { sparkle, burst, fade } from './../art/fx.js';
+import { sparkle, burst, fade, flash } from './../art/fx.js';
 import { productSprite } from './../art/product.js';
 import { win, dialog, ribbon, title as bigTitle, CURSOR, CURSOR_PRESS } from './../ui/ui.js';
 import { questLog, tally, codeWindow, pictureWindow } from './../ui/panels.js';
@@ -43,13 +43,14 @@ function cropView(a, [cx, cy, cw, ch]) {
 
 const T = {};
 
-// HOOK — power-on line, the product artifact appears on a pedestal with a sting
+// HOOK — the product artifact on a pedestal with a sting; a CRT power-on line sweeps over the lit scene.
+// Frame 0 is the film's thumbnail, so the scene is lit from the first frame (it opened on a black screen with a
+// thin line: mean luma 10 in a real E2E film) and the HOOK skips the generic fade-in.
 T.HOOK = (ctx, S, t, P, sy) => {
   const I = insets(ctx), V = isVertical(ctx), cx = ctx.w / 2;
   S.fill('ink');
-  const on = seg(t, 0.05, 0.35);
-  if (on < 1) { const w = Math.round(ctx.w * ease.outCubic(on)); S.rect(cx - w / 2, ctx.h / 2 - 1, w, 2, 'white'); return; }
-  bg(S, P, t); S.remap(REMAP.fade[1]);
+  const on = seg(t, 0.0, 0.3);
+  bg(S, P, t); if (on >= 1) S.remap(REMAP.fade[1]);
   const a = imgAsset(ctx, P) || assetOf(ctx, P.media);
   const pw = V ? 220 : 280, ph = V ? 140 : 150, sp = a ? (a.cutout ? productSprite(ctx, a.cutout, { w: pw, h: ph, t, fit: 'contain', outline: 'ink' }) : shot(ctx, a, pw, ph, t)) : item('star').scaled(4);
   const y = Math.round(ctx.h / 2 - sp.h / 2 - (V ? 20 : 8) + Math.sin(t * 3) * 1.5);
@@ -58,6 +59,10 @@ T.HOOK = (ctx, S, t, P, sy) => {
   if ((Math.floor(t * 3) & 1)) sparkle(S, cx + sp.w * 0.45, y + 8, 1);
   const label = P.data?.label || P.data?.hero?.page_title || '';
   if (label && t > 0.7) sy(fit(String(label), I.R - I.L, 'caps'), cx, Math.min(I.B - 14, y + sp.h + 12), { font: 'caps', color: 'gold', outline: 'ink', diag: true, align: 'center' });
+  if (on < 1) { // power-on: a white scanline opens across the screen over a brief lighter flash
+    flash(S, 'lighter', 0.5 * (1 - on));
+    const w = Math.round(ctx.w * ease.outCubic(on)); S.rect(cx - w / 2, ctx.h / 2 - 1, w, 2, 'white');
+  }
 };
 T.HOOK.cues = () => [cue(0.05, 'power_up'), cue(0.4, 'item_get')];
 
@@ -233,13 +238,13 @@ T.END.cues = () => [cue(0.2, 'level_up')];
 function makeQuick(type) {
   if (type === 'TITLE') {
     return { id: 'kit:pixel/TITLE', def: { ...titleScreen.def, describe: 'Quick TITLE: title screen fed by TimelineScene.data {title, tagline, product, one_liner}.', params: { ...BASE_P },
-      render: (ctx, t, p) => { const d = (p && p.data) || {}; titleScreen.def.render(ctx, t, { title: d.title || d.product, tagline: d.tagline || d.one_liner, media: p?.media || null, world: p?.world || 'overworld' }); },
+      render: (ctx, t, p) => { const d = (p && p.data) || {}; titleScreen.def.render(ctx, t, { title: d.title || d.product, tagline: d.tagline || d.one_liner, media: p?.media || null, world: p?.world || 'overworld', _captions: !!p?._captions }); },
       cues: (ctx, p) => titleScreen.def.cues(ctx, {}) } };
   }
   const fn = T[type];
   return { id: `kit:pixel/${type}`, def: {
     layer: '2d', describe: `Quick ${type} in the pixel style (TimelineScene.data shape from wp-e-story §2).`, params: BASE_P,
-    render(ctx, t, p) { const P = withDefaults(BASE_P, p), S = screenOf(ctx), tq = step(t, 30); S.fill('ink'); fn(ctx, S, tq, P, sayer(ctx, S)); fadeIn(S, tq); present(ctx, S); },
+    render(ctx, t, p) { const P = withDefaults(BASE_P, p), S = screenOf(ctx), tq = step(t, 30); S.fill('ink'); fn(ctx, S, tq, P, sayer(ctx, S)); if (type !== 'HOOK') fadeIn(S, tq); present(ctx, S); },
     cues: fn.cues ? (ctx, p) => fn.cues(ctx, withDefaults(BASE_P, p)) : undefined,
   } };
 }

@@ -173,6 +173,21 @@ class WebResult:
         return d
 
 
+#: Element crops thinner than this (CSS px) and wider than STRIP_RATIO x their height are strips, not features.
+STRIP_MAX_H = 120.0
+STRIP_RATIO = 5.0
+
+
+def strip_crop(w: float, h: float) -> bool:
+    """True for an element box that would film as a thin band (real E2E: a 1000x20 footer sentence matched
+    the feature "Stats" and its SCREEN beat was an empty dark frame)."""
+    try:
+        w, h = float(w), float(h)
+    except (TypeError, ValueError):
+        return False
+    return h < STRIP_MAX_H and w > STRIP_RATIO * max(h, 1.0)
+
+
 def slug(text: str, n: int = 32) -> str:
     """Filesystem-safe ASCII slug + crc32 suffix (stable, collision-resistant)."""
     s = re.sub(r"[^A-Za-z0-9]+", "-", text).strip("-").lower()[:n].strip("-") or "x"
@@ -377,10 +392,14 @@ class _WebJob:
         x1 = min(float(r["doc_w"]), r["x"] + r["w"] + pad)
         y1 = min(float(r["doc_h"]), r["y"] + r["h"] + pad, y0 + self.plan.element_max_h_screens * r["vh"])
         cw, ch = max(8.0, x1 - x0), max(8.0, y1 - y0)
+        label = (q.label if q else "") or hit.get("label") or f"element {i}"
+        if strip_crop(r["w"], r["h"]):
+            # a one-line strip (a footer sentence, a bare heading row) films as an empty dark band
+            self.r.misses.append(f"{label} (only a {r['w']:.0f}x{r['h']:.0f} strip matched)")
+            return
         beyond = ch > r["vh"] or cw > r["vw"]
         data = await page.shot(clip={"x": x0, "y": y0, "width": cw, "height": ch, "scale": self.plan.element_scale},
                                beyond=beyond)
-        label = (q.label if q else "") or hit.get("label") or f"element {i}"
         self.save(f"element_{i:02d}_{slug(label, 24)}.png", data, kind="element", viewport=(page.w, page.h),
                   dpr=self.plan.element_scale, label=label, selector=(q.selector if q and q.selector else sel),
                   query=(q.text if q else ""), bbox=[round(r["x"], 1), round(r["y"], 1), round(r["w"], 1),

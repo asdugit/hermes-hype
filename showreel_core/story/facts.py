@@ -293,11 +293,45 @@ def image_of(ev: Event) -> dict[str, Any] | None:
         path = str(data.get("path") or "")
     if not path:
         return None
+    # the picture's own pixel size first: an element crop's viewport (1440x900) is not its shape (2096x626)
+    size = data.get("size") if isinstance(data.get("size"), (list, tuple)) and len(data["size"]) == 2 else None
     viewport = data.get("viewport") if isinstance(data.get("viewport"), (list, tuple)) else None
-    w = data.get("w") or (viewport[0] if viewport and len(viewport) == 2 else None)
-    h = data.get("h") or (viewport[1] if viewport and len(viewport) == 2 else None)
+    w = data.get("w") or (size[0] if size else None) or (viewport[0] if viewport and len(viewport) == 2 else None)
+    h = data.get("h") or (size[1] if size else None) or (viewport[1] if viewport and len(viewport) == 2 else None)
     return {"path": path, "w": w, "h": h, "url": data.get("url") or "", "full_page": bool(data.get("full_page")),
             "page_title": data.get("page_title") or "", "source_kind": ev.kind}
+
+
+#: desktop capture kind -> its phone twin (the capture stage shoots both of every page)
+_PORTRAIT_TWIN = {"viewport": "mobile", "full": "mobile_full"}
+
+
+def portrait_twin(ev: Event, events: list[Event]) -> Event | None:
+    """The phone capture of the same page as a landscape desktop picture ``ev`` (for 9:16 films), or None.
+
+    Real E2E: a 9:16 film showed 1440x900 desktop captures tiny in the tall frame while a 390x844 capture
+    of the same page existed. Element crops and pictures that are already upright keep their own picture.
+    """
+    data = ev.data or {}
+    url = str(data.get("url") or "").rstrip("/")
+    img = image_of(ev)
+    if not url or img is None:
+        return None
+    w, h = img.get("w") or 0, img.get("h") or 0
+    if ev.kind == "product_capture":
+        want = _PORTRAIT_TWIN.get(str(data.get("kind") or ""))
+    elif ev.kind == "screenshot" and w and h and w > h * 1.2:
+        want = "mobile"
+    else:
+        want = None
+    if want is None:
+        return None
+    for other in events:
+        od = other.data or {}
+        if (other.kind == "product_capture" and other.ok and od.get("kind") == want
+                and str(od.get("url") or "").rstrip("/") == url and image_of(other) is not None):
+            return other
+    return None
 
 
 def code_lines(ev: Event) -> list[str]:

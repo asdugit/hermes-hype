@@ -24,7 +24,9 @@ const solid = (c) => c && c !== 'transparent' && !/rgba\([^)]*,\s*0(\.0+)?\)$/.t
 const boxy = (el) => {
   const tag = el.tagName.toLowerCase();
   if (['article', 'li', 'figure', 'form', 'aside', 'dialog', 'fieldset', 'details', 'table', 'pre'].includes(tag)) return true;
-  if (/(^|[\s_-])(card|feature|tile|panel|box|item|widget|module|pricing|plan|step|benefit)s?([\s_-]|$)/i.test(cls(el))) return true;
+  // BEM element classes (card__head, feature__icon) are parts of a card, not the card itself
+  const blocks = cls(el).split(/\s+/).filter(c => c && !c.includes('__')).join(' ');
+  if (/(^|[\s_-])(card|feature|tile|panel|box|item|widget|module|pricing|plan|step|benefit)s?([\s_-]|$)/i.test(blocks)) return true;
   const cs = getComputedStyle(el);
   const bg = cs.backgroundColor, pbg = el.parentElement ? getComputedStyle(el.parentElement).backgroundColor : '';
   if (solid(bg) && bg !== pbg) return true;
@@ -44,10 +46,36 @@ const expand = (el, maxArea) => {
   }
   return el;
 };
+const REGION = 'section,article,aside,form,figure,fieldset,[role=region],[role=group],main > div';
+const slugOf = (s) => norm(s).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 const byText = (q) => {
   const nq = norm(q); if (!nq) return null;
   let best = null, bestScore = -1e9, n = 0;
+  const offer = (el, score) => { if (el && vis(el) && score > bestScore) { best = el; bestScore = score; } };
+  // a region NAMED by the query: aria-labelledby/aria-label, or a visually hidden (sr-only) heading inside it
+  for (const el of document.querySelectorAll('[aria-labelledby],[aria-label]')) {
+    const ids = (el.getAttribute('aria-labelledby') || '').split(/\s+/).filter(Boolean);
+    const name = norm(ids.map(id => (document.getElementById(id) || {}).textContent || '').join(' ')
+      || el.getAttribute('aria-label') || '');
+    if (name === nq && !/^(BUTTON|A|INPUT|SPAN|SVG)$/i.test(el.tagName)) offer(el, 5);
+  }
+  for (const h of document.querySelectorAll('h1,h2,h3,h4,h5,h6,legend')) {
+    if (norm(h.textContent) !== nq || vis(h)) continue;
+    offer(h.closest(REGION), 4.5);
+  }
+  // a block whose id or class names the feature (section.stats, #pricing)
+  const sl = slugOf(q);
+  if (sl.length >= 3) {
+    for (const el of document.querySelectorAll(`[id],[class]`)) {
+      if (++n > 6000) break;
+      const tokens = [el.id, ...cls(el).split(/\s+/)].map(x => (x || '').toLowerCase());
+      if (tokens.includes(sl) && boxy(el)) offer(el, 2.5);
+    }
+  }
+  n = 0;
   const tags = 'h1,h2,h3,h4,h5,h6,button,a,label,summary,th,dt,strong,b,p,li,span,div,figcaption,legend,td';
+  const word = (t) => { for (let k = t.indexOf(nq); k >= 0; k = t.indexOf(nq, k + 1)) {
+    if (!/[a-z0-9]/.test(t[k - 1] || ' ') && !/[a-z0-9]/.test(t[k + nq.length] || ' ')) return true; } return false; };
   for (const el of document.querySelectorAll(tags)) {
     if (++n > 6000) break;
     const raw = el.textContent || '';
@@ -56,10 +84,12 @@ const byText = (q) => {
     if (!t.includes(nq)) continue;
     const exact = t === nq ? 3 : (t.startsWith(nq) ? 1.5 : 0);
     const kind = /^H[1-6]$/.test(el.tagName) ? 2 : (['BUTTON', 'A', 'LABEL', 'SUMMARY', 'DT', 'TH', 'STRONG', 'B'].includes(el.tagName) ? 1 : 0);
-    const score = exact + kind - Math.min(2, t.length / 200);
+    // the word inside a longer sentence ("your tasks and stats stay in this browser") is a mention, not the feature
+    const mention = !exact && (t.length > nq.length * 3 + 24 || !word(t)) ? 1.5 : 0;
+    const score = exact + kind - Math.min(2, t.length / 200) - mention;
     if (score > bestScore) { best = el; bestScore = score; }
   }
-  return best;
+  return bestScore >= 0 ? best : null;
 };
 let counter = 0;
 const mark = (el) => { if (!el.dataset.srCap) el.dataset.srCap = String(++counter); return `[data-sr-cap="${el.dataset.srCap}"]`; };

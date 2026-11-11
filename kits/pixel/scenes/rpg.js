@@ -83,8 +83,13 @@ function titleRender(ctx, t, p) {
     lines.forEach((ln, i) => { const k = Math.max(0, Math.min(ln.length, left)); left -= ln.length + 1; if (k) sy(ln, ctx.w / 2, y + i * 14, { font: 'mono', color: 'white', outline: 'ink', diag: true, align: 'center', chars: k }); });
     y += lines.length * 14 + 4;
   }
-  const art = productArt(ctx, P, V ? 236 : 240, V ? 132 : 100, tq);
+  // captions own the bottom band (Quick `_captions`): the prompt blinks under the tagline instead of under the
+  // podium, where it sat on the caption line (real 9:16 E2E film)
+  const pressHigh = !!P._captions && !!P.press;
+  if (pressHigh) { if (tq > 1.6) pressStart(S, ctx.w / 2, y + 2, tq - 1.6, { text: P.press, say: sy, period: 0.9 }); y += 16; }
   const groundY = V ? I.B - 70 : I.B - 46;
+  // the product fits between the text block and the podium (it used to be pushed down over the podium)
+  const art = productArt(ctx, P, V ? 236 : 240, Math.max(40, Math.min(V ? 132 : 100, groundY - y - 4)), tq);
   podium(S, ctx.w / 2, groundY, V ? 92 : 112);
   if (art) {
     const bb = art.bounds() || { x: 0, y: 0, w: art.w, h: art.h };
@@ -95,7 +100,7 @@ function titleRender(ctx, t, p) {
   } else {
     (P.party || []).slice(0, 3).forEach((id, i) => { const x = ctx.w / 2 + (i - 1) * 26; S.blit(idleCel(id, tq, i * 0.5), x - HERO_ANCHOR.x, groundY - HERO_ANCHOR.y); });
   }
-  if (P.press && tq > 1.6) pressStart(S, ctx.w / 2, groundY + (V ? 30 : 20), tq - 1.6, { text: P.press, say: sy, period: 0.9 });
+  if (P.press && !pressHigh && tq > 1.6) pressStart(S, ctx.w / 2, groundY + (V ? 30 : 20), tq - 1.6, { text: P.press, say: sy, period: 0.9 });
   if (P.footer) sy(fit(P.footer, I.R - I.L, 'tiny'), ctx.w / 2, I.B - 11, { font: 'tiny', color: 'silver', align: 'center', shadow: [1, 1, 'ink'] });
   fade(S, 4 - Math.floor(seg(tq, 0, 0.4) * 4.999));
   present(ctx, S);
