@@ -103,6 +103,16 @@ def test_disk_full_detection() -> None:
     assert not disk_full(OSError(errno.EACCES, "denied")) and not disk_full(ValueError("x")) and not disk_full(None)
 
 
+def test_odd_product_brief_values_never_fail_the_film(env: dict[str, Any]) -> None:
+    """hype_render's product brief comes from a model: a number or an object where a list belongs must not end
+    the film with "TypeError: 'int' object is not iterable"."""
+    store = env["store"]
+    opts = Options(seconds=30, brief={"name": "Orbit", "features": 3, "url": {"local": "x"}, "urls": 7.5})
+    final = run_job(store.create("sess-1", opts.normalised().to_dict())["id"], _host(), store=store,
+                    deps=make_deps(Recorder()))
+    assert final["stage"] == "done", final.get("error")
+
+
 def test_music_only_film_status_does_not_say_captions_only(env: dict[str, Any]) -> None:
     """The default film is music-only; its status line said 'captions only' during the voice stage."""
     store = env["store"]

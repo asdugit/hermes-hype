@@ -965,7 +965,7 @@ def _merge_brief(bundle: Any, brief: dict[str, Any]) -> None:
             setattr(prod, key, str(brief[key])[:120])
     for key, attr in (("url", "urls"), ("urls", "urls"), ("features", "features"), ("run_commands", "run_commands")):
         val = brief.get(key)
-        items = [val] if isinstance(val, str) else list(val or [])
+        items = [val] if isinstance(val, (str, int, float)) else list(val) if isinstance(val, (list, tuple)) else []
         cur = list(getattr(prod, attr) or [])
         setattr(prod, attr, list(dict.fromkeys([str(v) for v in items if v] + cur))[:6 if attr == "features" else 8])
     with contextlib.suppress(AttributeError):
