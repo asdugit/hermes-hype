@@ -25,6 +25,9 @@ First public release, built for the Nous Research Hermes Agent plugin hackathon.
   voice_speed, title, tagline, cta, product, logo (a corner bug), captions, transitions, length, aspect and
   language. They work as `key=value` in `/showreel`, as the tool's `knobs`, as `hermes showreel render --set`,
   from the Desktop knobs row, and as defaults in the `customize` setting. Unknown keys get a friendly list.
+- `energy=high` keeps the requested length: it cuts the dead air after each line and spends it on more shots
+  (cut-ins of the product) and product holds; the narration is never sped up. *Playful* requests spring the type
+  (theme `motion: bouncy`) and bring the candy palette.
 - Free-text customization of a named preset (`/showreel launch pink and playful with a punchier ending`): a
   keyword reader (no model) plus one small model call over the preset's own film. The reply is parsed tolerantly,
   validated and repaired: params must be declared by the scene, facts are never rewritten, TITLE and END stay.
@@ -57,7 +60,8 @@ First public release, built for the Nous Research Hermes Agent plugin hackathon.
   the film falls back to the browser engine and says so.
 - Preset films map their product shots to Blender scenes (`device/*` for screens, `studio/*` for 3D models);
   Directed films can use those plus the meadow oner. Rendered shots are cached by content, so a revision
-  re-renders only what changed.
+  re-renders only what changed. In 9:16 the devices are phones showing the phone capture, and the title words sit
+  in the top band above the device.
 
 **Everywhere in Hermes**
 - `/showreel` in Desktop, the TUI, the CLI and messaging. In messaging the finished video is sent back to the

@@ -33,7 +33,7 @@ them directly, and the Director receives them as hints (`options.hints.customize
 | `bg=` / `text=` | colours | stage background / type colour |
 | `font=` | a family from the kits' OFL set: Geist, Instrument Serif, Bangers, Comic Neue, Space Mono, Fraunces, Inter, Caveat, JetBrains Mono, IBM Plex Mono, VT323, Space Grotesk, Cormorant Garamond, Silkscreen; or a mood (`comic`, `handwritten`, `serif`, `retro`, `pixel`) | display type (the font file is loaded from its kit) |
 | `music=` | a bed id (`launch_a`, `comic_b`, `pixel_boss_b`, ...), a bed family (`comic`), a title (`Kapow!`) or a mood (`playful warm uplifting dreamy calm dark moody epic tense upbeat hype chiptune synthwave hacker mechanical funk ...`), or `none` | the music bed (any family, bar-fitted to the film) |
-| `energy=` | `calm`, `normal` or `high` | narration pace (×0.93 / ×1.08 on top of the style's pace), dead air after the narration (high trims holds longer than 1 s), transition length (high ×0.6, calm ×1.4 and soft cuts), the music tempo (the style family's slowest or fastest bed) and the vignette |
+| `energy=` | `calm`, `normal` or `high` | pacing at the same length: high cuts the dead air after each line and spends it on more shots (a closer cut-in of the product capture after the product beats) and longer product holds, shortens transitions (×0.6) and asks the storyboard for short punchy lines; calm slows the narration (×0.93) with soft, longer transitions (×1.4). The narration is never sped up. Also the music tempo (the style family's slowest or fastest bed) and the vignette |
 | `narration=` | `on` or `off` | `off` makes the film captions-only |
 | `voice=` | `whisper warm deep bright playful serious`, or an Edge voice name | Hermes `text_to_speech` `instructions` on voice-design backends; on Edge, pitch and volume nudges. A voice *name* only works where the provider accepts it. Hermes picks its voice from `tts.<provider>.voice` |
 | `voice_speed=` | `0.5` to `2.0` | the narration pace multiplier (wins over energy) |
@@ -62,7 +62,8 @@ them directly, and the Director receives them as hints (`options.hints.customize
 1. **Before the storyboard.** The request goes to the storyboard writer as a tone and wording note (facts stay
    facts). The *keyword reader* also turns the request's own words into a spec, with no model: colours and
    palettes, faster or slower, music moods, whispered or warm narration, captions, "punchier ending", a quoted
-   title. Narration pace and voice come from this reader plus the knobs, because they are recorded before the film
+   title, and *playful* (bouncy, fun, cute...): the theme's `motion: bouncy` makes every type entrance spring past
+   its place and settle, and without a named palette the candy palette comes with it. Narration pace and voice come from this reader plus the knobs, because they are recorded before the film
    exists.
 2. **On the preset's Quick film.** One small LLM call gets the shot list (ids, types, kit scene and the words on
    screen), the declared params of exactly those kit scenes (from KIT.md and kit.js), and the closed vocabularies.
