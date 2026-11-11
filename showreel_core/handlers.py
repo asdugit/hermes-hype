@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import logging
+import sys
 import threading
 import time
 from pathlib import Path
@@ -596,15 +597,17 @@ def cli(ctx: Any, args: Any) -> int:
                        f"`hermes hype status {bid}` or cancel it with /hype cancel, then run this again.",
                  status="busy", job_id=bid)
         return 1
+    # With --json, stdout carries only the final JSON object; progress and notes go to stderr.
+    chat = sys.stderr if args.json else sys.stdout
     for note in notes:
-        print(f"note: {note}", flush=True)
-    print(f"hype {job['id']}: {describe(opts)} (session {sid})", flush=True)
+        print(f"note: {note}", file=chat, flush=True)
+    print(f"hype {job['id']}: {describe(opts)} (session {sid})", file=chat, flush=True)
 
     class _Echo:
         ok = True
 
         def edit(self, text: str) -> None:
-            print(text, flush=True)
+            print(text, file=chat, flush=True)
 
     from .pipeline import run_job
     t0 = time.monotonic()

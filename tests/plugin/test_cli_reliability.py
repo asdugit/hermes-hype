@@ -71,9 +71,10 @@ def test_out_of_range_seconds_are_clamped_with_a_note(env: dict[str, Any], capsy
 
 def test_json_run_carries_the_notes(env: dict[str, Any], capsys: pytest.CaptureFixture[str]) -> None:
     assert handlers.cli(FakeCtx(), _args("--seconds", "9999", "--json")) == 0
-    text = capsys.readouterr().out
-    payload = json.loads(text[text.index("{\n"):])
+    cap = capsys.readouterr()
+    payload = json.loads(cap.out)                           # stdout is exactly one JSON object
     assert payload["notes"] == ["length 9999 s is outside 15-180 s; using 180 s"]
+    assert "note: length 9999" in cap.err                   # progress and notes go to stderr
 
 
 def test_cli_refuses_a_second_film_of_a_session_that_is_rendering(env: dict[str, Any],
