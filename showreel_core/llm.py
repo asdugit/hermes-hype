@@ -228,6 +228,54 @@ def _json_mode_refused(exc: BaseException) -> bool:
         k in msg for k in ("schema", "response_format", "output_config", "json"))
 
 
+#: How long a provider's JSON-mode refusal is remembered on disk (CLI renders are one process per film).
+REFUSAL_TTL_S = 7 * 86400.0
+
+
+def _route_file() -> Any:
+    try:
+        from .jobs import data_root
+        return data_root() / "llm_route.json"
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _model_key() -> str:
+    try:
+        from .director.tiers import host_model
+        return host_model() or "default"
+    except Exception:  # noqa: BLE001
+        return "default"
+
+
+def refusal_remembered() -> bool:
+    """True when this install's main model refused JSON mode within ``REFUSAL_TTL_S`` (any process)."""
+    path = _route_file()
+    try:
+        data = json.loads(path.read_text(encoding="utf-8")) if path is not None and path.is_file() else {}
+        when = float((data.get("json_mode_refused") or {}).get(_model_key()) or 0)
+    except (OSError, ValueError, TypeError, AttributeError):
+        return False
+    return 0 < time.time() - when < REFUSAL_TTL_S
+
+
+def remember_refusal() -> None:
+    """Persist a JSON-mode refusal for the main model (never raises)."""
+    path = _route_file()
+    if path is None:
+        return
+    try:
+        data = json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {}
+        if not isinstance(data, dict):
+            data = {}
+        data.setdefault("json_mode_refused", {})[_model_key()] = time.time()
+        tmp = path.with_suffix(".tmp")
+        tmp.write_text(json.dumps(data), encoding="utf-8")
+        tmp.replace(path)
+    except Exception as exc:  # noqa: BLE001 - only an optimisation
+        log.debug("hype: could not remember the JSON-mode refusal: %s", exc)
+
+
 class JsonModeLlm:
     """``ctx.llm`` proxy for JSON replies that works on every provider: the schema goes into the prompt as text.
 
@@ -240,6 +288,8 @@ class JsonModeLlm:
 
     #: Set once a provider refused JSON mode: later calls in this process go straight to plain text.
     plain_only = False
+    #: The on-disk memory of a refusal (``llm_route.json``) was read in this process.
+    _disk_checked = False
 
     def __init__(self, llm: Any, *, tally: CallTally | None = None, stop: Callable[[], bool] | None = None) -> None:
         self._llm = llm
@@ -265,6 +315,10 @@ class JsonModeLlm:
             head += "\n\nReply with ONE JSON object that follows this JSON schema:\n" + text
         kwargs["instructions"] = head + ("\n\nReply with only that JSON object: no prose before or after it, "
                                          "no markdown fences.")
+        if not JsonModeLlm.plain_only and not JsonModeLlm._disk_checked:
+            JsonModeLlm._disk_checked = True
+            if refusal_remembered():            # an earlier process (CLI renders run one per film) saw the refusal
+                JsonModeLlm.plain_only = True
         if not JsonModeLlm.plain_only:
             try:
                 return self._call(**kwargs, json_mode=True)
@@ -272,6 +326,7 @@ class JsonModeLlm:
                 if not _json_mode_refused(exc):
                     raise
                 JsonModeLlm.plain_only = True
+                remember_refusal()
                 log.info("hype: the model route refused JSON mode (%s); using plain-text JSON replies", exc)
         return self._call(**kwargs)
 

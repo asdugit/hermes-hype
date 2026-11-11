@@ -36,8 +36,10 @@ ANTHROPIC_400 = BadRequestError("Error code: 400 - {'type': 'error', 'error': {'
 
 
 @pytest.fixture(autouse=True)
-def _fresh_route(monkeypatch: pytest.MonkeyPatch) -> None:
+def _fresh_route(monkeypatch: pytest.MonkeyPatch, tmp_path: Any) -> None:
     monkeypatch.setattr(JsonModeLlm, "plain_only", False)
+    monkeypatch.setattr(JsonModeLlm, "_disk_checked", False)
+    monkeypatch.setenv("HYPE_DATA_DIR", str(tmp_path / "data"))   # the refusal memory file stays in the test
 
 
 SCHEMA = {"type": "object", "properties": {"title": {"type": "string"}}, "required": ["title"]}
@@ -73,6 +75,19 @@ def test_a_refused_json_mode_falls_back_to_plain_text_for_the_rest_of_the_proces
     call(instructions="I", input_text="again", json_schema=SCHEMA, schema_name="sb", temperature=0.4,
          max_tokens=100, timeout=10)
     assert inner.calls[-1].get("json_mode") is None and len(inner.calls) == 3   # no second refused call
+
+
+def test_a_refusal_is_remembered_by_the_next_process(monkeypatch: pytest.MonkeyPatch) -> None:
+    """GAUNTLET #21: every `hermes hype render` (one process per film) paid a refused JSON-mode round trip first."""
+    reply = SimpleNamespace(text='{"title": "Tempo"}', parsed=None, content_type="text")
+    first = RecordingLlm(reply, refuse_json=ANTHROPIC_400)
+    JsonModeLlm(first).complete_structured(instructions="I", input=[], json_schema=SCHEMA)
+    assert [c.get("json_mode") for c in first.calls] == [True, None]
+    monkeypatch.setattr(JsonModeLlm, "plain_only", False)          # a new process
+    monkeypatch.setattr(JsonModeLlm, "_disk_checked", False)
+    second = RecordingLlm(reply, refuse_json=ANTHROPIC_400)
+    JsonModeLlm(second).complete_structured(instructions="I", input=[], json_schema=SCHEMA)
+    assert [c.get("json_mode") for c in second.calls] == [None]    # straight to plain text, no wasted call
 
 
 def test_other_errors_are_not_swallowed() -> None:
