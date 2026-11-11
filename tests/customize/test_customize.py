@@ -557,3 +557,16 @@ def test_model_params_with_wrong_types_or_nan_never_reach_the_film(style):
     bbox = shot["params"].get("bbox")
     assert bbox is None or isinstance(bbox, list)
     assert any("dropped params" in n for n in notes) or "bbox" not in json.dumps(res["spec"])
+
+
+@pytest.mark.parametrize("text", ["neon colours on a light background", "noir, white background",
+                                  "sunset palette with a bright background"])
+def test_palette_text_stays_readable_on_a_background_from_elsewhere(text):
+    """Audit 2026-11-11: a dark palette's near-white text kept on a light stage from the same request made every
+    word on screen invisible (contrast ~1.0)."""
+    spec, _ = S.validate(S.keywords(text, [], style="launch"), [], style="launch")
+    tokens = TH.resolve({}, spec.get("theme"))
+    assert V.contrast(tokens["bg"], tokens["text"]) >= 4.5, tokens
+    knob_tokens = TH.resolve({"bg": "#FFFFFF"}, {"palette": "neon"})          # knob bg + a palette from free text
+    assert V.contrast(knob_tokens["bg"], knob_tokens["text"]) >= 4.5
+    assert TH.resolve({"bg": "#FFFFFF", "text": "#EEEEEE"}, {})["text"] == "#EEEEEE"   # an explicit choice is kept

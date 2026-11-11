@@ -25,16 +25,19 @@ SEMANTIC = ("accent", "accent2", "accent3", "bg", "text", "font", "body_font")
 def resolve(knobs: dict[str, Any] | None, spec_theme: dict[str, Any] | None = None) -> dict[str, str]:
     """Semantic tokens from knobs (palette first, then explicit colours) and an LLM spec theme (knobs win)."""
     tokens: dict[str, str] = {}
+    explicit_text = False
     for src in (spec_theme or {}, knobs or {}):
         pal = src.get("palette")
         if isinstance(pal, str):
             pal = V.palette(pal)
         if isinstance(pal, dict):
             tokens.update({k: v for k, v in pal.items() if k in SEMANTIC and V.colour(v)})
+            explicit_text = explicit_text and "text" not in pal
         for k in ("accent", "accent2", "accent3", "bg", "text"):
             c = V.colour(src.get(k))
             if c:
                 tokens[k] = c
+                explicit_text = explicit_text or k == "text"
         for k in ("font", "body_font"):
             f = V.font(src.get(k)) if src.get(k) else ""
             if f:
@@ -42,6 +45,10 @@ def resolve(knobs: dict[str, Any] | None, spec_theme: dict[str, Any] | None = No
         if str(src.get("motion") or "") in ("bouncy", "smooth"):
             tokens["motion"] = str(src["motion"])
     if "bg" in tokens and "text" not in tokens:
+        tokens["text"] = "#F4F3EF" if V.lum(tokens["bg"]) < 0.35 else "#16151A"
+    elif "bg" in tokens and not explicit_text and V.contrast(tokens["bg"], tokens["text"]) < 3.0:
+        # a palette's text colour on a background from elsewhere ("neon colours on a light background"):
+        # near-white type on a near-white stage would vanish
         tokens["text"] = "#F4F3EF" if V.lum(tokens["bg"]) < 0.35 else "#16151A"
     return tokens
 
