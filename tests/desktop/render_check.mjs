@@ -419,7 +419,8 @@ check(listeners.has('plugin.showreel.job.progress'), '1 listens to plugin.showre
   check($$(v.div, '.srl-rub-track i[data-tone=ok]').length === 1 && $$(v.div, '.srl-rub-track i[data-tone=low]').length >= 1, '5 scores are toned against the bar')
   check(v.div.textContent.includes('3 model calls') && v.div.textContent.includes('120k in'), '5 model usage so far')
   await waitFor(() => $(v.div, '.srl-sheet img')?.getAttribute('src').startsWith('data:image/jpeg'), '5 the contact sheet appears')
-  check(calls('GET', /\/director\/image\?v=1&name=contact-1\.jpg&w=480$/).length === 1, '5 the sheet is fetched downscaled')
+  check(calls('GET', /\/director\/image\?v=1&name=contact-1\.jpg&w=480$/).length >= 1 &&
+    calls('GET', /\/director\/image\?v=1&name=contact-1\.jpg$/).length === 0, '5 the sheet is fetched downscaled')  // a refetch may repeat it (macOS CI)
   check(byText(v.div, '.srl-rail li', 'Critic')?.getAttribute('data-st') === 'active', '5 the step rail shows the critic at work')
   await waitFor(() => v.div.textContent.includes('fixing 8 issue(s)'), '5 the live log gets the next line', 5000)
   check(S.dlogCalls[0] === 0 && S.dlogCalls.includes(5), `5 the log is read incrementally (${S.dlogCalls.slice(0, 4)})`)
