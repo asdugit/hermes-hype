@@ -50,3 +50,20 @@ def test_mood_film_focuses_the_game_canvas_and_uses_distinct_pictures(tmp_path: 
     assert by["exhibit"]["params"]["bbox"][0] > 0.2                       # pushed onto the canvas
     assert by["feature1"]["params"]["image"]["asset"] == "e3_shot"        # the gameplay picture, not the page again
     assert by["feature1"]["params"]["image"]["frame"] == "card"
+
+
+def test_feature_labels_describe_the_picture_under_them(tmp_path: Path) -> None:
+    """Streaks: features 'Weekly completions' (no capture), 'Your habits' (a strip), 'New habit' (a button crop) -
+    the film captioned the New habit button 'Weekly completions'. Labels now match their pictures."""
+    def asset(name, w, h, frame):
+        path = _img(tmp_path / f"{name}.png", None, size=(w, h))
+        return MediaAsset(name, "image", path, w, h, thumbnail=path, frame=frame)
+    from showreel_core.contracts import Product as ProductFacts
+    assets = [asset("desktop_1920x1080", 1920, 1080, "browser"), asset("full_1440", 1440, 2400, "browser"),
+              asset("element_02_your_habits_e", 1400, 120, "card"), asset("element_03_new_habit_ed5", 600, 300, "card"),
+              asset("element_04_drink_water_0", 900, 400, "card")]
+    b = Brief(direction="a nature documentary", assets=assets, seconds=30.0,
+              product=ProductFacts(name="Streaks", features=["Weekly completions", "Your habits", "New habit"]))
+    v = compose.facts(b)
+    assert (v["feature1"], v["asset2"]) == ("New habit", "element_03_new_habit_ed5")
+    assert (v["feature2"], v["asset3"]) == ("Drink water", "element_04_drink_water_0")

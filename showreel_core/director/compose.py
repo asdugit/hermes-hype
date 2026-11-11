@@ -604,21 +604,40 @@ def facts(brief: Brief, pick: dict[str, Any] | None = None) -> dict[str, str]:
     def page_shot(n: str) -> bool:                   # another viewport of the same page as the hero capture
         return n.lower().startswith(("desktop", "full", "page", "poster"))
 
-    def feat_asset(i: int) -> str:
+    def match(f: str) -> str:
+        words = re.findall(r"[a-z]{4,}", f.lower())
+        return next((s for s in good if words and any(w[:6] in s.lower() for w in words)), "")
+
+    def crop_label(n: str) -> str:
+        """'element_04_drink_water_0' -> 'Drink water' (the capture's own element label; '' when truncated)."""
+        m = re.match(r"element_\d+_(.+)_([0-9a-f]{1,4})$", n)
+        return m.group(1).replace("_", " ").strip().capitalize() if m else ""
+
+    def feature_pairs() -> list[tuple[str, str]]:
+        """Two (label, picture) feature slots where the label describes the picture under it: features whose
+        capture was found first; then other pictures (distinct ones before the hero page at another viewport) with
+        an unmatched feature name only over a whole page (it contains everything) - an element crop of something
+        else gets its own label or none. A real film captioned a 'New habit' button 'Weekly completions'."""
         if not good:
-            return main
-        f = (feats[i] if i < len(feats) else "").lower()
-        words = [w for w in re.findall(r"[a-z]{4,}", f)]
-        for s in good:
-            if words and any(w[:6] in s.lower() for w in words):
-                return s
-        rest = [s for s in good[1:] if "mobile" not in s.lower()] or good
-        # distinct pictures first (a gameplay screenshot, an element crop) before the hero page at another size:
-        # Brickfall's two "features" were its title page at 1440 and at full height - three shots of one picture
-        distinct = [s for s in rest if not page_shot(s)] if good and page_shot(good[0]) else []
-        if distinct:
-            rest = distinct + [s for s in rest if s not in distinct]
-        return rest[min(i, len(rest) - 1)]
+            return [(fit_words(f, 5), main) for f in feats[:2]] + [("", main)] * max(0, 2 - len(feats))
+        out: list[tuple[str, str]] = []
+        for f in feats:
+            m = match(f)
+            if m and m not in {a for _l, a in out}:
+                out.append((fit_words(f, 5), m))
+            if len(out) == 2:
+                return out
+        used = {a for _l, a in out}
+        rest = [s for s in good[1:] if "mobile" not in s.lower() and s not in used] or                [s for s in good if s not in used] or good
+        if page_shot(good[0]):
+            rest = [s for s in rest if not page_shot(s)] + [s for s in rest if page_shot(s)]
+        spare = [fit_words(f, 5) for f in feats if not match(f)]
+        while len(out) < 2:
+            pic = rest[min(len(out) - len(used), len(rest) - 1)] if rest else main
+            lab = (spare.pop(0) if spare else "") if page_shot(pic) else crop_label(pic)
+            out.append((lab, pic))
+        return out
+    pairs = feature_pairs()
     # no tagline known -> none (the floor film's "Made to be wanted." was generic filler on a stranger's product)
     tagline = str(pick.get("tagline") or "") or (fit_words(one, 8) if one else "")
     paint = _paint_tone(product_color(brief)) if _model_asset(brief) else ""
@@ -627,9 +646,8 @@ def facts(brief: Brief, pick: dict[str, Any] | None = None) -> dict[str, str]:
         "product": main, "name": name, "NAME": name.upper()[:14], "tagline": tagline,
         "one_liner": one or tagline, "cta": str(pick.get("cta") or "") or ("Try it today" if screens else "Make it yours"),
         # no known feature -> no label (filler like "Built to delight" read as placeholder text on real films)
-        "feature1": fit_words(feats[0], 5) if feats else "",
-        "feature2": fit_words(feats[1], 5) if len(feats) > 1 else "",
-        "asset1": screens[0] if screens else main, "asset2": feat_asset(0), "asset3": feat_asset(1),
+        "feature1": pairs[0][0], "feature2": pairs[1][0],
+        "asset1": screens[0] if screens else main, "asset2": pairs[0][1], "asset3": pairs[1][1],
         "url": url, "accent": str(pick.get("accent") or paint or "#E8384A"),
         "time": str(pick.get("time") or "golden"), "model": _model_asset(brief), "paint": paint,
     }
