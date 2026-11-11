@@ -9,8 +9,8 @@ from . import _common as cm
 PARAMS = {
     "model": {"type": "asset", "default": None,
               "doc": "3D model asset name or path; default = the job product (2D media -> exact-colour card)"},
-    "env": {"type": "enum", "values": ["studio", "light", "sunset", "accent"], "default": "accent",
-            "doc": "stage preset (accent = dark cyc pooled in the product accent colour)"},
+    "env": {"type": "enum", "values": ["studio", "light", "sunset", "accent", "noir"], "default": "accent",
+            "doc": "stage preset (accent = dark cyc pooled in the product accent colour; noir = night: one hard spot key, venetian-blind light through haze, wet mirror floor)"},
     "accent": {"type": "color", "default": None, "doc": "accent colour (default: warm red)"},
     "height": {"type": "float", "default": 0.32, "min": 0.05, "max": 1.5,
                "doc": "hover height as a fraction of the product height (its shadow on the floor sells the float)"},
@@ -22,6 +22,8 @@ PARAMS = {
             "doc": "hover bob amplitude (fraction of product height)"},
     "wheel_rps": {"type": "float", "default": 0.6, "min": -5.0, "max": 5.0, "doc": "wheel spin when detected"},
     "fill": {"type": "float", "default": 0.66, "min": 0.3, "max": 0.98, "doc": "product size in frame"},
+    "haze": {"type": "float", "default": 1.0, "min": 0.0, "max": 2.5,
+             "doc": "env=noir: smoke/haze density (beams visible); 0 = clear air"},
     "view": {"type": "enum", "values": ["agx", "standard", "filmic"], "default": "agx", "doc": "tone mapping"},
     "paint": {"type": "color", "default": None,
               "doc": "recolour the body paint (largest non-glass material), e.g. '#b5121b'; default keeps the model's"},
@@ -53,7 +55,8 @@ def build(sc) -> None:
         w_fit *= 0.62
     dist = studio.fit_distance(w_fit, (H + lift) * 1.2, lens, s.aspect, p["fill"])
     studio.stage(s, preset=p["env"], center=tuple(c), radius=r, accent=str(p.get("accent") or "#ff4d2e"),
-                 floor="matte", key_side=-1.0 if p["yaw"] <= 0 else 1.0, cam_dist=dist)
+                 floor="matte", key_side=-1.0 if p["yaw"] <= 0 else 1.0, cam_dist=dist,
+                 haze=float(p.get("haze") or 0.0))
     for f in s.frames():
         t = s.t(f)
         u = studio.ease(t / D, "inout", 0.4)

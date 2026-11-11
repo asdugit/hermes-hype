@@ -428,6 +428,10 @@ PRESETS = {
                "key": "#ffb070", "rim": "#8fb0ff", "top": "#ffd2b0", "key_e": 1.0, "rim_e": 1.1, "top_e": 0.3},
     "accent": {"cyc": "#0b0b0e", "glow": "@accent", "glow_e": 0.55, "rough": 0.22, "world": "#040406",
                "key": "#fff4ea", "rim": "#ffffff", "top": "#ffffff", "key_e": 1.0, "rim_e": 0.9, "top_e": 0.4},
+    # film noir at night: black stage, ONE hard spot key, a cold rim, venetian-blind light on the wall through
+    # haze, a wet (puddled) mirror floor; see _noir()
+    "noir": {"cyc": "#060607", "glow": "#3a4150", "glow_e": 0.05, "rough": 0.04, "world": "#000000",
+             "key": "#f6f1e6", "rim": "#a9bddc", "top": "#ffffff", "key_e": 1.0, "rim_e": 0.6, "top_e": 0.0},
 }
 
 
@@ -540,7 +544,7 @@ def backdrop_material(name: str, base: str, glow: str, strength: float, *, rough
 
 def stage(s: Shot, *, preset: str = "studio", center: Vec3 = (0, 0, 0), radius: float = 0.3,
           accent: str = "#7c3aed", floor: str = "reflective", cyc: bool = True, key_side: float = -1.0,
-          sweep: bool = False, cam_dist: float | None = None) -> Stage:
+          sweep: bool = False, cam_dist: float | None = None, haze: float = 1.0) -> Stage:
     """Build a product stage scaled to the subject (``radius`` = bounding radius in metres).
 
     - Cyc with an emissive radial GLOW behind the subject (preset colour / the product accent), glossy floor
@@ -554,6 +558,8 @@ def stage(s: Shot, *, preset: str = "studio", center: Vec3 = (0, 0, 0), radius: 
     from . import materials
 
     pr = dict(PRESETS.get(preset, PRESETS["studio"]))
+    if preset == "noir":
+        floor = "reflective"                    # noir is a wet night: the floor always mirrors
     for k, v in list(pr.items()):
         if v == "@accent":
             pr[k] = accent
@@ -591,10 +597,12 @@ def stage(s: Shot, *, preset: str = "studio", center: Vec3 = (0, 0, 0), radius: 
                      (cx, cy, cz + r * 5.0), (cx, cy, cz), spec=0.25, spread_deg=60),
     }
     cd = max(cam_dist or r * 3.0, r * 2.0)
+    noir = preset == "noir"
     card("sr_card_front", (r * 7.0, r * 3.0), (cx + ks * r * 0.8, cy - cd * 1.35, cz + max(r * 3.5, cd * 0.9)),
-         (cx, cy, cz), strength=1.6 if preset != "light" else 2.4)
-    card("sr_card_low", (r * 8.0, r * 1.2), (cx - ks * r * 1.0, cy - cd * 1.6, cz + cd * 0.25), (cx, cy, cz),
-         strength=0.7)
+         (cx, cy, cz), strength=(1.6 if preset != "light" else 2.4) * (0.35 if noir else 1.0))
+    if not noir:
+        card("sr_card_low", (r * 8.0, r * 1.2), (cx - ks * r * 1.0, cy - cd * 1.6, cz + cd * 0.25), (cx, cy, cz),
+             strength=0.7)
     sweep_ob = None
     if sweep:
         sweep_ob = _area("sr_sweep", (r * 0.18, r * 6.0), "#ffffff", 0.0, (cx - r * 4, cy - r * 2.2, cz + r * 2.4),
@@ -603,8 +611,123 @@ def stage(s: Shot, *, preset: str = "studio", center: Vec3 = (0, 0, 0), radius: 
     if cyc_ob is not None:   # rims + sweep light the subject only: on the glossy floor they were huge white streaks
         exclude_receivers([lights["rim_l"], lights["rim_r"], lights["top"]] + ([sweep_ob] if sweep_ob else []),
                           [cyc_ob])
+    if noir:
+        _noir(lights, world, cyc_ob, center=(cx, cy, cz), r=r, e2=e2, ks=ks, haze=haze)
     energies = {k: ob.data.energy for k, ob in lights.items()}
     return Stage(lights=lights, energies=energies, world=world, world_strength=1.0, cyc=cyc_ob, sweep=sweep_ob)
+
+
+def _spot(name: str, color: str, energy: float, loc: Vec3, target: Vec3, size_deg: float, blend: float,
+          radius: float) -> bpy.types.Object:
+    from . import materials
+
+    ld = bpy.data.lights.new(name, "SPOT")
+    ld.color = materials.hex_rgb(color)
+    ld.energy = energy
+    ld.spot_size = math.radians(size_deg)
+    ld.spot_blend = blend
+    _try(ld, "shadow_soft_size", radius)
+    _try(ld, "use_shadow", True)
+    _try(ld, "volume_factor", 1.0)
+    ob = bpy.data.objects.new(name, ld)
+    bpy.context.scene.collection.objects.link(ob)
+    ob.location = loc
+    ob.rotation_euler = (Vector(target) - Vector(loc)).to_track_quat("-Z", "Y").to_euler()
+    return ob
+
+
+def _noir(lights: dict, world: Any, cyc_ob: Any, *, center: Vec3, r: float, e2: float, ks: float,
+          haze: float = 1.0) -> None:
+    """Film-noir night: the soft key + top fill go; ONE hard spot key from high on the key side pools light on a
+    wet floor; one cold rim from the far side; a narrow spot through venetian-blind slats throws striped light on
+    the wall behind (and across the subject); a uniform haze makes the beams visible; the floor's roughness is
+    puddled (mirror-wet patches)."""
+    from . import materials
+
+    cx, cy, cz = center
+    for k in ("key", "top"):
+        ob = lights.pop(k, None)
+        if ob is not None:
+            bpy.data.objects.remove(ob, do_unlink=True)
+    near = "rim_l" if ks < 0 else "rim_r"           # the rim on the key's side would flatten the silhouette
+    if near in lights:
+        lights[near].data.energy *= 0.15
+    for ob in lights.values():                      # only the key and the blinds may light the haze (a sweep
+        _try(ob.data, "volume_factor", 0.0)         # strip scattering in it fogged the whole frame grey)
+    lights["key"] = _spot("sr_key", "#f6f1e6", 1200 * e2, (cx + ks * r * 2.0, cy - r * 2.4, cz + r * 5.4),
+                          (cx, cy + r * 0.25, cz), 36.0, 0.32, r * 0.02)
+    # venetian blinds: a narrow spot from the far side, high and ahead, aimed at the wall behind the subject
+    wall = (cx - ks * r * 0.8, cy + r * 10.6, cz + r * 3.4)
+    bl = (cx - ks * r * 5.5, cy - r * 3.2, cz + r * 6.8)
+    blinds = _spot("sr_blinds", "#e8e2d6", 2600 * e2, bl, wall, 22.0, 0.08, r * 0.003)
+    lights["blinds"] = blinds
+    piv = bpy.data.objects.new("sr_blinds_frame", None)
+    bpy.context.scene.collection.objects.link(piv)
+    piv.location = bl
+    piv.rotation_euler = blinds.rotation_euler.copy()
+    for i in range(-7, 8):
+        bpy.ops.mesh.primitive_cube_add(size=1.0)
+        sl = bpy.context.object
+        sl.name = f"sr_slat_{i + 7:02d}"
+        sl.parent = piv
+        sl.location = (0.0, i * r * 0.055, -r * 1.0)
+        sl.scale = (r * 0.9, r * 0.024, r * 0.004)
+        for attr in ("visible_camera", "visible_glossy", "visible_diffuse", "visible_transmission"):
+            _try(sl, attr, False)
+    # haze: a uniform world volume (optical depth ~0.25 across the stage) so the cones read
+    nt = world.node_tree
+    vol = nt.nodes.new("ShaderNodeVolumePrincipled")
+    vol.inputs["Density"].default_value = 0.021 * max(0.0, haze) / max(r, 0.05)
+    _try(vol.inputs["Anisotropy"], "default_value", 0.35)
+    out = next((n for n in nt.nodes if n.type == "OUTPUT_WORLD"), None)
+    if out is not None and haze > 0:
+        nt.links.new(vol.outputs["Volume"], out.inputs["Volume"])
+    ee = bpy.context.scene.eevee
+    _try(ee, "use_volumetric_shadows", True)
+    _try(ee, "volumetric_shadow_samples", 32)
+    _try(ee, "volumetric_end", r * 60.0)
+    _try(ee, "volumetric_tile_size", "4")
+    # wet floor: roughness puddled by noise (mirror patches next to damp asphalt)
+    if cyc_ob is not None and cyc_ob.data.materials:
+        mat = cyc_ob.data.materials[0]
+        nodes, links = mat.node_tree.nodes, mat.node_tree.links
+        b = nodes.get("Principled BSDF")
+        tc = nodes.new("ShaderNodeTexCoord")
+        nz = nodes.new("ShaderNodeTexNoise")
+        nz.inputs["Scale"].default_value = 0.55 / max(r, 0.05)
+        nz.inputs["Detail"].default_value = 4.0
+        links.new(tc.outputs["Object"], nz.inputs["Vector"])
+        mr = nodes.new("ShaderNodeMapRange")
+        mr.inputs["From Min"].default_value = 0.46
+        mr.inputs["From Max"].default_value = 0.56
+        mr.inputs["To Min"].default_value = 0.02
+        mr.inputs["To Max"].default_value = 0.38
+        links.new(nz.outputs["Fac"], mr.inputs["Value"])
+        # the cove and wall are matte grey plaster (the blinds' stripes need something to land on), the floor
+        # stays black and wet: blend by height
+        sep = nodes.new("ShaderNodeSeparateXYZ")
+        links.new(tc.outputs["Object"], sep.inputs[0])
+        wz = nodes.new("ShaderNodeMapRange")
+        wz.inputs["From Min"].default_value = r * 0.35
+        wz.inputs["From Max"].default_value = r * 1.8
+        links.new(sep.outputs["Z"], wz.inputs["Value"])
+
+        def mix(kind: str, a: Any, bb: Any) -> Any:
+            mx = nodes.new("ShaderNodeMix")
+            mx.data_type = kind
+            ins = {i.identifier: i for i in mx.inputs}
+            outs = {o.identifier: o for o in mx.outputs}
+            links.new(wz.outputs["Result"], ins["Factor_Float"])
+            suf = "Color" if kind == "RGBA" else "Float"
+            for key, val in (("A", a), ("B", bb)):
+                if hasattr(val, "is_linked"):
+                    links.new(val, ins[f"{key}_{suf}"])
+                else:
+                    ins[f"{key}_{suf}"].default_value = val
+            return outs[f"Result_{suf}"]
+        links.new(mix("FLOAT", mr.outputs["Result"], 0.85), b.inputs["Roughness"])
+        links.new(mix("RGBA", (*materials.hex_rgb("#050506"), 1.0), (*materials.hex_rgb("#4a4a4c"), 1.0)),
+                  b.inputs["Base Color"])
 
 
 def exclude_receivers(light_obs: Sequence[Any], objs: Sequence[Any], name: str = "sr_ll_exclude") -> bool:

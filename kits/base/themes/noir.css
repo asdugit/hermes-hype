@@ -1,0 +1,28 @@
+/* Starter theme "noir" (CSS only): typewriter type (Courier Prime) in warm off-white on black, wide tracking,
+   no panels' gloss: the Director's noir mood puts every kit:type title / lower third / end lockup in it. */
+.sr-theme-noir {
+  --sr-stage: #050505;
+  --sr-stage-bg: radial-gradient(110% 90% at 50% 45%, #0d0d0d 0%, #060606 60%, #020202 100%);
+  --sr-grid: rgba(255,255,255,0);
+  --sr-fg: #EEE8DC; --sr-fg-2: #B8B2A6; --sr-fg-3: #7D786F;
+  --sr-accent: #C8102E; --sr-accent-ink: #F7F2E8; --sr-accent-hl: rgba(200,16,46,.18); --sr-accent-glow: rgba(200,16,46,0);
+  --sr-paper: #0B0B0B; --sr-paper-2: #121212; --sr-rule: rgba(238,232,220,.22);
+  --sr-ink: #EEE8DC; --sr-ink-2: #B8B2A6; --sr-ink-3: #7D786F; --sr-tone: #C8102E;
+  --sr-term: #050505; --sr-term-2: #0c0c0c; --sr-term-rule: rgba(238,232,220,.18); --sr-term-ink: #EEE8DC; --sr-term-dim: #8A857C;
+  --sr-del-hl: rgba(200,16,46,.12); --sr-fail: #C8102E;
+  --sr-plate: rgba(5,5,5,.88); --sr-plate-ink: #EEE8DC;
+  --sr-scrim-rgb: 0 0 0;
+  --sr-f-sans: "Courier Prime", "Courier New", monospace; --sr-f-display: "Courier Prime", "Courier New", monospace;
+  --sr-f-em: "Courier Prime", "Courier New", monospace; --sr-f-mono: "Courier Prime", "Courier New", monospace;
+  --sr-w-display: 700; --sr-track-display: 0.04em; --sr-lead-display: 1.0; --sr-case-display: uppercase;
+  --sr-w-h1: 700; --sr-track-h1: 0.03em;
+  --sr-em-style: normal; --sr-em-weight: 700; --sr-em-scale: 1; --sr-em-track: 0.03em;
+  --sr-r-panel: 0px; --sr-r-card: 0px; --sr-r-pill: 0px;
+  --sr-panel-edge: 0 0 0 1px rgba(238,232,220,.25);
+  --sr-panel-shadow: 0 30px 60px -20px rgba(0,0,0,.8);
+  --sr-term-edge: 0 0 0 1px rgba(238,232,220,.25);
+  --sr-sheen: none;
+  --sr-vignette: radial-gradient(ellipse 78% 72% at 50% 46%, transparent 45%, rgba(0,0,0,.75) 100%);
+}
+.sr-theme-noir .srb-h1, .sr-theme-noir .srb-display { letter-spacing: 0.03em !important; text-transform: uppercase; }
+.sr-theme-noir .srb-em { color: var(--sr-fg); }

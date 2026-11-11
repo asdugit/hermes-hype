@@ -17,6 +17,7 @@ Every random source is seeded (``noise`` gets an explicit seed; its default -1 i
 """
 from __future__ import annotations
 
+import math
 import zlib
 from collections.abc import Mapping
 from dataclasses import dataclass, field
@@ -38,8 +39,12 @@ DEFAULTS: dict[str, dict[str, Any]] = {
     # mono 0..1 desaturation; hold = "#hex" keeps that one colour while the rest goes to black and white (noir);
     # contrast 1 = unchanged (S-curve); tint = "#hex" multiplied in at tint_amount; shift = px of red/blue
     # misregistration (VHS chroma bleed); wobble = px of horizontal tracking sway; smear = horizontal-only blur sigma
-    # (tape softness); band = opacity of the head-switching noise band along the bottom (VHS); rain 0..1 (noir)
-    "grade": {"mono": 0.0, "hold": None, "hold_similarity": 0.22, "hold_blend": 0.12, "contrast": 1.0,
+    # (tape softness); band = opacity of the head-switching noise band along the bottom (VHS); rain 0..1 (noir).
+    # hold_mode "hue" (default) keeps only pixels within +-hold_width degrees of the held colour's hue AND with real
+    # chroma (a car's red survives, pink/yellow/orange flowers and skin go grey); "rgb" = ffmpeg colorhold by RGB
+    # distance (hold_similarity/hold_blend), which kept pink and yellow flowers next to a warm red in a real film
+    "grade": {"mono": 0.0, "hold": None, "hold_mode": "hue", "hold_width": 12.0, "hold_similarity": 0.22,
+              "hold_blend": 0.12, "saturation": 1.0, "contrast": 1.0,
               "tint": None, "tint_amount": 0.0, "shift": 0, "wobble": 0, "rain": 0.0, "smear": 0.0, "band": 0.0},
 }
 
@@ -51,7 +56,7 @@ REQUIRED_FILTERS: dict[str, tuple[str, ...]] = {
     "crt": ("split", "gblur", "blend", "loop", "lenscorrection"),
     "bloom": ("split", "lutrgb", "gblur", "blend"),
     "grade": ("colorchannelmixer", "curves", "colorhold", "rgbashift", "crop", "overlay", "loop", "gblur",
-              "drawbox"),
+              "drawbox", "extractplanes", "lut2", "maskedmerge"),
 }
 
 
@@ -297,10 +302,44 @@ def build_post(spec: str | None, *, in_size: tuple[int, int], out_size: tuple[in
     return PostChain(spec or "none", g.text(), tuple(extra), tuple(dict.fromkeys(required)))
 
 
+def hue_mask_expr(hold: str, width_deg: float = 12.0, soft_deg: float = 6.0, chroma_floor: float = 24.0,
+                  chroma_soft: float = 14.0) -> str:
+    """lut2 expression over (x = Cb, y = Cr) -> 0..255: 255 within +-``width_deg`` of ``hold``'s hue angle in the
+    Cb/Cr plane (soft edge ``soft_deg``) AND with chroma above ``chroma_floor`` (so pale pinks and greys never
+    count). BT.601 limited-range coefficients, like the RGB->YUV conversion in front of it."""
+    r, g, b = _hex(hold)
+    du = (-37.797 * r - 74.203 * g + 112.0 * b) / 255.0
+    dv = (112.0 * r - 93.786 * g - 18.214 * b) / 255.0
+    a = math.atan2(dv, du)
+    w, sf = math.radians(width_deg), math.radians(max(1.0, soft_deg))
+    ang = rf"abs(atan2(y-128\,x-128)-({a:.4f}))"
+    d = rf"min({ang}\,2*PI-{ang})"
+    return (rf"255*clip(({w:.4f}-{d})/{sf:.4f}\,0\,1)"
+            rf"*clip((hypot(x-128\,y-128)-{chroma_floor:g})/{chroma_soft:g}\,0\,1)")
+
+
+def _hold_hue(g: _Graph, hold: str, width_deg: float) -> None:
+    """Black and white except ONE hue: a Cb/Cr hue-window mask (lut2 = a 256x256 table, cheap at 1080p) merges
+    the colour frame over its own luma-grey copy."""
+    src = g.flush()
+    o, m, k, u, v, mo, mk = (g.label() for _ in range(7))
+    g.parts.append(f"[{src}]split=3[{o}][{m}][{k}]")
+    lum = (0.299, 0.587, 0.114)
+    rows = [f"{ch}{c}={lum[j]:.4f}" for ch in "rgb" for j, c in enumerate("rgb")]
+    g.parts.append(f"[{m}]colorchannelmixer={':'.join(rows)}[{mo}]")
+    g.parts.append(f"[{k}]format=yuv444p,extractplanes=u+v[{u}][{v}]")
+    g.parts.append(f"[{u}][{v}]lut2=c0='{hue_mask_expr(hold, width_deg)}',format=gbrp[{mk}]")
+    out = g.label()
+    g.parts.append(f"[{mo}][{o}][{mk}]maskedmerge[{out}]")
+    g.cur = out
+
+
 def _grade(g: _Graph, p: Mapping[str, Any], ow: int, oh: int) -> None:
     """The mood grade at output size, in planar RGB (every filter here supports gbrp)."""
     hold = p.get("hold")
-    if hold:
+    if hold and str(p.get("hold_mode") or "hue") == "hue":
+        _hold_hue(g, str(hold), float(p.get("hold_width") or 12.0))
+    elif hold:
         r, gg, b = _hex(str(hold))
         g.add(f"colorhold=color=0x{r:02x}{gg:02x}{b:02x}:similarity={float(p['hold_similarity']):g}"
               f":blend={float(p['hold_blend']):g}")
@@ -311,6 +350,12 @@ def _grade(g: _Graph, p: Mapping[str, Any], ow: int, oh: int) -> None:
         rows = []
         for i, ch in enumerate("rgb"):
             rows += [f"{ch}{c}={(k if i == j else 0.0) + mono * lum[j]:.4f}" for j, c in enumerate("rgb")]
+        g.add("colorchannelmixer=" + ":".join(rows))
+    sat = float(p.get("saturation") or 1.0)       # > 1 = punchier colour (anime), < 1 = muted
+    if abs(sat - 1.0) > 1e-3:
+        lum = (0.299, 0.587, 0.114)
+        rows = [f"{ch}{c}={(sat if i == j else 0.0) + (1.0 - sat) * lum[j]:.4f}"
+                for i, ch in enumerate("rgb") for j, c in enumerate("rgb")]
         g.add("colorchannelmixer=" + ":".join(rows))
     c = float(p.get("contrast") or 1.0)
     if abs(c - 1.0) > 1e-3:

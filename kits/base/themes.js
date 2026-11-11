@@ -4,8 +4,10 @@ import terminal from './themes/terminal.css' with { type: 'css' };
 import blueprint from './themes/blueprint.css' with { type: 'css' };
 import comic from './themes/comic.css' with { type: 'css' };
 import ink from './themes/ink.css' with { type: 'css' };
+import noir from './themes/noir.css' with { type: 'css' };
 import { registerTheme } from './dom.js';
 
 const text = (sheet) => Array.from(sheet.cssRules, (r) => r.cssText).join('\n');
-export const STARTER_THEMES = { terminal: text(terminal), blueprint: text(blueprint), comic: text(comic), ink: text(ink) };
+export const STARTER_THEMES = { terminal: text(terminal), blueprint: text(blueprint), comic: text(comic), ink: text(ink),
+  noir: text(noir) };
 for (const [name, css] of Object.entries(STARTER_THEMES)) registerTheme(name, css);

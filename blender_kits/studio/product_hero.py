@@ -15,8 +15,8 @@ PARAMS = {
     "move": {"type": "enum", "values": ["orbit", "dolly", "turntable", "macro"], "default": "orbit",
              "doc": "orbit = slow eased arc; dolly = straight push-in; turntable = product turns, camera nearly "
                     "still; macro = close detail pass along the surface with shallow focus"},
-    "env": {"type": "enum", "values": ["studio", "light", "sunset", "accent"], "default": "studio",
-            "doc": "stage preset: dark graphite cyc | bright white | warm sunset | cyc pooled in the accent colour"},
+    "env": {"type": "enum", "values": ["studio", "light", "sunset", "accent", "noir"], "default": "studio",
+            "doc": "stage preset: dark graphite cyc | bright white | warm sunset | cyc pooled in the accent colour | noir = night: one hard spot key, venetian-blind light through haze, wet mirror floor"},
     "accent": {"type": "color", "default": None, "doc": "accent colour for env=accent"},
     "floor": {"type": "enum", "values": ["reflective", "matte"], "default": "reflective",
               "doc": "glossy floor with a soft reflection, or matte"},
@@ -37,6 +37,8 @@ PARAMS = {
                  "doc": "exposure (EV); the default keeps saturated paints deep under AgX (at 0 a red washed to salmon)"},
     "clearcoat": {"type": "enum", "values": ["auto", "on", "off"], "default": "auto",
                   "doc": "add a clear coat to the body paint (auto: vehicles, i.e. wheels detected)"},
+    "haze": {"type": "float", "default": 1.0, "min": 0.0, "max": 2.5,
+             "doc": "env=noir: smoke/haze density (beams visible); 0 = clear air"},
     "view": {"type": "enum", "values": ["agx", "standard", "filmic"], "default": "agx",
              "doc": "tone mapping: agx (soft highlight roll-off, best for 3D) | standard (exact colours)"},
     "size_m": {"type": "float", "default": None, "doc": "force the product's largest dimension (m); default keeps "
@@ -65,7 +67,7 @@ def build(sc) -> None:
     dist = studio.fit_distance(w_fit, h_fit, lens, s.aspect, p["fill"])
     st = studio.stage(s, preset=p["env"], center=tuple(c), radius=r, accent=str(p.get("accent") or "#ff5a3c"),
                       floor=p["floor"], sweep=bool(p["reveal"]), key_side=-1.0 if p["yaw"] <= 0 else 1.0,
-                      cam_dist=dist)
+                      cam_dist=dist, haze=float(p.get("haze") or 0.0))
     if p["reveal"]:
         # starts ahead of the cut: frame 1 already shows the rim-lit silhouette (a film never opens on black)
         studio.animate_reveal(s, st, t0=-min(1.2, D * 0.15), t1=D * 0.55, from_level=0.12)

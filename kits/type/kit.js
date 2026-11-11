@@ -36,6 +36,23 @@ function scrimLayer(F, amount, shape = 'center') {
 }
 
 // ------------------------------------------------------------------------------------- title
+/** Typewriter line: letters appear one by one behind a caret; the untyped rest keeps its layout (invisible). */
+function typeLine(text, dur) {
+  const el = h('div', 'srb-h1');
+  const shown = h('span'), caret = h('span'), rest = h('span');
+  rest.style.visibility = 'hidden';
+  caret.textContent = '_';
+  el.append(shown, caret, rest);
+  const cps = Math.max(10, Math.min(22, text.length / Math.max(0.6, Math.min(1.6, dur * 0.4))));
+  const o = outAt(dur);
+  return { el, update(t) {
+    const n = Math.max(0, Math.min(text.length, Math.floor((t - 0.12) * cps)));
+    if (shown.textContent !== text.slice(0, n)) { shown.textContent = text.slice(0, n); rest.textContent = text.slice(n); }
+    caret.style.opacity = (n < text.length || Math.floor(t * 2.2) % 2 === 0) && t < o ? '1' : '0';
+    el.style.opacity = (1 - seg(t, o, o + 0.3)).toFixed(3);
+  } };
+}
+
 defineDomScene('kit:type/title', {
   kind: 'type-title',
   describe: 'Kinetic title card over the picture: optional eyebrow, a big line (one emphasis word), optional sub line.',
@@ -48,6 +65,7 @@ defineDomScene('kit:type/title', {
     band: { type: 'string', default: '', doc: "'' = centred | top | bottom: the text sits in that band (the picture keeps the rest)" },
     emphasis: { type: 'any', default: 'auto', doc: "'auto' (last long word), word index, or -1 for none" },
     size: { type: 'int', default: 0, doc: 'font px at 1080p (0 = fit)' },
+    reveal: { type: 'string', default: '', doc: "'' = kinetic rise | 'type' = typewriter: the main line types on letter by letter (~16/s) behind a caret (noir)" },
     ...SCRIM,
   },
   build(ctx, p, F) {
@@ -66,7 +84,8 @@ defineDomScene('kit:type/title', {
     const fs = p.size || fitSize(p.text, maxW, 2, L ? 120 : 150, 64, 0.5);
     const eb = p.eyebrow ? h('div', 'srb-eyebrow', null, [h('i'), String(p.eyebrow)]) : null;
     if (eb) eb.style.fontSize = '26px';
-    const line = kineticLine(String(p.text || ''), { className: 'srb-h1', emphasis: p.emphasis });
+    const line = p.reveal === 'type' ? typeLine(String(p.text || ''), dur)
+      : kineticLine(String(p.text || ''), { className: 'srb-h1', emphasis: p.emphasis });
     line.el.style.cssText = `font-size:${fs}px;max-width:${maxW}px;letter-spacing:-0.04em;line-height:1.02;text-shadow:0 6px 40px rgba(0,0,0,.45);`;
     const sub = p.sub ? kineticLine(String(p.sub), { className: 'srb-h1 srb-soft', emphasis: -1 }) : null;
     if (sub) sub.el.style.cssText = `font-size:${Math.round(Math.max(40, fs * 0.38))}px;margin-top:${Math.round(fs * 0.3)}px;max-width:${maxW}px;`;
