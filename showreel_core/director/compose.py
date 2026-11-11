@@ -403,10 +403,10 @@ def _mood_blueprints() -> list[Blueprint]:
              "params": {"text": "<a 3-6 word typed line: the detective's first clue about the product>",
                         "reveal": "type", "scrim": 0.0, **theme_n}, "beat": "a typed clue on black"},
             {"id": "feature1", "share": (0.41, 0.60), "scene": "kit:base/FEATURE", "product": True,
-             "params": {"image": {"asset": "{asset2}"}, "feature": "{feature1}", **WHOLE, **theme_n},
+             "params": {"image": {"asset": "{asset2}", "frame": "card"}, "feature": "{feature1}", **WHOLE, **theme_n},
              "beat": "exhibit B: feature one, close"},
             {"id": "feature2", "share": (0.60, 0.80), "scene": "kit:base/FEATURE", "product": True,
-             "params": {"image": {"asset": "{asset3}"}, "feature": "{feature2}", **WHOLE, **theme_n},
+             "params": {"image": {"asset": "{asset3}", "frame": "card"}, "feature": "{feature2}", **WHOLE, **theme_n},
              "beat": "exhibit C: feature two, close"},
             {"id": "verdict", "share": (0.80, 0.88), "scene": "kit:type/title", "product": False,
              "params": {"text": "<a 2-5 word typed verdict that names no numbers>", "reveal": "type", "scrim": 0.0,
@@ -443,9 +443,9 @@ def _mood_blueprints() -> list[Blueprint]:
             {"id": "name", "share": (0.32, 0.40), "scene": "kit:type/title", "product": False,
              "params": {"text": "{name}", "sub": "{tagline}", "scrim": 0.0}, "beat": "the name, huge, on black"},
             {"id": "feature1", "share": (0.40, 0.59), "scene": "kit:base/FEATURE", "product": True,
-             "params": {"image": {"asset": "{asset2}"}, "feature": "{feature1}", **WHOLE}, "beat": "feature one, close"},
+             "params": {"image": {"asset": "{asset2}", "frame": "card"}, "feature": "{feature1}", **WHOLE}, "beat": "feature one, close"},
             {"id": "feature2", "share": (0.59, 0.80), "scene": "kit:base/FEATURE", "product": True,
-             "params": {"image": {"asset": "{asset3}"}, "feature": "{feature2}", **WHOLE}, "beat": "feature two, close"},
+             "params": {"image": {"asset": "{asset3}", "frame": "card"}, "feature": "{feature2}", **WHOLE}, "beat": "feature two, close"},
             {"id": "statement", "share": (0.80, 0.88), "scene": "kit:type/title", "product": False,
              "params": {"text": "<a 2-5 word keynote statement in two beats, e.g. 'Less noise. More focus.'>",
                         "scrim": 0.0}, "beat": "the one-line promise"},
@@ -476,13 +476,13 @@ def _mood_blueprints() -> list[Blueprint]:
              "params": {"image": {"asset": "{asset1}"}, "bbox": [0.05, 0.04, 0.8, 0.8]},
              "beat": "the creature in its habitat: the whole product, observed, the camera drifting closer"},
             {"id": "feature1", "share": (0.36, 0.58), "scene": "kit:base/FEATURE", "product": True,
-             "params": {"image": {"asset": "{asset2}"}, "feature": "{feature1}", **WHOLE},
+             "params": {"image": {"asset": "{asset2}", "frame": "card"}, "feature": "{feature1}", **WHOLE},
              "beat": "a behaviour, observed close"},
             {"id": "observe", "share": (0.58, 0.66), "scene": "kit:type/title", "product": False,
              "params": {"text": "<a 3-7 word hushed observation about how it behaves, no numbers>", "scrim": 0.0},
              "beat": "the narrator's quiet aside"},
             {"id": "feature2", "share": (0.66, 0.88), "scene": "kit:base/FEATURE", "product": True,
-             "params": {"image": {"asset": "{asset3}"}, "feature": "{feature2}", **WHOLE},
+             "params": {"image": {"asset": "{asset3}", "frame": "card"}, "feature": "{feature2}", **WHOLE},
              "beat": "a second behaviour"},
             {"id": "end", "share": (0.88, 1.0), "scene": "kit:type/end-lockup", "product": False,
              "params": {"title": "{name}", "tagline": "{tagline}", "cta": "{cta}", "scrim": 0.0},
@@ -962,6 +962,15 @@ def _layout_shots(bp: Blueprint, seconds: float, brief: Brief | None = None) -> 
     return out
 
 
+def _frame_cards(params: dict[str, Any], cards: set[str]) -> dict[str, Any]:
+    """Image params that name a picture (game/app screenshot, element crop) get ``frame: card``: shown whole on a
+    card, never inside a fake browser window cropped by a push-in."""
+    for v in params.values():
+        if isinstance(v, dict) and v.get("asset") in cards and not v.get("frame"):
+            v["frame"] = "card"
+    return params
+
+
 def assemble(brief: Brief, bp: Blueprint, pick: dict[str, Any], texts: dict[str, str] | None = None,
              voiceover: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     """The blueprint + pick + words -> ``{"film": ..., "plan": ...}`` (ready for ``check_film``)."""
@@ -978,8 +987,9 @@ def assemble(brief: Brief, bp: Blueprint, pick: dict[str, Any], texts: dict[str,
             plan["voiceover"] = list(voiceover or [])
             return {"film": film, "plan": plan}
     shots, plan_shots = [], []
+    cards = {a.name for a in brief.assets if getattr(a, "frame", "") == "card"}
     for s in _layout_shots(bp, seconds, brief):
-        params = _put_slots(_fill(copy.deepcopy(s.get("params") or {}), vals), texts, s["id"])
+        params = _frame_cards(_put_slots(_fill(copy.deepcopy(s.get("params") or {}), vals), texts, s["id"]), cards)
         params = {k: v for k, v in params.items() if not (k in ("paint", "accent") and not v)}
         if s["scene"] == "kit:type/title" and not params.get("text"):
             params["text"] = vals["name"]          # an unfilled teaser still says something: the name

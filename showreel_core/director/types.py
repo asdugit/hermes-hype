@@ -21,6 +21,8 @@ class MediaAsset:
     description: str = ""        # "a glossy red sports car driving left to right"
     product: bool = True         # product media (counts toward product visibility)
     cutout: str = ""             # same media with alpha (video, image or PNG-sequence dir), if available
+    frame: str = ""              # "browser" = a web capture (address-bar window ok) | "card" = a picture (game, app,
+                                 # render, element crop): shown whole, never in fake browser chrome | "" = unknown
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

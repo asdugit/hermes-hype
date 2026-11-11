@@ -56,6 +56,20 @@ def probe_asset(path: str | Path, *, name: str = "", out_dir: Path | None = None
     return a
 
 
+def frame_of(kind: str, data: Any, path: str) -> str:
+    """How a picture may be framed: ``browser`` only for a captured web PAGE (the product capture's page/desktop/
+    mobile shots, ``image.frame`` = browser from the session); ``card`` for everything else (element crops, game /
+    app screenshots, renders, generated images: shown whole, no fake address bar)."""
+    d = data if isinstance(data, dict) else {}
+    fr = str((d.get("image") or {}).get("frame") or d.get("frame") or "") if isinstance(d.get("image"), dict)         else str(d.get("frame") or "")
+    if fr in ("browser", "card"):
+        return fr
+    stem = Path(path).stem.lower()
+    if kind == "product_capture" and not stem.startswith(("element", "crop")):
+        return "browser"
+    return "card"
+
+
 def assets_from_bundle(bundle: Any, out_dir: Path | None = None, limit: int = 6) -> list[MediaAsset]:
     """Product media from a session bundle: product captures, video/image artifacts, screenshots (best first)."""
     events = list(getattr(bundle, "events", None) or [])
@@ -69,15 +83,18 @@ def assets_from_bundle(bundle: Any, out_dir: Path | None = None, limit: int = 6)
             continue
         if Path(str(path)).suffix.lower() not in VIDEO_EXT | IMAGE_EXT:
             continue
-        cands.append((order[kind], -float(getattr(e, "weight", 0.0) or 0.0), str(path), str(getattr(e, "summary", ""))))
+        cands.append((order[kind], -float(getattr(e, "weight", 0.0) or 0.0), str(path), str(getattr(e, "summary", "")),
+                      frame_of(kind, data, str(path))))
     cands.sort()
     taken: set[str] = set()
     out, seen = [], set()
-    for _o, _w, path, summary in cands:
+    for _o, _w, path, summary, frame in cands:
         if path in seen:
             continue
         seen.add(path)
-        out.append(probe_asset(path, name=asset_name(path, taken), out_dir=out_dir, description=summary[:120]))
+        a = probe_asset(path, name=asset_name(path, taken), out_dir=out_dir, description=summary[:120])
+        a.frame = frame
+        out.append(a)
         if len(out) >= limit:
             break
     return out

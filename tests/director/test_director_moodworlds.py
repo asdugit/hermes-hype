@@ -72,3 +72,19 @@ def test_mood_films_validate_and_render_through_the_engine(tmp_path: Path, direc
         g = res.film["render"]["post_params"]["grade"]
         assert g["mono"] == 1.0
         assert all((s.get("params") or {}).get("theme") == "noir" for s in res.film["shots"])
+
+
+def test_pictures_are_cards_and_web_pages_keep_the_browser_frame(tmp_path: Path) -> None:
+    from showreel_core.director.media import frame_of
+    assert frame_of("product_capture", {}, "x/desktop_1920x1080.png") == "browser"
+    assert frame_of("product_capture", {}, "x/element_01_timer.png") == "card"
+    assert frame_of("screenshot", {}, "x/shot.png") == "card"
+    assert frame_of("artifact", {"image": {"frame": "browser"}}, "x/page.png") == "browser"
+    b = T._screen_brief(tmp_path, "a noir detective trailer")
+    for a in b.assets[1:]:
+        a.frame = "card"
+    bps = compose.blueprints()
+    bp = next(x for x in bps if x.id == "screen-noir")
+    film = compose.assemble(b, bp, compose.default_pick(bps, b))["film"]
+    imgs = {s["id"]: s["params"].get("image") for s in film["shots"] if s["params"].get("image")}
+    assert imgs["feature1"]["frame"] == "card" and imgs["feature2"]["frame"] == "card"
