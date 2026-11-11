@@ -128,6 +128,33 @@ def _car_brief(tmp: Path, direction: str, *, blender: bool = False) -> Brief:
                  seconds=25.0, capabilities=Capabilities(blender=blender))
 
 
+def test_strip_captures_never_carry_the_hero(tmp_path: Path) -> None:
+    """A real keynote film opened on a 2096x136 footer strip (a text-matched crop) because it out-ranked the
+    1920x1080 desktop capture; strips rank last and never fill the hero, screen or feature slots."""
+    caps = [("element_02_stats_8648ae", 2096, 136), ("element_01_tasks_994a93", 924, 152),
+            ("desktop_1920x1080", 1920, 1080), ("element_03_timer_1a2b3c", 488, 668), ("mobile_390x844", 780, 1688)]
+    assets = []
+    for name, w, h in caps:
+        f = tmp_path / f"{name}.png"
+        f.write_bytes(png(size=(64, 36)))
+        assets.append(MediaAsset(name, "image", str(f), w, h, thumbnail=str(f)))
+    b = Brief("an Apple keynote", product=Product(name="Tempo", features=["Timer", "Tasks", "Stats"]),
+              assets=assets, seconds=30.0)
+    ranked = compose._rank_screens(b)
+    assert ranked[0] == "desktop_1920x1080" and set(ranked[-2:]) == {"element_02_stats_8648ae",
+                                                                     "element_01_tasks_994a93"}
+    v = compose.facts(b)
+    assert v["asset1"] == "desktop_1920x1080"
+    assert v["asset2"] == "element_03_timer_1a2b3c"          # name match on a real card
+    assert v["asset3"] not in ("element_02_stats_8648ae", "element_01_tasks_994a93")  # 'Tasks' crop is a strip
+    bp = next(x for x in compose.blueprints(catalog=build_catalog(assets=b.assets)) if x.id == "screen-launch")
+    film = compose.assemble(b, bp, {"blueprint": bp.id})["film"]
+    used = json.dumps(film["shots"])
+    assert "element_02_stats" not in used and "element_01_tasks" not in used
+    quote = next(s for s in film["shots"] if s["id"] == "quote")
+    assert quote["params"]["who"] != "user"                   # kits print 'user' as 'You asked'
+
+
 def test_pick_repairs_malformed_and_hallucinated(tmp_path: Path) -> None:
     b = _screen_brief(tmp_path, "a 1980s VHS infomercial")
     bps = compose.blueprints(catalog=build_catalog(assets=b.assets))

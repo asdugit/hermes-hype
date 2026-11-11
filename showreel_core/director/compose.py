@@ -173,7 +173,8 @@ def _style_blueprint(kit: str, kits_root: Path) -> Blueprint:
          "params": {"image": {"asset": "{asset1}"}, "bbox": [0.2, 0.22, 0.6, 0.42]},
          "beat": "the product, pushed in on its headline"},
         {"id": "quote", "share": (0.79, 0.87), "scene": f"{k}/CALLOUT", "product": False,
-         "params": {"text": "<one short line a delighted user would say; no numbers, no claims>", "who": "user"},
+         "params": {"text": "<one short line a delighted user would say; no numbers, no claims>",
+                    "who": "first look"},
          "beat": "the reaction"},
         {"id": "end", "share": (0.87, 1.0), "scene": f"{k}/END", "product": False,
          "params": {"title": "{name}", "cta": "{cta}", "url": "{url}"}, "beat": "lockup + CTA"},
@@ -314,17 +315,27 @@ def _model_asset(brief: Brief) -> str:
     return next((a.name for a in brief.assets if a.product and a.type == "model"), "")
 
 
+def _strip(a: Any) -> bool:
+    """A capture too thin to carry a shot: a header row or a footer sentence cropped by a text match (a real
+    keynote film opened on a 2096x136 footer strip because it out-ranked the 1920x1080 desktop capture)."""
+    return bool(a.w and a.h and (a.h < 160 or a.w / a.h > 6.0))
+
+
 def _rank_screens(brief: Brief) -> list[str]:
-    """Product screenshots, hero first: wide desktop captures, then feature crops, mobile last."""
+    """Product screenshots, hero first: desktop captures, then wide screens, feature crops, mobile, strips last."""
     imgs = [a for a in _product_assets(brief) if a.type == "image"]
 
     def key(a: Any) -> tuple[int, int]:
         n = a.name.lower()
+        if _strip(a):
+            return (4, 0)
         if "mobile" in n or (a.h and a.w and a.h > a.w * 1.3):
             return (3, 0)
-        if "desktop" in n or "1920" in n or (a.w >= 1400 and a.h and a.w / a.h > 1.5):
+        if "desktop" in n or "1920" in n:
             return (0, -a.w)
-        return (1, 0)
+        if a.w >= 1400 and a.h and 1.3 <= a.w / a.h <= 2.4:
+            return (1, -a.w)
+        return (2, 0)
     return [a.name for a in sorted(imgs, key=key)]
 
 
@@ -377,16 +388,18 @@ def facts(brief: Brief, pick: dict[str, Any] | None = None) -> dict[str, str]:
     prods = _product_assets(brief)
     main = next((a.name for a in prods if a.type == "video"), "") or (prods[0].name if prods else "")
     screens = _rank_screens(brief)
+    strips = {a.name for a in _product_assets(brief) if a.type == "image" and _strip(a)}
+    good = [s for s in screens if s not in strips] or screens
 
     def feat_asset(i: int) -> str:
-        if not screens:
+        if not good:
             return main
         f = (feats[i] if i < len(feats) else "").lower()
         words = [w for w in re.findall(r"[a-z]{4,}", f)]
-        for s in screens:
+        for s in good:
             if words and any(w[:6] in s.lower() for w in words):
                 return s
-        rest = [s for s in screens[1:] if "mobile" not in s.lower()] or screens
+        rest = [s for s in good[1:] if "mobile" not in s.lower()] or good
         return rest[min(i, len(rest) - 1)]
     tagline = str(pick.get("tagline") or "") or (fit_words(one, 8) if one else "") or "Made to be wanted."
     paint = _paint_tone(product_color(brief)) if _model_asset(brief) else ""
