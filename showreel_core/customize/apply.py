@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import copy
 import math
+import re
 from pathlib import Path
 from typing import Any
 
@@ -254,7 +255,8 @@ def _typed_params(new: dict[str, Any], current: dict[str, Any]) -> tuple[dict[st
 
 def _replace_words(x: Any, old: str, new: str) -> Any:
     if isinstance(x, str):
-        return x.replace(old, new) if old and old in x else x
+        # whole words only: renaming "Arc" must not turn "Architecture" into "Orbithitecture"
+        return re.sub(rf"(?<![\w]){re.escape(old)}(?![\w])", lambda _m: new, x) if old and old in x else x
     if isinstance(x, list):
         return [_replace_words(v, old, new) for v in x]
     if isinstance(x, dict):

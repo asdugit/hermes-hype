@@ -582,3 +582,12 @@ def test_a_colour_background_is_the_stage_not_the_accent(text, bg, accent):
     theme = S.keywords(text, [], style="launch")["theme"]
     assert theme["bg"] == V.COLOURS.get(bg, bg)
     assert theme.get("accent") == (V.COLOURS[accent] if accent else None)
+
+
+def test_product_rename_replaces_whole_words_only():
+    """Audit 2026-11-11: product=Orbit on a product called "Arc" wrote "Orbithitecture"; "Go" -> "Zoomogle"."""
+    out = A._replace_words({"headline": "Architecture by Arc", "lines": ["Arc's timer"], "t": "Go faster. Google it."},
+                           "Arc", "Orbit")
+    assert out["headline"] == "Architecture by Orbit" and out["lines"] == ["Orbit's timer"]
+    assert A._replace_words("Go faster with Go. Google it.", "Go", "Zoom") == "Zoom faster with Zoom. Google it."
+    assert A._replace_words("Focus/Fox (C++)", "C++", "D") == "Focus/Fox (D)"
