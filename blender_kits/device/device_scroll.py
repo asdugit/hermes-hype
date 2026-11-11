@@ -46,7 +46,7 @@ def build(sc) -> None:
         m = cm.media(s, "image", want="full") or cm.media(s, "image", want="desktop")
     img, iw, ih = cm.load(m)
     sgn = -1.0 if p["side"] == "left" else 1.0
-    dev = dv.build(kind, image=img, iw=iw, ih=ih, open_deg=104.0)
+    dev = dv.build(kind, image=img, iw=iw, ih=ih, open_deg=104.0, fit="cover")  # the page scrolls under it
     scr = dev.screen
     x0, _y0, sx, sy = scr.window  # cover fit, top aligned
     if kind == "laptop":

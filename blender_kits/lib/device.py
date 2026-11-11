@@ -2,7 +2,7 @@
 
 Conventions: metres, Z up, devices FACE -Y (the camera usually sits at -Y). Every device has a ``root`` empty (move /
 rotate / rise it) and one screen (``Screen``) whose UV (0..1, v up) maps onto the shown image through a
-cover-fit window; ``Screen.px_to_world`` maps screenshot pixels (top-left origin) to world space so a camera can
+fit window (cover when it trims little, else contain: never magnified past the bezel); ``Screen.px_to_world`` maps screenshot pixels (top-left origin) to world space so a camera can
 land exactly on a feature rect. No logos, no brand shapes (generic slim-bezel hardware).
 """
 from __future__ import annotations
@@ -147,9 +147,12 @@ class Screen:
         return (m3 @ Vector((1, 0, 0))).normalized(), (m3 @ Vector((0, 1, 0))).normalized()
 
     def show(self, *, x0: float, y0: float, sx: float, sy: float, frame: int | None = None) -> None:
-        """Set (and optionally key) the shown image window."""
+        """Set (and optionally key) the shown image window. A window reaching past the image (contain fit)
+        switches the texture to CLIP so the letterbox shows the page colour, never smeared edge pixels."""
         self.window = (x0, y0, sx, sy)
         materials.set_window(self.mat, x0=x0, y0=y0, sx=sx, sy=sy, frame=frame)
+        eps = 1e-6
+        materials.set_clip(self.mat, x0 < -eps or y0 < -eps or x0 + sx > 1 + eps or y0 + sy > 1 + eps)
 
 
 @dataclass
@@ -186,12 +189,48 @@ def media_image(path: str | None, *, video: bool = False, frames_dir: str | None
     return img, max(1, w), max(1, h)
 
 
+def edge_fill_image(img: Any, *, max_px: int = 16_000_000) -> Any:
+    """1x1 image of the most common border colour of ``img`` (the page background around a UI capture) for the
+    letterbox of a contain-fitted screen; None for movies / sequences / huge images (they letterbox in black)."""
+    try:
+        if img is None or img.source not in ("FILE", "GENERATED") or img.is_float:
+            return None  # float buffers are linear: their raw values would not round-trip through a byte fill
+        w, h = img.size[:]
+        if not w or not h or w * h > max_px:
+            return None
+        import numpy as np
+
+        n = len(img.pixels)
+        ch = n // (w * h)
+        if ch < 3:
+            return None
+        buf = np.empty(n, dtype=np.float32)
+        img.pixels.foreach_get(buf)
+        a = buf.reshape(h, w, ch)[:, :, :3]
+        edge = np.concatenate([a[0], a[-1], a[:, 0], a[:, -1]])
+        q = np.clip(np.round(edge * 255.0), 0, 255).astype(np.int64)
+        keys = q[:, 0] * 65536 + q[:, 1] * 256 + q[:, 2]
+        vals, counts = np.unique(keys, return_counts=True)
+        k = int(vals[int(counts.argmax())])
+    except (RuntimeError, ValueError, AttributeError, ImportError):
+        return None
+    fill = bpy.data.images.new(f"{img.name}_fill", 1, 1, alpha=False)
+    fill.pixels[:] = (((k >> 16) & 255) / 255.0, ((k >> 8) & 255) / 255.0, (k & 255) / 255.0, 1.0)
+    try:   # a GENERATED image is regenerated (black) when its buffer is reloaded for the render: pack the pixels
+        fill.pack()
+    except RuntimeError:
+        pass
+    return fill
+
+
 def _screen(kind: str, name: str, disp_w: float, disp_h: float, disp_r: float, image, iw: int, ih: int,
-            parent, *, glare: float, align: str) -> Screen:
+            parent, *, glare: float, align: str, fit: str = "auto") -> Screen:
     mat = materials.screen(f"{name}_mat", image, glare=glare)
     ob = flat_face(f"{name}_display", disp_w, disp_h, disp_r, mat, parent=parent)
     scr = Screen(obj=ob, w=disp_w, h=disp_h, mat=mat, img_w=iw, img_h=ih)
-    x0, y0, sx, sy = materials.cover_window(iw, ih, disp_w, disp_h, align=align)
+    (x0, y0, sx, sy), used = materials.fit_window(iw, ih, disp_w, disp_h, align=align, fit=fit)
+    if used == "contain":
+        materials.set_fill(mat, edge_fill_image(image))
     scr.show(x0=x0, y0=y0, sx=sx, sy=sy)
     return scr
 
@@ -206,7 +245,7 @@ def finish_rgb(finish: str | Sequence[float]) -> tuple:
 
 
 def laptop(name: str = "laptop", *, image=None, iw: int = 1440, ih: int = 900, finish="silver",
-           open_deg: float = 108.0, glare: float = 0.0, align: str = "top") -> Device:
+           open_deg: float = 108.0, glare: float = 0.0, align: str = "top", fit: str = "auto") -> Device:
     """Slim aluminium laptop. ``root`` sits at the base's front-centre-bottom (z=0 is the desk).
 
     Lid hinge pivot = ``parts['hinge']`` (rotation_euler.x = -radians(open_deg)); keyboard well + trackpad inset.
@@ -243,7 +282,7 @@ def laptop(name: str = "laptop", *, image=None, iw: int = 1440, ih: int = 900, f
     disp_parent.location = (0, -(top_bezel + sp["disp_h"] / 2) - (lid_h - sp["disp_h"] - 2 * top_bezel), -0.00005)
     disp_parent.rotation_euler = (math.pi, 0, 0)
     scr = _screen("laptop", name, sp["disp_w"], sp["disp_h"], sp["disp_r"], image, iw, ih, disp_parent,
-                  glare=glare, align=align)
+                  glare=glare, align=align, fit=fit)
     hinge.rotation_euler = (-math.radians(open_deg), 0, 0)
     dev = Device("laptop", root, scr, (w, d, d * 0.95), {"hinge": hinge, "base": base, "lid": lid})
     return dev
@@ -285,7 +324,8 @@ def _keys(name: str, w: float, h: float, loc, mat, parent) -> None:
 
 
 def handheld_device(kind: str, name: str | None = None, *, image=None, iw: int = 390, ih: int = 844,
-                    finish="space", glare: float = 0.0, align: str = "top", camera_bump: bool = True) -> Device:
+                    finish="space", glare: float = 0.0, align: str = "top", camera_bump: bool = True,
+                    fit: str = "auto") -> Device:
     """Phone or tablet standing upright, display facing -Y. ``root`` at the device centre."""
     sp = SPECS[kind]
     name = name or kind
@@ -308,7 +348,7 @@ def handheld_device(kind: str, name: str | None = None, *, image=None, iw: int =
     disp_frame = _link(bpy.data.objects.new(f"{name}_disp_frame", None), body_axis)
     disp_frame.location = (0, 0, t / 2 + 0.00006)
     scr = _screen(kind, name, sp["disp_w"], sp["disp_h"], sp["disp_r"], image, iw, ih, disp_frame, glare=glare,
-                  align=align)
+                  align=align, fit=fit)
     if kind == "phone":
         cam_dot = flat_face(f"{name}_frontcam", 0.002, 0.002, 0.001, materials.black_glass(f"{name}_fc"),
                             parent=disp_frame)
@@ -336,7 +376,7 @@ def _camera_bump(name: str, kind: str, w: float, h: float, t: float, parent, fra
 
 
 def monitor(name: str = "monitor", *, image=None, iw: int = 1920, ih: int = 1080, finish="silver",
-            glare: float = 0.0, align: str = "top") -> Device:
+            glare: float = 0.0, align: str = "top", fit: str = "auto") -> Device:
     """Thin aluminium display on a stand; ``root`` on the desk under the stand, display centre ~0.36 m up."""
     sp = SPECS["monitor"]
     w, h, t = sp["w"], sp["h"], sp["t"]
@@ -351,7 +391,7 @@ def monitor(name: str = "monitor", *, image=None, iw: int = 1920, ih: int = 1080
     disp_frame = _link(bpy.data.objects.new(f"{name}_disp_frame", None), panel_axis)
     disp_frame.location = (0, (h - sp["disp_h"]) / 2 - 0.006, t / 2 + 0.00006)
     scr = _screen("monitor", name, sp["disp_w"], sp["disp_h"], sp["disp_r"], image, iw, ih, disp_frame,
-                  glare=glare, align=align)
+                  glare=glare, align=align, fit=fit)
     neck = slab(f"{name}_neck", 0.11, 0.30, 0.01, 0.012, bevel=0.002, mats=[alu], parent=root)
     neck.rotation_euler = (math.pi / 2 - math.radians(12), 0, 0)
     neck.location = (0, 0.06, 0.155)
@@ -361,16 +401,17 @@ def monitor(name: str = "monitor", *, image=None, iw: int = 1920, ih: int = 1080
 
 
 def build(kind: str, *, image=None, iw: int = 1440, ih: int = 900, finish: str | None = None, name: str | None
-          = None, glare: float = 0.0, open_deg: float = 108.0, align: str = "top") -> Device:
-    """Build a device by kind ('laptop' | 'phone' | 'tablet' | 'monitor')."""
+          = None, glare: float = 0.0, open_deg: float = 108.0, align: str = "top", fit: str = "auto") -> Device:
+    """Build a device by kind ('laptop' | 'phone' | 'tablet' | 'monitor'). ``fit``: auto (cover when it trims
+    <= 12 %, else contain = the whole capture inside the bezel) | cover (scrolling pages) | contain."""
     if kind == "laptop":
         return laptop(name or "laptop", image=image, iw=iw, ih=ih, finish=finish or "silver", open_deg=open_deg,
-                      glare=glare, align=align)
+                      glare=glare, align=align, fit=fit)
     if kind == "monitor":
         return monitor(name or "monitor", image=image, iw=iw, ih=ih, finish=finish or "silver", glare=glare,
-                       align=align)
+                       align=align, fit=fit)
     return handheld_device(kind, name, image=image, iw=iw, ih=ih, finish=finish or "space", glare=glare,
-                           align=align)
+                           align=align, fit=fit)
 
 
 def screen_center_world(dev: Device) -> Vector:

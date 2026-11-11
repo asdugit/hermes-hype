@@ -112,8 +112,8 @@ def accent(s: studio.Shot) -> str:
 
 
 def phone_media(given: dict | None, mobile: dict | None) -> dict | None:
-    """Screen media for a phone: a portrait capture as given, else the mobile capture (a wide desktop capture
-    cover-fitted into a phone crops the UI mid-word), else whatever was given."""
+    """Screen media for a phone: a portrait capture as given, else the mobile capture, else whatever was given
+    (a wide desktop capture is then contain-fitted: the whole page, small, never cropped mid-word)."""
     if given and _is_tall(given):
         return given
     return mobile or given
@@ -128,7 +128,7 @@ def pick_kind(s: studio.Shot, requested: str, mobile: dict | None) -> str:
 
 def make(s: studio.Shot, kind: str, d: dict | None, *, finish: str | None = None, name: str | None = None,
          open_deg: float = 108.0, glare: float = 0.0) -> dv.Device:
-    """Build a device of ``kind`` showing media ``d`` (top-aligned cover fit)."""
+    """Build a device of ``kind`` showing media ``d`` (``dv.build`` fit: auto = cover only when it trims little)."""
     img, iw, ih = load(d)
     return dv.build(kind, image=img, iw=iw, ih=ih, finish=finish, name=name, open_deg=open_deg, glare=glare)
 

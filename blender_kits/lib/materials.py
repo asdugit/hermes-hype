@@ -289,7 +289,17 @@ def screen(name: str, image: bpy.types.Image | None, *, scene: bpy.types.Scene |
             mp.name = "sr_window"
             links.new(uv.outputs["UV"], mp.inputs["Vector"])
             links.new(mp.outputs[0], tex.inputs["Vector"])
-        links.new(tex.outputs["Color"], b.inputs["Emission Color"])
+        # letterbox fill: where the (contain-fit) window leaves the image the texture CLIPs to alpha 0 and the
+        # screen shows the page colour ``set_fill`` puts in "sr_fill" (black until then); opaque pixels pass
+        # through exactly (factor 1 -> B)
+        mix = nodes.new("ShaderNodeMix")
+        mix.name = "sr_fill"
+        mix.data_type = "RGBA"
+        mix.blend_type = "MIX"
+        _mix_socket(mix, "A").default_value = (0.0, 0.0, 0.0, 1.0)
+        links.new(tex.outputs["Alpha"], mix.inputs[0])
+        links.new(tex.outputs["Color"], _mix_socket(mix, "B"))
+        links.new(_mix_socket(mix, "Result", out=True), b.inputs["Emission Color"])
     else:
         _set(b, "Emission Color", (0, 0, 0, 1))
     try:
@@ -309,12 +319,13 @@ def sync_screens(scene: bpy.types.Scene | None = None) -> int:
         nt = mat.node_tree if mat.use_nodes else None
         if nt is None or nt.nodes.get("sr_power") is None:
             continue
-        tex = nt.nodes.get("sr_tex")
-        if tex is not None and tex.image is not None:
-            try:
-                tex.image.colorspace_settings.name = cs
-            except TypeError:
-                pass
+        for tname in ("sr_tex", "sr_tex_fill"):
+            tex = nt.nodes.get(tname)
+            if tex is not None and tex.image is not None:
+                try:
+                    tex.image.colorspace_settings.name = cs
+                except TypeError:
+                    pass
         for nd in nt.nodes:
             if nd.type == "MATH" and nd.operation == "MULTIPLY" and nd.name.startswith("sr_strength"):
                 nd.inputs[1].default_value = float(nd.get("sr_brightness", 1.0)) / (2.0 ** sc.view_settings.exposure)
@@ -338,6 +349,58 @@ def set_window(mat: bpy.types.Material, *, x0: float = 0.0, y0: float = 0.0, sx:
         mp.inputs["Scale"].keyframe_insert("default_value", frame=frame)
 
 
+def _mix_socket(node: Any, name: str, *, out: bool = False) -> Any:
+    """The colour socket ``name`` of a Mix node (it has float/vector/colour sockets of the same name)."""
+    socks = node.outputs if out else node.inputs
+    for sk in socks:
+        if sk.name == name and sk.type == "RGBA":
+            return sk
+    return socks[name]
+
+
+def set_fill(mat: bpy.types.Material, fill_image: bpy.types.Image | None) -> None:
+    """Letterbox colour of a screen: a 1x1 image sampled through the SAME colour management as the screen
+    texture (so a page colour #0e0e10 next to the capture renders #0e0e10 too)."""
+    nt = mat.node_tree
+    mix = nt.nodes.get("sr_fill")
+    if mix is None or fill_image is None:
+        return
+    tex = nt.nodes.get("sr_tex")
+    ft = nt.nodes.get("sr_tex_fill") or nt.nodes.new("ShaderNodeTexImage")
+    ft.name = "sr_tex_fill"
+    ft.image = fill_image
+    ft.interpolation = "Closest"
+    ft.extension = "EXTEND"
+    if tex is not None and tex.image is not None:
+        try:
+            fill_image.colorspace_settings.name = tex.image.colorspace_settings.name
+        except TypeError:
+            pass
+    nt.links.new(ft.outputs["Color"], _mix_socket(mix, "A"))
+
+
+def set_clip(mat: bpy.types.Material, clip: bool) -> None:
+    """CLIP the screen texture outside its image (letterboxed window -> fill colour) or EXTEND it (cover)."""
+    tex = mat.node_tree.nodes.get("sr_tex") if mat.node_tree else None
+    if tex is not None:
+        tex.extension = "CLIP" if clip else "EXTEND"
+
+
+def fit_window(img_w: float, img_h: float, scr_w: float, scr_h: float, *, align: str = "top",
+               fit: str = "auto", max_crop: float = 0.12) -> tuple[tuple[float, float, float, float], str]:
+    """Window + the fit actually used. ``auto`` = cover when cover loses at most ``max_crop`` of the image along
+    the cropped axis (a 16:9 capture on a 16:10 laptop) or when the image is a long scrolling page (at least 2:1
+    tall and taller than the screen: its top shows, scenes scroll it), else contain: an element crop, a portrait
+    card or a desktop capture on a phone is shown WHOLE inside the bezel (letterboxed in its page colour), never
+    magnified past the screen edges."""
+    if fit == "auto":
+        ia, sa = img_w / max(img_h, 1e-6), scr_w / max(scr_h, 1e-6)
+        lost = 1.0 - (sa / ia if ia > sa else ia / sa)
+        page = img_h >= 2.0 * img_w and ia < sa
+        fit = "cover" if page or lost <= max_crop + 1e-9 else "contain"
+    return cover_window(img_w, img_h, scr_w, scr_h, align=align, fit=fit), fit
+
+
 def set_power(mat: bpy.types.Material, value: float, frame: int | None = None) -> None:
     """Screen on/off level (0..1); keyframed when ``frame`` is given."""
     nd = mat.node_tree.nodes.get("sr_power")
@@ -352,8 +415,8 @@ def cover_window(img_w: float, img_h: float, scr_w: float, scr_h: float, *, alig
                  fit: str = "cover") -> tuple[float, float, float, float]:
     """UV window (x0, y0, sx, sy) that fits an img_w x img_h image on a scr_w x scr_h screen without distortion.
 
-    ``cover`` crops the overflow (web pages: keep the top, ``align='top'``); ``contain`` letterboxes (the texture
-    extends its edge pixels, so callers should prefer cover for UI). Never mirrors: sx, sy > 0.
+    ``cover`` crops the overflow (web pages: keep the top, ``align='top'``); ``contain`` letterboxes (the screen
+    material CLIPs outside the image and shows the page colour from ``set_fill``). Never mirrors: sx, sy > 0.
     """
     ia, sa = img_w / max(img_h, 1e-6), scr_w / max(scr_h, 1e-6)
     if fit == "contain":

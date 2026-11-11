@@ -164,6 +164,45 @@ def blender_asset(name: str, spec: Mapping[str, Any], job_dir: Path | None = Non
     return out
 
 
+MOBILE_CAPTURE_RE = re.compile(r"^mobile_(\d+)x(\d+)\.(png|jpe?g|webp)$", re.IGNORECASE)
+
+
+def device_twins(scene: Path, used: Mapping[str, Mapping[str, Any]],
+                 all_assets: Mapping[str, Mapping[str, Any]]) -> dict[str, dict[str, Any]]:
+    """The mobile-viewport capture for a ``blender:device/*`` shot that only references a desktop capture.
+
+    Phones in device scenes must show a phone-width layout; when the shot's params only name the desktop capture
+    the job got no mobile one and the phone showed the desktop page cropped mid-word. Taken from the film's assets
+    (a name with a ``mobile`` token, not a full-page capture) or else from the capture stage's
+    ``mobile_<w>x<h>.png`` next to a referenced image. Empty for other kits or when one is already there.
+    """
+    if scene.parent.name != "device":
+        return {}
+
+    def is_mobile(name: str) -> bool:
+        toks = re.split(r"[^a-z0-9]+", name.lower())
+        return "mobile" in toks and "full" not in toks
+
+    if any(is_mobile(n) for n in used):
+        return {}
+    for n, a in all_assets.items():
+        if is_mobile(n) and a.get("kind") == "image":
+            return {n: dict(a)}
+    for a in used.values():
+        if a.get("kind") != "image" or not a.get("path"):
+            continue
+        folder = Path(str(a["path"])).parent
+        try:
+            names = sorted(os.listdir(folder))
+        except OSError:
+            continue
+        for fn in names:
+            m = MOBILE_CAPTURE_RE.match(fn)
+            if m and (folder / fn).is_file():
+                return {f"mobile_{m[1]}x{m[2]}": {"kind": "image", "path": str((folder / fn).resolve())}}
+    return {}
+
+
 def _strings(x: Any) -> set[str]:
     if isinstance(x, str):
         return {x}
@@ -402,6 +441,7 @@ def _render(film: Mapping[str, Any], job_dir: Path, out: BlenderPass, shots: lis
         refs = _strings(params)
         product = _product_name(film, shot, all_assets)
         used = {n: a for n, a in all_assets.items() if n in refs or n == product}
+        used.update(device_twins(scene, used, all_assets))
         pre, post = handles_for(film, shot)
         res = render_res(size, shot.get("res"), tier)
         alpha = bool(params.get("_alpha"))

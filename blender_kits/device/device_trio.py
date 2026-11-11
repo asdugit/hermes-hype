@@ -12,8 +12,8 @@ from . import _common as cm
 PARAMS = {
     "media": {"type": "asset", "default": None, "doc": "laptop / tablet screen (default: desktop capture)"},
     "mobile": {"type": "asset", "default": None,
-               "doc": "phone screen (default: mobile capture; without one the phone shows the desktop capture's "
-                      "left column, cover-fit)"},
+               "doc": "phone screen (default: mobile capture; without one the phone shows the whole desktop "
+                      "capture letterboxed, never a cropped column)"},
     "devices": {"type": "enum", "values": ["laptop+phone", "laptop+phone+tablet", "laptop+tablet", "monitor+phone"],
                 "default": "laptop+phone", "doc": "which devices share the frame"},
     "env": {"type": "enum", "values": ["studio", "light", "sunset", "accent"], "default": "studio",
@@ -63,6 +63,11 @@ def build(sc) -> None:
     if v:
         w_fit, h_fit = 0.42, 0.4
     dist = studio.fit_distance(w_fit, h_fit, lens, s.aspect, 0.86)
+    # aim so the devices actually built get equal margins left and right as seen from the camera (the phone
+    # stands closer to the lens and looks wider, so the old fixed aim left it at - or cut by - the frame edge)
+    pts = _group_xy(set(d.root for d in devs.values()))
+    if pts:
+        center.x = balanced_x(pts, center.y - dist)
     st = cm.setup(s, preset=p["env"], center=tuple(center), radius=radius, key_side=sgn, cam_dist=dist)
     D = s.dur
     if p["reveal"]:
@@ -78,6 +83,41 @@ def build(sc) -> None:
     studio.CameraRig(beats, end_speed=0.8, handheld=0.04, fstop=max(3.5, studio.dof_fstop(radius)), seed=s.seed,
                      focus=lambda t, pos, tg: (focus - Vector(pos)).length).build(s)
     studio.finalize(s)
+
+
+def _group_xy(roots: set) -> list:
+    """World (x, y) of the bounding-box corners of every mesh under the given device roots."""
+    pts = []
+    for ob in bpy.context.scene.objects:
+        if ob.type != "MESH":
+            continue
+        r = ob
+        while r.parent is not None:
+            r = r.parent
+        if r in roots:
+            for c in ob.bound_box:
+                w = ob.matrix_world @ Vector(c)
+                pts.append((w.x, w.y))
+    return pts
+
+
+def balanced_x(pts: list, cam_y: float) -> float:
+    """Aim x for a camera at y = ``cam_y`` looking +Y: the widest projected extent left of the aim equals the one
+    right of it (perspective: x offset / depth). Bisection; the plain bbox middle when depths are degenerate."""
+    lo, hi = min(p[0] for p in pts), max(p[0] for p in pts)
+    deps = [(x, max(1e-3, y - cam_y)) for x, y in pts]
+
+    def skew(c: float) -> float:
+        return max((x - c) / d for x, d in deps) - max((c - x) / d for x, d in deps)
+
+    a, b = lo, hi
+    for _ in range(40):
+        m = (a + b) / 2
+        if skew(m) > 0:
+            a = m
+        else:
+            b = m
+    return (a + b) / 2
 
 
 def cues(sc) -> list:
