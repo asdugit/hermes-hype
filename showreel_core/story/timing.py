@@ -12,6 +12,7 @@ Transitions, SFX cues and, for speedruns, the split timer are derived from the r
 from __future__ import annotations
 
 import math
+import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -38,6 +39,7 @@ from .facts import (
     is_stub,
     is_test_cmd,
     looks_like_test_pass,
+    main_command,
     portrait_twin,
     terminal_ok,
 )
@@ -589,6 +591,8 @@ def _terminal(ev: Event, limit: int) -> dict[str, Any] | None:
     cmd = str(data_get(ev, "cmd", ""))
     if not cmd:
         return None
+    if "\n" in cmd.strip():
+        cmd = main_command(cmd)      # a multi-line script: its first real command, never its `cd "api"` line
     out = [str(x) for x in data_get(ev, "output_lines") or []]
     while out and not out[-1].strip():
         out.pop()

@@ -180,3 +180,20 @@ def test_heuristic_never_names_the_product_after_a_login_or_temp_folder(monkeypa
                Event("e2", 2.0, "file_write", "write_file", "app.js", "", {"path": f"{root}/app.js", "lines": ["x"]})]
         name = _product_name(SessionFacts(evs, Stats(duration_s=60)))
         assert name.lower() not in ("alice", "tmpab12", "temp", "d:"), name
+
+
+def test_api_film_shows_the_working_call_not_the_error_and_not_the_cd_line() -> None:
+    """#13 Shortly: HOOK + TERMINAL showed 409/422 bodies under 'A link, shortened instantly' and `cd "api" …`."""
+    err = _run(1, 5.0, 'cd "api"\ncurl -s -X POST localhost:8000/links -d "{}"\ncurl -s localhost:8000/x',
+               ['{"detail": "url already exists"}', "HTTP/1.1 409 Conflict"])
+    good = _run(2, 9.0, 'cd "api"\nexport X=1\ncurl -s -X POST example.test/links -d \'{"url": "https://a.b"}\'',
+                ['{"code": "Ab3x", "short": "/Ab3x"}', "HTTP/1.1 201 Created", "HTTP/1.1 307 Temporary Redirect"])
+    facts = SessionFacts([Event("e0", 0.0, "user_prompt", "", "x", "", {"text": "Build Shortly"}), err, good],
+                         Stats(duration_s=60))
+    sb = Storyboard(title="Shortly", tagline="Links", cta="", mode="product", product=Product(name="Shortly", kind="api"),
+                    scenes=[StoryScene(T.HOOK, ["e1"], "", "A link, shortened instantly"),
+                            StoryScene(T.TITLE, [], "", "Shortly"), StoryScene(T.END, [], "", "")])
+    res = validate_storyboard(sb, facts, 30, "product")
+    assert res.storyboard.scenes[0].refs == ["e2"]
+    term = _terminal(good, 8)
+    assert term["cmd"].startswith("curl -s -X POST") and "cd " not in term["cmd"]

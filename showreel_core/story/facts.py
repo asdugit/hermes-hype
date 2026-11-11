@@ -431,9 +431,39 @@ def looks_like_failure(ev: Event) -> bool:
     return not terminal_ok(ev) or bool(_FAIL_COUNT_RE.search(SessionFacts.text_of(ev)))
 
 
+_ERROR_OUT_RE = re.compile(r"(?i)(?:\bHTTP/[\d.]+\s+[45]\d\d\b|\b(?:status|code)[\"']?\s*[:=]\s*[45]\d\d\b|"
+                           r"^\s*[45]\d\d\s*$|\"detail\"\s*:|\btraceback \(most recent call last\)|"
+                           r"^\s*(?:error|fatal|exception)\b|\b\w*(?:Error|Exception):\s)")
+
+
+def shows_error(ev: Event) -> bool:
+    """A terminal run whose OUTPUT is an error even though it exited 0 (curl printing a 409/422 JSON body, a
+    traceback caught by a script, 'error:' lines) - never a product beat when a clean run exists."""
+    if ev.kind != "terminal":
+        return False
+    if not terminal_ok(ev):
+        return True
+    out = [str(x) for x in (ev.data or {}).get("output_lines") or []]
+    bad = sum(1 for ln in out if _ERROR_OUT_RE.search(ln))
+    return bad > 0 and bad >= max(1, len([ln for ln in out if ln.strip()]) // 4)
+
+
+_SETUP_LINE_RE = re.compile(r"^\s*(?:cd\b|pushd\b|export\b|set\b|source\b|\.\s|#|[A-Za-z_]\w*=\S*\s*$|"
+                            r"(?:\.?\S*/)?activate\b|echo\s+(?:-+|=+|['\"]?-{2,}))")
+
+
+def main_command(cmd: str) -> str:
+    """A multi-line script's first real command (+ ' …' when more follow), skipping cd/export/venv/echo set-up."""
+    text = str(cmd or "")
+    if "\n" not in text.strip():
+        return text
+    real = [ln.strip() for ln in text.splitlines() if ln.strip() and not _SETUP_LINE_RE.match(ln)]
+    return (real[0] + (" \u2026" if len(real) > 1 else "")) if real else text
+
+
 def is_demo_run(ev: Event) -> bool:
     """A successful terminal run that exercises the product (not a test, install or housekeeping)."""
-    cmd = str((ev.data or {}).get("cmd") or "")
+    cmd = main_command(str((ev.data or {}).get("cmd") or ""))
     out = [x for x in (ev.data or {}).get("output_lines") or [] if str(x).strip()]
     return (ev.kind == "terminal" and terminal_ok(ev) and bool(out) and not is_test_cmd(cmd)
             and not is_setup_cmd(cmd) and not is_server_cmd(cmd))

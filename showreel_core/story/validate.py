@@ -27,6 +27,8 @@ from .facts import (
     is_setup_cmd,
     is_stub,
     is_test_cmd,
+    main_command,
+    shows_error,
 )
 from .identity import replace_name, same_product, toolish_words
 from .milestones import split_label
@@ -799,13 +801,45 @@ def _scroll_fallback(ev: Event, ctx: _Ctx) -> Event | None:
     return real[0] if real else None
 
 
+def _is_fix_story(scene: StoryScene, ctx: _Ctx) -> bool:
+    """A red run the film means to show (a bug-fix film's 'before')."""
+    return ctx.facts.visuals() == [] and not any(is_demo_run(e) and not shows_error(e) for e in ctx.facts.events)
+
+
+def _clean_run(ctx: _Ctx) -> str:
+    """The best unused successful product run whose output is not an error ('' when none)."""
+    best = None
+    for e in ctx.facts.events:
+        if e.id in ctx.all_refs or e.kind != "terminal" or not is_demo_run(e) or shows_error(e):
+            continue
+        d = e.data or {}
+        main = main_command(str(d.get("cmd") or ""))
+        if is_server_cmd(main) or is_setup_cmd(main):
+            continue
+        n = len([x for x in d.get("output_lines") or [] if str(x).strip()])
+        if best is None or n > best[0]:
+            best = (n, e.id)
+    if best:
+        ctx.all_refs.add(best[1])
+    return best[1] if best else ""
+
+
 def _check_terminal(scene: StoryScene, path: str, ctx: _Ctx) -> bool:
     """In a product film a terminal that only starts a server ("python -m http.server 8743 / Background process
     started") shows nothing of the product: the scene goes, its time goes to the product."""
     if not _check_primary(scene, path, ctx):
         return False
     ev = ctx.facts.get(scene.refs[0]) if scene.refs else None
-    cmd = str((ev.data or {}).get("cmd") or "") if ev is not None else ""
+    cmd = main_command(str((ev.data or {}).get("cmd") or "")) if ev is not None else ""
+    if ctx.mode == "product" and ev is not None and ev.kind == "terminal" and shows_error(ev) \
+            and not _is_fix_story(scene, ctx):
+        clean = _clean_run(ctx)                 # a 409/422 body under "A link, shortened instantly" sells a failure
+        if clean:
+            ctx.issue("error_terminal", f"{path}.refs[0]", f"{ev.id} shows an error", "warning",
+                      f"swapped for {clean}")
+            scene.refs = [clean]
+            ev = ctx.facts.get(clean)
+            cmd = main_command(str((ev.data or {}).get("cmd") or "")) if ev is not None else ""
     if ctx.mode == "product" and ev is not None and ev.kind == "terminal" and (is_server_cmd(cmd) or is_setup_cmd(cmd)):
         # (a library film spent a beat on `uv pip install` and its "Failed to hardlink files" warning)
         ctx.issue("server_terminal", f"{path}.refs[0]", "a server start or an install is not a product beat",
@@ -999,6 +1033,13 @@ def _check_product_film(kept: list[tuple[int, StoryScene]], ctx: _Ctx) -> list[t
         ctx.issue("hook_not_product", "$.scenes[0]", "a product film opens on the product doing its best thing",
                   "warning", f"hook now shows {best}")
         hooks[0].refs = [best]
+    hook_ev = facts.get(hooks[0].refs[0]) if hooks and hooks[0].refs else None
+    if hook_ev is not None and shows_error(hook_ev) and not _is_fix_story(hooks[0], ctx):
+        good = best and best != hook_ev.id and facts.get(best) is not None and not shows_error(facts.get(best))
+        swap = best if good else _clean_run(ctx)
+        if swap:                                     # never open a product film on an error
+            ctx.issue("hook_error", "$.scenes[0]", f"{hook_ev.id} shows an error", "warning", f"hook now shows {swap}")
+            hooks[0].refs = [swap]
     # build story <= 45 % of content scenes
     while True:
         content = [(k, s) for k, (_, s) in enumerate(kept) if scene_role(s, facts, product) != "frame"]
