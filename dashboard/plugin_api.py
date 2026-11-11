@@ -195,13 +195,16 @@ def _start(session_id: str, options: dict[str, Any], *, parent: str = "", reuse:
     # plugin's own copy runs in this same process (slash command, tool) would look orphaned during a long
     # model call. Dead runner processes and hour-long silence still mark a job stale.
     store.mark_stale()
-    busy = store.running(session_id)
-    if busy:
-        return 409, {"error": "a film is already rendering for this session", "job": jobs.public_view(busy[0])}
     base = cfg.settings_from_hermes_config().options().to_dict()
     opts = cfg.Options.from_dict({**base, **(options or {})})
-    job = store.create(session_id, opts.to_dict(), kind="directed" if opts.directed else "quick", surface="desktop",
-                       parent=parent)
+    # Check and create under the process-wide start lock the slash command and the tool take too: a pane start
+    # racing a chat `/hype` (or a double click) made two films for one session.
+    with jobs.shared_lock("start"):
+        busy = store.running(session_id)
+        if busy:
+            return 409, {"error": "a film is already rendering for this session", "job": jobs.public_view(busy[0])}
+        job = store.create(session_id, opts.to_dict(), kind="directed" if opts.directed else "quick",
+                           surface="desktop", parent=parent)
     if reuse:
         store.update(job["id"], reuse_storyboard=reuse)
     pipeline.start_background(job["id"], llm.standalone_host(), store=store)

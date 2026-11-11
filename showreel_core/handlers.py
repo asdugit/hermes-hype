@@ -32,6 +32,17 @@ log = logging.getLogger(__name__)
 
 #: Surfaces whose slash-command RPC must answer within ~30 s: render in the background there.
 BACKGROUND_SURFACES = frozenset({"desktop", "tui", "acp"})
+#: Local surfaces where ``/hype`` keeps its blocking reply (the film's MEDIA lines arrive with it). Every other
+#: named surface is a messaging chat (Telegram, Discord, Slack, ...): Hermes runs a plugin command there as the
+#: chat's active turn and queues the chat's next messages behind it (``should_bypass_active_session`` only knows
+#: built-in commands), so a blocking render held `/hype status` and `/hype cancel` for the whole 2-30 minutes.
+LOCAL_SURFACES = frozenset({"cli", "local", ""})
+
+
+def is_messaging(surface: str) -> bool:
+    """True for a messaging-gateway chat (``telegram``, ``discord``, ...): films start in the background there."""
+    s = str(surface or "").strip().lower()
+    return s not in LOCAL_SURFACES and s not in BACKGROUND_SURFACES and s not in ("tool", "cron")
 TOOL_WAIT_S = 270.0                 # the tool deadline is 420 s; keep a margin for delivery and the reply
 TOOL_WAIT_MAX_S = 330.0
 
@@ -192,8 +203,9 @@ def slash(ctx: Any, raw_args: str = "", *, session_id: str = "", platform: str =
     if cmd.action == "styles":
         return styles_text(discover_styles())
     store = _store()
+    surface = _surface(ctx, platform)
     if cmd.action == "status":
-        return prefix + _status_text(store, cmd.job_ref, session_id)
+        return prefix + _status_text(store, cmd.job_ref, session_id, media=is_messaging(surface))
     if cmd.action == "cancel":
         return prefix + _cancel_text(store, cmd.job_ref, session_id)
     if not session_id:
@@ -212,7 +224,6 @@ def slash(ctx: Any, raw_args: str = "", *, session_id: str = "", platform: str =
         opts = Options.from_dict(last.get("options"))
         opts.notes = notes
         parent = last["id"]
-    surface = _surface(ctx, platform)
     if str(getattr(opts, "engine_3d", "") or "") == "blender":
         prefix += blender_missing_line(getattr(opts, "blender_path", "") or settings.blender_path or None)
     return prefix + start_film(ctx, store, session_id, opts, surface=surface, parent=parent)
@@ -256,6 +267,12 @@ def start_film(ctx: Any, store: JobStore, session_id: str, opts: Options, *, sur
         where = "the Hype pane" if surface == "desktop" else "the status line"
         return (f"🎬 Making your film ({describe(opts)}). Progress shows in {where}; "
                 f"/hype status any time, /hype cancel to stop. Job {job['id']}.")
+    if is_messaging(surface):
+        start_background(job["id"], host, store=store, handle=handle,
+                         on_done=lambda final: _announce_done(ctx, handle, final))
+        return (f"🎬 Making your film ({describe(opts)}). It renders in the background: this chat stays free, "
+                f"/hype status shows progress (and sends the video once it is done), /hype cancel stops it. "
+                f"Job {job['id']}.")
     final = run_job(job["id"], host, store=store, handle=handle)
     if final.get("stage") == "done":
         return done_text(final, media=True)
@@ -264,14 +281,35 @@ def start_film(ctx: Any, store: JobStore, session_id: str, opts: Options, *, sur
     return failed_text(final)
 
 
-def _status_text(store: JobStore, ref: str, session_id: str) -> str:
+def _announce_done(ctx: Any, handle: Any, final: dict[str, Any]) -> None:
+    """A messaging chat's film finished in the background: say so in a NEW message (an edit of the progress
+    message does not notify on Telegram/Discord). ``post_message`` carries text only, so the video itself comes
+    with the reply to ``/hype status`` (MEDIA lines there)."""
+    from .deliver import done_text, failed_text
+    stage = final.get("stage")
+    if stage == "done":
+        text = done_text(final, media=False) + "\n  Send /hype status to get the video in this chat."
+    elif stage == "failed":
+        text = failed_text(final)
+    else:
+        return                                        # cancelled: the user asked for it; the progress line says so
+    posted = _post(ctx, text)
+    if posted is None or getattr(posted, "ok", True) is False:
+        try:
+            if handle is not None:
+                handle.edit(text)
+        except Exception as exc:  # noqa: BLE001 - best effort
+            log.debug("hype: could not announce the finished film: %s", exc)
+
+
+def _status_text(store: JobStore, ref: str, session_id: str, *, media: bool = False) -> str:
     from .deliver import done_text, progress_text
     job = store.find(ref, session_id or None)
     if job is None:
         if ref and ref != "latest":
             return f"🎬 No film job matches '{ref[:40]}'. /hype status shows this session's latest film."
         return "🎬 No film yet in this session. Run /hype to make one."
-    text = done_text(job, media=False) if job.get("stage") == "done" else progress_text(job)
+    text = done_text(job, media=media) if job.get("stage") == "done" else progress_text(job)
     return f"{text}\n  job {job['id']} · {describe(Options.from_dict(job.get('options')))}"
 
 
@@ -286,14 +324,28 @@ def _cancel_text(store: JobStore, ref: str, session_id: str) -> str:
 
 # --------------------------------------------------------------------------------- tools
 
-def _tool_options(ctx: Any, args: dict[str, Any]) -> Options:
+def _tool_options(ctx: Any, args: dict[str, Any], notes: list[str] | None = None) -> Options:
+    notes = notes if notes is not None else []
     opts = _settings(ctx).options()
     if args.get("mode"):
         opts.mode = norm_mode(args["mode"])
     if args.get("style"):
-        opts.style = str(args["style"]).strip().lower()
-    if args.get("seconds"):
-        opts.seconds = args["seconds"]
+        want = str(args["style"]).strip().lower()
+        known = style_ids()
+        if want in known:
+            opts.style = want
+        else:
+            notes.append(f"unknown style '{want[:30]}'; made a {opts.style} film (styles: {', '.join(known)}; "
+                         "for another look pass it as direction)")
+    if args.get("seconds") is not None:
+        try:
+            asked = int(args["seconds"])
+        except (TypeError, ValueError):
+            asked = None
+        if asked is not None:
+            opts.seconds = max(MIN_SECONDS, min(MAX_SECONDS, asked))
+            if opts.seconds != asked:
+                notes.append(f"length {asked} s is outside {MIN_SECONDS}-{MAX_SECONDS} s; using {opts.seconds} s")
     if args.get("aspect"):
         opts.aspects = norm_aspects(args["aspect"])
     if isinstance(args.get("voice"), bool):
@@ -330,6 +382,10 @@ def _result(job: dict[str, Any], **extra: Any) -> dict[str, Any]:
         out["error"] = job["error"]
     if job.get("warnings"):
         out["warnings"] = list(job["warnings"])[:6]
+    if job.get("option_notes"):
+        out["notes"] = list(job["option_notes"])[:4]
+    if job.get("model_note"):
+        out["model_note"] = job["model_note"]
     out.update(extra)
     return out
 
@@ -346,12 +402,15 @@ def render_tool(ctx: Any, args: dict[str, Any] | None, **kwargs: Any) -> str:
         if busy:
             return json.dumps(_result(busy[0], success=False,
                                       error="A film is already rendering for this session; use hype_status."))
-        opts = _tool_options(ctx, args)
+        opts_notes: list[str] = []
+        opts = _tool_options(ctx, args, opts_notes)
         job = _create_job(store, session_id, opts, surface="tool")
         if job is None:
             busy = store.running(session_id)
             return json.dumps(_result(busy[0] if busy else {}, success=False,
                                       error="A film is already rendering for this session; use hype_status."))
+        if opts_notes:
+            store.update(job["id"], option_notes=opts_notes)
         done = threading.Event()
         from .pipeline import start_background
         handle = _post(ctx, f"🎬 Hype {job['id']}: starting · {describe(opts)}")
@@ -442,13 +501,23 @@ def make_cli_handler(ctx: Any) -> Any:
         except KeyboardInterrupt:
             from .pipeline import cancel_all
             cancel_all(wait_s=5.0)
-            print("cancelled")
+            _cli_say(args, "cancelled", status="cancelled")
             return 130
         except Exception as exc:  # noqa: BLE001 - one clear line, never a traceback
             log.debug("hermes hype failed", exc_info=True)
-            print(f"hype: {_error_text(exc)}")
+            _cli_say(args, f"hype: {_error_text(exc)}", error=_error_text(exc))
             return 1
     return handler
+
+
+def _cli_say(args: Any, text: str, **fields: Any) -> None:
+    """Print one CLI message: plain text, or a JSON object with ``--json`` (scripts parse failures too)."""
+    if getattr(args, "json", False):
+        out: dict[str, Any] = {"success": False, **fields}
+        out.setdefault("error", text)
+        print(json.dumps(out, indent=1, default=str), flush=True)
+    else:
+        print(text, flush=True)
 
 
 def cli(ctx: Any, args: Any) -> int:
@@ -480,12 +549,28 @@ def cli(ctx: Any, args: Any) -> int:
     from .session import resolve_session_ref
     sid = resolve_session_ref(args.session) or ""
     if not sid:
-        print(f"no session matches {args.session!r}")
+        _cli_say(args, f"no session matches {args.session!r}", status="no_session")
         return 1
     opts = _settings(ctx).options()
-    for key in ("style", "seconds", "mode", "effort"):
+    notes: list[str] = []
+    style = getattr(args, "style", None)
+    if style is not None:
+        known = style_ids()
+        want = str(style).strip().lower()
+        if want not in known:
+            msg = (f"unknown style {style!r}. Styles: {', '.join(known)}. For a look unlike any preset, use "
+                   f"--direction \"{style}\" (Directed film).")
+            _cli_say(args, f"hype: {msg}", status="usage", styles=list(known))
+            return 2
+        opts.style = want
+    for key in ("mode", "effort"):
         if getattr(args, key, None):
             setattr(opts, key, getattr(args, key))
+    if getattr(args, "seconds", None) is not None:
+        asked = int(args.seconds)
+        opts.seconds = max(MIN_SECONDS, min(MAX_SECONDS, asked))
+        if opts.seconds != asked:
+            notes.append(f"length {asked} s is outside {MIN_SECONDS}-{MAX_SECONDS} s; using {opts.seconds} s")
     if args.aspect:
         opts.aspects = norm_aspects(args.aspect)
     opts.voice = (opts.voice or bool(getattr(args, "narrate", False))) and not args.no_voice
@@ -503,7 +588,16 @@ def cli(ctx: Any, args: Any) -> int:
     opts = _cz.from_cli_args(opts, args)  # W5 preset customization
     opts = opts.normalised()
     _ensure_builtin_tools()
-    job = store.create(sid, opts.to_dict(), kind="directed" if opts.directed else "quick", surface="cli")
+    job = _create_job(store, sid, opts, surface="cli")
+    if job is None:
+        busy = store.running(sid)
+        bid = busy[0]["id"] if busy else ""
+        _cli_say(args, f"hype: a film is already in progress for this session ({bid}). Watch it with "
+                       f"`hermes hype status {bid}` or cancel it with /hype cancel, then run this again.",
+                 status="busy", job_id=bid)
+        return 1
+    for note in notes:
+        print(f"note: {note}", flush=True)
     print(f"hype {job['id']}: {describe(opts)} (session {sid})", flush=True)
 
     class _Echo:
@@ -516,7 +610,10 @@ def cli(ctx: Any, args: Any) -> int:
     t0 = time.monotonic()
     final = run_job(job["id"], _host(ctx, "cli"), store=store, handle=_Echo())
     if args.json:
-        print(json.dumps(_result(final, wall_s=round(time.monotonic() - t0, 1)), indent=1, default=str))
+        extra: dict[str, Any] = {"wall_s": round(time.monotonic() - t0, 1)}
+        if notes:
+            extra["notes"] = notes
+        print(json.dumps(_result(final, **extra), indent=1, default=str))
     elif final.get("stage") == "done":
         from .deliver import done_text
         print(done_text(final, media=True))

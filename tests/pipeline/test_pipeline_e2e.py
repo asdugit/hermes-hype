@@ -144,7 +144,8 @@ def test_render_failure_retries_in_software_mode(env: dict[str, Any]) -> None:
     final = run_job(_job(store, seconds=30)["id"], _host()[0], store=store, deps=make_deps(rec, render_fail=1))
     assert final["stage"] == "done"
     assert [(r["gpu"], r["workers"]) for r in rec.calls["render"]] == [("auto", None), ("off", 1)]
-    assert any("software mode" in w for w in final["warnings"])
+    assert not any("software mode" in w for w in final["warnings"])      # a retry that worked is not a user note
+    assert any("software mode" in e.get("msg", "") for e in store.load(final["id"])["log"])
 
 
 def test_render_failing_twice_fails_the_job_with_the_error(env: dict[str, Any]) -> None:

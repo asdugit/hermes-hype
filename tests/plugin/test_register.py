@@ -153,12 +153,37 @@ def _fake_run(store: JobStore, stage: str = "done") -> Any:
 def test_slash_blocking_surfaces_reply_with_media(env: dict[str, Any], monkeypatch: pytest.MonkeyPatch) -> None:
     import showreel_core.pipeline as pl
     monkeypatch.setattr(pl, "run_job", _fake_run(env["store"]))
-    ctx = FakeCtx(surface="telegram")
-    reply = handlers.make_slash_handler(ctx)("pixel 30 vertical", session_id="sess-9", platform="telegram")
+    ctx = FakeCtx(surface="cli")
+    reply = handlers.make_slash_handler(ctx)("pixel 30 vertical", session_id="sess-9", platform="cli")
     assert "Focusfox" in reply and re.search(r"^MEDIA:.+hype_16x9\.mp4$", reply, re.MULTILINE)
     job = env["store"].latest("sess-9")
     assert job["options"]["style"] == "pixel" and job["options"]["aspects"] == ["9:16"]
-    assert job["surface"] == "telegram" and ctx.posted and "starting" in ctx.posted[0].texts[0]
+    assert job["surface"] == "cli" and ctx.posted and "starting" in ctx.posted[0].texts[0]
+
+
+@pytest.mark.parametrize("platform", ["telegram", "discord", "slack"])
+def test_messaging_chats_render_in_the_background_and_status_sends_the_video(
+        env: dict[str, Any], monkeypatch: pytest.MonkeyPatch, platform: str) -> None:
+    """Hermes runs a plugin command as the chat's active turn and queues the chat's next messages behind it (only
+    built-in commands bypass), so a blocking /hype held /hype status and /hype cancel for the whole render."""
+    import showreel_core.pipeline as pl
+    started: list[dict[str, Any]] = []
+    monkeypatch.setattr(pl, "run_job", lambda *a, **k: pytest.fail("must not block a messaging chat"))
+    monkeypatch.setattr(pl, "start_background", lambda job_id, host, **kw: started.append({"id": job_id, **kw}))
+    ctx = FakeCtx(surface=platform)
+    reply = handlers.slash(ctx, "pixel 30", session_id="sess-m", platform=platform)
+    assert started and started[0]["id"] in reply and "background" in reply and "/hype cancel" in reply
+    # meanwhile /hype status and /hype cancel answer at once
+    assert "Hype" in handlers.slash(ctx, "status", session_id="sess-m", platform=platform)
+    assert "Cancelling" in handlers.slash(ctx, "cancel", session_id="sess-m", platform=platform)
+    # the film finishes: a NEW message says so (edits don't notify), and /hype status carries the MEDIA line
+    final = _fake_run(env["store"])(started[0]["id"], None)
+    started[0]["on_done"](final)
+    assert "Send /hype status" in ctx.posted[-1].texts[0] and "MEDIA:" not in ctx.posted[-1].texts[0]
+    status = handlers.slash(ctx, "status", session_id="sess-m", platform=platform)
+    assert re.search(r"^MEDIA:.+hype_16x9\.mp4$", status, re.MULTILINE)
+    assert "MEDIA:" not in handlers.slash(FakeCtx(surface="cli"), "status", session_id="sess-m", platform="cli")
+    assert handlers.is_messaging(platform) and not handlers.is_messaging("cli") and not handlers.is_messaging("")
 
 
 def test_slash_failure_text(env: dict[str, Any], monkeypatch: pytest.MonkeyPatch) -> None:

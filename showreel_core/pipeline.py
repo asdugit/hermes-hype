@@ -60,13 +60,26 @@ FIXED_STAGE_S: dict[str, float] = {"reading": 30.0, "storyboard": 50.0, "voice":
                                    "qa": 35.0}
 #: The Director's planning/coding/critique time per effort (it reports inside the storyboard stage).
 DIRECTOR_ESTIMATE_S: dict[str, float] = {"quick": 840.0, "standard": 1500.0, "max": 2400.0}
+#: The same for a small/fast model (compose path: pick -> words -> engine-assembled film, no custom scenes).
+#: Real E2E: claude-haiku-4-5 quick took 3-4 min in all while the reply announced "~17 min left".
+DIRECTOR_COMPOSE_ESTIMATE_S: dict[str, float] = {"quick": 150.0, "standard": 300.0, "max": 540.0}
 
 
-def initial_estimates(opts: Options) -> tuple[float, float]:
+def director_path(model: str | None = None) -> str:
+    """``compose`` when the host's main model is small/fast (the Director's weak tier), else ``free``."""
+    try:
+        from .director import tiers
+        return tiers.detect(tiers.host_model() if model is None else model).path
+    except Exception:  # noqa: BLE001 - no Director in this build / unreadable config: assume the slow path
+        return "free"
+
+
+def initial_estimates(opts: Options, path: str = "free") -> tuple[float, float]:
     """(render seconds, storyboard seconds) to show before the renderer and the Director report their own."""
     fps = PREVIEW_FPS if opts.preview else FINAL_FPS
     render = sum(opts.seconds * fps / ASSUMED_RENDER_FPS for _ in opts.aspects)
-    story = DIRECTOR_ESTIMATE_S.get(opts.effort, 1500.0) if opts.directed else FIXED_STAGE_S["storyboard"]
+    table = DIRECTOR_COMPOSE_ESTIMATE_S if path == "compose" else DIRECTOR_ESTIMATE_S
+    story = table.get(opts.effort, table["standard"]) if opts.directed else FIXED_STAGE_S["storyboard"]
     return render, story
 ASPECT_TAG = {"16:9": "16x9", "9:16": "9x16", "1:1": "1x1"}
 
@@ -268,6 +281,13 @@ class Reporter:
         fixed = {**FIXED_STAGE_S, "storyboard": self.storyboard_estimate_s}
         left = sum(self.render_estimate_s if s == "render" else fixed[s] for s in rest)
         cur = self.render_estimate_s if self.stage_name == "render" else fixed.get(self.stage_name, 5.0)
+        if self.stage_name == "storyboard" and self.storyboard_estimate_s > FIXED_STAGE_S["storyboard"] \
+                and frac >= 0.15:
+            # The Director reports its progress: project from its own pace instead of the fixed guess (the
+            # reply said ~11 min left after planning a job that ended 2 min later).
+            spent = time.monotonic() - self.t_stage
+            if spent > 5.0:
+                return left + min(cur, max(0.0, spent / frac - spent))
         return left + cur * (1.0 - frac)
 
     def close_stage(self) -> None:
@@ -663,12 +683,16 @@ def run_job(job_id: str, host: Host | None = None, *, store: JobStore | None = N
     if job is None:
         return {"id": job_id, "stage": "failed", "error": {"code": "no_job", "message": "job not found"}}
     token = CancelToken(store, job_id)
+    if getattr(host, "stop", None) is None:
+        with contextlib.suppress(Exception):
+            host.stop = token.is_set                  # retry waits on a busy model end when the user cancels
     with _RUNNING_GUARD:
         _RUNNING[job_id] = token
     mark_live(job_id)
     rep = Reporter(store, job_id, host, handle=handle)
     opts = Options.from_dict(job.get("options"))
-    rep.render_estimate_s, rep.storyboard_estimate_s = initial_estimates(opts)
+    rep.render_estimate_s, rep.storyboard_estimate_s = initial_estimates(
+        opts, director_path() if opts.directed else "free")
     run = _Run(job_id, job, opts, host, store, deps, rep, token, store.job_dir(job_id),
                seed=job_seed(job.get("session_id", ""), opts.style, opts.mode))
     t0 = time.monotonic()
@@ -831,6 +855,8 @@ def _read(run: _Run) -> None:
     if not getattr(bundle, "events", None) and not brief.get("name"):
         raise StageError("empty_session", "This session has nothing to film yet.",
                          "Build something first (or pass a product brief to hype_render), then try again.")
+    if not built_anything(getattr(bundle, "events", None) or []) and not _film_forced(run):
+        raise StageError("nothing_built", NOTHING_BUILT[0], NOTHING_BUILT[1])
     if brief:
         _merge_brief(bundle, brief)
     run.bundle = bundle
@@ -841,6 +867,32 @@ def _read(run: _Run) -> None:
     run.store.update(run.job_id, session_id=getattr(bundle, "session_id", sid) or sid,
                      product=_product_dict(getattr(bundle, "product", None)))
     run.rep.progress(1.0, f"{len(bundle.events)} events")
+
+
+#: Event kinds that show the session made or ran something (a chat of questions and answers has none of them).
+BUILD_KINDS = frozenset({"file_write", "file_patch", "terminal", "browser_nav", "screenshot", "image_generated",
+                         "artifact", "product_capture", "delegate"})
+#: (message, hint) when a session built nothing: one friendly line, no render (real E2E: "What's a good name for a
+#: cat?" became a launch trailer titled "What's a good name for a cat").
+NOTHING_BUILT = ("This chat hasn't built anything yet (no files written, no commands run), so there's no product "
+                 "to film: /hype makes a trailer of what a session builds.",
+                 "To film this chat anyway, ask for the making-of (`/hype lore`) or give a direction "
+                 "(`/hype a noir teaser about cat names`); from a terminal, `hermes hype render --mode lore` or "
+                 "`--direction \"...\"`.")
+
+
+def built_anything(events: list[Any]) -> bool:
+    """True when the evidence holds at least one file written/patched, command run, page visited, picture or
+    artefact (``BUILD_KINDS``)."""
+    return any(str(getattr(e, "kind", "") or "") in BUILD_KINDS for e in events)
+
+
+def _film_forced(run: _Run) -> bool:
+    """The user asked for a film of this chat anyway: making-of mode, a direction, a product brief, notes, or a
+    re-render of an earlier film."""
+    o = run.opts
+    return bool(o.mode == "making_of" or o.direction or (o.brief or {}).get("name") or o.notes
+                or run.job.get("parent"))
 
 
 #: Hype's own tools: their calls, results and contact sheets are not evidence of what the session built.
@@ -873,7 +925,7 @@ def own_output_event(ev: Any, own_dirs: list[str], after_first_film: bool, this_
                      str(data.get("cmd") or "")]).replace("\\", "/").lower()
     if any(d and d in text for d in own_dirs) or _OWN_FILM_TEXT.search(text):
         return True
-    return after_first_film and "hype" in text and getattr(ev, "kind", "") in (
+    return after_first_film and bool(_OWN_TALK.search(text)) and getattr(ev, "kind", "") in (
         "user_prompt", "assistant_note", "final_answer", "terminal", "tool_other", "artifact")
 
 
@@ -895,6 +947,15 @@ def _is_derived(ev: Any, names: set[str]) -> bool:
         if base and (base in names or re.sub(r"^e\d+_", "", base) in names):
             return True
     return False
+
+
+#: Talk about Hype's films once one was made (also under the former names Showreel/Auteur): the command, its
+#: tools/CLI, "hype film/trailer/video", job ids. Not the bare word: since the rename "hype" is an everyday product
+#: word ("hype meter", "Hype Board").
+_BRANDS = r"(?:hype|showreel|auteur)"
+_OWN_TALK = re.compile(rf"(?<![\w-])/{_BRANDS}\b|\b{_BRANDS}_(?:render|status)\b|\bhermes\s+{_BRANDS}\b|"
+                       rf"\b{_BRANDS}\s+(?:film|trailer|video|reel|job|render|lore|speedrun)s?\b|"
+                       r"\b20\d{6}-\d{6}-[0-9a-f]{4}\b", re.I)
 
 
 def _drop_own_outputs(run: _Run, bundle: Any) -> None:
@@ -1099,6 +1160,7 @@ def _storyboard(run: _Run) -> Any:
         llm_call = run.host.story_call()
         if llm_call is None:
             run.warn("no model available; storyboard built by the heuristic")
+        before = run.host.calls.snapshot()
         rep = run.deps.storyboard(llm_call, run.bundle, story_opts,
                                   run.bundle.product if getattr(run.bundle, "product_detected", True) else None)
         sb = rep.storyboard
@@ -1109,13 +1171,34 @@ def _storyboard(run: _Run) -> Any:
         for fix in (getattr(rep, "fixes", None) or [])[:12]:
             run.info(f"storyboard fix: {fix}")
         if source == "heuristic" and llm_call is not None:
-            run.warn("the model's storyboard was unusable; used the heuristic storyboard")
+            from .llm import failure_reason
+            delta = run.host.calls.since(before)
+            why = (failure_reason(delta) if not delta["ok"] else "") or _attempt_failure(rep)
+            note = (f"{why}, so Hype used its own storyboard" if why
+                    else "the model's storyboard was unusable; used the heuristic storyboard")
+            run.warn(note)
+            run.store.update(run.job_id, storyboard_note=note)
     run.title = sb.title or getattr(getattr(sb, "product", None), "name", "") or "Hype"
     data = storyboard_to_json(sb)
     (run.job_dir / "storyboard.json").write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8")
     run.store.update(run.job_id, storyboard=data, storyboard_source=source, title=run.title)
     run.rep.progress(1.0, f"{len(sb.scenes)} scenes ({source})")
     return sb
+
+
+def _attempt_failure(rep: Any) -> str:
+    """Why the storyboard calls failed when none of them got a reply (from the attempts' own error text), else ''.
+    Covers model routes that do not go through :class:`showreel_core.llm.JsonModeLlm` (the dev route)."""
+    from .llm import KIND_TEXT, transient_kind
+    attempts = list(getattr(rep, "attempts", None) or [])
+    kinds = []
+    for a in attempts:
+        text = " ".join(str(p) for p in (getattr(a, "problems", None) or []))
+        if "model call failed" not in text:
+            return ""                                 # this attempt reached the model: its reply was the problem
+        kinds.append(transient_kind(Exception(text)))
+    kind = next((k for k in ("rate_limit", "overloaded", "server", "timeout") if k in kinds), "")
+    return KIND_TEXT.get(kind, "")
 
 
 def words_per_minute(text: str, seconds: float) -> float | None:
@@ -1390,6 +1473,7 @@ def _directed(run: _Run) -> list[Built] | None:
                "engine_3d": run.opts.engine_3d}
     found = blender_engine(run)
     offered["blender"] = found.to_dict() if found else None   # the Director may write blender: shots when set
+    before = run.host.calls.snapshot()
     try:
         params = inspect.signature(director).parameters
         takes_all = any(p.kind is inspect.Parameter.VAR_KEYWORD for p in params.values())
@@ -1414,6 +1498,7 @@ def _directed(run: _Run) -> list[Built] | None:
                  "made a Quick film instead")
         return None
     run.title = str(film.get("title") or "Hype")
+    _director_model_note(run, res, before)
     run.store.update(run.job_id, title=run.title, director={k: v for k, v in res.items() if k not in ("film", "log")})
     run.rep.stage("layout", "building the film")
     director_dir = Path(res.get("job_dir") or run.job_dir)
@@ -1457,13 +1542,47 @@ def _directed(run: _Run) -> list[Built] | None:
     return run.built
 
 
+#: Flags a Director result may carry when it never got a usable model reply (read when present).
+_NO_MODEL_FLAGS = ("model_unavailable", "no_model", "model_failed", "all_calls_failed")
+
+
+def _director_model_note(run: _Run, res: dict[str, Any], before: dict[str, Any]) -> None:
+    """A Directed film whose model calls ALL failed (rate limit, outage) is the engine's default plan for the
+    direction, not a film the model directed: say so in the reply, status and pane (``job.model_note``). Real E2E:
+    every call met HTTP 429, the film was delivered with no word about it, and the user would never retry."""
+    delta = run.host.calls.since(before)
+    flagged = any(bool(res.get(k)) for k in _NO_MODEL_FLAGS)
+    tier = res.get("tier") if isinstance(res.get("tier"), dict) else {}
+    usage = res.get("usage") if isinstance(res.get("usage"), dict) else {}
+    try:
+        u_calls, u_ok = int(usage.get("calls") or 0), usage.get("ok")
+        ledger_dead = u_calls > 0 and u_ok is not None and int(u_ok) == 0
+    except (TypeError, ValueError):
+        ledger_dead = False
+    tally_dead = delta["calls"] > 0 and delta["ok"] == 0
+    from .llm import failure_reason
+    if not (flagged or tally_dead or ledger_dead):
+        why = failure_reason(delta)
+        if why and delta["failed"] * 2 >= delta["calls"] > 0:
+            note = (f"{why[:1].upper()}{why[1:]} for {delta['failed']} of {delta['calls']} calls, so parts of this "
+                    "film use the engine's defaults. Run it again later for a fully model-directed film.")
+            run.warn(note)
+            run.store.update(run.job_id, model_note=note, model_calls=delta)
+        return
+    why = failure_reason(delta) or "the model could not be reached"
+    note = (f"{why[:1].upper()}{why[1:]} for every call, so this film uses the engine's default plan for your "
+            "direction (not one the model wrote). Run it again later for a model-directed film.")
+    run.warn(note)
+    run.store.update(run.job_id, model_note=note, model_calls=delta)
+    run.info("director model calls", calls=delta, tier=tier.get("path") or tier.get("tier") or "")
+
+
 def director_llm(host: Host) -> Any:
     """``host.llm`` for the Director, schema-as-prompt + JSON mode (Anthropic rejects native structured output
     for big schemas with HTTP 400 "Schema is too complex"; see :class:`showreel_core.llm.JsonModeLlm`)."""
     if host.llm is None:
         return None
-    from .llm import JsonModeLlm
-    return host.llm if isinstance(host.llm, JsonModeLlm) else JsonModeLlm(host.llm)
+    return host.json_llm()
 
 
 def blender_engine(run: _Run) -> Any:
@@ -1604,6 +1723,10 @@ def _render_spec(run: _Run, b: Built, *, gpu: str, workers: int | None) -> Any:
                       gpu_cache=run.store.root / "gpu_probe.json")
 
 
+#: Render warnings about a chunk/worker that failed and was retried: noise once the render succeeded.
+_RETRY_NOISE = re.compile(r"attempt \d+ failed|retr(?:y|ied|ying)\b|restart(?:ed|ing)?\b", re.I)
+
+
 def _render_all(run: _Run) -> dict[str, Path]:
     total_frames = sum(max(1, round(b.dur * b.fps)) for b in run.built)
     run.rep.render_estimate_s = total_frames / ASSUMED_RENDER_FPS
@@ -1628,7 +1751,9 @@ def _render_all(run: _Run) -> dict[str, Path]:
                     "no_browser", "no_ffmpeg", "bad_env_browser", "bad_env_ffmpeg", "page_contract"):
                 break
             if attempt == 0:
-                run.warn(f"render failed ({err.get('code')}: {err.get('message')}); retrying in software mode")
+                # Logged, not a user note: the software retry usually succeeds (if it fails too, the job fails
+                # with that error). Real E2E: a delivered film's reply listed internal retry noise.
+                run.info(f"render failed ({err.get('code')}: {err.get('message')}); retrying in software mode")
         err = getattr(res, "error", None) or {}
         if run.cancel.is_set() or err.get("code") == "cancelled":
             raise Cancelled()
@@ -1640,6 +1765,8 @@ def _render_all(run: _Run) -> dict[str, Path]:
             "frames", "wall_s", "render_fps", "workers", "gpu", "encoder", "restarts", "warnings", "page_errors",
             "blocked_urls")})
         for w in (rd.get("warnings") or [])[:5]:
+            if _RETRY_NOISE.search(str(w)):
+                continue                          # a chunk that failed once and then rendered: in the log above
             run.warn(f"render {b.aspect}: {w}")
         videos[b.aspect] = Path(res.out_path)
         done_before += frames_b

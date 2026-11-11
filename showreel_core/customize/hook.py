@@ -41,6 +41,15 @@ def settings_knobs() -> dict[str, Any]:
         return {}
 
 
+def customize_failure_note(error: str) -> str:
+    """The user's note when the customization model call failed: plain words, never the provider's raw error
+    (real E2E: the done text showed a 429 error dict with its request id)."""
+    from ..llm import KIND_TEXT, transient_kind
+    kind = transient_kind(Exception(error))
+    why = KIND_TEXT.get(kind) or "the model's customization reply could not be used"
+    return f"{why}, so Hype applied your request's words itself"
+
+
 def _info(run: Any, msg: str, **extra: Any) -> None:
     try:
         run.info(msg, **extra)
@@ -238,7 +247,8 @@ def _spec_for(run: Any, cz: dict[str, Any], tl: Any, orig_quick: Any, kw: dict[s
             spec = res["spec"]
             record = {"text": text, **{k: v for k, v in res.items() if k != "raw"}, "raw": res.get("raw")}
             if res.get("error"):
-                run.warn(f"customization model reply unusable ({res['error']}); used the request's words")
+                _info(run, f"customization model reply unusable ({str(res['error'])[:300]})")
+                run.warn(customize_failure_note(str(res["error"])))
             if spec.get("restructure"):
                 run.warn("this request goes beyond the preset; for a different film run it without naming a preset "
                          "(or add 'directed') and the Director makes it")

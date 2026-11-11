@@ -12,8 +12,12 @@ from __future__ import annotations
 
 import json
 import logging
+import random
+import re
+import threading
+import time
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 log = logging.getLogger(__name__)
@@ -22,6 +26,196 @@ PLUGIN = "hype"
 AUX_TASK = "hype"
 
 Dispatch = Callable[..., str]
+
+
+# --------------------------------------------------------------------------- transient model failures
+
+#: Waits before retry 1, 2, 3 of a call that failed with a transient error (rate limit, overloaded, 5xx, a fast
+#: timeout); each gets +-25 % jitter and a ``Retry-After`` from the provider wins when it is longer. Real E2E: the
+#: storyboard call met HTTP 429 and the next call went out 0.1 s later, met the same 429, and the film fell back.
+RETRY_DELAYS_S: tuple[float, ...] = (4.0, 12.0, 30.0)
+#: Most time one call may spend waiting between its tries (a call never sleeps past this, so a job cannot hang).
+RETRY_BUDGET_S = 60.0
+#: After a call used up its retries on a transient error, later calls of the same job try once without waiting
+#: for this long (re-armed by each further failure): a provider that rate-limits every call (one key shared by
+#: parallel users, a per-model hourly cap) costs the job one minute, not one minute per call.
+COOLDOWN_S = 45.0
+
+_RATE_RE = re.compile(r"rate[ _-]?limit|ratelimit|too many requests|\b429\b|quota exceeded|requests per", re.I)
+_OVERLOAD_RE = re.compile(r"overloaded|\b529\b|at capacity|server is busy|temporarily unavailable|"
+                          r"service unavailable|try again later", re.I)
+_SERVER_RE = re.compile(r"(?:error code|status(?: code)?|http)\W{0,3}5\d\d\b|internal server error|bad gateway|"
+                        r"gateway time-?out", re.I)
+_TIMEOUT_RE = re.compile(r"timed? ?out|timeout|deadline exceeded", re.I)
+_RETRY_AFTER_TEXT = re.compile(r"(?:retry|try again)(?: after| in)?\s+(\d+(?:\.\d+)?)\s*(ms|s|sec|seconds?)?\b", re.I)
+
+
+def _status_of(exc: BaseException) -> int | None:
+    for obj in (exc, getattr(exc, "response", None)):
+        code = getattr(obj, "status_code", None) if obj is not None else None
+        if isinstance(code, int):
+            return code
+    return None
+
+
+def transient_kind(exc: BaseException) -> str:
+    """``rate_limit`` | ``overloaded`` | ``server`` | ``timeout`` for a failure worth waiting out, else ``""``
+    (bad request, auth, billing, a refused JSON format: retrying those only repeats the error)."""
+    name = type(exc).__name__
+    text = f"{name}: {exc}"
+    status = _status_of(exc)
+    low = text.lower()
+    if any(k in low for k in ("credit", "billing", "insufficient", "payment", "unauthor", "invalid api key",
+                              "permission")) and status != 529:
+        return ""
+    if name == "RateLimitError" or status == 429 or _RATE_RE.search(text):
+        return "rate_limit"
+    if status == 529 or name in ("OverloadedError", "ServiceUnavailableError") or _OVERLOAD_RE.search(text):
+        return "overloaded"
+    if (isinstance(status, int) and 500 <= status < 600) or name == "InternalServerError" or _SERVER_RE.search(text):
+        return "server"
+    if isinstance(exc, TimeoutError) or "timeout" in name.lower() or _TIMEOUT_RE.search(text):
+        return "timeout"
+    if name in ("APIConnectionError", "ConnectionError", "RemoteProtocolError", "ConnectError", "ReadError"):
+        return "server"
+    return ""
+
+
+def retry_after_s(exc: BaseException) -> float | None:
+    """The provider's ``Retry-After`` (headers on the exception or its response, or the message text), seconds."""
+    for obj in (exc, getattr(exc, "response", None)):
+        headers = getattr(obj, "headers", None) if obj is not None else None
+        if headers is None:
+            continue
+        try:
+            ms = headers.get("retry-after-ms")
+            if ms not in (None, ""):
+                return max(0.0, float(ms) / 1000.0)
+            val = headers.get("retry-after")
+            if val not in (None, ""):
+                return max(0.0, float(val))
+        except (AttributeError, TypeError, ValueError):
+            continue
+    direct = getattr(exc, "retry_after", None)
+    if isinstance(direct, (int, float)):
+        return max(0.0, float(direct))
+    m = _RETRY_AFTER_TEXT.search(str(exc))
+    if m:
+        val = float(m.group(1))
+        return val / 1000.0 if (m.group(2) or "").lower() == "ms" else val
+    return None
+
+
+#: What the user reads when the model could not be reached (job notes, done text, Desktop pane).
+KIND_TEXT = {"rate_limit": "the model was rate-limited", "overloaded": "the model service was overloaded",
+             "server": "the model service had an error", "timeout": "the model did not answer in time"}
+
+
+@dataclass
+class CallTally:
+    """Model calls of one job: how many went out, failed and why (thread-safe; the Director calls in parallel).
+
+    The pipeline reads it to tell the user the truth ("the model was rate-limited, so Hype used its own
+    storyboard") instead of "the model's reply could not be used", and to flag a Directed film that never reached
+    the model."""
+    calls: int = 0
+    ok: int = 0
+    failed: int = 0
+    kinds: dict[str, int] = field(default_factory=dict)
+    retries: int = 0
+    waited_s: float = 0.0
+    cooldown_until: float = 0.0
+    _lock: threading.Lock = field(default_factory=threading.Lock, repr=False, compare=False)
+
+    def snapshot(self) -> dict[str, Any]:
+        with self._lock:
+            return {"calls": self.calls, "ok": self.ok, "failed": self.failed, "kinds": dict(self.kinds),
+                    "retries": self.retries, "waited_s": round(self.waited_s, 1)}
+
+    def record(self, ok: bool, kind: str = "") -> None:
+        with self._lock:
+            self.calls += 1
+            if ok:
+                self.ok += 1
+            else:
+                self.failed += 1
+                key = kind or "other"
+                self.kinds[key] = self.kinds.get(key, 0) + 1
+
+    def since(self, before: dict[str, Any]) -> dict[str, Any]:
+        """Counts added after ``before`` (a :meth:`snapshot`)."""
+        now = self.snapshot()
+        kinds = {k: v - before.get("kinds", {}).get(k, 0) for k, v in now["kinds"].items()}
+        return {"calls": now["calls"] - before.get("calls", 0), "ok": now["ok"] - before.get("ok", 0),
+                "failed": now["failed"] - before.get("failed", 0), "kinds": {k: v for k, v in kinds.items() if v}}
+
+
+def failure_reason(delta: dict[str, Any]) -> str:
+    """Plain words for why a stage's model calls failed (``KIND_TEXT``), ``""`` when none failed transiently."""
+    kinds = delta.get("kinds") or {}
+    for kind in ("rate_limit", "overloaded", "server", "timeout"):
+        if kinds.get(kind):
+            return KIND_TEXT[kind]
+    return ""
+
+
+def call_with_retries(fn: Callable[[], Any], *, tally: CallTally | None = None, timeout: float | None = None,
+                      stop: Callable[[], bool] | None = None, delays: tuple[float, ...] | None = None,
+                      budget_s: float | None = None, sleep: Callable[[float], None] = time.sleep) -> Any:
+    """``fn()`` with bounded retries on transient failures: at most ``len(delays)`` retries, at most ``budget_s``
+    seconds asleep in total, ``Retry-After`` honoured (a wait longer than what is left of the budget is not
+    started), jitter on every wait, and no retry of a timeout that used most of its own time limit. ``stop()``
+    (the job's cancel flag) ends the waiting at once. Re-raises the last error when the retries run out."""
+    tally = tally or CallTally()
+    delays = RETRY_DELAYS_S if delays is None else delays
+    budget = RETRY_BUDGET_S if budget_s is None else budget_s
+    cooling = time.monotonic() < tally.cooldown_until
+    attempt, slept = 0, 0.0
+    while True:
+        t0 = time.monotonic()
+        try:
+            out = fn()
+        except Exception as exc:
+            kind = transient_kind(exc)
+            took = time.monotonic() - t0
+            if kind == "timeout" and (not timeout or took >= 0.5 * float(timeout)):
+                kind_retry = False                  # it used its time (or has no known limit): a retry doubles it
+            else:
+                kind_retry = bool(kind)
+            if not kind_retry or cooling or attempt >= len(delays):
+                tally.record(False, kind)
+                if kind:
+                    with tally._lock:
+                        tally.cooldown_until = time.monotonic() + COOLDOWN_S
+                raise
+            wait = delays[attempt] * random.uniform(0.75, 1.25)
+            after = retry_after_s(exc)
+            if after is not None:
+                wait = max(wait, after + random.uniform(0.0, 1.0))
+            if slept + wait > budget:
+                tally.record(False, kind)
+                with tally._lock:
+                    tally.cooldown_until = time.monotonic() + COOLDOWN_S
+                raise
+            log.info("hype: model call failed (%s: %s); retry %d in %.1f s", kind, str(exc)[:160], attempt + 1, wait)
+            left = wait
+            while left > 0:
+                if stop is not None and stop():
+                    tally.record(False, kind)
+                    raise
+                step = min(0.25, left)
+                sleep(step)
+                left -= step
+            slept += wait
+            attempt += 1
+            with tally._lock:
+                tally.retries += 1
+                tally.waited_s += wait
+            continue
+        tally.record(True)
+        with tally._lock:
+            tally.cooldown_until = 0.0
+        return out
 
 
 def _json_mode_refused(exc: BaseException) -> bool:
@@ -44,14 +238,21 @@ class JsonModeLlm:
     #: Set once a provider refused JSON mode: later calls in this process go straight to plain text.
     plain_only = False
 
-    def __init__(self, llm: Any) -> None:
+    def __init__(self, llm: Any, *, tally: CallTally | None = None, stop: Callable[[], bool] | None = None) -> None:
         self._llm = llm
+        self.tally = tally if tally is not None else CallTally()
+        self.stop = stop
+
+    def _call(self, **kwargs: Any) -> Any:
+        """One host call with bounded retries on rate limits, overload, 5xx and fast timeouts."""
+        return call_with_retries(lambda: self._llm.complete_structured(**kwargs), tally=self.tally,
+                                 timeout=kwargs.get("timeout"), stop=self.stop)
 
     def complete_structured(self, **kwargs: Any) -> Any:
         schema = kwargs.pop("json_schema", None)
         wants_json = bool(kwargs.pop("json_mode", False)) or schema is not None
         if not wants_json:
-            return self._llm.complete_structured(**kwargs)
+            return self._call(**kwargs)
         head = str(kwargs.get("instructions", "")).rstrip()
         if schema is not None:
             try:
@@ -63,13 +264,13 @@ class JsonModeLlm:
                                          "no markdown fences.")
         if not JsonModeLlm.plain_only:
             try:
-                return self._llm.complete_structured(**kwargs, json_mode=True)
+                return self._call(**kwargs, json_mode=True)
             except Exception as exc:
                 if not _json_mode_refused(exc):
                     raise
                 JsonModeLlm.plain_only = True
                 log.info("hype: the model route refused JSON mode (%s); using plain-text JSON replies", exc)
-        return self._llm.complete_structured(**kwargs)
+        return self._call(**kwargs)
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self._llm, name)
@@ -85,6 +286,19 @@ class Host:
     story_llm: Any = None                            # explicit story.LlmCall (dev harness), wins over ``llm``
     surface: str = ""
     label: str = "plugin"                            # where it came from: plugin | dashboard | dev
+    calls: CallTally = field(default_factory=CallTally)   # this job's model calls (retries, failures and why)
+    stop: Callable[[], bool] | None = None           # the job's cancel flag: ends retry waits at once
+
+    def json_llm(self) -> Any:
+        """``llm`` as a :class:`JsonModeLlm` sharing this job's call tally and cancel flag (``None`` without one)."""
+        if self.llm is None:
+            return None
+        if isinstance(self.llm, JsonModeLlm):
+            self.llm.tally = self.calls
+            if self.llm.stop is None:
+                self.llm.stop = self.stop
+            return self.llm
+        return JsonModeLlm(self.llm, tally=self.calls, stop=lambda: bool(self.stop and self.stop()))
 
     def story_call(self) -> Any:
         """The storyboard LLM route (``story.LlmCall``) or ``None`` (-> heuristic storyboard)."""
@@ -93,7 +307,7 @@ class Host:
         if self.llm is None:
             return None
         from .story import hermes_llm
-        return hermes_llm(JsonModeLlm(self.llm), task=AUX_TASK)
+        return hermes_llm(self.json_llm(), task=AUX_TASK)
 
     def emit(self, event: str, payload: dict[str, Any]) -> None:
         """Broadcast a plugin event (never raises)."""
