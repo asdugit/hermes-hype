@@ -54,8 +54,8 @@ def test_cli_film_shows_real_runs_and_no_self_praise() -> None:
     runs = [s.refs[0] for s in res.storyboard.scenes if s.type == T.TERMINAL]
     assert runs and "e4" not in runs                           # a real run of the CLI, never the test run
     assert types.index(T.TERMINAL) == types.index(T.TITLE) + 1   # the demo right after the title
-    shown = {facts.by_id[r].data["cmd"] for r in runs} | {facts.by_id["e2"].data["cmd"]}
-    assert len(shown) == len(runs) + 1                         # distinct commands only
+    assert "e2" not in runs                                    # the HOOK's own event is not repeated
+    assert len({facts.by_id[r].data["cmd"] for r in runs}) == len(runs) == 2   # distinct commands, the full output
 
 
 def test_end_names_the_command_the_session_ran() -> None:

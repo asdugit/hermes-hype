@@ -89,7 +89,8 @@ def test_type_share_limit(coding_facts):
         base_scenes()[-1:]
     res = validate_storyboard(board(scenes), coding_facts, 30)
     n = len(res.storyboard.scenes)
-    assert sum(s.type == T.TERMINAL for s in res.storyboard.scenes) <= max(1, int(0.35 * n))
+    # a CLI's product beats are its runs: the share may hold two of them even in a short film
+    assert sum(s.type == T.TERMINAL for s in res.storyboard.scenes) <= max(2, int(0.35 * n))
     assert "type_share" in codes(res)
 
 

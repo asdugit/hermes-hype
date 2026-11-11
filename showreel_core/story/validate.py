@@ -1069,7 +1069,8 @@ def _enrich_runs(kept: list[tuple[int, StoryScene]], ctx: _Ctx, target_seconds: 
     if str(getattr(product, "kind", "") or "") not in RUN_KINDS:
         return kept
     want = 3 if float(target_seconds or 30) >= 50 else 2
-    shown = [sc.refs[0] for _, sc in kept if sc.refs and sc.type in (T.TERMINAL, T.HOOK)
+    # the HOOK only flashes a few lines of a run: a run beat of the same command still shows the real output
+    shown = [sc.refs[0] for _, sc in kept if sc.refs and sc.type == T.TERMINAL
              and (ev := facts.get(sc.refs[0])) is not None and ev.kind == "terminal" and is_demo_run(ev)]
     if len(shown) >= want:
         return kept
@@ -1093,7 +1094,7 @@ def _enrich_runs(kept: list[tuple[int, StoryScene]], ctx: _Ctx, target_seconds: 
     adds: list[StoryScene] = []
     n_term = sum(1 for _, sc in kept if sc.type == T.TERMINAL)
     for _, _, ev in cands:
-        if len(shown) + len(adds) >= want or n_term + len(adds) + 1 > max_type_count(len(kept) + len(adds) + 1):
+        if len(shown) + len(adds) >= want or n_term + len(adds) + 1 > max(want, max_type_count(len(kept) + len(adds) + 1)):
             break
         key = command_key(str((ev.data or {}).get("cmd") or ""))
         if key in seen:
