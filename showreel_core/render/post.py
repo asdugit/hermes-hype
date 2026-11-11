@@ -37,9 +37,10 @@ DEFAULTS: dict[str, dict[str, Any]] = {
     # mood grade (the Director's per-direction look over every scene AND the product media):
     # mono 0..1 desaturation; hold = "#hex" keeps that one colour while the rest goes to black and white (noir);
     # contrast 1 = unchanged (S-curve); tint = "#hex" multiplied in at tint_amount; shift = px of red/blue
-    # misregistration (VHS chroma bleed); wobble = px of horizontal tracking sway (VHS)
+    # misregistration (VHS chroma bleed); wobble = px of horizontal tracking sway; smear = horizontal-only blur sigma
+    # (tape softness); band = opacity of the head-switching noise band along the bottom (VHS); rain 0..1 (noir)
     "grade": {"mono": 0.0, "hold": None, "hold_similarity": 0.22, "hold_blend": 0.12, "contrast": 1.0,
-              "tint": None, "tint_amount": 0.0, "shift": 0, "wobble": 0, "rain": 0.0},
+              "tint": None, "tint_amount": 0.0, "shift": 0, "wobble": 0, "rain": 0.0, "smear": 0.0, "band": 0.0},
 }
 
 # Filters each chain needs (checked against the ffmpeg capability probe).
@@ -49,7 +50,8 @@ REQUIRED_FILTERS: dict[str, tuple[str, ...]] = {
     "pixel": ("paletteuse",),
     "crt": ("split", "gblur", "blend", "loop", "lenscorrection"),
     "bloom": ("split", "lutrgb", "gblur", "blend"),
-    "grade": ("colorchannelmixer", "curves", "colorhold", "rgbashift", "crop", "overlay", "loop"),
+    "grade": ("colorchannelmixer", "curves", "colorhold", "rgbashift", "crop", "overlay", "loop", "gblur",
+              "drawbox"),
 }
 
 
@@ -318,6 +320,9 @@ def _grade(g: _Graph, p: Mapping[str, Any], ow: int, oh: int) -> None:
     if tint and amt > 0:
         r, gg, b = (v / 255.0 for v in _hex(str(tint)))
         g.add(f"colorchannelmixer=rr={1 - amt + amt * r:.4f}:gg={1 - amt + amt * gg:.4f}:bb={1 - amt + amt * b:.4f}")
+    sm = float(p.get("smear") or 0.0)
+    if sm > 0:
+        g.add(f"gblur=sigma={sm:g}:sigmaV=0.01")
     sh = int(p.get("shift") or 0)
     if sh:
         g.add(f"rgbashift=rh={-sh}:bh={sh}:edge=smear")
@@ -326,3 +331,9 @@ def _grade(g: _Graph, p: Mapping[str, Any], ow: int, oh: int) -> None:
         # horizontal tracking sway: crop a drifting window and scale it back (seeded by the frame number only)
         g.add(f"crop=w=iw-{2 * wob}:h=ih:x='{wob}+{wob}*sin(n*0.37)*sin(n*0.051)':y=0",
               f"scale={ow}:{oh}:flags=bilinear", "format=gbrp")
+    band = max(0.0, min(1.0, float(p.get("band") or 0.0)))
+    if band > 0:
+        bh = max(2, oh // 36)
+        g.add(f"drawbox=x=0:y={oh - bh}:w={ow}:h={bh}:color=white@{0.22 * band:.3f}:t=fill",
+              f"drawbox=x=0:y={oh - bh - max(1, bh // 3)}:w={ow}:h={max(1, bh // 3)}:color=black@{0.35 * band:.3f}:t=fill",
+              "format=gbrp")                      # drawbox may hand back YUV: the blends below need RGB again

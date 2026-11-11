@@ -811,7 +811,8 @@ MOODS: tuple[tuple[tuple[str, ...], dict[str, Any], dict[str, Any], dict[str, An
     (("vhs", "1980", "80s", "eighties", "infomercial", "tape", "camcorder", "late-night", "public access"),
      {"grain": 0.07, "vignette": 0.35}, {"post": "crt", "post_params": {"crt": {"glow": 0.45, "scanline": 0.32,
                                                                                "curvature": 0.05, "vignette": 0.4}}},
-     {"mono": 0.12, "tint": "#ffd9a0", "tint_amount": 0.22, "shift": 5, "wobble": 3, "contrast": 0.94}),
+     {"mono": 0.15, "tint": "#ffd9a0", "tint_amount": 0.25, "shift": 7, "wobble": 4, "smear": 1.6, "band": 1.0,
+      "contrast": 0.92, "min_scanline": 0.3}),
     (("noir", "detective", "thriller", "crime", "gritty", "mystery"), {"grain": 0.10, "vignette": 0.6}, {},
      {"mono": 1.0, "hold": "{product}", "contrast": 1.4, "rain": 0.9}),
     (("dream", "anime", "soft", "nostalgic", "pastel", "fairy"), {"bloom": 0.22, "grain": 0.02, "vignette": 0.15}, {},
@@ -857,6 +858,10 @@ def mood_look(film: dict[str, Any], direction: str, *, hold: str = "") -> list[s
         merge_render(film, copy.deepcopy(render))
         grade.update(mood)
         done.append(words[0])
+    floor = float(grade.pop("min_scanline", 0.0) or 0.0)       # VHS: a kit CRT without scanlines gets them
+    if floor and "crt" in str((film.get("render") or {}).get("post", "")).split("+"):
+        crt = film["render"].setdefault("post_params", {}).setdefault("crt", {})
+        crt["scanline"] = max(float(crt.get("scanline") or 0.0), floor)
     if grade.get("hold") == "{product}":
         if is_hex(hold):
             grade["hold"] = hold
