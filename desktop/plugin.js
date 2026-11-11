@@ -57,7 +57,9 @@ const FALLBACK_STYLES = [
   { id: 'cinematic', name: 'Cinematic', blurb: 'Captures as lit cards in dark 3D space' },
   { id: 'pixel', name: 'Pixel', blurb: '16-bit arcade: pixel art, chiptune, quest log' },
   { id: 'terminal', name: 'Terminal', blurb: 'Phosphor CRT terminal with scanlines' },
-  { id: 'blueprint', name: 'Blueprint', blurb: 'Engineering drawing, line art drawn on' }
+  { id: 'blueprint', name: 'Blueprint', blurb: 'Engineering drawing, line art drawn on' },
+  { id: 'comic', name: 'Comic', blurb: 'Motion comic: halftone panels, speech balloons' },
+  { id: 'ink', name: 'Ink', blurb: 'Hand-drawn explainer on warm paper' }
 ]
 const DIRECTION_EXAMPLES = [
   'pixel but transition into a different style mid way through, goal is to sell the product',
@@ -699,7 +701,7 @@ function MakeView({ sid, jobs, backendDown, onStarted }) {
   }
   const chosen = styles.find(s => s.id === prefs.style) || styles[0]
   const summary = [modeLabel(prefs.mode), chosen ? chosen.name : prefs.style, `${prefs.seconds} s`,
-    prefs.aspect === 'both' ? '16:9 + 9:16' : prefs.aspect, voiceOn ? 'narrated' : 'music only'].concat(customize ? ['customized'] : [], engine3d === 'blender' ? ['Blender 3D'] : []).join(' · ')
+    prefs.aspect === 'both' ? (directed ? '16:9' : '16:9 + 9:16') : prefs.aspect, voiceOn ? 'narrated' : 'music only'].concat(customize ? ['customized'] : [], engine3d === 'blender' ? ['Blender 3D'] : []).join(' · ')
   let blocker = ''
   if (backendDown) blocker = 'The Hype backend is off.'
   else if (!sid) blocker = 'Open a chat first: Hype films the chat you are looking at.'
@@ -734,6 +736,7 @@ function MakeView({ sid, jobs, backendDown, onStarted }) {
             children: jsxs('div', { className: 'srl-form', children: [
               jsxs('div', { className: 'srl-row', children: [jsx('span', { children: 'Length' }), jsx(Seg, { label: 'Length', options: LENGTHS, value: String(prefs.seconds), onChange: seconds => set({ seconds }) })] }),
               jsxs('div', { className: 'srl-row', children: [jsx('span', { children: 'Aspect' }), jsx(Seg, { label: 'Aspect', options: ASPECTS, value: prefs.aspect, onChange: aspect => set({ aspect }) })] }),
+              directed && prefs.aspect === 'both' ? jsx('div', { className: 'srl-hint', children: 'A Directed film renders one aspect per run: this one is 16:9. Ask for a 9:16 version with Revise.' }) : null,
               jsxs('div', { className: 'srl-row', children: [jsx('span', { children: 'Narration' }), jsx(Toggle, { label: 'Narration', checked: Boolean(prefs.voice), onChange: voice => set({ voice }) })] }),
               jsxs('div', { className: 'srl-row', children: [jsx('span', { children: '3D engine' }), jsx(Seg, { label: '3D engine', options: ENGINES, value: engine3d || 'browser', onChange: v => set({ engine3d: v }) })] }),
               engine3d === 'blender' ? jsx(BlenderOffer, {}) : null,

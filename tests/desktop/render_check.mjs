@@ -340,6 +340,7 @@ check(listeners.has('plugin.hype.job.progress'), '1 listens to plugin.hype.job.p
   check(v.div.textContent.includes('Effort applies to Directed films'), '3 effort is explained as Directed-only while the Direction box is empty')
   typeInto($(v.div, 'textarea[aria-label=Direction]'), 'pixel but transition into a different style mid way through, goal is to sell the product')
   await waitFor(() => byText(v.div, 'button', 'Direct this film'), '3 a direction turns the button into "Direct this film"')
+  check(v.div.textContent.includes('A Directed film renders one aspect per run') && !$(v.div, '.srl-summary').textContent.includes('9:16'), '3 Both + a direction says a Directed film renders one aspect (16:9)')
   click($(v.div, '[data-seg-opt=quick]'))
   await sleep(20)
   snap('make', v)
