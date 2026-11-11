@@ -1,0 +1,326 @@
+"""Apply a resolved customization to a preset's Quick timeline and film.json (pure functions, no I/O but logo
+lookups). ``apply_timeline`` does the structural edits (drop / reorder / re-time shots, energy holds) on the
+Timeline *before* the film is built, so narration, captions, cues, splits and the music fit all follow;
+``apply_film`` does the look (theme block, fonts, per-shot params, words, transitions, captions, music, logo).
+"""
+from __future__ import annotations
+
+import copy
+from pathlib import Path
+from typing import Any
+
+from . import theme as TH
+from . import vocab as V
+from .spec import SHOT_TEXT_FIELDS
+
+MIN_SHOT_S = 1.2
+LOGO_ASSET = "brand_logo"
+
+
+def _tname(t: Any) -> str:
+    return str(getattr(t, "value", t))
+
+
+def shot_rows(timeline: Any) -> list[dict[str, Any]]:
+    """``[{id, type, t0, t1}]`` in Quick's shot-id scheme (``s{k:02d}_{type}``) for a Timeline or its dict."""
+    scenes = timeline["scenes"] if isinstance(timeline, dict) else timeline.scenes
+    out = []
+    for k, sc in enumerate(scenes):
+        get = sc.get if isinstance(sc, dict) else lambda a, d=None, sc=sc: getattr(sc, a, d)
+        typ = _tname(get("type"))
+        out.append({"id": f"s{k:02d}_{typ.lower()}", "type": typ, "t0": float(get("t0")), "t1": float(get("t1"))})
+    return out
+
+
+# ------------------------------------------------------------------------------------------- timeline
+
+def _shift_scene(sc: Any, dt: float) -> None:
+    sc.t0 = round(sc.t0 + dt, 4)
+    sc.t1 = round(sc.t1 + dt, 4)
+    if sc.vo_t0:
+        sc.vo_t0 = round(sc.vo_t0 + dt, 4)
+    for c in sc.captions or []:
+        c.t0, c.t1 = round(c.t0 + dt, 4), round(c.t1 + dt, 4)
+
+
+def _speech_end(sc: Any) -> float:
+    return max([float(c.t1) for c in sc.captions or []] + [float(sc.t0)])
+
+
+def apply_timeline(tl: Any, spec: dict[str, Any], *, energy: str = "") -> tuple[list[str], dict[str, str]]:
+    """Structural edits on a Timeline dataclass, in place: ``order``, ``remove``, ``hold`` (+/- seconds) and the
+    ``high`` energy tightening (dead air after the narration trimmed). Returns (notes, old shot id -> new id):
+    Quick numbers shots by position, so a drop or a reorder renames the shots after it."""
+    notes: list[str] = []
+    if not hasattr(tl, "scenes") or not tl.scenes:
+        return notes, {}
+    ids = [r["id"] for r in shot_rows(tl)]
+    idx = {sid: k for k, sid in enumerate(ids)}
+    edits = {s["id"]: s for s in spec.get("shots") or [] if s.get("id") in idx}
+    blocks = []                      # (scene, cues inside it, splits inside it, hold)
+    for k, sc in enumerate(tl.scenes):
+        t0, t1 = float(sc.t0), float(sc.t1)
+        last = k == len(tl.scenes) - 1
+        cues = [c for c in tl.cues if t0 <= float(c.t) < t1 or (last and float(c.t) >= t1)]
+        splits = [s for s in getattr(tl, "splits", []) or [] if t0 <= float(getattr(s, "film_t", -1)) < t1]
+        blocks.append([sc, cues, splits, ids[k]])
+    order = [sid for sid in spec.get("order") or [] if sid in idx]
+    if order:
+        blocks.sort(key=lambda b: order.index(b[3]) if b[3] in order else len(order) + idx[b[3]])
+        notes.append("shots reordered: " + " ".join(b[3] for b in blocks))
+    kept = []
+    for b in blocks:
+        if edits.get(b[3], {}).get("remove"):
+            notes.append(f"dropped {b[3]}")
+            continue
+        kept.append(b)
+    t = 0.0
+    new_cues, new_scenes = [], []
+    for b in kept:
+        sc, cues, splits, sid = b
+        dur = float(sc.t1) - float(sc.t0)
+        speech = _speech_end(sc) - float(sc.t0)
+        want = dur + float(edits.get(sid, {}).get("hold") or 0.0)
+        if energy == "high" and not edits.get(sid, {}).get("hold"):
+            tail = dur - speech if speech > 0.05 else dur * 0.25
+            if tail > 1.0:
+                want = dur - min(tail - 0.7, 0.35 * dur)
+        floor = max(MIN_SHOT_S, speech + 0.3 if speech > 0.05 else MIN_SHOT_S)
+        want = max(floor, want)
+        dt = t - float(sc.t0)
+        for c in cues:
+            c.t = round(float(c.t) + dt, 4)
+        for s in splits:
+            s.film_t = round(float(s.film_t) + dt, 4)
+        _shift_scene(sc, dt)
+        if abs(want - dur) > 0.02:
+            sc.t1 = round(sc.t0 + want, 4)
+            for c in cues:
+                if float(c.t) > sc.t1:
+                    c.t = round(sc.t1 - 0.05, 4)
+            if abs(want - dur) > 0.15:
+                notes.append(f"{sid} {'held' if want > dur else 'tightened'} {want - dur:+.2f}s")
+        new_cues += cues
+        new_scenes.append(sc)
+        t = float(sc.t1)
+    idmap: dict[str, str] = {}
+    for k, b in enumerate(kept):
+        b[0].i = k
+        idmap[b[3]] = f"s{k:02d}_{_tname(b[0].type).lower()}"
+    tl.scenes = new_scenes
+    tl.cues = sorted(new_cues, key=lambda c: float(c.t))
+    tl.dur = round(max(t, 1.0), 4)
+    return notes, idmap
+
+
+def remap(spec: dict[str, Any], idmap: dict[str, str]) -> dict[str, Any]:
+    """The spec with shot ids renamed after :func:`apply_timeline` (dropped shots leave it)."""
+    if not idmap:
+        return spec
+    out = copy.deepcopy(spec)
+    out["shots"] = [{**e, "id": idmap[e["id"]]} for e in out.get("shots") or [] if e.get("id") in idmap]
+    out.pop("order", None)
+    return out
+
+
+# ------------------------------------------------------------------------------------------- film
+
+def _text_targets(params: dict[str, Any], wrapped: bool) -> dict[str, Any]:
+    return params["data"] if wrapped and isinstance(params.get("data"), dict) else params
+
+
+def _replace_words(x: Any, old: str, new: str) -> Any:
+    if isinstance(x, str):
+        return x.replace(old, new) if old and old in x else x
+    if isinstance(x, list):
+        return [_replace_words(v, old, new) for v in x]
+    if isinstance(x, dict):
+        return {k: (v if k in ("path", "asset", "src", "url", "scene", "theme", "id") else _replace_words(v, old, new))
+                for k, v in x.items()}
+    return x
+
+
+def _retime_transitions(film: dict[str, Any], family: str, energy: str, kit_table: dict[str, Any]) -> list[str]:
+    """Rebuild the transition list for a family (cut/soft/punchy/fade/kit) and the energy scaling."""
+    shots = film["shots"]
+    if len(shots) < 2 or (family in ("", "auto", "kit") and energy in ("", "normal")):
+        return []
+    by_pair = {(tr["from"], tr["to"]): tr for tr in film.get("transitions") or []}
+    out = []
+    for a, b in zip(shots, shots[1:]):
+        tr = by_pair.get((a["id"], b["id"]))
+        cut = (float(tr["t"]) + float(tr["dur"]) / 2) if tr else float(b["t0"])
+        a["t1"] = b["t0"] = round(cut, 4)
+        typ, dur = (tr["type"], float(tr["dur"])) if tr else (None, 0.0)
+        if family == "cut":
+            typ = None
+        elif family == "soft":
+            typ, dur = "crossfade", 0.55
+        elif family == "fade":
+            typ, dur = "dip-black", 0.6
+        elif family == "punchy":
+            typ, dur = ("whip", 0.28) if typ else (None, 0.0)
+        if typ and energy == "high" and family in ("", "auto", "kit"):
+            dur = max(0.16, dur * 0.6)
+        elif energy == "calm" and family in ("", "auto", "kit"):
+            typ, dur = (typ or "crossfade"), min(0.9, max(dur, 0.4) * 1.4)
+        if not typ:
+            continue
+        d = round(min(dur, 0.4 * (a["t1"] - a["t0"]), 0.4 * (b["t1"] - b["t0"])), 3)
+        if d < 0.1:
+            continue
+        a["t1"] = round(cut + d / 2, 4)
+        b["t0"] = round(cut - d / 2, 4)
+        out.append({"from": a["id"], "to": b["id"], "type": typ, "t": round(cut - d / 2, 4), "dur": d})
+    film["transitions"] = out
+    _ = kit_table
+    return [f"transitions: {family or 'kit'} ({len(out)} transitions{', ' + energy + ' energy' if energy else ''})"]
+
+
+def caption_style(base: dict[str, Any], mode: str, tokens: dict[str, str]) -> dict[str, Any]:
+    cs = dict(base or {})
+    size = float(cs.get("size") or 46)
+    if mode == "bold":
+        cs.update(size=round(size * 1.22), weight=800)
+    elif mode == "minimal":
+        cs.update(size=round(max(42, size * 0.92)), bg="rgba(0,0,0,0)", weight=min(700, int(cs.get("weight") or 600) + 100))
+    elif mode == "boxed":
+        cs.update(bg=V.rgba(V.mix(tokens.get("bg") or "#000000", "#000000", 0.4), 0.9))
+    if tokens.get("body_font"):
+        cs["font"] = tokens["body_font"]
+    return cs
+
+
+def apply_film(film: dict[str, Any], assets: dict[str, Any], *, style: str, knobs: dict[str, Any],
+               spec: dict[str, Any], wrapped: bool = False, kit: dict[str, Any] | None = None) -> list[str]:
+    """Customize a Quick film in place (and its asset specs). Returns notes for the job log."""
+    notes: list[str] = []
+    spec = spec or {}
+    kit = kit or {}
+    tokens = TH.resolve(knobs, spec.get("theme"))
+    block = TH.theme_block(tokens)
+    if block:
+        film["theme"] = block
+        fonts = TH.font_faces(tokens)
+        have = {(f.get("family"), f.get("src")) for f in film.get("fonts") or []}
+        film["fonts"] = list(film.get("fonts") or []) + [f for f in fonts if (f["family"], f["src"]) not in have]
+        if tokens.get("bg"):
+            film["background"] = tokens["bg"]
+        notes.append("theme: " + ", ".join(f"{k} {v}" for k, v in tokens.items()))
+    meta = film.setdefault("meta", {})
+    shots = film.get("shots") or []
+    by_id = {s["id"]: s for s in shots}
+    # per-shot colour params: base-frame accent (inline vars), cinematic accent, terminal phosphor
+    phos = TH.terminal_phosphor(tokens) if (style == "terminal" or kit.get("theme") == "terminal") else ""
+    for s in shots:
+        p = s.setdefault("params", {})
+        if wrapped and str(s.get("scene", "")).startswith(f"kit:{style}/"):
+            continue
+        if tokens.get("accent"):
+            p["accent"] = tokens["accent"]
+        if phos and str(s.get("scene", "")).startswith(("kit:terminal/", "kit:base/")):
+            p["phosphor"] = phos
+    for o in film.get("overlays") or []:
+        if tokens.get("accent") and isinstance(o.get("params"), dict):
+            o["params"]["accent"] = tokens["accent"]
+    # global words: product name, title, tagline, cta
+    text = {**(spec.get("text") or {}), **{k: knobs[k] for k in ("title", "tagline", "cta", "product") if knobs.get(k)}}
+    old_name = ""
+    for s in shots:
+        if s["id"].endswith("_title"):
+            d = _text_targets(s.get("params") or {}, wrapped)
+            old_name = str(d.get("title") or d.get("product") or "")
+            break
+    old_name = old_name or str(film.get("title") or "")
+    if text.get("product") and old_name and text["product"] != old_name:
+        for s in shots:
+            s["params"] = _replace_words(s.get("params") or {}, old_name, text["product"])
+        for o in film.get("overlays") or []:
+            o["params"] = _replace_words(o.get("params") or {}, old_name, text["product"])
+        film["captions"] = _replace_words(film.get("captions") or [], old_name, text["product"])
+        notes.append(f"product name {old_name!r} -> {text['product']!r}")
+    for s in shots:
+        d = _text_targets(s.setdefault("params", {}), wrapped)
+        typ = s["id"].split("_", 1)[-1].upper()
+        if typ == "TITLE":
+            if text.get("title"):
+                d["title"] = text["title"]
+            if text.get("tagline"):
+                d["tagline"] = text["tagline"]
+        if typ == "END":
+            if text.get("title"):
+                d["title"] = text["title"]
+            if text.get("cta"):
+                d["cta"] = text["cta"]
+    if text.get("title"):
+        film["title"] = text["title"]
+        for o in film.get("overlays") or []:
+            if o.get("id") == "speedrun_hud":
+                continue
+            if isinstance(o.get("params"), dict) and "title" in o["params"]:
+                o["params"]["title"] = text["title"]
+    if text:
+        notes.append("text: " + ", ".join(f"{k}={v!r}" for k, v in text.items()))
+    # per-shot params + words from the spec
+    for e in spec.get("shots") or []:
+        s = by_id.get(e.get("id"))
+        if s is None or e.get("remove"):
+            continue
+        p = s.setdefault("params", {})
+        if e.get("params"):
+            from ..director.patches import deep_merge
+            if wrapped and str(s.get("scene", "")).startswith(f"kit:{style}/"):
+                p.update(deep_merge({k: p.get(k) for k in e["params"] if k in p}, e["params"]))
+            else:
+                s["params"] = deep_merge(p, e["params"])
+            notes.append(f"{s['id']}: params {sorted(e['params'])}")
+        for k, v in (e.get("text") or {}).items():
+            d = _text_targets(s["params"], wrapped)
+            if k in d or k in ("label", "headline", "title", "feature", "tagline", "cta", "boss_name", "pick_text"):
+                d[k] = v
+                notes.append(f"{s['id']}: {k} = {v!r}")
+    # transitions (family + energy)
+    energy = str(knobs.get("energy") or spec.get("energy") or "")
+    family = str(knobs.get("transitions") or spec.get("transitions") or "")
+    notes += _retime_transitions(film, family, energy, kit.get("transitions") or {})
+    if energy == "high":
+        fin = film.setdefault("finish", {})
+        fin["vignette"] = round(float(fin.get("vignette") or 0.0) + 0.04, 3)
+    # captions
+    cap = str(knobs.get("captions") or spec.get("captions") or "")
+    if cap == "off":
+        film["captions"] = []
+        for s in shots:
+            (s.get("params") or {}).pop("_captions", None)
+        notes.append("captions off")
+    elif cap in ("bold", "minimal", "boxed") or tokens.get("body_font"):
+        film["caption_style"] = caption_style(film.get("caption_style") or {}, cap, tokens)
+        notes.append(f"captions {cap or 'restyled'}")
+    # music (the pipeline's audio stage plays film.music[0].bed; "none" handled by the deps wrapper)
+    bed = str(knobs.get("music") or spec.get("music") or "")
+    if not bed and energy in ("calm", "high"):
+        bed = V.bed_for_energy(style, energy)
+    if bed and bed != "none":
+        film["music"] = [{"bed": bed, "t0": 0.0, "t1": float(film["dur"])}]
+        notes.append(f"music bed {bed}")
+    # logo corner bug
+    logo = str(knobs.get("logo") or "")
+    if logo and Path(logo).is_file():
+        assets[LOGO_ASSET] = {"src": str(Path(logo).resolve()), "type": "image"}
+        film.setdefault("assets", {})[LOGO_ASSET] = {"type": "image"}
+        film.setdefault("overlays", []).append({"id": "brand_logo", "t0": 0.0, "t1": float(film["dur"]),
+                                                "scene": "kit:brand/logo", "params": {"asset": LOGO_ASSET}})
+        if "brand" not in film.setdefault("kits", []):
+            film["kits"].append("brand")
+        notes.append(f"logo {Path(logo).name}")
+    meta["customize"] = {"tokens": tokens, "energy": energy, "transitions": family, "captions": cap,
+                         "music": bed, "text": text, "shots": [e.get("id") for e in spec.get("shots") or []],
+                         "summary": spec.get("summary", "")}
+    return notes
+
+
+def copy_spec(spec: dict[str, Any]) -> dict[str, Any]:
+    return copy.deepcopy(spec or {})
+
+
+__all__ = ["apply_timeline", "remap", "apply_film", "shot_rows", "caption_style", "SHOT_TEXT_FIELDS"]

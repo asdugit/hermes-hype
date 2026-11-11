@@ -1,0 +1,10 @@
+{
+  "name": "brand",
+  "version": 1,
+  "entry": "kit.js",
+  "describe": "Customization overlays: the user's logo as a corner bug (kit:brand/logo).",
+  "requires": [],
+  "scenes": [],
+  "overlays": ["logo"],
+  "fonts": []
+}
