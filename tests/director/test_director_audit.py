@@ -1,0 +1,84 @@
+"""Pre-submission audit regressions (story area): tier detection through the plugin route, on-screen text."""
+from __future__ import annotations
+
+import json
+import sys
+import types
+from pathlib import Path
+from typing import Any
+
+import pytest
+from test_director_anymodel import FREE_QUICK, _screen_brief
+
+from showreel_core.director import tiers
+from showreel_core.director.catalog import build_catalog
+from showreel_core.director.engine import run
+from showreel_core.director.tiers import host_model as real_host_model
+
+from director_fakes import FakeRenderer  # noqa: I001
+
+
+class _Res:
+    def __init__(self, obj: Any) -> None:
+        self.text, self.parsed, self.content_type = json.dumps(obj), obj, "json"
+        self.provider, self.model, self.usage = "fake", "", None
+
+
+class _CtxLlm:
+    """``ctx.llm``-shaped object: like Hermes' PluginLlm it has no model attribute."""
+
+    def __init__(self, replies: dict[str, Any]) -> None:
+        self.replies, self.purposes = replies, []
+
+    def complete_structured(self, **kw: Any) -> _Res:
+        purpose = str(kw["purpose"]).removeprefix("hype.")
+        self.purposes.append(purpose)
+        key = next((k for k in self.replies if purpose.startswith(k)), None)
+        if key is None:
+            raise RuntimeError(f"offline ({purpose})")
+        return _Res(self.replies[key])
+
+
+def test_plugin_route_picks_the_tier_from_the_hosts_model(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """ctx.llm has no model id, so every model took the strong free path inside the plugin (README: small models
+    take the compose path). The host's configured main model decides the tier now."""
+    monkeypatch.setattr(tiers, "host_model", lambda: "claude-haiku-4-5")
+    b = _screen_brief(tmp_path, "noir detective trailer")
+    llm = _CtxLlm({"pick": {"blueprint": "screen-cinematic", "voice": "none"}, "words": {"text": {}, "voiceover": []}})
+    res = run(b, llm=llm, renderer=FakeRenderer(), effort="quick", budget=FREE_QUICK, job_dir=tmp_path / "job",
+              library_dir=tmp_path / "lib", catalog=build_catalog(assets=b.assets, capabilities=b.capabilities))
+    assert res.ok, res.error
+    assert res.tier["name"] == "weak" and res.tier["model"] == "claude-haiku-4-5" and res.tier["path"] == "compose"
+    assert llm.purposes[:2] == ["pick", "words"] and "treatment" not in llm.purposes
+
+
+def test_host_model_reads_the_hermes_config(monkeypatch: pytest.MonkeyPatch) -> None:
+    cfg: dict[str, Any] = {}
+    mod = types.ModuleType("hermes_cli.config")
+    mod.load_config_readonly = lambda: cfg  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "hermes_cli", types.ModuleType("hermes_cli"))
+    monkeypatch.setitem(sys.modules, "hermes_cli.config", mod)
+    cfg["model"] = {"default": " claude-haiku-4-5 ", "provider": "anthropic"}
+    assert real_host_model() == "claude-haiku-4-5"
+    cfg["model"] = "gpt-5-mini"
+    assert real_host_model() == "gpt-5-mini"
+    cfg["model"] = {"default": "my-preset", "provider": "moa"}           # a MoA preset name is not a model id
+    assert real_host_model() == ""
+    cfg["model"] = {"default": 5}
+    assert real_host_model() == ""
+    mod.load_config_readonly = lambda: (_ for _ in ()).throw(OSError("unreadable"))  # type: ignore[attr-defined]
+    assert real_host_model() == ""
+
+
+def test_gemini_pro_is_not_a_small_model() -> None:
+    """'gemini-' contains 'mini' followed by a word boundary: every Gemini Pro was routed to the weak path."""
+    for m in ("gemini-2.5-pro", "gemini-3-pro-preview", "google/gemini-3.1-pro"):
+        assert tiers.detect(m).name == "strong", m
+    assert tiers.detect("gemini-2.5-flash").name == "weak"
+    assert tiers.detect("gpt-5-mini").name == "weak" and tiers.detect("o4-mini").name == "weak"
+
+
+def test_text_only_models_get_the_measured_review() -> None:
+    for m in ("nousresearch/hermes-4-405b", "Hermes-3-Llama-3.1-70B", "openai/gpt-oss-120b", "moonshotai/kimi-k2"):
+        assert not tiers.detect(m).vision, m
+    assert tiers.detect("claude-haiku-4-5").vision and tiers.detect("hermes chat (default model)").vision

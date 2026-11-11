@@ -246,7 +246,8 @@ def run(brief: Brief | None = None, *, llm: Any = None, renderer: Renderer | Non
         if renderer is None and kwargs.get("blender"):
             renderer = RuntimeRenderer(gpu=brief.capabilities.gpu, blender=kwargs.get("blender"), job_dir=jd)
         tier = kwargs.get("tier") if isinstance(kwargs.get("tier"), tiers.Tier) else tiers.detect(
-            str(kwargs.get("model") or tiers.model_of(llm)),
+            str(kwargs.get("model") or tiers.model_of(llm)
+                or (tiers.host_model() if hasattr(llm, "complete_structured") else "")),
             configured=str(kwargs.get("director_tier") or getattr(opts, "director_tier", "") or ""),
             vision=kwargs.get("director_vision", getattr(opts, "director_vision", None)))
         r = _setup(brief, llm, renderer, effort, progress, cancel, jd, library_dir, catalog, budget, tier=tier)

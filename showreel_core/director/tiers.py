@@ -23,13 +23,13 @@ from typing import Any
 
 TIERS = ("strong", "standard", "weak")
 
-_WEAK = re.compile(r"haiku|flash|mini\b|-mini|nano|lite|small|tiny|\b\d{1,2}b\b|-\d{1,2}b|gemma|phi-?\d|"
+_WEAK = re.compile(r"haiku|flash|(?<!ge)mini\b|-mini|nano|lite|small|tiny|\b\d{1,2}b\b|-\d{1,2}b|gemma|phi-?\d|"
                    r"llama-?3\.?[12]?-?[0-9]*b?|mistral-(small|7b)|qwen[^/]*?(0\.5|1\.5|3|4|7|8|14)b|"
                    r"deepseek[^/]*flash|glm[^/]*flash|minimax[^/]*flash|local|ollama", re.IGNORECASE)
 _STRONG = re.compile(r"opus|fable|mythos|gpt-5(\.\d)?(-sol)?$|gpt-5\.\d-sol|o3\b|o4\b|gemini-[\d.]+-pro|"
                      r"grok-4(?!.*mini)|sonnet-5", re.IGNORECASE)
 _NO_VISION = re.compile(r"deepseek|glm-[\d.]+(?!v)|minimax|qwen(?!.*vl)|llama-?3(?!\.2-?\d+b-vision)|"
-                        r"mistral(?!.*pix)|codestral|abliterated", re.IGNORECASE)
+                        r"mistral(?!.*pix)|codestral|abliterated|hermes-?[234]\b|gpt-oss|kimi-k2(?!\.5)", re.IGNORECASE)
 _SMALL_CTX = re.compile(r"\b\d{1,2}b\b|-\d{1,2}b|gemma|phi|local|ollama", re.IGNORECASE)
 
 
@@ -73,6 +73,24 @@ def detect(model: str = "", *, configured: str = "", vision: Any = None, context
     custom = max_custom if name == "strong" else 0
     path = "compose" if name == "weak" else "free"
     return Tier(name, m, sees, ctx, custom, path, why)
+
+
+def host_model() -> str:
+    """The user's main model id from the host's config ('' outside Hermes, unset, or a MoA preset).
+
+    ``ctx.llm`` carries no model id before a call (only its results do), so inside the plugin every model looked
+    like "the user's main model" and took the strong path; Hermes answers ``ctx.llm`` calls with this model."""
+    try:
+        from hermes_cli.config import load_config_readonly  # inside Hermes only (lazy); never mutate the result
+        cfg = load_config_readonly()
+    except Exception:  # noqa: BLE001 - outside Hermes / an older host: unknown
+        return ""
+    m = cfg.get("model") if isinstance(cfg, dict) else None
+    if isinstance(m, dict):
+        if str(m.get("provider") or "").strip().lower() == "moa":
+            return ""
+        m = m.get("default") or m.get("model")
+    return m.strip() if isinstance(m, str) else ""
 
 
 def model_of(llm: Any) -> str:
