@@ -167,6 +167,10 @@ export function softwareGL(renderer) {
  */
 export function makeCine(ctx, o) {
   const THREE = ctx.THREE, { renderer, scene, camera } = ctx.three;
+  // customization theme (film.theme.tokens, showreel_core/customize): the room's haze, warm glow and dust follow it
+  const TT = (ctx.film && ctx.film.theme && ctx.film.theme.tokens) || {};
+  const themeHaze = TT.bg ? new THREE.Color(TT.bg).lerp(new THREE.Color(0x8fa6c8), 0.07) : null;
+  const themeWarm = TT.accent ? new THREE.Color(TT.accent).multiplyScalar(0.17) : null;
   const W = ctx.w, H = ctx.h, portrait = H > W;
   const low = o.quality === 'low' || (o.quality !== 'high' && softwareGL(renderer));
   const scale = low ? 0.67 : 1;   // text cards need more plate resolution than the meadow
@@ -176,7 +180,7 @@ export function makeCine(ctx, o) {
   camera.near = 0.05; camera.far = 400;
 
   const back = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.ShaderMaterial({ vertexShader: CARD_VS, fragmentShader: BACK_FS, depthWrite: false, depthTest: false,
-    uniforms: { haze: { value: new THREE.Color(o.haze ?? 0x141c28) }, warm: { value: new THREE.Color(o.warm ?? 0x2a1606) }, warmAt: { value: new THREE.Vector2(...(o.warmAt ?? [0.62, 0.45])) } } }));
+    uniforms: { haze: { value: o.haze != null ? new THREE.Color(o.haze) : (themeHaze || new THREE.Color(0x141c28)) }, warm: { value: o.warm != null ? new THREE.Color(o.warm) : (themeWarm || new THREE.Color(0x2a1606)) }, warmAt: { value: new THREE.Vector2(...(o.warmAt ?? [0.62, 0.45])) } } }));
   back.renderOrder = -10; back.frustumCulled = false; scene.add(back);
 
   const aniso = renderer.capabilities.getMaxAnisotropy();
@@ -214,7 +218,7 @@ export function makeCine(ctx, o) {
   const nStar = Math.round((o.stars ?? 600) * k), nDust = Math.round((o.dust ?? 110) * k), nNear = o.motes ?? 6, N = nStar + nDust + nNear;
   const pos = new Float32Array(N * 3), size = new Float32Array(N), bright = new Float32Array(N), col = new Float32Array(N * 3), dof = new Float32Array(N);
   const tanH0 = Math.tan(THREE.MathUtils.degToRad((c0.fov ?? 30) / 2));
-  const warmC = new THREE.Color(0xffc488), coolC = new THREE.Color(0xc9d6ea), whiteC = new THREE.Color(0xf3eee6);
+  const warmC = TT.accent ? new THREE.Color(TT.accent).lerp(new THREE.Color(0xffffff), 0.45) : new THREE.Color(0xffc488), coolC = new THREE.Color(0xc9d6ea), whiteC = new THREE.Color(0xf3eee6);
   for (let i = 0; i < N; i++) {
     const kind = i < nStar ? 0 : i < nStar + nDust ? 1 : 2;
     const z = kind === 0 ? 60 + R() * 120 : kind === 1 ? 2 + Math.pow(R(), 1.3) * 26 : 0.6 + R() * 2.0;
