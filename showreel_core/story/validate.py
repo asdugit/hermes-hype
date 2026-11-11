@@ -450,6 +450,15 @@ def _set_aside(ev: Event | None) -> bool:
     return bool(ev is not None and ((ev.data or {}).get("media_rank") or {}).get("junk"))
 
 
+def _game_scroll(ev: Event | None, ctx: _Ctx) -> bool:
+    """A full-page (scrolled) capture of a game: a game is one fixed screen, and a page grown to the full scroll
+    height re-lays its canvas (Brickfall's board ran off the phone's screen, 'BR' cut). Never a picture."""
+    if ev is None or ev.kind != "product_capture" or not (ev.data or {}).get("full_page"):
+        return False
+    kinds = {str(getattr(ctx.product, "kind", "") or ""), str(getattr(ctx.draft, "kind", "") or "")}
+    return "game" in kinds
+
+
 def _shown_before(ref: str, ctx: _Ctx) -> bool:
     """True when this picture (or a copy of it) is already on screen in an earlier scene."""
     ev = ctx.facts.get(ref)
@@ -464,7 +473,8 @@ def _best_unused_picture(st: SceneType, ctx: _Ctx) -> str:
     used = ctx.used_pictures | ctx.all_refs
     best, score = "", -1.0
     for ev in facts.events:
-        if ev.id in used or ev.kind not in kinds or image_of(ev) is None or _picture_keys(ev) & ctx.picture_keys:
+        if ev.id in used or ev.kind not in kinds or image_of(ev) is None or _picture_keys(ev) & ctx.picture_keys \
+                or _game_scroll(ev, ctx):
             continue
         rank = (ev.data or {}).get("media_rank") or {}
         if not rank and st != T.HOOK:
@@ -496,8 +506,10 @@ def _check_primary(scene: StoryScene, path: str, ctx: _Ctx) -> bool:
     if st in REFLESS:
         return True
     facts = ctx.facts
-    usable = [r for r in scene.refs if _primary_usable(facts.kind(r), st) and _has_content(st, r, facts)]
-    if not usable and st in (T.HOOK, T.SCREEN, T.FEATURE) and any(_set_aside(facts.get(r)) for r in scene.refs):
+    usable = [r for r in scene.refs if _primary_usable(facts.kind(r), st) and _has_content(st, r, facts)
+              and not _game_scroll(facts.get(r), ctx)]
+    if not usable and st in (T.HOOK, T.SCREEN, T.FEATURE, T.SCROLL) \
+            and any(_set_aside(facts.get(r)) or _game_scroll(facts.get(r), ctx) for r in scene.refs):
         swap = _best_unused_picture(st, ctx)
         if swap:
             ctx.issue("debug_media", f"{path}.refs", "the picture is a working/debug artefact (contact sheet, test "
@@ -1106,7 +1118,7 @@ def _enrich_pictures(kept: list[tuple[int, StoryScene]], ctx: _Ctx, target_secon
     for ev in facts.events:
         rank = (ev.data or {}).get("media_rank") or {}
         img = image_of(ev)
-        if not rank or img is None or ev.id in used or ev.kind not in accepted_kinds(T.SCREEN):
+        if not rank or img is None or ev.id in used or ev.kind not in accepted_kinds(T.SCREEN) or _game_scroll(ev, ctx):
             continue
         cands.append((float(rank.get("score", 0.5)), ev.t, ev.id, ev))
     cands.sort(key=lambda c: (-c[0], -c[1]))

@@ -79,3 +79,27 @@ def test_product_film_has_no_tool_call_montage() -> None:
     assert T.MONTAGE not in [s.type for s in res.storyboard.scenes]
     lore = validate_storyboard(sb, facts, 30, "making_of")
     assert T.MONTAGE in [s.type for s in lore.storyboard.scenes]
+
+
+def test_a_game_never_shows_a_full_page_capture() -> None:
+    def cap(i: int, name: str, vp: list[int], full: bool) -> Event:
+        return Event(f"e{i}", float(i), "product_capture", "hype_capture", name, "",
+                     {"path": f"capture/web/{name}", "viewport": vp, "full_page": full, "target_kind": "html",
+                      "url": "index.html", "page_title": "Brickfall", "label": name}, weight=0.8)
+    evs = [Event("e0", 0.0, "user_prompt", "", "game", "", {"text": "Build Brickfall, a breakout game"}),
+           cap(1, "desktop_1920x1080.png", [1920, 1080], False), cap(2, "mobile_390x844.png", [390, 844], False),
+           cap(3, "mobile_full_390.jpg", [390, 844], True)]
+    facts = SessionFacts(evs, Stats(duration_s=60, files_created=1))
+    sb = Storyboard(title="Brickfall", tagline="Breakout in neon", cta="", mode="product",
+                    product=Product(name="Brickfall", kind="game"),
+                    scenes=[StoryScene(T.HOOK, ["e1"], "", "Breakout, reborn"), StoryScene(T.TITLE, [], "", "Brickfall"),
+                            StoryScene(T.SCREEN, ["e3"], "", "Pulsing neon title screen"),
+                            StoryScene(T.END, [], "", "")])
+    res = validate_storyboard(sb, facts, 30, "product")
+    shown = [s.refs[0] for s in res.storyboard.scenes if s.refs]
+    assert "e3" not in shown
+    web = Storyboard(title="Streaks", tagline="Habits", cta="", mode="product", product=Product(name="Streaks",
+                     kind="web_app"), scenes=[StoryScene(T.TITLE, [], "", "Streaks"),
+                                              StoryScene(T.SCREEN, ["e3"], "", "The whole page"),
+                                              StoryScene(T.END, [], "", "")])
+    assert "e3" in [s.refs[0] for s in validate_storyboard(web, facts, 30, "product").storyboard.scenes if s.refs]
