@@ -505,3 +505,36 @@ def test_directed_job_reports_a_long_eta_while_planning(env: dict[str, Any]) -> 
     rep.stage("storyboard", "the Director is planning the film")
     rep.progress(0.1, "treatment", force=True)
     assert store.load(job["id"])["eta_s"] > 600
+
+
+def test_earlier_films_of_the_session_are_not_evidence(env: dict[str, Any]) -> None:
+    """Real E2E: a later film of the Tempo session listed the earlier films' MP4s as artifacts, the contact sheets as
+    product screenshots and the agent's showreel calls/answers as events."""
+    from showreel_core.contracts import Event
+    from showreel_core.pipeline import own_output_event
+    store, rec = env["store"], Recorder()
+    bundle = load_bundle()
+    n0 = len(bundle.events)
+    vids = str(env["videos"]).replace("\\", "/")
+    extra = [
+        Event("x1", 900.0, "tool_other", "showreel_render", "showreel_render", "", {}),
+        Event("x2", 901.0, "screenshot", "showreel_status", "20261111-0335-4439/contact_16x9.png", "",
+              {"path": str(store.root / "jobs" / "j" / "contact_16x9.png")}),
+        Event("x3", 902.0, "artifact", "", "videos/showreel-tempo-4439-16x9.mp4", "",
+              {"path": f"{vids}/showreel-tempo-4439-16x9.mp4"}),
+        Event("x4", 903.0, "terminal", "terminal", f"F='{vids}/showreel-tempo-4439-16x9.mp4'", "",
+              {"cmd": "ffmpeg -i ..."}),
+        Event("x5", 904.0, "final_answer", "", "The lore cut is rendered", "Your Showreel film is ready", {}),
+    ]
+    bundle.events = list(bundle.events) + extra
+    bundle.product.hero_event_ids = ["x2", *bundle.product.hero_event_ids]
+    final = run_job(_job(store, seconds=30)["id"], _host()[0], store=store, deps=make_deps(rec, bundle=bundle))
+    assert final["stage"] == "done", final.get("error")
+    assert any("left out 5 event(s)" in e["msg"] for e in final["log"])
+    saved = json.loads((store.job_dir(final["id"]) / "session.json").read_text(encoding="utf-8"))
+    ids = {e["id"] for e in saved["events"]}
+    assert not ids & {"x1", "x2", "x3", "x4", "x5"} and len(ids) >= n0
+    assert "x2" not in saved["product"]["hero_event_ids"]
+    # a session that BUILT Showreel (no showreel tool call) keeps its own talk about "showreel"
+    dev = Event("d1", 5.0, "assistant_note", "", "Wiring the showreel pipeline", "showreel pipeline tests pass", {})
+    assert not own_output_event(dev, [], after_first_film=False)

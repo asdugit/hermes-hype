@@ -22,6 +22,7 @@ import contextvars
 import json
 import logging
 import os
+import re
 import shutil
 import threading
 import time
@@ -752,6 +753,8 @@ def _read(run: _Run) -> None:
         fresh = False
     for w in (getattr(bundle, "warnings", None) or [])[:8]:
         run.info(f"session: {w}")
+    if fresh:
+        _drop_own_outputs(run, bundle)
     brief = run.opts.brief
     if not getattr(bundle, "events", None) and not brief.get("name"):
         raise StageError("empty_session", "This session has nothing to film yet.",
@@ -766,6 +769,69 @@ def _read(run: _Run) -> None:
     run.store.update(run.job_id, session_id=getattr(bundle, "session_id", sid) or sid,
                      product=_product_dict(getattr(bundle, "product", None)))
     run.rep.progress(1.0, f"{len(bundle.events)} events")
+
+
+#: Showreel's own tools: their calls, results and contact sheets are not evidence of what the session built.
+OWN_TOOLS = frozenset({"showreel_render", "showreel_status", "showreel"})
+_OWN_FILE = re.compile(r"(^|/)(showreel-[^/]*\.(mp4|webm|mov)|contact_(16x9|9x16|1x1)\.(png|jpg))$", re.I)
+
+
+def own_output_event(ev: Any, own_dirs: list[str], after_first_film: bool) -> bool:
+    """True for evidence that is Showreel's own work: tool calls/results, delivered films, contact sheets, commands
+    that inspect them, and (once a film was made in this session) messages about the films."""
+    if str(getattr(ev, "tool", "") or "") in OWN_TOOLS:
+        return True
+    data = getattr(ev, "data", None) or {}
+    paths = [str(data.get(k) or "") for k in ("path", "src", "source")] + [str(getattr(ev, "title", "") or "")]
+    norm = [x.replace("\\", "/").lower() for x in paths if x]
+    if any(_OWN_FILE.search(x) for x in norm) or any(d and x.startswith(d) for x in norm for d in own_dirs):
+        return True
+    text = " ".join([str(getattr(ev, "title", "") or ""), str(getattr(ev, "summary", "") or ""),
+                     str(data.get("cmd") or "")]).replace("\\", "/").lower()
+    if any(d and d in text for d in own_dirs) or "generated/videos/showreel-" in text:
+        return True
+    return after_first_film and "showreel" in text and getattr(ev, "kind", "") in (
+        "user_prompt", "assistant_note", "final_answer", "terminal", "tool_other", "artifact")
+
+
+def _drop_own_outputs(run: _Run, bundle: Any) -> None:
+    """Earlier Showreel films of this session are not part of what it built: drop them from the evidence (a second
+    film once showed the first film's contact sheet as a product screenshot and offered the old MP4 as media)."""
+    events = list(getattr(bundle, "events", None) or [])
+    if not events:
+        return
+    own_dirs = []
+    for d in (run.store.root, _videos_dir()):
+        if d:
+            text = str(Path(d)).replace("\\", "/").lower()
+            own_dirs += [text, text.replace(str(Path.home()).replace("\\", "/").lower(), "~", 1)]
+    first = next((i for i, e in enumerate(events) if str(getattr(e, "tool", "") or "") in OWN_TOOLS), len(events))
+    keep, dropped = [], []
+    for i, ev in enumerate(events):
+        (dropped if own_output_event(ev, own_dirs, i >= first) else keep).append(ev)
+    if not dropped:
+        return
+    gone = {getattr(e, "id", "") for e in dropped}
+    bundle.events = keep
+    prod = getattr(bundle, "product", None)
+    if prod is not None:
+        with contextlib.suppress(AttributeError):
+            prod.hero_event_ids = [i for i in (prod.hero_event_ids or []) if i not in gone]
+    if run.deps.digest is not None:
+        try:
+            bundle.digest = run.deps.digest(bundle)
+        except Exception as exc:  # noqa: BLE001
+            run.info(f"digest rebuild after dropping earlier films failed: {exc}", level="warn")
+    run.info(f"left out {len(dropped)} event(s) about earlier Showreel films of this session",
+             dropped=sorted(gone)[:40])
+
+
+def _videos_dir() -> Path | None:
+    from .deliver import videos_dir
+    try:
+        return videos_dir()
+    except Exception:  # noqa: BLE001
+        return None
 
 
 CAPTURE_BUDGET_S = 45.0
