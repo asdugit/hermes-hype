@@ -47,6 +47,7 @@ from .rules import (
 )
 from .onscreen import (
     approved_cta,
+    display_text_paths,
     end_command,
     has_loopback,
     is_long_page,
@@ -739,6 +740,8 @@ def _check_label(scene: StoryScene, path: str, ctx: _Ctx) -> None:
         label = scrub_text(label, ctx.product.name)
         ctx.issue("loopback_on_screen", f"{path}.label", "names a loopback/dev-server address", "warning",
                   f"now {label!r}")
+    if "/" in label or "\\" in label:      # 'Scrolling ~/work/app/index.html': project-relative on screen
+        label = display_text_paths(label, ctx.facts.project_root)
     feat = (scene.extra or {}).get("feature")
     if isinstance(feat, str) and has_loopback(feat):
         scene.extra["feature"] = scrub_text(feat, ctx.product.name)

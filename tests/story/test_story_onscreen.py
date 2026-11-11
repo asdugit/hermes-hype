@@ -137,6 +137,9 @@ def test_model_cta_must_be_the_products_own_command():
         assert "localhost" not in out.scenes[2].label
     keep = validate_storyboard(board("Try Tempo today"), facts, 30, "product").storyboard
     assert keep.cta == "Try Tempo today"
+    pathy = board("Try Tempo today")
+    pathy.scenes[2].label = f"Open {ROOT}/index.html"
+    assert validate_storyboard(pathy, facts, 30, "product").storyboard.scenes[2].label == "Open index.html"
 
 
 def test_readme_usage_block_is_a_launch_source():
