@@ -30,11 +30,13 @@ from .identity import replace_name, same_product, toolish_words
 from .milestones import split_label
 from .onscreen import (
     approved_cta,
+    command_key,
     display_text_paths,
     end_command,
     has_loopback,
     is_long_page,
     is_test_page,
+    launch_command,
     looks_like_command,
     scrub_text,
     unplaceholder,
@@ -171,6 +173,7 @@ def validate_storyboard(sb: Storyboard, facts: SessionFacts, target_seconds: flo
     if ctx.mode == "product":
         kept = _check_product_film(kept, ctx)
         kept = _enrich_pictures(kept, ctx, target_seconds)
+        kept = _enrich_runs(kept, ctx, target_seconds)
     else:
         kept = _check_chronology(kept, ctx)
     if ctx.mode == "speedrun":
@@ -621,9 +624,24 @@ def _check_callout(scene: StoryScene, path: str, ctx: _Ctx) -> bool:
             ctx.issue("quote_not_found", f"{path}.extra.quote",
                       f"{quote!r} is not a verbatim span of {ref} (<= {QUOTE_WORDS} words)",
                       fix=f"replaced with {span!r}")
+    if ctx.mode == "product" and facts.kind(ref) in ("assistant_note", "final_answer", "terminal") \
+            and _SELF_PRAISE.search(span):
+        # the agent grading its own work ("Output looks great and correct.") reads as a fake testimonial in a
+        # product trailer; making-of films keep it (the agent's voice there)
+        ctx.issue("quote_self_praise", f"{path}.extra.quote",
+                  f"{span!r} is the agent praising its own work, not a line about the product", "warning",
+                  fix="scene dropped")
+        return False
     scene.extra.update(quote_ref=ref, quote=span)
     scene.refs = [ref] + [r for r in scene.refs if r != ref]
     return True
+
+
+#: the agent's verdict on its own work (a fake testimonial in a product trailer)
+_SELF_PRAISE = re.compile(
+    r"(?i)\b(?:looks?\s+(?:great|good|right|correct|clean|nice|perfect|solid)|(?:is|are|now)\s+(?:correct|perfect|"
+    r"working|fixed|done|ready|clean)|works?\s+(?:great|well|fine|perfectly|as\s+expected)|as\s+expected|all\s+(?:good|"
+    r"set|done|green)|no\s+build\s+step|no\s+cdn|verified|confirmed|successfully|perfect(?:ly)?|polished)\b")
 
 
 def _check_montage(scene: StoryScene, path: str, ctx: _Ctx) -> bool:
@@ -1017,6 +1035,58 @@ def _enrich_pictures(kept: list[tuple[int, StoryScene]], ctx: _Ctx, target_secon
     at = last + 1
     idx = kept[last][0] if kept else 0
     ctx.issue("pictures_added", "$.scenes", f"{len(adds)} more of the session's best pictures shown", "warning",
+              "added " + ", ".join(sc.refs[0] for sc in adds))
+    return kept[:at] + [(idx, sc) for sc in adds] + kept[at:]
+
+
+#: product kinds whose product IS its terminal output: the film shows real runs of it
+RUN_KINDS = ("cli",)
+
+
+def _enrich_runs(kept: list[tuple[int, StoryScene]], ctx: _Ctx, target_seconds: float) -> list[tuple[int, StoryScene]]:
+    """A CLI has no screenshots: its product beats are real runs. When the storyboard shows fewer real runs than the
+    film has room for (2, or 3 from 50 s), add silent TERMINAL beats of the session's best distinct successful runs of
+    the product right after the TITLE (no tests, installs, servers or python scripts; never a repeat)."""
+    facts, product = ctx.facts, ctx.product
+    if str(getattr(product, "kind", "") or "") not in RUN_KINDS:
+        return kept
+    want = 3 if float(target_seconds or 30) >= 50 else 2
+    shown = [sc.refs[0] for _, sc in kept if sc.refs and sc.type in (T.TERMINAL, T.HOOK)
+             and (ev := facts.get(sc.refs[0])) is not None and ev.kind == "terminal" and is_demo_run(ev)]
+    if len(shown) >= want:
+        return kept
+    seen = {command_key(str((facts.get(r).data or {}).get("cmd") or "")) for r in shown}
+    used = {sc.refs[0] for _, sc in kept if sc.refs}
+    cands = []
+    for ev in facts.events:
+        if ev.id in used or ev.kind != "terminal" or not is_demo_run(ev):
+            continue
+        d = ev.data or {}
+        if str(d.get("shell") or "") == "python":
+            continue
+        cmd = str(d.get("cmd") or "")
+        if not launch_command(cmd):
+            continue
+        out = [x for x in d.get("output_lines") or [] if str(x).strip()]
+        if len(out) < 2:
+            continue
+        cands.append((min(len(out), 14), ev.t, ev))
+    cands.sort(key=lambda c: (-c[0], -c[1]))
+    adds: list[StoryScene] = []
+    n_term = sum(1 for _, sc in kept if sc.type == T.TERMINAL)
+    for _, _, ev in cands:
+        if len(shown) + len(adds) >= want or n_term + len(adds) + 1 > max_type_count(len(kept) + len(adds) + 1):
+            break
+        key = command_key(str((ev.data or {}).get("cmd") or ""))
+        if key in seen:
+            continue
+        seen.add(key)
+        adds.append(StoryScene(T.TERMINAL, [ev.id], "", "", {}))
+    if not adds:
+        return kept
+    at = next((k + 1 for k, (_, sc) in enumerate(kept) if sc.type == T.TITLE), 1 if kept else 0)
+    idx = kept[at - 1][0] if kept and at > 0 else 0
+    ctx.issue("runs_added", "$.scenes", f"{len(adds)} real run(s) of the CLI shown", "warning",
               "added " + ", ".join(sc.refs[0] for sc in adds))
     return kept[:at] + [(idx, sc) for sc in adds] + kept[at:]
 

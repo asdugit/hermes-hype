@@ -342,10 +342,12 @@ launchScene('kit:launch/MONTAGE', {
     const items = (p.items || []).slice(0, 16);
     const n = Math.max(1, items.length);
     const cw = L ? 820 : 700, chh = L ? 220 : 240;
-    const gx = L ? 0 : cw + 150, gy = L ? chh + 90 : 0;      // a tight conveyor: 3+ cards in frame at once
+    const gx = L ? 0 : cw + 150, gy = L ? chh + 90 : 0;      // a tight conveyor: the card in focus + its neighbours
     const step = dur / n;
     const nodes = items.map((it, i) => {
       const c = toolCard(it, { width: cw, height: chh });
+      const arg = c.el.querySelector('.srb-arg');           // the file / command is the news: read it at a glance
+      if (arg) arg.style.fontSize = L ? '36px' : '34px';
       // a gentle S along the table: x marches, y swings
       const x = L ? Math.sin(i * 0.9) * 70 : i * gx;
       const y = L ? i * gy : Math.sin(i * 1.1) * 110;
@@ -356,7 +358,8 @@ launchScene('kit:launch/MONTAGE', {
     const pts = nodes.map((q) => [q.x, q.y + chh + 70]);
     if (pts.length >= 2) W.wire([[pts[0][0] - (L ? 0 : 600), pts[0][1] - (L ? 500 : 0)], ...pts, [pts[pts.length - 1][0] + (L ? 0 : 900), pts[pts.length - 1][1] + (L ? 900 : 0)]],
       { radius: 160, pulses: 3, every: step * 2, speed: L ? 1200 : 1500, port: false });
-    const d = fitRect(W, F, L ? cw * 1.08 : cw * 2.25, L ? chh * 4.0 : chh * 2.0, 20, 0.94, 0.86);
+    // close on the card in focus (was 2.25 cards wide: 28 px type on a mostly empty stage read as dead time)
+    const d = fitRect(W, F, L ? cw * 1.08 : cw * 1.65, L ? chh * 3.2 : chh * 1.7, 20, 0.94, 0.86);
     const keys = [];
     nodes.forEach((q, i) => {
       const t0 = i * step;

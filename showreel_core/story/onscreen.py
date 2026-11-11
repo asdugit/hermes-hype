@@ -233,6 +233,18 @@ def end_command(product: Any, facts: Any, limit: int = 40) -> str:
         lc = launch_command(c) or bare_cli(c)
         if lc and len(lc) <= limit:
             return lc
+    # the product's own command as the session ran it (gitpulse ran `python gitpulse.py ./sample-repo` six times
+    # with `run_commands: []` and the END held 10 s with no command): the most frequent successful run
+    from .facts import is_demo_run
+    counts: dict[str, list[float]] = {}
+    for e in getattr(facts, "events", []):
+        if e.kind != "terminal" or str(data_get(e, "shell", "")) == "python" or not is_demo_run(e):
+            continue
+        lc = launch_command(str(data_get(e, "cmd", "")))
+        if lc and len(lc) <= limit and not has_loopback(lc):
+            counts.setdefault(lc, []).append(float(e.t or 0.0))
+    if counts:
+        return max(counts.items(), key=lambda kv: (len(kv[1]), max(kv[1])))[0]
     return ""
 
 

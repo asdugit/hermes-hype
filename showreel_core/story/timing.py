@@ -36,6 +36,7 @@ from .facts import (
     diff_rows,
     image_of,
     is_stub,
+    is_test_cmd,
     looks_like_test_pass,
     portrait_twin,
     terminal_ok,
@@ -576,8 +577,13 @@ def _terminal(ev: Event, limit: int) -> dict[str, Any] | None:
     out = [str(x) for x in data_get(ev, "output_lines") or []]
     while out and not out[-1].strip():
         out.pop()
-    shown = out[-limit:]
-    return {"cmd": cmd, "output": shown, "truncated_top": len(out) > len(shown),
+    # a product run reads from the top (header, best rows); a test/build run is read at its summary (the tail)
+    head = terminal_ok(ev) and not looks_like_test_pass(ev) and not is_test_cmd(cmd) and len(out) > limit
+    if head:
+        while out and not out[0].strip():
+            out.pop(0)
+    shown = out[:limit] if head else out[-limit:]
+    return {"cmd": cmd, "output": shown, "truncated_top": not head and len(out) > len(shown),
             "exit_code": data_get(ev, "exit_code"), "elapsed_s": data_get(ev, "elapsed_s"), "ok": terminal_ok(ev),
             "tests_passed": looks_like_test_pass(ev)}
 
