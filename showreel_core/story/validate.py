@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 
 from ..contracts import Event, Product, SceneType, Storyboard, StoryScene
 from .facts import (
+    is_garbled,
     SessionFacts,
     code_lines,
     diff_rows,
@@ -847,7 +848,7 @@ def _clean_run(ctx: _Ctx) -> str:
     """The best unused successful product run whose output is not an error ('' when none)."""
     best = None
     for e in ctx.facts.events:
-        if e.id in ctx.all_refs or e.kind != "terminal" or not is_demo_run(e) or shows_error(e):
+        if e.id in ctx.all_refs or e.kind != "terminal" or not is_demo_run(e) or shows_error(e) or is_garbled(e):
             continue
         d = e.data or {}
         main = main_command(str(d.get("cmd") or ""))
@@ -868,6 +869,17 @@ def _check_terminal(scene: StoryScene, path: str, ctx: _Ctx) -> bool:
         return False
     ev = ctx.facts.get(scene.refs[0]) if scene.refs else None
     cmd = main_command(str((ev.data or {}).get("cmd") or "")) if ev is not None else ""
+    if ev is not None and ev.kind == "terminal" and is_garbled(ev):
+        clean = _clean_run(ctx)                 # `cat -v` caret codes ('^[[96m M-bM-^VM-^H') under a product label
+        if not clean:
+            ctx.issue("garbled_terminal", f"{path}.refs[0]", f"{ev.id} prints escape codes, not text", "warning",
+                      fix="scene dropped")
+            return False
+        ctx.issue("garbled_terminal", f"{path}.refs[0]", f"{ev.id} prints escape codes, not text", "warning",
+                  f"swapped for {clean}")
+        scene.refs = [clean]
+        ev = ctx.facts.get(clean)
+        cmd = main_command(str((ev.data or {}).get("cmd") or "")) if ev is not None else ""
     if ctx.mode == "product" and ev is not None and ev.kind == "terminal" and shows_error(ev) \
             and not _is_fix_story(scene, ctx):
         clean = _clean_run(ctx)                 # a 409/422 body under "A link, shortened instantly" sells a failure
@@ -1185,7 +1197,7 @@ def _enrich_runs(kept: list[tuple[int, StoryScene]], ctx: _Ctx, target_seconds: 
     used = {sc.refs[0] for _, sc in kept if sc.refs}
     cands = []
     for ev in facts.events:
-        if ev.id in used or ev.kind != "terminal" or not is_demo_run(ev):
+        if ev.id in used or ev.kind != "terminal" or not is_demo_run(ev) or is_garbled(ev):
             continue
         d = ev.data or {}
         if str(d.get("shell") or "") == "python":

@@ -447,6 +447,19 @@ _NOISE_LINE_RE = re.compile(r"(?i)^\s*(?:warning: (?:in the working copy of|LF w
                             r"access-control-[\w-]+):\s)")
 
 
+_CARET_RE = re.compile(r"\^\[\[|M-[a-zA-Z^]M-|\x1b\[[\d;]*[A-Za-z]")
+
+
+def is_garbled(ev: Event) -> bool:
+    """True for a run whose output is escape codes, not text: `cat -v` caret notation (`^[[96m`, `M-bM-^VM-^H` for
+    the bar glyphs) or raw ANSI sequences on more than a fifth of its lines. On screen it reads as machine garbage."""
+    lines = [str(x) for x in (ev.data or {}).get("output_lines") or [] if str(x).strip()]
+    if not lines:
+        return False
+    bad = sum(1 for ln in lines if _CARET_RE.search(ln))
+    return bad / len(lines) > 0.2
+
+
 def is_noise_line(line: str) -> bool:
     """True for a tool warning/hint line that says nothing about the product (filtered from TERMINAL beats)."""
     return bool(_NOISE_LINE_RE.match(str(line or "")))

@@ -125,3 +125,23 @@ def test_process_housekeeping_and_http_headers_are_not_product_beats() -> None:
                                                   "content-type: application/json", '{"code":"aB3x9"}'])
     shown = _terminal(run, 8)["output"]
     assert shown == ["HTTP/1.1 201 Created", "content-type: application/json", '{"code":"aB3x9"}']
+
+
+def test_escape_code_output_is_never_a_terminal_beat() -> None:
+    from showreel_core.story.facts import is_garbled
+    garbage = _run(2, 2.0, "python -c 'import gitpulse' | cat -v",
+                   ["^[[2mM-bM-^TM-^AM-bM-^TM-^A^[[0m ^[[1m^[[96mCommits per author^[[0m",
+                    "  David Lord    ^[[96mM-bM-^VM-^HM-bM-^VM-^H", "  Armin  ^[[93mM-bM-^VM-^H", "^M"])
+    clean = _run(3, 3.0, "python gitpulse.py ./sample-repo", ["gitpulse - sample-repo (677 commits)",
+                                                               "David Lord   ######## 120", "Armin        ##### 80"])
+    assert is_garbled(garbage) and not is_garbled(clean)
+    evs = [Event("e0", 0.0, "user_prompt", "", "cli", "", {"text": "Build gitpulse, a git history CLI"}),
+           Event("e1", 1.0, "file_write", "write_file", "gitpulse.py", "", {"path": "gitpulse.py", "lines": ["x"]}),
+           garbage, clean]
+    facts = SessionFacts(evs, Stats(duration_s=60, files_created=1))
+    sb = Storyboard(title="gitpulse", tagline="History", cta="", mode="product",
+                    product=Product(name="gitpulse", kind="cli"),
+                    scenes=[StoryScene(T.TITLE, [], "", "gitpulse"), StoryScene(T.TERMINAL, ["e2"], "", "Colour on"),
+                            StoryScene(T.END, [], "", "")])
+    res = validate_storyboard(sb, facts, 30, "product")
+    assert "e2" not in [r for s in res.storyboard.scenes for r in s.refs[:1]]
