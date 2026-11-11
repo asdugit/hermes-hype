@@ -40,6 +40,7 @@ def _tree(tmp_path: Path) -> Path:
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_bytes(text.encode("latin-1") if rel.endswith(".png") else text.encode("utf-8"))
     (root / "assets" / "bin.dat").write_bytes(b"showreel\x00\x01")
+    (root / ".git").write_text("gitdir: C:/src/hermes-showreel/.git/worktrees/showreel\n", encoding="utf-8")
     return root
 
 
@@ -109,11 +110,17 @@ def test_dry_run_apply_idempotent(tmp_path: Path, capsys: pytest.CaptureFixture[
     assert readme.endswith(b"a film of the session.\r\n") and b"showreel-work" in readme
     assert (root / "assets" / "logo.png").read_bytes() == "\x89PNG showreel".encode("latin-1")
     assert (root / "assets" / "bin.dat").read_bytes() == b"showreel\x00\x01"
+    assert (root / ".git").read_text(encoding="utf-8").endswith("worktrees/showreel\n")   # worktree pointer
 
     snapshot = {p: p.read_bytes() for p in root.rglob("*") if p.is_file()}
     assert R.main(["--name", "auteur", "--title", "Auteur", "--root", str(root)]) == 0
     assert "0 file(s) to edit (0 lines), 0 to move" in capsys.readouterr().out
     assert {p: p.read_bytes() for p in root.rglob("*") if p.is_file()} == snapshot
+
+    assert R.main(["--name", "auteur", "--title", "Auteur", "--root", str(root), "--repo-slug", "hermes-auteur"]) == 0
+    assert "homepage: https://github.com/asdugit/hermes-auteur" in (root / "plugin.yaml").read_text(encoding="utf-8")
+    assert "Duffey234/hermes-showreel" in (root / "README.md").read_text(encoding="utf-8")
+    assert (root / ".git").read_text(encoding="utf-8").startswith("gitdir: C:/src/hermes-showreel/")
 
 
 @pytest.mark.parametrize("args", [["--name", "Auteur"], ["--name", "my-film"], ["--name", "showreel"],

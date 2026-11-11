@@ -59,6 +59,7 @@ PROTECTED = (
 )
 REPO_RE = r"hermes-showreel"
 
+#: Skipped folders, and files with these names (a worktree's ``.git`` is a file pointing at the main repo).
 SKIP_DIRS = {".git", "node_modules", "__pycache__", ".pytest_cache", ".ruff_cache", ".mypy_cache", ".venv",
              "venv", "vendor", "out", "renders", "jobs"}
 SKIP_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".avif", ".ico", ".mp4", ".webm", ".mov", ".ogg",
@@ -145,7 +146,7 @@ def iter_files(root: Path):
         dirnames[:] = sorted(d for d in dirnames if d not in SKIP_DIRS)
         for fn in sorted(filenames):
             p = Path(dirpath) / fn
-            if p.suffix.lower() in SKIP_SUFFIXES or fn in KEEP_FILES or p.is_symlink():
+            if p.suffix.lower() in SKIP_SUFFIXES or fn in KEEP_FILES or fn in SKIP_DIRS or p.is_symlink():
                 continue
             yield p
 
