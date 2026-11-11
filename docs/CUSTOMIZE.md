@@ -49,8 +49,11 @@ them directly, and the Director receives them as hints (`options.hints.customize
   the knobs above.
 - **Bad keys and values.** An unknown key gets a friendly message that lists the valid keys. It is ignored on the
   slash command and rejected on the API (HTTP 400). A bad value, such as `accent=blurple`, is dropped with a note.
-- **Defaults.** Set them in the plugin config as `plugins.entries.showreel.settings.customize`, for example
-  `"accent=#ff4fa3 energy=high"` or a mapping. They have the lowest priority.
+- **Defaults.** Set them in the plugin setting `customize` (`plugins.entries.showreel.settings.customize`, or
+  Desktop → Capabilities → Plugins → Showreel), for example `"accent=#ff4fa3 energy=high"`. They have the lowest
+  priority and apply to every preset film: look, sound and words (accent, palette, bg, text, font, music, energy,
+  voice, captions, transitions, logo, title, tagline, cta, language). Length, aspect and narration have their own
+  settings. A YAML mapping also works, but Hermes warns at load because the setting is declared as a string.
 
 ## Free-text customization
 
