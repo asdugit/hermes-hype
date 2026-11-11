@@ -136,6 +136,7 @@ class _Ctx:
         self.renamed_from = ""      # the model's product name when it was replaced by the session's
         self.used_pictures: set[str] = set()   # picture refs already on screen (a swap never repeats one)
         self.all_refs: set[str] = set()        # every scene's first ref (a swap never steals a later scene's)
+        self.picture_keys: set[str] = set()    # identity keys of the pictures on screen (see _picture_keys)
 
     def issue(self, code: str, path: str, message: str, severity: str = "error", fix: str = "") -> None:
         self.issues.append(Issue(code, path, message, severity))
@@ -429,6 +430,12 @@ def _set_aside(ev: Event | None) -> bool:
     return bool(ev is not None and ((ev.data or {}).get("media_rank") or {}).get("junk"))
 
 
+def _shown_before(ref: str, ctx: _Ctx) -> bool:
+    """True when this picture (or a copy of it) is already on screen in an earlier scene."""
+    ev = ctx.facts.get(ref)
+    return ref in ctx.used_pictures or (ev is not None and bool(_picture_keys(ev) & ctx.picture_keys))
+
+
 def _best_unused_picture(st: SceneType, ctx: _Ctx) -> str:
     """The best-ranked showable picture no scene uses yet ('' when none is left: the scene is then dropped and
     the film runs on fewer pictures rather than padding with junk)."""
@@ -437,10 +444,17 @@ def _best_unused_picture(st: SceneType, ctx: _Ctx) -> str:
     used = ctx.used_pictures | ctx.all_refs
     best, score = "", -1.0
     for ev in facts.events:
-        if ev.id in used or ev.kind not in kinds or image_of(ev) is None:
+        if ev.id in used or ev.kind not in kinds or image_of(ev) is None or _picture_keys(ev) & ctx.picture_keys:
             continue
         rank = (ev.data or {}).get("media_rank") or {}
-        s = float(rank.get("score", 0.5)) + 0.3 * float(ev.weight or 0)
+        if not rank and st != T.HOOK:
+            continue                       # only ranked session pictures (web captures keep the model's choice)
+        img = image_of(ev) or {}
+        try:
+            aspect = float(img.get("w") or 0) / float(img.get("h") or 1)
+        except (TypeError, ValueError):
+            aspect = 0.0
+        s = float(rank.get("score", 0.5)) + 0.3 * float(ev.weight or 0) + (0.12 if 1.3 <= aspect <= 2.4 else 0.0)
         if s > score:
             best, score = ev.id, s
     return best
@@ -462,8 +476,20 @@ def _check_primary(scene: StoryScene, path: str, ctx: _Ctx) -> bool:
             scene.extra.pop("bbox", None)
             scene.extra.pop("click", None)
             usable = [swap]
+    if usable and st in (T.SCREEN, T.FEATURE) and _shown_before(usable[0], ctx):
+        swap = _best_unused_picture(st, ctx)       # the same picture twice reads as padding: show another real one
+        if swap:
+            ctx.issue("repeated_picture", f"{path}.refs", f"{usable[0]} is already on screen", "warning",
+                      f"swapped for {swap}")
+            scene.refs = [swap] + [r for r in scene.refs if r != usable[0]]
+            scene.extra.pop("bbox", None)
+            scene.extra.pop("click", None)
+            usable = [swap]
     if usable and st in (T.HOOK, T.SCREEN, T.FEATURE, T.SCROLL):
         ctx.used_pictures.add(usable[0])
+        ev0 = facts.get(usable[0])
+        if ev0 is not None:
+            ctx.picture_keys |= _picture_keys(ev0)
     if not usable:
         if scene.refs:
             kinds = ", ".join(sorted({facts.kind(r) or "?" for r in scene.refs}))

@@ -112,3 +112,17 @@ def test_card_shots_get_safe_crops_and_dissolves(game_session: list[Event]) -> N
     assert shots[T.SCREEN].transition_in == "match"                   # picture to picture: a cross-dissolve
     feat_t = (shots[T.FEATURE].t0, shots[T.FEATURE].t1)
     assert not [c for c in tl.cues if c.sfx == "click" and feat_t[0] <= c.t < feat_t[1]]   # no cursor, no click
+
+
+def test_a_repeated_picture_is_swapped_for_an_unused_one(game_session: list[Event]) -> None:
+    facts = SessionFacts(game_session, Stats(duration_s=3600), "")
+    sb = _sb([
+        StoryScene(T.HOOK, ["e1"], "", "A case to crack"),
+        StoryScene(T.TITLE, [], "", "Casefile"),
+        StoryScene(T.SCREEN, ["e1"], "", "Interrogate in first person"),
+        StoryScene(T.END, [], "", ""),
+    ])
+    res = validate_storyboard(sb, facts, 30, "product")
+    shots = [s.refs[0] for s in res.storyboard.scenes if s.type in (T.HOOK, T.SCREEN, T.FEATURE)]
+    assert shots[0] == "e1" and "e4" in shots[1:] and shots.count("e1") == 1
+    assert any(i.code == "repeated_picture" for i in res.issues)
