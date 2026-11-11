@@ -844,8 +844,14 @@ def _read(run: _Run) -> None:
 
 
 #: Hype's own tools: their calls, results and contact sheets are not evidence of what the session built.
-OWN_TOOLS = frozenset({"hype_render", "hype_status", "hype"})
-_OWN_FILE = re.compile(r"(^|/)(hype-[^/]*\.(mp4|webm|mov)|contact_(16x9|9x16|1x1)\.(png|jpg))$", re.I)
+#: the plugin's tools, including its earlier names (Showreel, Auteur): a session recorded before a rename still
+#: holds those calls and their films
+OWN_TOOLS = frozenset({"hype_render", "hype_status", "hype", "showreel_render", "showreel_status",
+                       "auteur_render", "auteur_status"})
+_OWN_FILE = re.compile(r"(^|/)((hype|showreel|auteur)-[^/]*\.(mp4|webm|mov)|contact_(16x9|9x16|1x1)\.(png|jpg))$",
+                       re.I)
+_OWN_FILM_TEXT = re.compile(r"generated/videos/(hype|showreel|auteur)-", re.I)
+_IMG_TOKEN = re.compile(r"([\w.-]+\.(?:png|jpe?g|webp|gif|bmp))(?![\w])", re.I)
 
 
 def own_output_event(ev: Any, own_dirs: list[str], after_first_film: bool, this_job: tuple[str, ...] = ()) -> bool:
@@ -865,10 +871,30 @@ def own_output_event(ev: Any, own_dirs: list[str], after_first_film: bool, this_
         return True
     text = " ".join([str(getattr(ev, "title", "") or ""), str(getattr(ev, "summary", "") or ""),
                      str(data.get("cmd") or "")]).replace("\\", "/").lower()
-    if any(d and d in text for d in own_dirs) or "generated/videos/hype-" in text:
+    if any(d and d in text for d in own_dirs) or _OWN_FILM_TEXT.search(text):
         return True
     return after_first_film and "hype" in text and getattr(ev, "kind", "") in (
         "user_prompt", "assistant_note", "final_answer", "terminal", "tool_other", "artifact")
+
+
+def derived_pictures(dropped: list[Any]) -> set[str]:
+    """Picture file names written by commands that read an earlier film (``ffmpeg -i hype-x.mp4 ... grab.png``)."""
+    names: set[str] = set()
+    for ev in dropped:
+        cmd = str((getattr(ev, "data", None) or {}).get("cmd") or "")
+        if _OWN_FILM_TEXT.search(cmd.replace("\\", "/")) or re.search(r"(hype|showreel|auteur)-[^\s'\"/]*\.(mp4|webm|mov)",
+                                                                       cmd, re.I):
+            names.update(m.lower() for m in _IMG_TOKEN.findall(cmd))
+    return names
+
+
+def _is_derived(ev: Any, names: set[str]) -> bool:
+    data = getattr(ev, "data", None) or {}
+    for k in ("src", "path", "source"):
+        base = str(data.get(k) or "").replace("\\", "/").rsplit("/", 1)[-1].lower()
+        if base and (base in names or re.sub(r"^e\d+_", "", base) in names):
+            return True
+    return False
 
 
 def _drop_own_outputs(run: _Run, bundle: Any) -> None:
@@ -888,6 +914,10 @@ def _drop_own_outputs(run: _Run, bundle: Any) -> None:
     keep, dropped = [], []
     for i, ev in enumerate(events):
         (dropped if own_output_event(ev, own_dirs, i >= first, this_job) else keep).append(ev)
+    derived = derived_pictures(dropped)
+    if derived:     # stills the agent cut out of an earlier film (frame grabs, tiles) are not the product either
+        keep, more = [e for e in keep if not _is_derived(e, derived)], [e for e in keep if _is_derived(e, derived)]
+        dropped += more
     if not dropped:
         return
     gone = {getattr(e, "id", "") for e in dropped}
