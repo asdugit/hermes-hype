@@ -25,8 +25,9 @@ License: AGPL-3.0-or-later · Hermes Agent >= 0.22.5 · Windows, macOS, Linux
   saying so.
 - **A free-roam engine.** Don't want presets? Write a direction in plain words and the Director engine writes a
   treatment, codes the scenes it needs, renders keyframes, has a vision critic score them, and revises before the
-  final render. The design goal is that its quality gates and scene kits carry the craft, so even smaller models
-  can make cinematic films.
+  final render. Kits, proven blueprints, schema repair and measured gates carry the craft; smaller models get a
+  simpler compose path (pick a blueprint, write the words, the engine assembles and checks the film). The goal is
+  that any model can make a cinematic film.
 
 ## Quick start
 
@@ -74,19 +75,32 @@ Lengths: 30, 60 or 90 s (anything from 15 to 180 works). Aspects: 16:9, 9:16 or 
 Presets are a starting point, not a cage. Say what you want after the style, or set a knob directly:
 
 ```text
-/showreel launch pink and playful
+/showreel launch pink and playful with a punchier ending
+/showreel terminal green phosphor hacker vibe, faster
 /showreel cinematic accent=#ff4f8b title="Tally" tagline="Your bank CSV, finally readable"
 /showreel pixel 30 energy=high music=pixel_boss cta="Try it today"
-/showreel ink language=es voice=calm logo=assets/logo.png
+/showreel ink language=es voice=warm logo=~/brand/logo.png
 ```
 
-Knobs cover accent colour, font, music, energy, voice, title, tagline, call to action, logo and language.
-The full list, what each one accepts and how free-text customization is read are in
-[docs/CUSTOMIZE.md](docs/CUSTOMIZE.md).
+- **Knobs** (`key=value`) are exact and need no model: accent, palette, background and text colours, font,
+  music, energy, narration, voice and pace, title, tagline, call to action, product name, logo, captions,
+  transitions, length, aspect and language. Unknown keys get a friendly list of the valid ones.
+- **Plain words** after a preset are read by a keyword reader (no model) and one small model call over the
+  preset's own film, validated and repaired before anything changes: palette, words, music, pacing, shot order and
+  holds. Facts (code, stats, terminal output) are never rewritten, and a weak model or no model still gives a
+  customized film.
+- **Routing.** A preset plus words customizes that preset. Words without a preset make a Directed film. A preset
+  plus something it can't do (another style midway, new scenes, "free roam") goes to the Director, starting from
+  that preset.
+- The same works in the Desktop studio (Customize preset, with a knobs row), the tool (`customize`, `knobs`) and
+  the CLI (`--customize`, `--set KEY=VALUE`). Defaults for every film: the `customize` setting.
+
+Every knob, what it accepts and how the free text is read: [docs/CUSTOMIZE.md](docs/CUSTOMIZE.md).
 
 ## Don't want presets? Here's the engine
 
-Anything that isn't a preset option is a **direction**, and the film becomes a **Directed** film:
+Free text without a preset (or asking a preset for something it can't do) is a **direction**, and the film
+becomes a **Directed** film:
 
 ```text
 /showreel pixel but transition into a different style mid way through, goal is to sell the product
@@ -149,7 +163,8 @@ jsdom against a stub of the Desktop SDK, sample data, an approximate dark theme)
 app. Icons show as plain squares because the harness has no icon font. The style previews and the Director
 contact sheet are real Showreel output.*
 
-Tabs: **Make** (kind, style gallery, format, direction) · **Live** (stages, ETA, cancel, the Director at work) ·
+Tabs: **Make** (kind, style gallery, format, then *Customize this preset* with a knobs row or *Free roam* for a
+direction) · **Live** (stages, ETA, cancel, the Director at work) ·
 **Storyboard** (edit titles and narration, drop or reorder scenes, re-render without a model call) · **Result**
 (player, reveal file, render the other aspect, copy post text, revise) · **Library** (saved Director scenes).
 
@@ -157,15 +172,16 @@ Tabs: **Make** (kind, style gallery, format, direction) · **Live** (stages, ETA
 
 The agent gets two tools and a bundled skill that tells it when to use them:
 
-- `showreel_render`: makes a film (`mode`, `style`, `seconds`, `aspect`, `voice`, `direction`, a `product`
-  brief, `preview`). It waits up to about 4.5 minutes, then returns `MEDIA:<path>`; longer renders keep going and
-  return a `job_id`.
+- `showreel_render`: makes a film (`mode`, `style`, `seconds`, `aspect`, `voice`, `customize`, `knobs`,
+  `direction`, a `product` brief, `preview`, `engine_3d`). It waits up to about 4.5 minutes, then returns
+  `MEDIA:<path>`; longer renders keep going and return a `job_id`.
 - `showreel_status`: a job's progress or result, or the list of styles.
 
 So "make a 30 second vertical promo of what we built" works in plain chat. From a shell:
 
 ```bash
 hermes showreel render --session latest --style terminal --seconds 60 --aspect both
+hermes showreel render --style terminal --customize "green phosphor, faster" --set accent=#00ff66
 hermes showreel render --direction "a heist film where the tests are the vault" --effort quick
 hermes showreel styles
 hermes showreel doctor          # checks Chromium, ffmpeg, Blender (optional), assets and the runtime
@@ -188,6 +204,7 @@ Desktop → Capabilities → Plugins → Showreel, or `plugins.entries.showreel.
 | `max_parallel_workers` | `0` | Render workers; 0 = automatic from free RAM |
 | `engine_3d` | `browser` | `browser`, `blender` or `auto` |
 | `blender_path` | empty | Path to Blender; empty = auto-detect |
+| `customize` | empty | Default knobs for every preset film, e.g. `accent=#ff4fa3 energy=high` (lowest priority) |
 
 The storyboard uses the auxiliary task `showreel` (Hermes `auxiliary` settings), so you can point it at a
 cheaper model than your main one.
@@ -252,7 +269,8 @@ Read this before installing. Showreel:
 - **The studio says "The Showreel backend is not running"**: enable the plugin for the agent too
   (`hermes plugins enable showreel`), then restart Hermes.
 - **A Directed film fell back to a preset**: the Director hit an error or its budget; the job log says why.
-  Try `effort=quick`, a shorter direction, or a stronger model for the `showreel` auxiliary task.
+  Try the `quick` effort (`/showreel ... quick` or the `effort` setting), a shorter direction, a stronger model,
+  or customize a preset instead.
 - **Slow renders**: use `preview` (540p) for a first look, lower `max_parallel_workers` if RAM is tight, and keep
   Blender for when you want it.
 - **Blender not found**: set `blender_path` or `SHOWREEL_BLENDER`; Blender 4.2 or newer is required.

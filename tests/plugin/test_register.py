@@ -71,14 +71,37 @@ def test_manifest_matches_registrations() -> None:
     assert isinstance(MANIFEST["version"], str)
 
 
+#: Declared settings read outside :class:`Settings` (key -> reader), each covered by its own test below.
+EXTRA_SETTINGS = {"customize": "showreel_core.customize.hook.settings_knobs"}
+
+
 def test_config_schema_matches_settings() -> None:
     schema = MANIFEST["config_schema"]
-    assert set(schema) == set(Settings.__dataclass_fields__)
+    assert set(schema) == set(Settings.__dataclass_fields__) | set(EXTRA_SETTINGS)
     for key, spec in schema.items():
         assert spec["type"] in ("str", "int", "float", "bool"), key
-        if "default" in spec:
+        if "default" in spec and key not in EXTRA_SETTINGS:
             assert spec["default"] == getattr(Settings(), key), key
     assert "default" not in schema["narration_speed"]          # empty = the style's pace
+    assert schema["default_style"]["choices"] == ["launch", "cinematic", "pixel", "terminal", "blueprint", "comic",
+                                                  "ink"]
+
+
+def test_customize_setting_is_read(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """``plugins.entries.showreel.settings.customize`` (declared in plugin.yaml) feeds the knob defaults."""
+    import sys
+    import types
+
+    from showreel_core.customize import hook
+
+    (tmp_path / "config.yaml").write_text(
+        "plugins:\n  entries:\n    showreel:\n      settings:\n        customize: \"accent=#ff4fa3 energy=high\"\n",
+        encoding="utf-8")
+    fake = types.ModuleType("hermes_constants")
+    fake.get_hermes_home = lambda: tmp_path  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "hermes_constants", fake)
+    assert hook.settings_knobs() == {"accent": "#ff4fa3", "energy": "high"}
+    assert MANIFEST["config_schema"]["customize"]["default"] == ""
 
 
 def test_dashboard_manifest_and_skill() -> None:
