@@ -44,10 +44,11 @@ Then, in any chat where you built something:
 /hype lore                  the making-of: the build story is the hero (aliases: bts, process, making-of)
 /hype speedrun              the build as a speedrun: live split timer, real timestamps, a PB card
 /hype pixel 30 vertical     any style, length and aspect, in any order
-/hype comic 90 both mute    16:9 and 9:16 from one storyboard, captions only
+/hype comic 90 both         16:9 and 9:16 from one storyboard
+/hype pixel narrated        with a narrator (films are music and on-screen type by default)
 ```
 
-Arguments are free-order: `[lore|speedrun] [style] [30|60|90] [vertical|both] [mute] [blender]`.
+Arguments are free-order: `[lore|speedrun] [style] [30|60|90] [vertical|both] [narrated|mute] [blender]`.
 A preset film takes a few minutes: 30 s films took about 4-8 minutes in our end-to-end runs, on a laptop busy
 with other renders. In Desktop and the TUI the command answers at once and the
 film renders in the background, with progress in the chat. In CLI and messaging sessions it waits and then
@@ -157,8 +158,7 @@ and time (in our dev runs Haiku's noir took 13 minutes, the frontier model's 93)
 polish: all three noir films are clean, legible and on-brand, with the product in every product shot, but only
 the strong model invented new scenes (a case board that turns into an orbit); the small models re-dressed a proven
 blueprint with noir words. Small models' revisions made films worse, so they get one critique and the best
-version wins. The two keynote films, Haiku and the frontier model on the same product and direction, play side by
-side in the demo video.
+version wins. The demo video shows the Haiku keynote film, under the line "Works with small models too."
 
 ### Blender (optional 3D engine)
 
@@ -190,8 +190,8 @@ render them with **your own installed Blender 4.2+**: real 3D products, smooth s
 
 In Hermes Desktop, Hype adds a **studio** as a right-side pane and as a full page (sidebar: Hype),
 command-palette entries ("Hype: make a trailer of this chat", lore, speedrun, open the studio), a status-bar
-chip with live progress, and a Hype card around the video player when the agent's `hype_render` tool
-returns a film.
+chip with live progress, and (Hermes 0.22.6 and newer) a Hype card around the video player when the agent's
+`hype_render` tool returns a film.
 
 ![The Make page: kind of film, the seven styles with their preview loops, length, aspect, narration, and "Customize this preset" (free text plus accent, energy, music, font and voice knobs) or Free roam for the Director](docs/screenshots/studio-make.png)
 
