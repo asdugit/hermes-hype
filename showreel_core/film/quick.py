@@ -252,8 +252,9 @@ def _transition(kind: str, kit: Mapping[str, Any]) -> tuple[str, float] | None:
 #: Scene names/params from B2's blender_kits/device + studio (BLENDER.md "Quick mapping").
 BLENDER_QUICK: dict[str, dict[str, dict[str, Any]]] = {
     "HOOK": {"model": {"scene": "blender:studio/product_hero", "params": {"model": "{product}", "accent": "{accent}"}},
-             "screen": {"scene": "blender:device/device_hero",
-                        "params": {"media": "{media}", "accent": "{accent}", "side": "left", "space": "left"}}},
+             "screen": {"scene": "blender:device/device_hero",   # lit from frame 1 (the film's first frame)
+                        "params": {"media": "{media}", "accent": "{accent}", "side": "left", "space": "left",
+                                   "reveal": False}}},
     "TITLE": {"model": {"scene": "blender:studio/product_float", "params": {"model": "{product}", "accent": "{accent}"}},
               "screen": {"scene": "blender:device/device_hero",
                          "params": {"media": "{product}", "accent": "{accent}", "side": "right", "space": "left"}}},
@@ -263,8 +264,9 @@ BLENDER_QUICK: dict[str, dict[str, dict[str, Any]]] = {
     "SCROLL": {"screen": {"scene": "blender:device/device_scroll",
                           "params": {"image": "{media}", "scroll": "{data:scroll}", "accent": "{accent}"}}},
     "END": {"model": {"scene": "blender:studio/product_float", "params": {"model": "{product}", "accent": "{accent}"}},
-            "screen": {"scene": "blender:device/device_end",
-                       "params": {"media": "{product}", "accent": "{accent}", "space": "left"}}},
+            "screen": {"scene": "blender:device/device_end",    # soft glow behind the centred end-lockup
+                       "params": {"media": "{product}", "accent": "{accent}", "space": "none", "size": 0.6,
+                                  "defocus": 0.85}}},
 }
 BLENDER_TYPES = ("HOOK", "TITLE", "FEATURE", "SCROLL", "END")
 #: dev placeholder (SHOWREEL_BLENDER_PLACEHOLDER=1): every product type -> the hello scene
