@@ -334,6 +334,31 @@ def _hold_hue(g: _Graph, hold: str, width_deg: float) -> None:
     g.cur = out
 
 
+def levels_curve(levels: Any) -> str:
+    """``[black, white, gamma]`` (0..1 input levels; gamma > 1 lifts the mids) -> a ``curves`` point list, '' when
+    unset or a no-op. The Director's look guard measures the graded keyframes and sets these so a dark world (a
+    dark-theme product in the noir room) still reads: whites reach white, lifted blacks go black, mids come up."""
+    if not isinstance(levels, (list, tuple)) or len(levels) != 3:
+        return ""
+    try:
+        b, w, gm = (float(x) for x in levels)
+    except (TypeError, ValueError):
+        return ""
+    b = max(0.0, min(0.3, b))
+    w = max(b + 0.3, min(1.0, w))
+    gm = max(0.5, min(2.0, gm))
+    if b < 0.004 and w > 0.996 and abs(gm - 1.0) < 0.02:
+        return ""
+    pts = [(0.0, 0.0)] if b > 0 else []
+    for k in (0.0, 0.07, 0.25, 0.5, 0.75, 1.0):   # a linear toe below 7 %: the mids lift, black stays black
+        x = b + (w - b) * k
+        y = k if k < 0.1 else k ** (1.0 / gm)
+        pts.append((x, y))
+    if w < 1.0:
+        pts.append((1.0, 1.0))
+    return " ".join(f"{x:.3f}/{y:.3f}" for x, y in pts)
+
+
 def _grade(g: _Graph, p: Mapping[str, Any], ow: int, oh: int) -> None:
     """The mood grade at output size, in planar RGB (every filter here supports gbrp)."""
     hold = p.get("hold")
@@ -365,6 +390,9 @@ def _grade(g: _Graph, p: Mapping[str, Any], ow: int, oh: int) -> None:
     if tint and amt > 0:
         r, gg, b = (v / 255.0 for v in _hex(str(tint)))
         g.add(f"colorchannelmixer=rr={1 - amt + amt * r:.4f}:gg={1 - amt + amt * gg:.4f}:bb={1 - amt + amt * b:.4f}")
+    lv = levels_curve(p.get("levels"))
+    if lv:
+        g.add(f"curves=all='{lv}'")
     sm = float(p.get("smear") or 0.0)
     if sm > 0:
         g.add(f"gblur=sigma={sm:g}:sigmaV=0.01")

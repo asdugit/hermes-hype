@@ -32,7 +32,7 @@ from typing import Any
 
 from ..contracts import Product
 from ..story.schema import parse_json_text
-from . import compose, measured, moods, prompts, repair, tiers
+from . import compose, lookguard, measured, moods, prompts, repair, tiers
 from . import prominence as pm
 from .backend import Preview, Renderer, RuntimeRenderer, ShotError
 from .catalog import Catalog, build_catalog
@@ -439,6 +439,7 @@ def _produce(r: _Run, start: Version | None = None, first: Version | None = None
         rounds = r.budget.rounds
         for rnd in range(1, rounds + 1):
             _prominence_pass(r, v)
+            _look_guard(r, v)
             r.versions.append(v)
             _save_version(r, v)
             late = _late(r, 0.7)
@@ -1263,6 +1264,27 @@ def _prominence_pass(r: _Run, v: Version) -> None:
                                  f"{v.prom.hero_share:.0%}", measured=v.prom.to_dict())
 
 
+def _look_guard(r: _Run, v: Version) -> None:
+    """Measure the graded keyframes and set the grade's exposure levels (film-wide) so whites reach white, milky
+    blacks go black and the product's mids are not murky - for every model, before any critic looks. Never fatal."""
+    try:
+        if not v.images:
+            return
+        shown = _graded_images(r, v, levels=False)
+        stats = [lookguard.luma_stats(b) for b in shown]
+        prod = {p["id"] for p in v.plan.get("shots") or [] if p.get("product_visible")}
+        flags = [(f.shot in prod) and not getattr(f, "transition", False) for f in v.frames]
+        mood = (moods.dominant(r.brief.direction) or None)
+        lv, rep = lookguard.plan_levels(stats, flags, mood=mood.id if mood else "")
+        r.save(f"v{v.n}/look.json", {"levels": lv, **rep})
+        if lookguard.apply_levels(v.film, lv) and lv is not None:
+            v.changes.append(f"engine look guard: grade levels {lv} ({rep})")
+            r.emit("look", f"Exposure set from the graded keyframes: black {lv[0]:g}, white {lv[1]:g}, gamma "
+                           f"{lv[2]:g} (median highlight {rep.get('white_p99')}, product mids {rep.get('product_mid')})")
+    except Exception as exc:  # noqa: BLE001 - the look guard never costs a film
+        r.emit("look", f"Look guard skipped ({type(exc).__name__}: {str(exc)[:120]})", level="debug")
+
+
 # ------------------------------------------------------------------------------------ critic
 
 def _late(r: _Run, frac: float) -> str:
@@ -1273,15 +1295,18 @@ def _late(r: _Run, frac: float) -> str:
     return f"{spent / 60:.0f} of the {r.effort} effort's {dl / 60:.0f} min used" if dl and spent > frac * dl else ""
 
 
-def _graded_images(r: _Run, v: Version) -> list[bytes]:
+def _graded_images(r: _Run, v: Version, *, levels: bool = True) -> list[bytes]:
     """The keyframes as the viewer will see them: the direction's mood grade (black and white + the held colour
     + rain for noir, tape for VHS...) applied to each still, so the critic judges the real look (noir films were
-    judged on colour frames). Never fatal: any problem returns the plain keyframes."""
+    judged on colour frames). ``levels=False`` leaves out the look guard's exposure (what it measures).
+    Never fatal: any problem returns the plain keyframes."""
     try:
         film = copy.deepcopy(v.film)
         compose.mood_look(film, r.brief.direction,
                           hold=compose.product_color(r.brief) if compose.physical(r.brief) else "")
         gp = ((film.get("render") or {}).get("post_params") or {}).get("grade")
+        if gp and not levels:
+            gp.pop("levels", None)
         if not gp or not v.images:
             return list(v.images)
         import io

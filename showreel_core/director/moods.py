@@ -46,7 +46,7 @@ WORLDS: tuple[MoodWorld, ...] = (
                "For a physical product with a 3D model use `blender:studio/product_hero` (env `noir`; moves "
                "orbit/dolly/macro/turntable) - NEVER a meadow, sky, flower field, daylight, pastel or a bright "
                "stage; for a screen product the dark `kit:cinematic/*` room."),
-        prefer=("studio-noir", "screen-cinematic"),
+        prefer=("studio-noir", "screen-noir", "screen-cinematic"),
         avoid=("kit:nature/", "blender:meadow/", "kit:pixel/", "kit:launch/", "kit:ink/", "kit:comic/"),
         avoid_transitions=("kit:nature/", "kit:pixel/", "blender:transitions/petal", "kit:comic/", "kit:ink/"),
         params={"blender:studio/": {"env": "noir", "haze": 1.0},
@@ -77,6 +77,16 @@ WORLDS: tuple[MoodWorld, ...] = (
         avoid=("kit:pixel/", "kit:comic/", "kit:terminal/", "kit:launch/"),
         params={"blender:meadow/": {"time_of_day": "dawn"}, "kit:nature/": {"time": "dawn"}},
         beds=("dream_a", "cinematic_b"), bed="dream_a"),
+    MoodWorld(
+        "keynote", ("keynote", "apple", "unveil", "launch event", "wwdc", "steve jobs", "on stage"),
+        world=("a product KEYNOTE: a black stage, one idea at a time in huge clean white type, the real product "
+               "shown LARGE (a 3D laptop/phone reveal when Blender is available, else the full product screen "
+               "pushing in), calm crossfades and dips, an upbeat bed; never pixel art, comic panels, a meadow or "
+               "a phosphor terminal."),
+        prefer=("device-reveal", "studio-reveal", "screen-keynote"),
+        avoid=("kit:pixel/", "kit:comic/", "kit:ink/", "kit:nature/", "kit:terminal/", "blender:meadow/"),
+        avoid_transitions=("kit:pixel/", "kit:comic/", "kit:ink/", "kit:nature/", "blender:transitions/petal"),
+        dip="dip-black", beds=("launch_", "cinematic_", "dream_"), bed="launch_a"),
 )
 
 
@@ -99,6 +109,13 @@ def dominant(direction: str) -> MoodWorld | None:
 
 def _uses(scene: str, prefixes: tuple[str, ...]) -> bool:
     return any(scene.startswith(p) for p in prefixes)
+
+
+def preferred(direction: str, eligible_ids: Any) -> str:
+    """The dominant mood's own blueprint among ``eligible_ids`` ('' = no mood or none of its blueprints fits)."""
+    m = dominant(direction)
+    ids = set(eligible_ids or ())
+    return next((b for b in m.prefer if b in ids), "") if m is not None else ""
 
 
 def rank_bonus(bp: Any, direction: str) -> float:

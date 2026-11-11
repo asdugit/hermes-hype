@@ -378,10 +378,96 @@ def _blender_blueprints() -> list[Blueprint]:
     return [studio, device, meadow, noir, anime]
 
 
+def _mood_blueprints() -> list[Blueprint]:
+    """Screen-product films whose WORLD is the mood (any model, no Blender): big mood type cards interleaved with the
+    real product shown large (kit:base SCREEN/FEATURE: a 1560 px browser frame pushing in), so a noir ask reads as a
+    case file and a keynote ask reads as a keynote stage - not as the same launch film with other words."""
+    theme_n = {"theme": "noir"}
+    noir = Blueprint(
+        id="screen-noir", name="Noir case file (software)", kind="screen",
+        fits="software / web apps; 'noir', 'detective', 'crime', 'mystery', 'thriller', 'hard-boiled', rain, night",
+        look="typewriter title cards typed on black, the real product shown large as the evidence (pushing in), "
+             "case-file lower thirds, black and white with rain, a red accent, a serif-typewriter end lockup",
+        shots=(
+            {"id": "open", "share": (0.0, 0.09), "scene": "kit:type/title", "product": False,
+             "params": {"text": "<a 2-5 word hard-boiled opening line, typed on black (no product name)>",
+                        "sub": "", "reveal": "type", "scrim": 0.0, **theme_n},
+             "beat": "black frame, rain, a typewriter line: the case opens"},
+            {"id": "exhibit", "share": (0.09, 0.34), "scene": "kit:base/SCREEN", "product": True,
+             "params": {"image": {"asset": "{asset1}"}, "bbox": [0.08, 0.06, 0.6, 0.6], **theme_n},
+             "beat": "the evidence: the real product, large, the camera pushing in"},
+            {"id": "clue", "share": (0.34, 0.41), "scene": "kit:type/title", "product": False,
+             "params": {"text": "<a 3-6 word typed line: the detective's first clue about the product>",
+                        "reveal": "type", "scrim": 0.0, **theme_n}, "beat": "a typed clue on black"},
+            {"id": "feature1", "share": (0.41, 0.60), "scene": "kit:base/FEATURE", "product": True,
+             "params": {"image": {"asset": "{asset2}"}, "feature": "{feature1}", **theme_n},
+             "beat": "exhibit B: feature one, close"},
+            {"id": "feature2", "share": (0.60, 0.80), "scene": "kit:base/FEATURE", "product": True,
+             "params": {"image": {"asset": "{asset3}"}, "feature": "{feature2}", **theme_n},
+             "beat": "exhibit C: feature two, close"},
+            {"id": "verdict", "share": (0.80, 0.88), "scene": "kit:type/title", "product": False,
+             "params": {"text": "<a 2-5 word typed verdict that names no numbers>", "reveal": "type", "scrim": 0.0,
+                        **theme_n}, "beat": "the verdict, typed"},
+            {"id": "end", "share": (0.88, 1.0), "scene": "kit:type/end-lockup", "product": False,
+             "params": {"title": "{name}", "tagline": "{tagline}", "cta": "{cta}", "scrim": 0.0, **theme_n},
+             "beat": "the name on black, typewriter type"},
+        ),
+        transitions=({"from": "open", "to": "exhibit", "type": "dip-black", "dur": 0.5},
+                     {"from": "exhibit", "to": "clue", "type": "dip-black", "dur": 0.4},
+                     {"from": "clue", "to": "feature1", "type": "dip-black", "dur": 0.4},
+                     {"from": "feature1", "to": "feature2", "type": "cut", "dur": 0.2},
+                     {"from": "feature2", "to": "verdict", "type": "dip-black", "dur": 0.4},
+                     {"from": "verdict", "to": "end", "type": "dip-black", "dur": 0.5}),
+        overlays=({"id": "case", "share": (0.13, 0.30), "scene": "kit:type/lower-third",
+                   "params": {"title": "<a 2-4 word case-file heading, e.g. EXHIBIT A>",
+                              "sub": "{name}", **theme_n}},),
+        music=({"bed": "cinematic_a", "share": (0.0, 1.0)}, {"sting": "impact", "at": 0.09}),
+        voice="sparse", finish={"grain": 0.08, "vignette": 0.4}, background="#000", recipe="launch-keynote",
+        keywords=("noir", "detective", "crime", "mystery", "thriller", "hard-boiled", "night", "rain", "gritty",
+                  "black and white", "private eye", "case", "trailer"), seconds=(18.0, 50.0))
+    keynote = Blueprint(
+        id="screen-keynote", name="Keynote stage (software)", kind="screen",
+        fits="software / web apps; 'keynote', 'Apple', 'unveil', 'launch event', 'premium', 'minimal', 'clean'",
+        look="a black keynote stage: huge white type cards one idea at a time, the real product shown large and "
+             "pushing in on its best parts, calm crossfades, a clean end lockup",
+        shots=(
+            {"id": "tease", "share": (0.0, 0.08), "scene": "kit:type/title", "product": False,
+             "params": {"text": "<a 2-4 word keynote teaser shown on black, no product name>", "scrim": 0.0},
+             "beat": "black stage, one line of type: the keynote tease"},
+            {"id": "reveal", "share": (0.08, 0.32), "scene": "kit:base/SCREEN", "product": True,
+             "params": {"image": {"asset": "{asset1}"}, "bbox": [0.1, 0.08, 0.62, 0.62]},
+             "beat": "the product revealed large, the camera easing in"},
+            {"id": "name", "share": (0.32, 0.40), "scene": "kit:type/title", "product": False,
+             "params": {"text": "{name}", "sub": "{tagline}", "scrim": 0.0}, "beat": "the name, huge, on black"},
+            {"id": "feature1", "share": (0.40, 0.59), "scene": "kit:base/FEATURE", "product": True,
+             "params": {"image": {"asset": "{asset2}"}, "feature": "{feature1}"}, "beat": "feature one, close"},
+            {"id": "feature2", "share": (0.59, 0.80), "scene": "kit:base/FEATURE", "product": True,
+             "params": {"image": {"asset": "{asset3}"}, "feature": "{feature2}"}, "beat": "feature two, close"},
+            {"id": "statement", "share": (0.80, 0.88), "scene": "kit:type/title", "product": False,
+             "params": {"text": "<a 2-5 word keynote statement in two beats, e.g. 'Less noise. More focus.'>",
+                        "scrim": 0.0}, "beat": "the one-line promise"},
+            {"id": "end", "share": (0.88, 1.0), "scene": "kit:type/end-lockup", "product": False,
+             "params": {"title": "{name}", "tagline": "{tagline}", "cta": "{cta}", "scrim": 0.0},
+             "beat": "the clean lockup"},
+        ),
+        transitions=({"from": "tease", "to": "reveal", "type": "dip-black", "dur": 0.6},
+                     {"from": "reveal", "to": "name", "type": "dip-black", "dur": 0.5},
+                     {"from": "name", "to": "feature1", "type": "dip-black", "dur": 0.5},
+                     {"from": "feature1", "to": "feature2", "type": "crossfade", "dur": 0.5},
+                     {"from": "feature2", "to": "statement", "type": "dip-black", "dur": 0.5},
+                     {"from": "statement", "to": "end", "type": "crossfade", "dur": 0.5}),
+        music=({"bed": "launch_a", "share": (0.0, 1.0)}, {"sting": "riser", "at": 0.07}),
+        voice="sparse", finish={"grain": 0.01, "vignette": 0.12}, background="#000", recipe="launch-keynote",
+        keywords=("keynote", "apple", "unveil", "launch event", "premium", "minimal", "clean", "elegant", "wwdc",
+                  "stage", "announcement"), seconds=(18.0, 50.0))
+    return [noir, keynote]
+
+
 def blueprints(*, kits_root: Path | None = None, catalog: Any = None, blender: bool = False) -> list[Blueprint]:
     """Every blueprint usable on this machine (kit scenes installed, Blender present for 3D ones)."""
     root = kits_root or Path(__file__).resolve().parents[2] / "kits"
     out = _recipe_blueprints() + [_style_blueprint(k, root) for k in STYLE_KITS if (root / k / "kit.json").is_file()]
+    out += _mood_blueprints()
     if blender:
         out += _blender_blueprints()
     if catalog is not None:
@@ -618,6 +704,13 @@ def check_pick(obj: Any, bps: list[Blueprint], brief: Brief) -> tuple[dict[str, 
                     break
         fixes.append(f"blueprint {bid!r} -> {hit or base['blueprint']!r}")
         bid = hit or base["blueprint"]
+    mood_bp = moods.preferred(brief.direction, elig)
+    m = moods.dominant(brief.direction)
+    if mood_bp and m is not None and bid not in m.prefer:
+        # the direction's mood owns the world: a weak model that picks the generic launch/cinematic film for
+        # "noir" or "keynote" gets the mood's own film (the direction must visibly change the film)
+        fixes.append(f"blueprint {bid!r} -> {mood_bp!r} ({m.id} world)")
+        bid = mood_bp
     pick = dict(base, blueprint=bid)
     pick["voice"] = obj.get("voice") if obj.get("voice") in VOICES else elig[bid].voice
     pick["time"] = obj.get("time") if obj.get("time") in TIMES else base["time"]
@@ -962,6 +1055,10 @@ def mood_look(film: dict[str, Any], direction: str, *, hold: str = "") -> list[s
             grade["hold"] = hold
         else:
             grade.pop("hold")
+    prev = ((film.get("render") or {}).get("post_params") or {}).get("grade") if isinstance(film.get("render"),
+                                                                                           dict) else None
+    if grade and isinstance(prev, dict) and prev.get("levels") is not None:
+        grade["levels"] = prev["levels"]          # the look guard's measured exposure survives a re-look
     if grade:
         merge_render(film, {"post": "grade", "post_params": {}})
         film["render"]["post_params"]["grade"] = grade
