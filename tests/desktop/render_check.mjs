@@ -555,6 +555,11 @@ check(listeners.has('plugin.hype.job.progress'), '1 listens to plugin.hype.job.p
   const put = calls('PUT', `/jobs/${job.id}/storyboard`)[0].body.storyboard
   check(put.scenes.length === 2 && put.scenes[0].type === 'DIFF' && put.scenes[0].vo === 'Two words, edited now' && put.scenes[1].type === 'HOOK', '6 the edit keeps order, text and drops')
   check(put.title === 'Tiny Todo' && put.end.cta === 'Try it' && !JSON.stringify(put).includes('_k') && !JSON.stringify(put).includes('_drop'), '6 other fields survive and no helper keys leak')
+  // the saved edit (DIFF, HOOK) comes back from the backend: each scene keeps its own render thumbnail
+  await waitFor(() => v.div.textContent.includes('showing your saved edit'), '6 the saved edit is reloaded')
+  await sleep(60)                    // the editor re-keys its cards from the reloaded edit
+  const thumbOf = k => $$(v.div, '.srl-sb-card')[k].querySelector('.srl-sb-thumb img')?.getAttribute('src')
+  check(thumbOf(0) === 'data:image/jpeg;base64,AAA2' && thumbOf(1) === 'data:image/jpeg;base64,AAA1', `6 thumbnails follow their scenes after a saved reorder (${thumbOf(0)}, ${thumbOf(1)})`)
   click(byText(v.div, 'button', 'Re-render'))
   await waitFor(() => calls('POST', `/jobs/${job.id}/rerender`).length === 1, '6 Re-render posts /rerender')
   check(JSON.stringify(calls('POST', `/jobs/${job.id}/rerender`)[0].body.aspects) === '["16:9"]', '6 with the chosen aspect')

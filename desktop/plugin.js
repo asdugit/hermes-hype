@@ -1119,6 +1119,21 @@ function keyed(sb) {
   return ((sb && sb.scenes) || []).map((s, i) => ({ ...s, _k: `k${i}`, _orig: i, _drop: false }))
 }
 
+/** The render's thumbnails follow the job's own storyboard. A saved edit reorders and drops scenes, so each scene
+ *  of the storyboard shown is mapped back to the job's scene it came from (same type and evidence refs). */
+function thumbSlots(own, shown) {
+  const a = (own && own.scenes) || []
+  const b = (shown && shown.scenes) || []
+  if (!a.length || own === shown) return b.map((_, i) => i)
+  const sig = s => `${s && s.type}|${JSON.stringify((s && s.refs) || [])}`
+  const used = new Set()
+  return b.map(s => {
+    const j = a.findIndex((o, k) => !used.has(k) && sig(o) === sig(s))
+    if (j >= 0) used.add(j)
+    return j
+  })
+}
+
 function StoryboardView({ job, sid, onTab }) {
   const directed = isDirected(job)
   if (!job) return jsx(Empty, { icon: 'list-ordered', title: 'No film yet', children: 'Make a film first; its storyboard shows up here for editing.' })
@@ -1166,6 +1181,7 @@ function StoryboardEditor({ job, sid, onTab }) {
   if (!scenes) return jsx('div', { className: 'srl-hint', children: 'Loading the storyboard…' })
 
   const thumbs = (thumbsQ.data && thumbsQ.data.thumbs) || []
+  const slots = thumbSlots(job.storyboard, base)
   const kept = scenes.filter(s => !s._drop)
   const change = next => { setScenes(next); setDirty(true) }
   const edit = (k, patch) => change(scenes.map(s => (s._k === k ? { ...s, ...patch } : s)))
@@ -1227,7 +1243,7 @@ function StoryboardEditor({ job, sid, onTab }) {
       jsx('ol', {
         className: 'srl-sb-list',
         children: scenes.map((s, i) => jsx(SceneCard, {
-          s, i, thumb: thumbs[s._orig] || '', dragging: drag === i, over: over === i && drag !== null && drag !== i,
+          s, i, thumb: thumbs[slots[s._orig] ?? -1] || '', dragging: drag === i, over: over === i && drag !== null && drag !== i,
           onEdit: patch => edit(s._k, patch),
           onMove: d => move(i, i + d),
           onDragStart: () => { dragFrom.current = i; setDrag(i) },
