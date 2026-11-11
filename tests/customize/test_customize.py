@@ -363,7 +363,7 @@ def test_hook_wraps_deps_and_caches_the_spec(tmp_path):
     run.deps.quick_film = lambda tl, **kw: film_from_timeline(tl, style=kw["style"], media_map=_media())
     plan = H.install(run)
     assert plan and plan["plan"].get("style") == "whisper"
-    assert run.opts.voice_speed == pytest.approx(round(1.08 * 0.94, 3))          # punchier (high) x whisper pace
+    assert run.opts.voice_speed == pytest.approx(0.94)        # whisper pace; "punchier ending" is not global energy
     assert "punchier ending" in run.opts.notes and "ORBIT" in run.opts.notes
     run.deps.tts(lambda name, args: tts_args.append(args), "hello", tmp_path / "a.wav")
     assert "instructions" in tts_args[0] and "whisper" in tts_args[0]["instructions"]
