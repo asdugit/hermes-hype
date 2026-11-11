@@ -109,6 +109,19 @@ def disk_full(exc: BaseException | None) -> bool:
     return False
 
 
+def _no_home(text: str) -> str:
+    """``text`` with the user's home folder written as ``~`` (error messages end up in chats and screenshots)."""
+    try:
+        home = str(Path.home())
+    except Exception:  # noqa: BLE001
+        return text
+    if len(home) < 4:
+        return text
+    for form in {home, home.replace("\\", "/"), home.replace("\\", "\\\\")}:
+        text = re.sub(re.escape(form) + r"(?!\w)", "~", text, flags=re.I)
+    return text
+
+
 def _safe_log(store: JobStore, job_id: str, msg: str, level: str = "info", **extra: Any) -> None:
     """``store.log`` that never raises (the end of a job must not fail on a full disk)."""
     try:
@@ -675,7 +688,8 @@ def run_job(job_id: str, host: Host | None = None, *, store: JobStore | None = N
         if full:
             with contextlib.suppress(Exception):
                 store.prune_work(job_id)
-        outcome = {"stage": "failed", "error": dict(DISK_FULL_ERROR) if full else e.to_dict(), "eta_s": None}
+        outcome = {"stage": "failed", "error": dict(DISK_FULL_ERROR) if full else
+                   {**e.to_dict(), "message": _no_home(str(e.message))}, "eta_s": None}
     except Exception as e:  # noqa: BLE001 - last line of defence: a job never dies silently
         rep.close_stage()
         if disk_full(e):
@@ -683,7 +697,9 @@ def run_job(job_id: str, host: Host | None = None, *, store: JobStore | None = N
                 store.prune_work(job_id)            # this job's own intermediates filled the disk: free them first
             err = dict(DISK_FULL_ERROR)
         else:
-            err = {"code": "internal", "message": f"{type(e).__name__}: {e}"}
+            err = {"code": "internal", "message": _no_home(f"{type(e).__name__}: {e}"),
+                   "hint": "Run it again; if it repeats, `hermes hype doctor` checks the setup and the job log "
+                           "(/hype status) has the details."}
         _safe_log(store, job_id, "internal error: " + "".join(traceback.format_exception_only(type(e), e)).strip(),
                   "error", trace=traceback.format_exc()[-4000:])
         outcome = {"stage": "failed", "error": err, "eta_s": None}

@@ -165,10 +165,10 @@ def _cancel_job(job_id: str, store: JobStore) -> bool:
 
 def _error_text(exc: BaseException) -> str:
     """One line for the user about an unexpected error (a full disk gets its own advice)."""
-    from .pipeline import DISK_FULL_ERROR, disk_full
+    from .pipeline import DISK_FULL_ERROR, _no_home, disk_full
     if disk_full(exc):
         return f"{DISK_FULL_ERROR['message']} {DISK_FULL_ERROR['hint']}"
-    return f"{type(exc).__name__}: {exc}"
+    return _no_home(f"{type(exc).__name__}: {exc}")
 
 
 def make_slash_handler(ctx: Any) -> Any:

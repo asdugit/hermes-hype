@@ -137,6 +137,21 @@ def test_user_facing_error_for_a_full_disk_has_no_traceback_or_path() -> None:
     assert "someone" not in text and "Free" in text
 
 
+def test_internal_errors_show_the_home_folder_as_tilde_and_give_a_hint(env: dict[str, Any],
+                                                                        monkeypatch: pytest.MonkeyPatch) -> None:
+    home = tmp_home = env["tmp"] / "Alice Smith"
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_home))
+
+    def denied(*_a: Any, **_k: Any) -> Any:
+        raise PermissionError(errno.EACCES, "Access is denied", str(home / "proj" / "x.png"))
+    store = env["store"]
+    final = run_job(_job(store, seconds=30)["id"], _host(), store=store, deps=make_deps(Recorder(), solve=denied))
+    assert final["stage"] == "failed"
+    shown = final["error"]["message"] + " " + handlers._error_text(PermissionError(errno.EACCES, "denied", str(home)))
+    assert "Alice" not in shown and "~" in shown
+    assert final["error"].get("hint") or final["error"]["code"] != "internal"
+
+
 def test_cli_handler_turns_unexpected_errors_into_one_line(monkeypatch: pytest.MonkeyPatch,
                                                            capsys: pytest.CaptureFixture[str]) -> None:
     def boom(_ctx: Any, _args: Any) -> int:
