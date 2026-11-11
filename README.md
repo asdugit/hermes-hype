@@ -3,13 +3,12 @@
 **An engine inside a Hermes plugin: type `/auteur` and the session you just worked in becomes a narrated
 launch trailer for the thing you built.**
 
-![Auteur: a figure in a straw hat walks into a pink and lilac meadow while flocks of red cars stream across a sunset sky, then the product, a red sports car, glides in close to the camera](docs/media/hero_v3.webp)
+![One app, four presets: Tempo, a focus timer, as a launch film (its timer ring on a dark stage), a comic (TEMPO masthead with a caped hero), an ink explainer (the ring on paper with a sticky note) and a pixel-art film (the ring on a night stage)](docs/media/hero_styles.webp)
 
-*8 seconds from Auteur's hand-directed hero film: two moments of its one continuous Blender shot
-(`blender_kits/meadow/oner.py`, opt-in Blender engine), joined by a short dissolve. A figure walks into the
-flowers while flocks of the product stream across the sky, then the hero car glides in. In the film this comes
-after a pixel-art boss battle. Rendered by Auteur's own pipeline: Blender for the 3D, HTML scenes in headless
-Chromium, original music and SFX, ffmpeg.*
+*One session, four presets. Tempo is a focus timer that Hermes built in one real chat; these are 3.6 seconds
+from each of four 30 s films that the installed plugin made from that chat (`launch`, `comic`, `ink`, `pixel`),
+with no prompting: the session was the brief. Rendered locally by Auteur's own pipeline: HTML scenes in headless
+Chromium, original music and SFX, narration, ffmpeg.*
 
 [![CI](https://github.com/asdugit/hermes-auteur/actions/workflows/ci.yml/badge.svg)](https://github.com/asdugit/hermes-auteur/actions/workflows/ci.yml)
 License: AGPL-3.0-or-later · Hermes Agent >= 0.22.5 · Windows, macOS, Linux
