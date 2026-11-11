@@ -362,6 +362,25 @@ def test_product_name_and_captions_off():
     assert film["captions"] == [] and not any("_captions" in s["params"] for s in film["shots"])
 
 
+def test_model_cta_never_prints_code_or_a_new_command():
+    """The customize model may reword the END as words, never as a line of code / a command the product never ran
+    (W5 polish-2); the user's own cta= knob always wins."""
+    def end_cta(f):
+        return next(s["params"].get("cta") for s in f["shots"] if s["id"].endswith("_end"))
+    film = film_from_timeline(_tl(), media_map=_media())["film"]
+    before = end_cta(film)
+    for bad in ("from patchlib import patch", "npm run dev", "Open it at localhost:5173"):
+        f = copy.deepcopy(film)
+        notes = A.apply_film(f, {}, style="launch", knobs={}, spec={"text": {"cta": bad}})
+        assert end_cta(f) == before and any("not the product's own command" in n for n in notes), bad
+    f = copy.deepcopy(film)
+    A.apply_film(f, {}, style="launch", knobs={}, spec={"text": {"cta": "Grab it today"}})
+    assert end_cta(f) == "Grab it today"
+    f = copy.deepcopy(film)
+    A.apply_film(f, {}, style="launch", knobs={"cta": "npm run dev"}, spec={"text": {"cta": "from x import y"}})
+    assert end_cta(f) == "npm run dev"
+
+
 # ------------------------------------------------------------------------------------------- pipeline hook
 
 def test_hook_wraps_deps_and_caches_the_spec(tmp_path):

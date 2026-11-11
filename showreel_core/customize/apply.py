@@ -303,6 +303,15 @@ def theme_captions(cs: dict[str, Any], tokens: dict[str, str], style: str) -> di
     return cs
 
 
+def _cta_ok(value: str, current: str) -> bool:
+    """A model-written END CTA may be words ('Grab it today'), or the film's own product command - never a new
+    command or a line of code (the user's own ``cta=`` knob always wins)."""
+    from ..story.onscreen import command_key, has_loopback, looks_like_command
+    if has_loopback(value):
+        return False
+    return not looks_like_command(value) or (bool(current) and command_key(value) == command_key(current))
+
+
 def apply_film(film: dict[str, Any], assets: dict[str, Any], *, style: str, knobs: dict[str, Any],
                spec: dict[str, Any], wrapped: bool = False, kit: dict[str, Any] | None = None) -> list[str]:
     """Customize a Quick film in place (and its asset specs). Returns notes for the job log."""
@@ -336,7 +345,12 @@ def apply_film(film: dict[str, Any], assets: dict[str, Any], *, style: str, knob
         if tokens.get("accent") and isinstance(o.get("params"), dict):
             o["params"]["accent"] = tokens["accent"]
     # global words: product name, title, tagline, cta
-    text = {**(spec.get("text") or {}), **{k: knobs[k] for k in ("title", "tagline", "cta", "product") if knobs.get(k)}}
+    model_text = dict(spec.get("text") or {})
+    end_cta = next((str(_text_targets(s.get("params") or {}, wrapped).get("cta") or "") for s in shots
+                    if s["id"].endswith("_end")), "")
+    if model_text.get("cta") and not _cta_ok(str(model_text["cta"]), end_cta):
+        notes.append(f"cta {model_text.pop('cta')!r} is not the product's own command; the film's END keeps its own")
+    text = {**model_text, **{k: knobs[k] for k in ("title", "tagline", "cta", "product") if knobs.get(k)}}
     old_name = ""
     for s in shots:
         if s["id"].endswith("_title"):
@@ -387,6 +401,9 @@ def apply_film(film: dict[str, Any], assets: dict[str, Any], *, style: str, knob
                 s["params"] = deep_merge(p, e["params"])
             notes.append(f"{s['id']}: params {sorted(e['params'])}")
         for k, v in (e.get("text") or {}).items():
+            if k == "cta" and not knobs.get("cta") and not _cta_ok(str(v), end_cta):
+                notes.append(f"{s['id']}: cta {v!r} is not the product's own command; kept")
+                continue
             d = _text_targets(s["params"], wrapped)
             if k in d or k in ("label", "headline", "title", "feature", "tagline", "cta", "boss_name", "pick_text"):
                 d[k] = v
