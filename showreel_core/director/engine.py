@@ -814,6 +814,11 @@ def _code_scene(r: _Run, v: Version, name: str, *, issues: list[dict[str, Any]] 
     failures: list[str] = []
     whole = False                                   # patching failed twice: rewrite the file
     while v.tries.get(name, 0) < r.budget.scene_tries:
+        late = _late(r, 1.0)
+        if late:          # past the effort's wall-clock target: the kit fallback / previous code stands in
+            r.warn("scenes", f"Scene {name}: {late}; using the kit fallback")
+            v.tries[name] = r.budget.scene_tries
+            break
         see: list[Image] = []
         v.tries[name] = v.tries.get(name, 0) + 1
         attempt = v.tries[name]

@@ -181,3 +181,19 @@ def test_failed_vision_critic_falls_back_to_the_measured_review(env: dict[str, A
     assert res.scores and "measured" in res.scores[0].verdict
     assert [p for p in llm.purposes() if p.startswith("critic")] == ["critic:r1", "critic:r1"]   # never again
     assert res.tier["vision"] is False
+
+
+def test_scene_coding_stops_at_the_effort_deadline(env: dict[str, Any]) -> None:
+    """The wall-clock target only skipped late critique/revision: a slow model kept coding custom scenes (each call
+    up to 10 min, several tries) long past it. Past the deadline the kit fallback stands in."""
+    import dataclasses
+
+    from director_fakes import FILM, TREATMENT, FakeLlm
+    from test_director_anymodel import _GOOD
+    llm = FakeLlm({"treatment": [TREATMENT], "film": [FILM], "scene": ["```js\n" + _GOOD + "```"]})
+    res = run(env["brief"], llm=llm, renderer=FakeRenderer(), effort="quick", job_dir=env["job"],
+              library_dir=env["library"], catalog=env["catalog"], tier=tiers.detect("claude-opus-5-5"),
+              budget=dataclasses.replace(FREE_QUICK, deadline_s=1e-6))
+    assert res.ok, res.error
+    assert not [p for p in llm.purposes() if p.startswith("scene")]
+    assert not [s for s in res.film["shots"] if s["scene"].startswith("custom:")]
