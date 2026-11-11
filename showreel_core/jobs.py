@@ -178,6 +178,12 @@ def live_ids() -> set[str]:
         return set(ids)
 
 
+def shared_lock(name: str) -> threading.Lock:
+    """A process-wide lock shared by every copy of this module (see :data:`_LIVE_KEY`)."""
+    holder = sys.modules.get(_LIVE_KEY) or sys.modules.setdefault(_LIVE_KEY, types.ModuleType(_LIVE_KEY))
+    return holder.__dict__.setdefault(f"lock_{name}", threading.Lock())
+
+
 _CREATED_LOCK = threading.Lock()
 _LAST_CREATED = 0.0
 

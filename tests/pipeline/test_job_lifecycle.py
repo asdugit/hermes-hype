@@ -195,3 +195,10 @@ def test_plugin_sweep_keeps_a_film_the_desktop_copy_is_running(tmp_path: Path) -
     finally:
         other.mark_not_live(job["id"])
     assert store.mark_stale(now=time.time() + 120, active_ids=set(running_ids())) == [job["id"]]
+
+
+def test_both_copies_share_one_render_lock() -> None:
+    """One heavy render per process: a Desktop-pane film and a chat film must not render side by side."""
+    from showreel_core import pipeline
+    other = _second_copy()
+    assert other.shared_lock("render") is pipeline._RENDER_LOCK is jobs_mod.shared_lock("render")

@@ -43,7 +43,7 @@ from .config import (
     PREVIEW_SIZES,
     Options,
 )
-from .jobs import TERMINAL, JobStore, mark_live, mark_not_live, process_started
+from .jobs import TERMINAL, JobStore, mark_live, mark_not_live, process_started, shared_lock
 from .llm import Host
 
 log = logging.getLogger(__name__)
@@ -70,7 +70,7 @@ def initial_estimates(opts: Options) -> tuple[float, float]:
     return render, story
 ASPECT_TAG = {"16:9": "16x9", "9:16": "9x16", "1:1": "1x1"}
 
-_RENDER_LOCK = threading.Lock()                 # one heavy render per process (RAM)
+_RENDER_LOCK = shared_lock("render")            # one heavy render per process (RAM), also across the Desktop API's copy
 _RUNNING: dict[str, CancelToken] = {}
 _RUNNING_GUARD = threading.Lock()
 
