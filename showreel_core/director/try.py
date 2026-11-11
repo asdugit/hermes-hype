@@ -120,7 +120,8 @@ def main(argv: list[str] | None = None) -> int:
 
     lock = (lambda: render_slot(Path(args.slots), who="w3-director")) if args.slots else None
     if args.render_only:
-        out = render_job(Path(args.render_only), Path(args.render), slots=Path(args.slots) if args.slots else None)
+        out = render_job(Path(args.render_only), Path(args.render), slots=Path(args.slots) if args.slots else None,
+                         blender=args.blender or None)
         print(json.dumps(out, indent=1, default=str))
         return 0 if out.get("ok") else 1
     job = Path(args.job or f"director-job-{time.strftime('%Y%m%d-%H%M%S')}").resolve()
@@ -297,7 +298,7 @@ def dev_blender_lock() -> Any:
                         continue
                 except OSError:
                     pass
-                time.sleep(10)
+                time.sleep(0.5)       # poll fast: a 10 s poller loses the lock to other agents forever
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             f.write(f"showreel-engine {os.getpid()} {time.strftime('%Y-%m-%dT%H:%M:%S')}")
         try:

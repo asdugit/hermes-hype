@@ -117,7 +117,7 @@ def render_film(film_path: Path, out: Path, *, tier: str = "preview", aspect: st
         picture = job / "picture.mp4"
         with render_slot(slot):
             cues_probe = asyncio.run(capture_keyframes(job, [0.0], w=320, h=max(2, int(320 * h / w) // 2 * 2)))[1]
-            spec = render_spec(job, picture, size=(w, h), gpu=gpu, finish="post")
+            spec = _film_post(render_spec(job, picture, size=(w, h), gpu=gpu, finish="post"), job)
             rv = render_video(spec)
         res.timings["picture_s"] = round(time.perf_counter() - t1, 2)
         if not rv.ok:
@@ -188,3 +188,26 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+
+def _film_post(spec: Any, job: Path) -> Any:
+    """The film's own ``render.post`` chain (a style kit's CRT, the Director's mood grade) on top of the finish
+    chain, like the pipeline's ``post_plan`` for browser-only films (Blender films used to drop it)."""
+    import dataclasses as dc
+    try:
+        film = json.loads((Path(job) / "film.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return spec
+    render = film.get("render") if isinstance(film.get("render"), dict) else {}
+    extra = [c for c in str(render.get("post") or "").split("+") if c and c != "none"]
+    if not extra:
+        return spec
+    chains = [c for c in str(getattr(spec, "post", "") or "none").split("+") if c and c != "none"]
+    params = dict(getattr(spec, "post_params", None) or {})
+    chains = [*[c for c in extra if c not in chains], *chains]
+    for k, v in (render.get("post_params") or {}).items():
+        params.setdefault(k, v)
+    try:
+        return dc.replace(spec, post="+".join(chains), post_params=params)
+    except (TypeError, ValueError):
+        return spec
