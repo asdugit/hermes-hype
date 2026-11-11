@@ -303,3 +303,24 @@ def test_blender_product_shots_need_no_product_param() -> None:
     film = {"shots": [{"id": "m", "t0": 0, "t1": 10, "scene": "blender:meadow/oner", "params": {"t_offset": 0}}]}
     errs, _ = pm.static_check(film, {"shots": [{"id": "m", "product_visible": True}]}, {"car", "car3d"}, "16:9")
     assert errs == []
+
+
+# --- scene lint: the bracket check must understand JS (a real job lost a valid scene to "unbalanced `}`")
+def test_balance_ignores_regex_literals_strings_and_templates() -> None:
+    from showreel_core.director import checks
+    ok = ("const f = (s) => { if (/geist/i.test(s) && !/var\\(|^\\s*\\d/.test(s)) { return s; } };\n"
+          "const url = '//127.0.0.1:8765/'; const half = w / 2 / 3;\n"
+          "const t = `a ${b ? `x{` : `}`} c ${ {k: 1}.k }`; const r = /[}/]/g;\n")
+    assert checks._balance(checks.strip_comments(ok)) == ""
+
+
+def test_balance_still_catches_truncated_and_broken_code(monkeypatch) -> None:
+    import shutil
+
+    from showreel_core.director import checks
+    assert "unclosed" in checks._balance("sr.defineScene('x', { render(ctx, t, p) { if (t) {")
+    assert "unbalanced" in checks._balance("const a = [1, 2); }")
+    monkeypatch.setattr(shutil, "which", lambda _n: None)        # no node: the heuristic decides
+    errs, _ = checks.lint_scene("import * as sr from '../runtime/showreel.js';\n"
+                                "sr.defineScene('x', { layer: '2d', render(ctx, t, p) { ctx.x(); } } });", "x")
+    assert any(e.startswith("syntax:") for e in errs)

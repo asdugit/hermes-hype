@@ -649,9 +649,115 @@ def strip_comments(code: str) -> str:
     return "".join(out)
 
 
+_REGEX_AFTER = set("(,=:[!&|?{};+-*%<>~^")
+_REGEX_KEYWORDS = {"return", "typeof", "case", "do", "else", "in", "of", "new", "delete", "void", "throw",
+                   "yield", "await", "instanceof"}
+
+
 def _strip_strings(code: str) -> str:
-    code = re.sub(r"`(?:\\.|[^`\\])*`", "''", code)
-    return re.sub(r"""'(?:\\.|[^'\\\n])*'|"(?:\\.|[^"\\\n])*\"""", "''", code)
+    """Code with string, template-literal text, regex-literal and comment contents blanked (template `${...}`
+    substitutions stay code). A JS-aware scan: the old regex version counted `\\(` inside `/var\\(/` as a bracket
+    and failed valid scenes with "unbalanced `}`" in a real job."""
+    out: list[str] = []
+    i, n = 0, len(code)
+    subst: list[int] = []          # brace depth at each open `${`, to know which `}` resumes the template
+    depth = 0
+
+    def template(j: int) -> int:   # scan template text from j; returns the index after `\`` or after `${`
+        while j < n:
+            ch = code[j]
+            if ch == "\\":
+                j += 2
+            elif ch == "`":
+                out.append("''")
+                return j + 1
+            elif code.startswith("${", j):
+                out.append("''+(")
+                subst.append(depth)
+                return j + 2
+            else:
+                j += 1
+        out.append("''")
+        return n
+
+    def regex_ok() -> bool:
+        k = len(out) - 1
+        while k >= 0 and out[k] in " \t\r\n":
+            k -= 1
+        if k < 0:
+            return True
+        if out[k][-1:] in _REGEX_AFTER:
+            return True
+        w = ""
+        while k >= 0 and (out[k].isalnum() or out[k] in "_$"):
+            w = out[k] + w
+            k -= 1
+        return w in _REGEX_KEYWORDS
+
+    while i < n:
+        c = code[i]
+        if c in "'\"":
+            j = i + 1
+            while j < n and code[j] not in (c, "\n"):
+                j += 2 if code[j] == "\\" else 1
+            out.append("''")
+            i = j + 1
+        elif c == "`":
+            i = template(i + 1)
+        elif code.startswith("//", i):
+            j = code.find("\n", i)
+            i = n if j < 0 else j
+        elif code.startswith("/*", i):
+            j = code.find("*/", i + 2)
+            i = n if j < 0 else j + 2
+        elif c == "/" and regex_ok():
+            j, cls = i + 1, False
+            while j < n and code[j] != "\n":
+                ch = code[j]
+                if ch == "\\":
+                    j += 2
+                    continue
+                if ch == "[":
+                    cls = True
+                elif ch == "]":
+                    cls = False
+                elif ch == "/" and not cls:
+                    break
+                j += 1
+            j += 1
+            while j < n and code[j].isalpha():
+                j += 1
+            out.append("/r/")
+            i = j
+        elif c == "{":
+            depth += 1
+            out.append(c)
+            i += 1
+        elif c == "}" and subst and subst[-1] == depth:
+            subst.pop()
+            out.append(")+")
+            i = template(i + 1)
+        else:
+            if c == "}":
+                depth -= 1
+            out.append(c)
+            i += 1
+    return "".join(out)
+
+
+def _node_parses(code: str) -> bool | None:
+    """`node --check` as the arbiter when it is installed (True/False), None when it is not."""
+    import shutil
+    import subprocess
+    node = shutil.which("node")
+    if not node:
+        return None
+    try:
+        run = subprocess.run([node, "--input-type=module", "--check"], input=code, capture_output=True,
+                             text=True, encoding="utf-8", timeout=20, check=False)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return run.returncode == 0
 
 
 def _balance(code: str) -> str:
@@ -696,7 +802,7 @@ def lint_scene(code: str, scene_id: str) -> tuple[list[str], list[str]]:
     if not re.search(r"""\blayer\s*:\s*['"`](2d|three|webgl|dom)['"`]""", bare):
         errors.append("the scene must declare layer: '2d' | 'three' | 'webgl' | 'dom'")
     bal = _balance(bare)
-    if bal:
+    if bal and _node_parses(code) is not True:     # a parser that accepts the module overrules the heuristic
         errors.append(f"syntax: {bal}")
     if re.search(r"\.fillText\s*\(", bare):
         warnings.append("uses fillText: readable text should go through ctx.text (QA boxes)")
