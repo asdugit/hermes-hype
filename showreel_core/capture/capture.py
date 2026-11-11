@@ -347,4 +347,16 @@ def _events(rep: CaptureReport, session_events: Sequence[Event]) -> list[Event]:
             continue
         out.append(_media_event(f"e{n}", t, tgt, a))
         n += 1
+    # the session's events were redacted before this stage; a page's own <title>/URL (an e-mail in a dashboard
+    # title, a token in a query string) reaches the storyboard digest through these, so they get the same pass
+    try:
+        from ..session.redact import Redactor
+        red = Redactor()
+        for ev in out:
+            ev.title, ev.summary = red.text(ev.title), red.text(ev.summary)
+            for k in ("page_title", "url", "label", "query"):
+                if isinstance(ev.data.get(k), str):
+                    ev.data[k] = red.text(ev.data[k])
+    except Exception:  # noqa: BLE001 - redaction trouble never drops the captures
+        pass
     return out
