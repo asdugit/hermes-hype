@@ -172,7 +172,80 @@ def test_oner_windows_toggle_offscreen():
     wins = L.windows(FPS, n, 3.0)
     rows = L.framing(FPS, 3.0, 3.0 + (n - 1) / FPS, occlusion=False)
     for f, (a, b) in zip(L.flights, wins):
+        if b < a:                       # window entirely outside this shot: never visible
+            continue
         if a > 0:
             assert f.name not in rows[a]["cars"], f.name
         if b < n - 1:
             assert f.name not in rows[b]["cars"], f.name
+
+
+@pytest.mark.parametrize("aspect", ["16:9", "9:16"])
+def test_flock_headings_are_varied(aspect):
+    """The far flocks are a murmuration, not rows: at one moment the stream cars face every direction — some fly
+    at the camera, some away, only a minority are flat side profiles (the user's 'none of this is uniform')."""
+    import statistics
+
+    L = oner.Layout(aspect)
+    n = int(L.length * FPS)
+    P = L.poses(FPS, n, 0.0)
+    mv = L.rig()
+    i = n // 2
+    cam = mv.eval(i / FPS).pos
+    ang = []
+    for f, ps in zip(L.flights, P):
+        if "stream" not in f.meta:
+            continue
+        p = ps[i]
+        v = (p.pos[0] - cam[0], p.pos[1] - cam[1], p.pos[2] - cam[2])
+        nv = math.sqrt(sum(c * c for c in v)) or 1.0
+        d = sum(p.fwd[k] * v[k] / nv for k in range(3))
+        ang.append(math.degrees(math.acos(max(-1.0, min(1.0, d)))))
+    assert len(ang) >= 60, len(ang)
+    assert min(ang) < 55.0                      # some cars fly toward the lens
+    assert max(ang) > 125.0                     # some fly away
+    assert statistics.pstdev(ang) > 25.0, statistics.pstdev(ang)
+    assert sum(1 for a in ang if 75 <= a <= 105) / len(ang) < 0.45     # not a wall of side profiles
+
+
+def test_stream_altitudes_are_staggered():
+    """No ring is a level row: each flock spans several metres of altitude at any moment."""
+    L = oner.Layout("16:9")
+    n = int(L.length * FPS)
+    P = L.poses(FPS, n, 0.0)
+    for ri in range(len(oner.RINGS)):
+        zs = [ps[n // 2].pos[2] for f, ps in zip(L.flights, P) if f.meta.get("stream") == ri]
+        assert len(zs) >= 7, (ri, len(zs))
+        assert max(zs) - min(zs) > 3.0, (ri, max(zs) - min(zs))
+
+
+@pytest.mark.parametrize("aspect", ["16:9", "9:16"])
+def test_no_car_fills_the_frame(aspect):
+    """No car ever swallows the frame (the giant blurred underside the reviewer saw): the biggest car box stays
+    below 85 % of the frame width, even during pass-bys and the hero close-up."""
+    L = oner.Layout(aspect, reveal=True)
+    rows = L.framing(FPS, 0.0, L.length, step=3, occlusion=False)
+    worst = max((b["w"] for r in rows for b in r["cars"].values()), default=0.0)
+    assert worst < 0.85, worst
+
+
+@pytest.mark.parametrize("aspect", ["16:9", "9:16"])
+def test_figure_has_readable_beats(aspect):
+    """She gets separate beats where she is clearly readable (not tiny, not cropped): 34-80 % of the frame height
+    in at least two windows adding up to >= 1.5 s, and never a cropped giant."""
+    L = oner.Layout(aspect, reveal=True)
+    rows = L.framing(FPS, 0.0, L.length, step=3, occlusion=False)
+    heights = [(r["t"], r["fig"]["h"]) for r in rows if r["fig"] and r["fig"]["visible"]]
+    assert heights
+    assert max(h for _, h in heights) <= 0.82
+    lo = 0.30 if aspect == "9:16" else 0.34      # a phone frame is 1.78x taller: same figure, smaller height share
+    big = [t for t, h in heights if lo <= h <= 0.80]
+    runs, prev = [], None
+    for t in big:
+        if prev is None or t - prev > 0.4:
+            runs.append([t])
+        else:
+            runs[-1].append(t)
+        prev = t
+    assert len(runs) >= 2, runs
+    assert sum(len(r) * 3 for r in runs) / FPS >= 1.5

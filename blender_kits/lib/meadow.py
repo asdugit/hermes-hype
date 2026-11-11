@@ -19,12 +19,12 @@ from .nodes import NodeGraph, hex_rgb
 FLOWERS = {
     # name: (petal colour, centre colour, petal count, petal length, stem height range, head tilt)
     "daisy": ("#FBF7EF", "#F2C94C", 10, 0.055, (0.18, 0.42)),
-    "cosmos": ("#F49AC0", "#F6D36B", 8, 0.075, (0.30, 0.62)),
-    "pink": ("#F7B3CC", "#F7E3A0", 6, 0.052, (0.15, 0.38)),
+    "cosmos": ("#F49AC0", "#F6D36B", 8, 0.075, (0.34, 0.72)),
+    "pink": ("#F7B3CC", "#F7E3A0", 6, 0.052, (0.16, 0.44)),
     "butter": ("#F6D55C", "#E9A93A", 5, 0.040, (0.15, 0.35)),
-    "lilac": ("#B08BE6", "#E8DDF8", 0, 0.0, (0.28, 0.55)),        # lupine spike (petals=0)
+    "lilac": ("#B08BE6", "#E8DDF8", 0, 0.0, (0.30, 0.64)),        # lupine spike (petals=0)
     "white": ("#FFFFFF", "#F3E9B5", 5, 0.034, (0.10, 0.28)),
-    "rose": ("#E9799F", "#F6D36B", 7, 0.058, (0.20, 0.46)),
+    "rose": ("#E9799F", "#F6D36B", 7, 0.058, (0.24, 0.56)),
 }
 
 
@@ -108,17 +108,17 @@ def ground_material(palette: str = "sunset"):
     g = NodeGraph(nt)
     geo = g.node("ShaderNodeNewGeometry")
     pos = geo.outputs["Position"]
-    big = g.node("ShaderNodeTexNoise", {"Vector": pos, "Scale": 0.035, "Detail": 3.0})
-    mid = g.node("ShaderNodeTexNoise", {"Vector": pos, "Scale": 0.18, "Detail": 2.0})
-    base = g.ramp(big.outputs["Factor"], [(0.3, hex_rgb("#7FA457")), (0.55, hex_rgb("#A3C266")),
-                                          (0.75, hex_rgb("#C4CF7E"))])
-    drift = g.ramp(mid.outputs["Factor"], [(0.34, (0, 0, 0)), (0.52, (1, 1, 1))])
-    drift_c = g.ramp(big.outputs["Factor"], [(0.35, hex_rgb("#F2B6CB")), (0.5, hex_rgb("#F6EFE2")),
-                                             (0.65, hex_rgb("#C7AEE8")), (0.8, hex_rgb("#F3DB7A"))],
-                     interp="CONSTANT")
-    c = g.mix_rgb(g.math("MULTIPLY", drift, 0.78), base, drift_c)
-    vor = g.node("ShaderNodeTexVoronoi", {"Vector": pos, "Scale": 9.0})
-    speck = g.map_range(vor.outputs["Distance"], 0.08, 0.16, 1.0, 0.0)
+    big = g.node("ShaderNodeTexNoise", {"Vector": pos, "Scale": 0.021, "Detail": 3.0})
+    mid = g.node("ShaderNodeTexNoise", {"Vector": pos, "Scale": 0.13, "Detail": 2.0})
+    base = g.ramp(big.outputs["Factor"], [(0.28, hex_rgb("#7FA64F")), (0.5, hex_rgb("#9CC262")),
+                                          (0.72, hex_rgb("#BFCE7E"))])
+    drift = g.ramp(mid.outputs["Factor"], [(0.28, (0, 0, 0)), (0.48, (1, 1, 1))])
+    drift_c = g.ramp(big.outputs["Factor"], [(0.28, hex_rgb("#F3A8C2")), (0.42, hex_rgb("#F6E7D2")),
+                                             (0.56, hex_rgb("#C4A6E4")), (0.68, hex_rgb("#F5D772")),
+                                             (0.82, hex_rgb("#EE9BBB"))], interp="CONSTANT")
+    c = g.mix_rgb(g.math("MULTIPLY", drift, 0.62), base, drift_c)
+    vor = g.node("ShaderNodeTexVoronoi", {"Vector": pos, "Scale": 15.0})
+    speck = g.map_range(vor.outputs["Distance"], 0.10, 0.19, 1.0, 0.0)
     sc_c = g.ramp(g.math("FRACT", g.math("MULTIPLY", vor.outputs["Color"], 1.0)),
                   [(0.0, hex_rgb("#FFFFFF")), (0.3, hex_rgb("#F7BFD2")), (0.55, hex_rgb("#F6D55C")),
                    (0.8, hex_rgb("#B79BE6"))], interp="CONSTANT")
@@ -237,10 +237,10 @@ def instance_collection(seed: int = 7, scale: float = 1.0):
         ob = bpy.data.objects.new(f"clump{k}", me)
         coll.objects.link(ob)
         objs.append(ob)
-        weights.append(1.3)
+        weights.append(1.0)
     mats = {}
-    for kind, w, nvar in (("daisy", 3.0, 3), ("cosmos", 2.6, 3), ("pink", 3.4, 2), ("butter", 1.2, 2),
-                          ("lilac", 1.5, 2), ("white", 3.4, 2), ("rose", 1.8, 2)):
+    for kind, w, nvar in (("daisy", 4.4, 3), ("cosmos", 4.0, 3), ("pink", 4.6, 3), ("butter", 2.4, 2),
+                          ("lilac", 0.9, 2), ("white", 4.4, 3), ("rose", 2.6, 2)):
         pc, cc = FLOWERS[kind][0], FLOWERS[kind][1]
         if kind not in mats:
             pm, _, _ = toon_material(f"petal_{kind}", pc, rim=0.35, translucent=0.5, soft=0.2)
@@ -291,7 +291,7 @@ def wind_rotation(g: NodeGraph, pos, rnd, t, amp: float = 0.28, gust: float = 0.
 
 
 def scatter_tree(name: str, coll, weights: list[float], density: float, center=(0.0, 0.0), radius: float = 34.0,
-                 falloff: float = 10.0, seed: int = 7, scale: tuple = (0.65, 1.1), t_offset: float = 0.0,
+                 falloff: float = 10.0, seed: int = 7, scale: tuple = (0.6, 1.45), t_offset: float = 0.0,
                  amp: float = 0.28):
     """GN tree: distribute on the input mesh (density falls off past ``radius``), pick weighted instances,
     random yaw/scale, wind rotation, 'rnd' instance attribute for shader variation."""
@@ -382,7 +382,7 @@ def scatter(hf: Terrain, center=(0.0, 0.0), radius: float = 34.0, density: float
     return ob, (coll, objs, weights)
 
 
-def foreground(hf: Terrain, points: list[tuple[float, float]], seed: int = 7, scale: tuple = (1.2, 1.85),
+def foreground(hf: Terrain, points: list[tuple[float, float]], seed: int = 7, scale: tuple = (1.1, 2.0),
                t_offset: float = 0.0):
     """Tall blossoms at given ground points (near the camera path) for foreground depth-of-field framing."""
     import bpy  # noqa: PLC0415

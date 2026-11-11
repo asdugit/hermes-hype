@@ -45,8 +45,10 @@ def sun_vector(az_deg: float, el_deg: float) -> tuple[float, float, float]:
 
 
 def sky(palette: str = "sunset", sun: tuple[float, float] = (15.0, 7.0), seed: int = 7, fps: float = 30,
-        frames: int = 300, t_offset: float = 0.0, cloud_cover: float = 0.55, cloud_scale: float = 1.0):
-    """World shader: elevation gradient (warm toward the sun, lavender away), sun disc + glow, painterly clouds."""
+        frames: int = 300, t_offset: float = 0.0, cloud_cover: float = 0.55, cloud_scale: float = 1.0,
+        ambient: float | None = None):
+    """World shader: elevation gradient (warm toward the sun, lavender away), sun disc + glow, painterly clouds.
+    ``ambient`` overrides the palette's ambient bounce strength (lighting only; the camera still sees the sky)."""
     import bpy  # noqa: PLC0415
     P = PALETTES[palette]
     w = bpy.data.worlds.new("sr_sky")
@@ -113,7 +115,7 @@ def sky(palette: str = "sunset", sun: tuple[float, float] = (15.0, 7.0), seed: i
     # camera sees the painted sky; lighting gets a dimmer ambient
     lp = g.node("ShaderNodeLightPath")
     bg_cam = g.node("ShaderNodeBackground", {"Color": col, "Strength": 1.0})
-    bg_amb = g.node("ShaderNodeBackground", {"Color": col, "Strength": P["ambient"]})
+    bg_amb = g.node("ShaderNodeBackground", {"Color": col, "Strength": P["ambient"] if ambient is None else ambient})
     mix = g.node("ShaderNodeMixShader")
     g.link(lp.outputs["Is Camera Ray"], mix.inputs[0])
     g.link(bg_amb.outputs[0], mix.inputs[1])

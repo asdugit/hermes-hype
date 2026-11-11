@@ -222,6 +222,56 @@ def build(location: Vec = (0, 0, 0), facing_deg: float = 0.0, wind: tuple = (1.0
             "head_height": 1.55 * scale}
 
 
+def wave(fig: dict, beats: Sequence[tuple[float, float]], fps: float, frames: int, t_offset: float = 0.0,
+         amp_deg: float = 132.0, wave_deg: float = 11.0, wave_hz: float = 1.7, ease: float = 0.55,
+         side: int = 1) -> None:
+    """She raises her arm and waves over each ``beats`` window [(t_start, t_end), ...] (move time, seconds).
+
+    The arm is lifted by rotating the arm-chain vertices of the body mesh about the shoulder **before** the Skin
+    modifier builds the limb, so the whole arm follows; the mask fades out at the shoulder so the joint bends
+    smoothly. Deterministic from Scene Time (no keys, any frame renders identically)."""
+    import bpy  # noqa: PLC0415
+
+    body = fig["objects"][0]
+    ng = bpy.data.node_groups.new("fig_wave", "GeometryNodeTree")
+    ng.interface.new_socket("Geometry", in_out="INPUT", socket_type="NodeSocketGeometry")
+    ng.interface.new_socket("Geometry", in_out="OUTPUT", socket_type="NodeSocketGeometry")
+    g = NodeGraph(ng)
+    gi, go = g.node("NodeGroupInput"), g.node("NodeGroupOutput")
+    pos = g.node("GeometryNodeInputPosition").outputs[0]
+    x, _y, z = g.sep(pos)
+    st = g.node("GeometryNodeInputSceneTime")
+    t = g.math("ADD", st.outputs["Seconds"], t_offset)
+    w = None
+    for (a, b) in beats:
+        up = g.map_range(g.math("DIVIDE", g.math("SUBTRACT", t, a), ease), 0.0, 1.0, 0.0, 1.0,
+                         interp="SMOOTHSTEP")
+        dn = g.map_range(g.math("DIVIDE", g.math("SUBTRACT", t, b), ease), 0.0, 1.0, 0.0, 1.0,
+                         interp="SMOOTHSTEP")
+        v = g.math("MULTIPLY", up, g.math("SUBTRACT", 1.0, dn))
+        w = v if w is None else g.math("ADD", w, v)
+    w = g.math("MINIMUM", w, 1.0)
+    ang = g.math("MULTIPLY", w, math.radians(-amp_deg * side))
+    wob = g.math("MULTIPLY", g.math("MULTIPLY", w, math.radians(wave_deg)),
+                 g.math("SINE", g.math("MULTIPLY", t, 2 * math.pi * wave_hz)))
+    ang = g.math("ADD", ang, wob)
+    c, s = g.math("COSINE", ang), g.math("SINE", ang)
+    sx, sz = 0.145 * side, 1.33
+    dx, dz = g.math("SUBTRACT", x, sx), g.math("SUBTRACT", z, sz)
+    dx2 = g.math("ADD", g.math("MULTIPLY", dx, c), g.math("MULTIPLY", dz, s))
+    dz2 = g.math("SUBTRACT", g.math("MULTIPLY", dz, c), g.math("MULTIPLY", dx, s))
+    m = g.map_range(g.math("MULTIPLY", x, side), 0.100, 0.160, 0.0, 1.0, interp="SMOOTHSTEP")
+    nx = g.mix_float(m, dx, dx2)
+    nz = g.mix_float(m, dz, dz2)
+    off = g.xyz(g.math("SUBTRACT", g.math("ADD", nx, sx), x), 0.0,
+                g.math("SUBTRACT", g.math("ADD", nz, sz), z))
+    sp = g.node("GeometryNodeSetPosition", {"Geometry": gi.outputs[0], "Offset": off})
+    g.link(sp.outputs[0], go.inputs[0])
+    mod = body.modifiers.new("wave", "NODES")
+    mod.node_group = ng
+    _move_first(body, "wave")
+
+
 def _wind_mod(ob, name: str, wind_local: tuple, z_top: float, z_bot: float, amp: float, ripple: float,
               t_offset: float) -> None:
     """GN deform: offset downwind ∝ ((z_top - z)/(z_top - z_bot))^1.5 with gusts + ripple, from Scene Time."""

@@ -47,6 +47,18 @@ class Flight:
     phase: float = 0.0
     scale: float = 1.0
     times: list | None = None       # timed flight: ``points[i]`` is reached at ``times[i]`` (C2 spline in time)
+    # orientation wander: a car is not glued to its path tangent — it crabs a little, pitches and rolls on its own
+    # slow beat, so a flock has no two identical headings (3/4 front and rear views instead of only side profiles)
+    yaw_off: float = 0.0            # deg, constant heading offset from the path tangent (+ = nose left)
+    yaw_wob: float = 0.0            # deg, slow heading wander amplitude
+    yaw_hz: float = 0.11
+    pitch_off: float = 0.0          # deg, constant nose-up (+)
+    pitch_wob: float = 0.0
+    pitch_hz: float = 0.09
+    roll_off: float = 0.0           # deg, extra bank (+ = right wing down)
+    roll_wob: float = 0.0
+    roll_hz: float = 0.07
+    wob_phase: float = 0.0          # per-car phase for the wander (0 = use ``phase``)
     meta: dict = field(default_factory=dict)
 
 
@@ -93,6 +105,53 @@ def ring(name: str, center: Vec, radius: float, height: float, a0: float, omega:
         z = center[2] + height + undulate * math.sin(2 * math.pi * und_hz * t + phase)
         times.append(t)
         pts.append((center[0] + r * math.sin(a), center[1] + r * math.cos(a), z))
+    return Flight(name, pts, t0, t1, times=times, **kw)
+
+
+def murmur(name: str, center: Vec, radius: float, height: float, a0: float, omega: float, t0: float, t1: float, *,
+           d_r: float = 0.0, d_h: float = 0.0, d_omega: float = 0.0, undulate: float = 3.0, und_hz: float = 0.07,
+           phase: float = 0.0, rwave: float = 0.12, step: float = 0.8, ground: "Ground | None" = None,
+           alt: float = 4.0, **kw) -> "Flight":
+    """One car of a murmuration: its own orbit around ``center`` with its own radius, height, angular speed and
+    phase (``d_r``/``d_h``/``d_omega`` are per-car deltas). Nothing lines up with anybody else: the rings widen,
+    breathe and drift apart, so a flock never reads as a row. Use with ``yaw_off``/``pitch_wob``/``roll_wob``."""
+    n = max(3, int(math.ceil((t1 - t0) / step)) + 1)
+    times, pts = [], []
+    for k in range(n):
+        t = t0 + (t1 - t0) * k / (n - 1)
+        a = math.radians(a0 + (omega + d_omega) * (t - t0))
+        r = (radius + d_r) * (1.0 + rwave * math.sin(2 * math.pi * und_hz * 0.6 * t + phase * 1.3))
+        z = center[2] + height + d_h + undulate * math.sin(2 * math.pi * und_hz * t + phase)
+        x, y = center[0] + r * math.sin(a), center[1] + r * math.cos(a)
+        if ground is not None:
+            z = max(z, ground(x, y) + alt)
+        times.append(t)
+        pts.append((x, y, z))
+    return Flight(name, pts, t0, t1, times=times, **kw)
+
+
+def sway(name: str, a: Vec, b: Vec, t0: float, t1: float, *, bow: float = 0.0, bow_axis: Vec | None = None,
+         wander: float = 0.0, wander_hz: float = 0.08, phase: float = 0.0, step: float = 0.6,
+         ground: "Ground | None" = None, alt: float = 4.0, **kw) -> "Flight":
+    """A car crossing the meadow from ``a`` to ``b`` along a bowed path (``bow`` m sideways at the midpoint) with
+    a slow lateral wander — the mid-sky crossers that show 3/4 front and rear views instead of side profiles.
+    ``bow_axis`` defaults to the horizontal perpendicular of the path, so the bow never speeds the car up."""
+    n = max(3, int(math.ceil((t1 - t0) / step)) + 1)
+    if bow_axis is None:                     # sideways (perp to the path in plan view): constant speed
+        d = _sub(b, a)
+        bow_axis = (-d[1], d[0], 0.0)
+    ax = _norm(bow_axis)
+    times, pts = [], []
+    for k in range(n):
+        u = k / (n - 1)
+        t = t0 + (t1 - t0) * u
+        bend = math.sin(math.pi * u) * bow
+        w = wander * math.sin(math.pi * u) ** 2 * math.sin(2 * math.pi * wander_hz * t + phase)
+        p = _add(_lerp(a, b, u), _mul(ax, bend + w))
+        if ground is not None:
+            p = (p[0], p[1], max(p[2], ground(p[0], p[1]) + alt))
+        pts.append(p)
+        times.append(t)
     return Flight(name, pts, t0, t1, times=times, **kw)
 
 
@@ -253,7 +312,13 @@ def plan(fl: Flight, fps: float, frames: int, t_offset: float = 0.0, ground: Gro
             else:
                 g_w = 1.0 - smootherstep((t - (fl.t0 + fl.drive_until)) / max(0.05, fl.lift))
             if g_w > 0:
+                # a car bridges a crest: it sits on the highest terrain under its four wheels, never sunk into a hill
                 gz = ground(p[0], p[1])
+                rgt = _norm(_cross(d, (0.0, 0.0, 1.0))) if abs(d[2]) < 0.98 else (1.0, 0.0, 0.0)
+                for a in (-0.8, 0.8):
+                    for b in (-0.8, 0.8):
+                        q = _add(_add(p, _mul(rgt, a * CAR_HALF[0])), _mul(d, b * CAR_HALF[1]))
+                        gz = max(gz, ground(q[0], q[1]))
                 p = (p[0], p[1], p[2] * (1 - g_w) + gz * g_w)
                 grounded = g_w > 0.999
         fwd = d
@@ -278,6 +343,19 @@ def plan(fl: Flight, fps: float, frames: int, t_offset: float = 0.0, ground: Gro
             up0 = _norm(_lerp(up0, n_g, g_w))
             fwd = _norm(_sub(fwd, _mul(up0, _dot(fwd, up0))))
         up = _norm(_rot(up0, fwd, -bank))
+        # per-car orientation wander (no two cars share a heading): yaw about the local up, then pitch, then roll
+        if fl.yaw_off or fl.yaw_wob or fl.pitch_off or fl.pitch_wob or fl.roll_off or fl.roll_wob:
+            ph = (fl.wob_phase or fl.phase)
+            yaw = math.radians(fl.yaw_off + fl.yaw_wob * math.sin(2 * math.pi * fl.yaw_hz * t + ph))
+            pit = math.radians(fl.pitch_off + fl.pitch_wob * math.sin(2 * math.pi * fl.pitch_hz * t + ph * 1.7))
+            rol = math.radians(fl.roll_off + fl.roll_wob * math.sin(2 * math.pi * fl.roll_hz * t + ph * 0.6))
+            fwd = _norm(_rot(fwd, up, yaw))
+            right = _norm(_cross(fwd, up))
+            up = _norm(_cross(right, fwd))
+            fwd = _norm(_rot(fwd, right, pit))
+            right = _norm(_cross(fwd, up))
+            up = _norm(_cross(right, fwd))
+            up = _norm(_rot(up, fwd, rol))
         if prev_s is None:
             prev_s = s
         dist = s - prev_s
