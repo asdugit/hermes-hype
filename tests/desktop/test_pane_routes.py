@@ -96,6 +96,19 @@ def test_get_storyboard_prefers_the_pane_edit(api: dict[str, Any]) -> None:
     assert c.get(f"{P}/jobs/20200101-000000-dead/storyboard").status_code == 404
 
 
+def test_defaults_are_the_users_settings(api: dict[str, Any], monkeypatch: pytest.MonkeyPatch) -> None:
+    """The Make tab starts from the settings (it sends every choice explicitly, so the settings never reached a
+    studio film before)."""
+    c, cfg = api["client"], api["mod"]._sub("config")
+    assert c.get(f"{P}/defaults").json() == {"style": "launch", "seconds": 60, "aspect": "16:9", "voice": False,
+                                              "effort": "standard", "engine_3d": "browser"}
+    mine = cfg.Settings(default_style="comic", default_seconds=30, aspect="both", narration=True, effort="quick",
+                        engine_3d="blender")
+    monkeypatch.setattr(cfg, "settings_from_hermes_config", lambda: mine)
+    assert c.get(f"{P}/defaults").json() == {"style": "comic", "seconds": 30, "aspect": "both", "voice": True,
+                                              "effort": "quick", "engine_3d": "blender"}
+
+
 def test_revise_needs_notes_and_a_finished_film(api: dict[str, Any]) -> None:
     store, c = api["store"], api["client"]
     job = store.create("s1", {"style": "terminal", "seconds": 30, "aspects": ["9:16"]})

@@ -158,6 +158,7 @@ const S = {
   library: { dir: 'C:/data/library', items: [] },
   dlogCalls: [],
   nextId: 100,
+  defaults: null,                   // GET /defaults (the user's settings); null = 404 (an older backend)
   blender: { found: false, offer: { key: 'windows-x64', version: '5.2.4', size_mb: 406, url: 'https://download.blender.org/release/Blender5.2/blender-5.2.4-windows-x64.zip' }, install: { state: 'idle' }, polls: 0 }
 }
 const STYLES = [
@@ -200,6 +201,7 @@ function server(method, url, body) {
   if (p === '/styles') return { styles: STYLES }
   if (p === '/styles/cinematic/preview') return { id: 'cinematic', kind: 'video', mime: 'video/mp4', url: 'data:video/mp4;base64,AAAAGGZ0eXA=' }
   if (p === '/library') return S.library
+  if (p === '/defaults') { if (!S.defaults) throw httpError(404, { detail: 'Not Found' }); return S.defaults }
   if (p === '/blender' && method === 'GET') {
     const b = S.blender
     if (b.install.state === 'running' && ++b.polls >= 3) {   // the fake install finishes after a few polls
@@ -453,6 +455,31 @@ check(listeners.has('plugin.hype.job.progress'), '1 listens to plugin.hype.job.p
   kept.set('direction', '')
   kept.set('make', { ...kept.get('make'), route: 'preset' })
   await v.unmount()
+}
+
+// ── 3e Make: an untouched form starts from the user's Hype settings (GET /defaults) ─────────────────
+{
+  const keep = kept.get('make')
+  const keepKnobs = kept.get('knobs')
+  kept.delete('make')
+  kept.set('knobs', {})
+  S.defaults = { style: 'pixel', seconds: 30, aspect: '9:16', voice: true, effort: 'quick', engine_3d: 'browser' }
+  stub.queryClient.removeQueries()
+  focus('s-defaults')
+  kept.set('tab.pane', 'make')
+  kept.set('customize', '')
+  const v = await mount(pane.render())
+  await waitFor(() => $(v.div, '.srl-summary')?.textContent.startsWith('Trailer · Pixel · 30 s · 9:16 · narrated'), `3e the form starts from the settings (${$(v.div, '.srl-summary')?.textContent})`)
+  check(!kept.has('make'), '3e seeding from the settings stores nothing (a later settings change still shows)')
+  const before = calls('POST', '/jobs').length
+  click(byText(v.div, 'button', 'Make film'))
+  await waitFor(() => calls('POST', '/jobs').length === before + 1, '3e POST /jobs')
+  const o = calls('POST', '/jobs')[before].body.options
+  check(o.style === 'pixel' && o.seconds === 30 && JSON.stringify(o.aspects) === '["9:16"]' && o.voice === true, `3e the film uses the settings: ${JSON.stringify(o)}`)
+  await v.unmount()
+  S.defaults = null
+  kept.set('make', keep)
+  kept.set('knobs', keepKnobs)
 }
 
 // ── 4 Live (Quick) ───────────────────────────────────────────────────────────────────────────────

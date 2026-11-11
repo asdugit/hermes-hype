@@ -533,6 +533,19 @@ function loadPrefs() {
   return { ...DEFAULT_PREFS, ...(p && typeof p === 'object' ? p : {}) }
 }
 
+/** The user's Hype settings (GET /defaults) as Make-tab prefs: an untouched form starts from them. */
+function prefsFromDefaults(d) {
+  const p = {}
+  if (!d || typeof d !== 'object') return p
+  if (d.style) p.style = String(d.style)
+  if (d.seconds) p.seconds = String(d.seconds)
+  if (d.aspect) p.aspect = String(d.aspect)
+  if (typeof d.voice === 'boolean') p.voice = d.voice
+  if (d.effort) p.effort = String(d.effort)
+  if (d.engine_3d === 'blender') p.engine3d = 'blender'
+  return p
+}
+
 function optionsFrom(prefs, direction, engine3d) {
   const aspects = prefs.aspect === 'both' ? ['16:9', '9:16'] : [prefs.aspect]
   const out = {
@@ -653,6 +666,12 @@ function MakeView({ sid, jobs, backendDown, onStarted }) {
   const [knobs, setKnobs] = useState(() => { const k = storageGet('knobs', null); return k && typeof k === 'object' ? k : {} })
   const vocabQ = useApi(qk('customize'), '/customize', { staleTime: 600000 })
   const vocab = (vocabQ.data && typeof vocabQ.data === 'object') ? vocabQ.data : FALLBACK_VOCAB
+  // Until the user changes the form, it starts from their Hype settings (default style, length, narration...).
+  const defaultsQ = useApi(qk('defaults'), '/defaults', { staleTime: 300000 })
+  useEffect(() => {
+    if (!defaultsQ.data || storageGet('make', null)) return
+    setPrefs(p => ({ ...p, ...prefsFromDefaults(defaultsQ.data) }))
+  }, [defaultsQ.data])
   const [busy, setBusy] = useState(false)
   const ui = useAtomValue($ui)
   const stylesQ = useApi(qk('styles'), '/styles', { staleTime: 300000 })
@@ -1626,7 +1645,15 @@ function ReelCard(props) {
 // ── palette ────────────────────────────────────────────────────────────────────────────────────────
 async function quickMake(mode) {
   const sid = sdk.host && sdk.host.state && sdk.host.state.focusedStoredSessionId ? sdk.host.state.focusedStoredSessionId.get() : null
-  const prefs = { ...loadPrefs(), mode }
+  let base = loadPrefs()
+  if (!storageGet('make', null)) {          // an untouched Make form: the user's settings, as the studio shows them
+    try {
+      base = { ...base, ...prefsFromDefaults(await api('/defaults')) }
+    } catch (e) {
+      console.warn('[hype] settings unavailable, using the studio defaults', e)
+    }
+  }
+  const prefs = { ...base, mode }
   const job = await startFilm(sid, optionsFrom(prefs, ''))
   if (job) {
     requestTab('live')

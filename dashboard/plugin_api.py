@@ -10,6 +10,8 @@ Routes
   GET  /health                         {ok, api}: the pane's "is the backend on" probe
   GET  /styles                         styles in roster order + preview availability (small ones inline)
   GET  /customize                      knob vocabulary for preset customization (palettes, moods, fonts, ...)
+  GET  /defaults                       the user's Hype settings the Make tab starts from (style, seconds, aspect,
+                                       voice, effort, engine_3d) until the user changes the form
   GET  /styles/{id}/preview            {kind, mime, url}: one style's looping preview as a data URL
   GET  /jobs?session_id=&limit=        jobs, newest first (log tails only)
   GET  /jobs/active                    running jobs of every session + ones that just finished (status chip)
@@ -235,6 +237,19 @@ async def customize_vocab() -> Any:
                 "fonts": sorted(r["family"] for r in v.fonts().values()), "voices": list(v.VOICE_STYLES),
                 "captions": list(v.CAPTION_STYLES), "transitions": list(v.TRANSITION_FAMILIES),
                 "languages": {c: row[1] for c, row in v.LANGUAGES.items()}}
+    return await run_in_threadpool(go)
+
+
+@router.get("/defaults")
+async def make_defaults() -> Any:
+    """The settings (``plugins.entries.hype.settings``) as the Make tab's starting values. The pane sends every
+    choice explicitly, so without these a user's default style, length, aspect, narration and effort never
+    reached a film made from the studio."""
+    def go() -> dict[str, Any]:
+        o = _sub("config").settings_from_hermes_config().options()
+        aspect = "both" if o.aspects == ["16:9", "9:16"] else (o.aspects or ["16:9"])[0]
+        return {"style": o.style, "seconds": o.seconds, "aspect": aspect, "voice": bool(o.voice), "effort": o.effort,
+                "engine_3d": o.engine_3d}
     return await run_in_threadpool(go)
 
 
