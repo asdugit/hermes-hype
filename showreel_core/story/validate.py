@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 
 from ..contracts import Event, Product, SceneType, Storyboard, StoryScene
 from .facts import (
+    looks_like_test_pass,
     is_garbled,
     SessionFacts,
     code_lines,
@@ -180,6 +181,7 @@ def validate_storyboard(sb: Storyboard, facts: SessionFacts, target_seconds: flo
         kept = _enrich_pictures(kept, ctx, target_seconds)
         kept = _enrich_runs(kept, ctx, target_seconds)
         kept = _library_usage(kept, ctx)
+        kept = _enrich_uiless(kept, ctx)
     else:
         kept = _check_chronology(kept, ctx)
     if ctx.mode == "speedrun":
@@ -1225,6 +1227,46 @@ def _enrich_runs(kept: list[tuple[int, StoryScene]], ctx: _Ctx, target_seconds: 
     at = next((k + 1 for k, (_, sc) in enumerate(kept) if sc.type == T.TITLE), 1 if kept else 0)
     idx = kept[at - 1][0] if kept and at > 0 else 0
     ctx.issue("runs_added", "$.scenes", f"{len(adds)} real run(s) of the CLI shown", "warning",
+              "added " + ", ".join(sc.refs[0] for sc in adds))
+    return kept[:at] + [(idx, sc) for sc in adds] + kept[at:]
+
+
+#: code files a stranger reads to see what a UI-less product does (tests, configs and set-up never)
+_CODE_EXT = (".py", ".js", ".ts", ".mjs", ".go", ".rs", ".rb", ".java", ".kt", ".swift", ".cs", ".cpp", ".c", ".lua")
+
+
+def _enrich_uiless(kept: list[tuple[int, StoryScene]], ctx: _Ctx) -> list[tuple[int, StoryScene]]:
+    """A product with no pictures and almost no product beats (a Hermes plugin film was HOOK + TITLE + STATS + END,
+    17 s of nothing) shows what exists: its tests passing and the code of its main file, right after the TITLE."""
+    facts = ctx.facts
+    if facts.visuals():
+        return kept
+    frame = (T.HOOK, T.TITLE, T.STATS, T.END, T.CALLOUT)
+    if sum(1 for _, sc in kept if sc.type not in frame) >= 2:
+        return kept
+    used = {r for _, sc in kept for r in sc.refs}
+    adds: list[StoryScene] = []
+    green = [e for e in facts.events if looks_like_test_pass(e) and e.id not in used]
+    if green and not any(sc.type in (T.TERMINAL, T.BEFORE_AFTER) for _, sc in kept):
+        adds.append(StoryScene(T.TERMINAL, [green[-1].id], "", "", {}))
+    if not any(sc.type in (T.CODE, T.DIFF) for _, sc in kept):
+        best = None
+        for e in facts.events:
+            path = str((e.data or {}).get("path") or "").replace("\\", "/")
+            name = path.rsplit("/", 1)[-1].lower()
+            if e.kind != "file_write" or e.id in used or not name.endswith(_CODE_EXT) or "test" in path.lower() \
+                    or name in ("__init__.py", "conftest.py", "setup.py"):
+                continue
+            n = len(code_lines(e) or [])
+            if n >= 6 and (best is None or n > best[0]):
+                best = (n, e.id)
+        if best:
+            adds.append(StoryScene(T.CODE, [best[1]], "", "", {}))
+    if not adds:
+        return kept
+    at = next((k + 1 for k, (_, sc) in enumerate(kept) if sc.type == T.TITLE), 1 if kept else 0)
+    idx = kept[at - 1][0] if kept and at > 0 else 0
+    ctx.issue("uiless_beats", "$.scenes", "a product with no pictures shows its tests and its code", "warning",
               "added " + ", ".join(sc.refs[0] for sc in adds))
     return kept[:at] + [(idx, sc) for sc in adds] + kept[at:]
 

@@ -153,3 +153,23 @@ def test_a_prompt_card_shows_long_urls_short() -> None:
            "this folder, see https://example.com/a.")
     assert short_urls(txt) == ("Download the dataset from raw.githubusercontent.com/\u2026/penguins.csv into this folder, "
                                "see https://example.com/a.")
+
+
+def test_a_product_without_pictures_shows_its_tests_and_code() -> None:
+    code = [f"line {i}" for i in range(3)] + ["def standup(args):", "    entries = load()", "    return fmt(entries)",
+                                              "", "def register(ctx):", "    ctx.register_command('standup', standup)"]
+    evs = [Event("e0", 0.0, "user_prompt", "", "plugin", "", {"text": "Build a Hermes plugin called standup"}),
+           Event("e1", 1.0, "file_write", "write_file", "commands.py", "", {"path": "plugin/commands.py", "lines": code}),
+           Event("e2", 2.0, "file_write", "write_file", "test_x.py", "", {"path": "plugin/tests/test_x.py",
+                                                                         "lines": code * 3}),
+           _run(3, 3.0, "python -m pytest", ["21 passed in 0.3s"]),
+           _run(4, 4.0, "hermes plugins validate .", ["ok manifest", "ok isolation"])]
+    facts = SessionFacts(evs, Stats(duration_s=60, files_created=2))
+    sb = Storyboard(title="standup", tagline="Standups", cta="", mode="product",
+                    product=Product(name="standup", kind="other"),
+                    scenes=[StoryScene(T.HOOK, ["e4"], "", "Validation passed"), StoryScene(T.TITLE, [], "", "standup"),
+                            StoryScene(T.STATS, [], "", "", {"stat_keys": ["files_created"]}), StoryScene(T.END, [], "", "")])
+    res = validate_storyboard(sb, facts, 30, "product")
+    types = [(s.type, s.refs[:1]) for s in res.storyboard.scenes]
+    assert (T.TERMINAL, ["e3"]) in types and (T.CODE, ["e1"]) in types
+    assert [t for t, _ in types].index(T.TERMINAL) == [t for t, _ in types].index(T.TITLE) + 1
