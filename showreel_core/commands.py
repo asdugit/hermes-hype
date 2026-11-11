@@ -276,7 +276,8 @@ def parse(raw: str | None, *, styles: Iterable[str] = (), base: Options | None =
                 if "engine_3d" not in opts.explicit:
                     opts.engine_3d = opts.hints["engine_3d"]
     opts.hints.pop("_applied", None)
-    return cmd
+    from .customize.command import refine_command  # W5: key=value knobs + preset/Directed routing (docs/CUSTOMIZE.md)
+    return refine_command(cmd, text, styles=style_set, base=base, reparse=lambda t: parse(t, styles=style_set, base=base))
 
 
 def _typo_style(words: list[str], styles: set[str]) -> str | None:

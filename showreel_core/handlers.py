@@ -26,6 +26,7 @@ from .config import (
     style_ids,
 )
 from .jobs import TERMINAL, JobStore, public_view
+from .customize import command as _cz  # W5 preset customization: knobs + text (docs/CUSTOMIZE.md)
 
 log = logging.getLogger(__name__)
 
@@ -82,6 +83,8 @@ RENDER_SCHEMA: dict[str, Any] = {
         "additionalProperties": False,
     },
 }
+
+_cz.extend_schema(RENDER_SCHEMA)  # adds `customize` (free text) + `knobs` (W5)
 
 STATUS_SCHEMA: dict[str, Any] = {
     "name": "showreel_status",
@@ -262,6 +265,7 @@ def _tool_options(ctx: Any, args: dict[str, Any]) -> Options:
         opts.engine_3d = str(args["engine_3d"])
     if isinstance(args.get("product"), dict):
         opts.brief = {k: v for k, v in args["product"].items() if v}
+    opts = _cz.from_tool_args(opts, args)  # W5 preset customization
     return opts.normalised()
 
 
@@ -355,6 +359,7 @@ def cli_setup(parser: Any) -> None:
                    help="3D shots: browser (default) or your installed Blender")
     r.add_argument("--blender", action="store_true", help="same as --engine-3d blender")
     r.add_argument("--json", action="store_true")
+    _cz.add_cli_args(r)  # W5: --customize TEXT, --set KEY=VALUE
     sub.add_parser("styles", help="list styles")
     d = sub.add_parser("doctor", help="check Chromium, ffmpeg, assets and the runtime")
     d.add_argument("--json", action="store_true")
@@ -411,6 +416,7 @@ def cli(ctx: Any, args: Any) -> int:
         engine = None if wants is None else ("blender" if wants else "browser")
     if engine:
         opts.engine_3d = engine
+    opts = _cz.from_cli_args(opts, args)  # W5 preset customization
     opts = opts.normalised()
     _ensure_builtin_tools()
     job = store.create(sid, opts.to_dict(), kind="directed" if opts.directed else "quick", surface="cli")

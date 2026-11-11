@@ -671,9 +671,16 @@ def _run(run: _Run) -> None:
     if run.opts.directed:
         built = _directed(run)
     if built is None:
+        _customize_hook(run)
         _quick_front(run)
     run.cancel.check()
     _back_half(run)
+
+
+def _customize_hook(run: _Run) -> None:
+    """W5 preset customization (showreel_core/customize/hook.py, docs/CUSTOMIZE.md): wraps run.deps. Never raises."""
+    from .customize.hook import install
+    install(run)
 
 
 @dataclass
