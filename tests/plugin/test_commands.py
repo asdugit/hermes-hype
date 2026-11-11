@@ -84,6 +84,13 @@ def test_out_of_range_length_inside_prose_is_not_a_hint() -> None:
     assert o.directed and o.seconds == 60
 
 
+@pytest.mark.parametrize(("raw", "word"), [("mute narrated", "narrated"), ("30 --seconds 90", "--seconds 90"),
+                                           ("lore speedrun", "speedrun"), ("preview final", "final")])
+def test_conflicting_option_words_say_which_one_was_ignored(raw: str, word: str) -> None:
+    assert any(m.startswith(f"'{word}' ignored") for m in p(raw).messages)
+    assert not p("mute mute").messages and not p("60 60").messages
+
+
 @pytest.mark.parametrize("raw", ['""', "...", "\u200b", "\ufeff \u2060"])
 def test_quotes_punctuation_or_invisible_characters_alone_are_the_default_film(raw: str) -> None:
     cmd = p(raw)

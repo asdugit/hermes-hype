@@ -168,6 +168,9 @@ def _classify(raw: str, styles: set[str]) -> _Tok:
 _VALUE_HELP = {"seconds": f"a number of seconds ({MIN_SECONDS}-{MAX_SECONDS})", "style": "a style name",
                "mode": "product, lore or speedrun", "effort": "quick, standard or max",
                "engine_3d": "browser, blender or auto", "aspect": "16:9, 9:16, both or 1:1"}
+#: what a repeated option word conflicts with, for the "ignored" note
+_LABELS = {"seconds": "length", "voice": "narration", "mode": "mode", "effort": "effort", "engine_3d": "3D engine",
+           "preview": "preview/final quality"}
 
 
 def _bad(raw: str, kind: str) -> _Tok:
@@ -240,6 +243,8 @@ def _apply(opts: Options, t: _Tok, messages: list[str]) -> None:
         if t.kind == "style" and t.value != opts.style:
             opts.hints.setdefault("styles", []).append(t.value)
             messages.append(f"Using style '{opts.style}' ('{t.value}' kept as a hint).")
+        elif t.kind != "style" and getattr(opts, name, None) != (bool(t.value) if name == "preview" else t.value):
+            messages.append(f"'{t.raw.strip()}' ignored: an earlier word already set the {_LABELS.get(name, name)}.")
         return
     if t.note:
         messages.append(t.note)
