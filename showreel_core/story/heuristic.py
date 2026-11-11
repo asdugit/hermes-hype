@@ -26,6 +26,7 @@ from ..contracts import (
     Storyboard,
     StoryScene,
 )
+from ..session.product import _folder_name_ok
 from .facts import (
     SessionFacts,
     code_lines,
@@ -137,8 +138,8 @@ def _product_name(facts: SessionFacts) -> str:
     for p in paths:
         parts = [x for x in re.split(r"[\\/]+", p) if x]
         for d, part in enumerate(parts[:-1]):
-            if part.lower() in _GENERIC_DIRS or part.startswith(".") or len(part) > 32:
-                continue
+            if part.lower() in _GENERIC_DIRS or part.startswith(".") or len(part) > 32                     or re.fullmatch(r"[A-Za-z]:", part) or not _folder_name_ok(part):
+                continue                    # never the login name, a temp dir or a holder folder (S14)
             dirs[part] += 1
             depth[part] = min(depth.get(part, 99), d)
     if dirs:

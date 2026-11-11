@@ -166,3 +166,17 @@ def test_readme_code_beats_show_only_a_code_block() -> None:
     win = _code_window(usage, [4, 5], 12)
     assert win["lines"] == ["from shortly import shorten", "print(shorten('https://example.com'))"]
     assert win["lang"] == "python" and win["start"] == 4
+
+
+def test_heuristic_never_names_the_product_after_a_login_or_temp_folder(monkeypatch) -> None:
+    """S14: D:/alice/index.html -> 'Alice', a temp dir -> 'Tmpab12'."""
+    import getpass
+
+    from showreel_core.story.heuristic import _product_name
+    monkeypatch.setattr(getpass, "getuser", lambda: "alice")
+    for root in ("D:/alice", "C:/Users/bob/AppData/Local/Temp/tmpab12"):
+        evs = [Event("e1", 1.0, "file_write", "write_file", "index.html", "",
+                     {"path": f"{root}/index.html", "lines": ["<title>x</title>"]}),
+               Event("e2", 2.0, "file_write", "write_file", "app.js", "", {"path": f"{root}/app.js", "lines": ["x"]})]
+        name = _product_name(SessionFacts(evs, Stats(duration_s=60)))
+        assert name.lower() not in ("alice", "tmpab12", "temp", "d:"), name
