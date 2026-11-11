@@ -113,3 +113,15 @@ def test_agent_working_notes_are_not_pull_quotes() -> None:
     for ok in ("flipper-mass correlation r=0.871 overall", "produced 27505.0 instead of 275.05.",
                "Every alibi checks out, minute by minute.", "Discounts were applied as whole numbers."):
         assert not _agent_fragment(ok), ok
+
+
+def test_process_housekeeping_and_http_headers_are_not_product_beats() -> None:
+    from showreel_core.story.facts import is_setup_cmd
+    for cmd in ("netstat -ano | grep ':8000'", "taskkill //F //PID 12336", "kill %1", "sleep 2", "ps aux"):
+        assert is_setup_cmd(cmd), cmd
+    assert not is_setup_cmd("curl -s -X POST localhost/links")
+    run = _run(1, 1.0, "curl -i -X POST /links", ["HTTP/1.1 201 Created", "date: Wed, 11 Nov 2026 17:17:26 GMT",
+                                                  "server: uvicorn", "content-length: 64",
+                                                  "content-type: application/json", '{"code":"aB3x9"}'])
+    shown = _terminal(run, 8)["output"]
+    assert shown == ["HTTP/1.1 201 Created", "content-type: application/json", '{"code":"aB3x9"}']

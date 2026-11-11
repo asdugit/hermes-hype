@@ -37,7 +37,8 @@ _TEST_CMD_RE = re.compile(r"\b(pytest|jest|vitest|mocha|unittest|npm (?:run )?te
 _SETUP_CMD_RE = re.compile(r"^\s*(?:sudo\s+)?(?:pip3?|pipx|uv|npm|pnpm|yarn|bun|cargo|brew|apt(?:-get)?|choco|"
                            r"winget|conda|poetry)\s+(?:install|add|i|sync|init|update|upgrade|pip install)\b"
                            r"|^\s*(?:git|mkdir|cd|ls|dir|cat|pwd|echo|which|where|type|head|tail|wc|touch|rm|cp|mv|"
-                           r"chmod|clear|true|python3? -m venv|python3? --version|node --version)\b")
+                           r"chmod|clear|true|python3? -m venv|python3? --version|node --version|netstat|taskkill|tasklist|"
+                           r"kill|pkill|killall|ps|lsof|sleep|start-sleep)\b")
 _TEST_PASS_RE = re.compile(r"\b(\d+)\s+(passed|passing|tests? passed|ok)\b", re.IGNORECASE)
 _FAIL_COUNT_RE = re.compile(r"\b([1-9]\d*)\s+(failed|failing|errors?)\b", re.IGNORECASE)
 
@@ -441,7 +442,9 @@ def is_fix_session(facts: "SessionFacts") -> bool:
 
 #: tool chatter in a run's output that is not the product: git's line-ending notes, uv's hardlink fallback, hints
 _NOISE_LINE_RE = re.compile(r"(?i)^\s*(?:warning: (?:in the working copy of|LF will be replaced|CRLF will be replaced|"
-                            r"failed to hardlink)|hint: |\s*If the cache and target directories are on different)")
+                            r"failed to hardlink)|hint: |\s*If the cache and target directories are on different|"
+                            r"(?:date|server|content-length|connection|keep-alive|transfer-encoding|"
+                            r"access-control-[\w-]+):\s)")
 
 
 def is_noise_line(line: str) -> bool:
