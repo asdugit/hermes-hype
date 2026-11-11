@@ -70,7 +70,7 @@ DIFF_WINDOW = 24
 TERMINAL_LINES = 12
 PROBLEM_WORDS = 60
 PLAN_ITEMS = 6
-CREDIT = "made with Hermes \u00b7 Showreel"
+CREDIT = "made with Hermes \u00b7 Auteur"
 PAD_IN, PAD_OUT, HOOK_PAD_IN = 0.3, 0.4, 0.15
 #: Drop-priority bonuses when a film is too long (see rules.DROP_PRIORITY for the base order).
 PRODUCT_BEAT_BONUS, NARRATED_BONUS = 2.5, 1.0

@@ -1,4 +1,4 @@
-// kit.js — the Showreel PIXEL kit: original 16-bit art, RPG UI, product-as-boss helpers, scenes, transitions.
+// kit.js — the Auteur PIXEL kit: original 16-bit art, RPG UI, product-as-boss helpers, scenes, transitions.
 // Registers kit:pixel/* scenes + transitions and exposes building blocks as ctx.kit('pixel') (see KIT.md).
 import { sr } from '../../runtime/showreel.js';
 import { PALETTE, NAMES, IDX, RGB, RAMPS, REMAP, quantize, bayer, ci } from './core/palette.js';

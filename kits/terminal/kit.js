@@ -1,4 +1,4 @@
-// Showreel kit "terminal" (signature style): the session replayed on a single-phosphor CRT. Box-drawn panes,
+// Auteur kit "terminal" (signature style): the session replayed on a single-phosphor CRT. Box-drawn panes,
 // the real commands typed at a human cadence, verbatim output at line rate, odometer stats, block-letter logo
 // builds, product captures that resolve from phosphor dither to the real image, channel-switch cuts.
 // Registers the 'terminal' theme (amber P3 tokens; replaces the kits/base starter) and kit:terminal/<TYPE> for all

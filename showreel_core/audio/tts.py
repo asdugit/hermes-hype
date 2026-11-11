@@ -125,17 +125,17 @@ def synthesize(dispatch: Dispatch, text: str, out_path: str | Path, *, ffmpeg: s
     try:
         raw = dispatch("text_to_speech", args)
     except Exception as e:  # noqa: BLE001 - provider/plugin errors must never kill the render
-        log.warning("showreel tts dispatch failed: %s", e)
+        log.warning("auteur tts dispatch failed: %s", e)
         return None
     files, provider, err = parse_envelope(raw)
     files = [f for f in files if Path(f).is_file()]
     if err or not files:
-        log.warning("showreel tts unavailable: %s", err or "files missing")
+        log.warning("auteur tts unavailable: %s", err or "files missing")
         return None
     try:
         dur, gain, rms = normalise_clip(files, out, ffmpeg, target_rms_db)
     except (AudioError, OSError) as e:
-        log.warning("showreel tts normalise failed: %s", e)
+        log.warning("auteur tts normalise failed: %s", e)
         return None
     return VoiceClip(path=out, duration=round(dur, 4), text=text, provider=provider, source_files=files,
                      gain_db=round(gain, 2), active_rms_db=round(rms, 2))

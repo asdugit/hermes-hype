@@ -1,4 +1,4 @@
-// Showreel kit "ink" — the recurring cast, built only from primitive shapes (fills + seeded rough outlines):
+// Auteur kit "ink" — the recurring cast, built only from primitive shapes (fills + seeded rough outlines):
 //   robot(key, o)  the agent: a small cream robot with a screen face, antenna bulb and tube arms.
 //   person(key, o) the user: round glasses, teal sweater; 'bust' (waist up) or 'stand' (full figure).
 // Poses come from a small library (POSES: arm angles + an optional prop in the hand); scenes pick a pose and may

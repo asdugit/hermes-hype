@@ -1,4 +1,4 @@
-// Showreel kit "terminal" — transitions. A CRT does not fade, it redraws: `channel-switch` (between acts: the
+// Auteur kit "terminal" — transitions. A CRT does not fade, it redraws: `channel-switch` (between acts: the
 // picture tears sideways, a static burst, a vertical-hold roll into the next channel) and `persist` (a hard cut
 // with a 4-frame phosphor-persistence trail of the previous picture). Both are 'css' transitions so they work on
 // DOM shots; static bars are painted on the transition overlay canvas (tx.g).

@@ -1,4 +1,4 @@
-"""Showreel dashboard API: ``/api/plugins/showreel/*`` for the Desktop pane (SPEC 3.9).
+"""Auteur dashboard API: ``/api/plugins/auteur/*`` for the Desktop pane (SPEC 3.9).
 
 Hermes imports this file on its own (not as part of the plugin package), so the core package and the
 pane read models (``pane_data.py`` beside this file) are loaded by path under private module names.
@@ -43,8 +43,8 @@ from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 
 ROOT = Path(__file__).resolve().parents[1]
-CORE_NAME = "_showreel_dashboard_core"
-PANE_NAME = "_showreel_pane_data"
+CORE_NAME = "_auteur_dashboard_core"
+PANE_NAME = "_auteur_pane_data"
 API_VERSION = 2
 BODY_LIMIT = 512 * 1024
 THUMB_LIMIT = 600 * 1024
@@ -190,7 +190,7 @@ def _start(session_id: str, options: dict[str, Any], *, parent: str = "", reuse:
     store.mark_stale()
     busy = store.running(session_id)
     if busy:
-        return 409, {"error": "a showreel is already rendering for this session", "job": jobs.public_view(busy[0])}
+        return 409, {"error": "a film is already rendering for this session", "job": jobs.public_view(busy[0])}
     base = cfg.settings_from_hermes_config().options().to_dict()
     opts = cfg.Options.from_dict({**base, **(options or {})})
     job = store.create(session_id, opts.to_dict(), kind="directed" if opts.directed else "quick", surface="desktop",

@@ -269,7 +269,7 @@ def revise(parent_job_dir: str | Path, notes: str, *, llm: Any = None, renderer:
            job_dir: str | Path | None = None, library_dir: str | Path | None = None, catalog: Catalog | None = None,
            save_library: bool = True, budget: Budget | None = None, dispatch: Any = None,
            voice_speed: Any = None) -> DirectorResult:
-    """``/showreel revise <notes>``: another pass on a finished Director film with the user's notes."""
+    """``/auteur revise <notes>``: another pass on a finished Director film with the user's notes."""
     t0 = time.monotonic()
     parent = Path(parent_job_dir)
     jd = Path(job_dir) if job_dir else parent
@@ -549,7 +549,7 @@ def _compose(r: _Run, *, use_model: bool) -> Version | None:
         r.emit("compose", "Choosing the film's blueprint", 0.05)
         instr, text = compose.pick_prompt(brief, bps)
         try:
-            reply = r.ask("pick", instr, text, schema=compose.PICK_SCHEMA, schema_name="showreel.pick",
+            reply = r.ask("pick", instr, text, schema=compose.PICK_SCHEMA, schema_name="auteur.pick",
                           temperature=0.5, max_tokens=1500, timeout=180.0)
             raw = reply.parsed if reply.parsed is not None else reply.text
             answered += int(bool(reply.text.strip()) and not (reply.error and not reply.parsed))
@@ -566,7 +566,7 @@ def _compose(r: _Run, *, use_model: bool) -> Version | None:
     if use_model and r.ledger.remaining >= 1:
         instr, text = compose.words_prompt(brief, bp, pick, float(brief.seconds))
         try:
-            reply = r.ask("words", instr, text, schema=compose.WORDS_SCHEMA, schema_name="showreel.words",
+            reply = r.ask("words", instr, text, schema=compose.WORDS_SCHEMA, schema_name="auteur.words",
                           temperature=0.7, max_tokens=2500, timeout=180.0)
             answered += int(bool(reply.text.strip()) and not (reply.error and not reply.parsed))
             texts, voice, fixes = compose.check_words(reply.parsed if reply.parsed is not None else reply.text,
@@ -616,7 +616,7 @@ def _treatment(r: _Run) -> dict[str, Any]:
     extra, last_usable = "", None
     for attempt in range(1 + r.budget.film_repairs):
         reply = r.ask("treatment", instr, text + extra, schema=prompts.TREATMENT_SCHEMA,
-                      schema_name="showreel.treatment", images=images, temperature=0.8, max_tokens=12000)
+                      schema_name="auteur.treatment", images=images, temperature=0.8, max_tokens=12000)
         obj = _json_of(reply)
         if obj is None:
             errs = [reply.error or "the reply was not valid JSON"]
@@ -645,7 +645,7 @@ def _treatment(r: _Run) -> dict[str, Any]:
 
 def _film(r: _Run) -> Version | None:
     instr, text = prompts.film_prompt(r.brief, r.catalog, r.treatment, max_custom=r.budget.max_custom)
-    res = _structured_film(r, "film", instr, text, prompts.FILM_SCHEMA, "showreel.film")
+    res = _structured_film(r, "film", instr, text, prompts.FILM_SCHEMA, "auteur.film")
     if res is None:
         return None
     film, plan, _obj = res
@@ -720,7 +720,7 @@ def _structured_patch(r: _Run, purpose: str, instr: str, text: str, base: Versio
     """Ask for a revision PATCH, apply it to ``base``, validate the result; re-ask with the errors."""
     extra = ""
     for attempt in range(1 + r.budget.film_repairs):
-        reply = r.ask(purpose, instr, text + extra, schema=prompts.REVISE_PATCH_SCHEMA, schema_name="showreel.patch",
+        reply = r.ask(purpose, instr, text + extra, schema=prompts.REVISE_PATCH_SCHEMA, schema_name="auteur.patch",
                       temperature=0.5, images=images if attempt == 0 else None, max_tokens=PATCH_MAX_TOKENS,
                       timeout=600.0)
         obj = _json_of(reply)
@@ -916,7 +916,7 @@ def _realise(r: _Run, v: Version, *, code: list[str], issues: dict[str, list[dic
             return _code_scene(r, v, name, issues=issues.get(name), notes=notes.get(name, ""))
         workers = max(1, min(len(names), SCENE_PARALLEL))
         if workers > 1:
-            with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="showreel-scene") as pool:
+            with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="auteur-scene") as pool:
                 results = dict(zip(names, pool.map(one, names), strict=True))
         else:
             results = {n: one(n) for n in names}
@@ -1343,7 +1343,7 @@ def _critique(r: _Run, v: Version, rnd: int, *, measured_only: bool = False) -> 
     images = [Image(s.read_bytes(), "image/jpeg", str(s), f"contact sheet {i + 1}") for i, s in enumerate(sheets)]
     crit = None
     for attempt in range(2):
-        reply = r.ask(f"critic:r{rnd}", instr, text, schema=prompts.CRITIC_SCHEMA, schema_name="showreel.critique",
+        reply = r.ask(f"critic:r{rnd}", instr, text, schema=prompts.CRITIC_SCHEMA, schema_name="auteur.critique",
                       images=images, temperature=0.2, max_tokens=10000)
         crit = _normalise_critique(_json_of(reply), v)
         if crit is not None:

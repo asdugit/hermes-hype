@@ -3,8 +3,8 @@
 The session stage detects the product name from its README title, package/manifest name, page
 ``<title>``, repo or project directory (or takes it from the user's / agent's brief). The storyboard model
 may tidy that name ("Tempo — focus timer" -> "Tempo") but must not rename the product after a tool, a
-Showreel stage, an event kind or a capture label. Real E2E: a customized comic film of an Orbit Notes session
-called the product "Showreel Product Capture" (the capture stage that photographed it) and "WEBPRODUCT".
+Auteur stage, an event kind or a capture label. Real E2E: a customized comic film of an Orbit Notes session
+called the product "Auteur Product Capture" (the capture stage that photographed it) and "WEBPRODUCT".
 
 :func:`same_product` compares names token-wise; :func:`toolish_words` finds tool / stage / event words
 that are not part of the reference name; :func:`replace_name` swaps a wrong name in narration and labels.
@@ -13,14 +13,14 @@ from __future__ import annotations
 
 import re
 
-#: Words that name Showreel/Hermes machinery (tools, stages, event kinds, capture labels), not a product.
+#: Words that name Auteur/Hermes machinery (tools, stages, event kinds, capture labels), not a product.
 TOOL_WORDS = frozenset({
-    "showreel", "hermes", "capture", "captures", "screenshot", "screenshots", "webproduct", "product_capture",
+    "auteur", "hermes", "capture", "captures", "screenshot", "screenshots", "webproduct", "product_capture",
     "file_write", "file_patch", "write_file", "read_file", "browser_nav", "browser_navigate", "execute_code",
     "delegate_task", "vision_analyze", "web_search", "web_extract", "text_to_speech", "final_answer",
     "user_prompt", "assistant_note", "image_generated", "artifact", "artifacts", "highlights", "storyboard",
 })
-#: Multi-word labels Showreel itself prints (capture labels, stage names, the generic fallback title).
+#: Multi-word labels Auteur itself prints (capture labels, stage names, the generic fallback title).
 TOOL_PHRASES = ("product capture", "web product", "capture stage", "session highlights", "desktop 1440x900",
                 "mobile 390x844", "full page", "made with hermes")
 _TOKEN_RE = re.compile(r"[a-z0-9]+(?:_[a-z0-9]+)*")
@@ -56,7 +56,7 @@ def toolish_words(name: str, reference: str = "") -> list[str]:
 
 def name_pattern(name: str) -> re.Pattern[str] | None:
     """Case-insensitive pattern for ``name`` in prose, tolerant of a possessive and of space/dash/underscore
-    separators ("Showreel's product capture" matches "Showreel Product Capture")."""
+    separators ("Auteur's product capture" matches "Auteur Product Capture")."""
     toks = tokens(name)
     if not toks:
         return None

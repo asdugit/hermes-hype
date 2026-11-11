@@ -78,7 +78,7 @@ def lib_importable() -> None:
 def blender_dev_env() -> None:
     """Dev-PC defaults for the shared locks (no-op elsewhere)."""
     sys.path.insert(0, str(REPO / "tests" / "blender"))
-    os.environ.setdefault("SHOWREEL_DEV_MIN_FREE_GB", "3.5")
+    os.environ.setdefault("AUTEUR_DEV_MIN_FREE_GB", "3.5")
 
 
 def synth_ui(path: Path, w: int = 1440, h: int = 900, tall: bool = False) -> Path:

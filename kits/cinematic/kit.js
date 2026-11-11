@@ -1,4 +1,4 @@
-// Showreel kit · cinematic — "evidence becomes a world": the session's real captures are emissive glass cards
+// Auteur kit · cinematic — "evidence becomes a world": the session's real captures are emissive glass cards
 // at depth in a dark room, shot by a heavy camera with per-object depth of field, dust bokeh, bloom, 2.39
 // letterbox, Cormorant titles and one amber accent. Registers the 15 Quick-mode types (kit:cinematic/<TYPE>,
 // data = TimelineScene.data shapes) plus kit:cinematic/card-field and kit:cinematic/screen-push.
@@ -128,7 +128,7 @@ defineCine('kit:cinematic/TITLE', 'Corridor of evidence cards on both walls rece
     overlayKey: until(3.0),
   }));
 defineCine('kit:cinematic/END', 'Pull back out of the corridor until the cards are stars; title, CTA in Geist Mono, URL and credit; last frame holds as the thumbnail.',
-  { title: { type: 'string', default: '' }, cta: { type: 'string', default: '', doc: 'e.g. install command' }, url: { type: 'string', default: '' }, credit: { type: 'string', default: 'made with Hermes · Showreel' } },
+  { title: { type: 'string', default: '' }, cta: { type: 'string', default: '', doc: 'e.g. install command' }, url: { type: 'string', default: '' }, credit: { type: 'string', default: 'made with Hermes · Auteur' } },
   (ctx, p, r, seed) => ({
     items: corridor(seed), warmAt: [0.5, 0.5],
     cam: (t) => rig([[0, { pos: [0, 0, 2], look: [0, 0, -30], fov: 32 }], [ctx.dur * 0.8, { pos: [0, 0.2, 14], look: [0, 0, -30], fov: 32 }]], t),

@@ -1,4 +1,4 @@
-"""Product capture stage (SPEC §1, WP-J): Showreel photographs the product the session built.
+"""Product capture stage (SPEC §1, WP-J): Auteur photographs the product the session built.
 
 * :mod:`.targets` decides what can be captured (reachable loopback/LAN/allowed public URLs, local
   HTML entry files, images, videos, PDFs). It never starts servers or runs commands.

@@ -1,4 +1,4 @@
-// Showreel kit "ink" — scene helpers: full-frame art layers, positioned text, the shot clock (beats scale with
+// Auteur kit "ink" — scene helpers: full-frame art layers, positioned text, the shot clock (beats scale with
 // the shot length so 3 s Quick shots land every beat), word-aware text fitting for the hand / serif faces.
 
 import { h } from '../../base/dom.js';

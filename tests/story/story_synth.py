@@ -226,10 +226,10 @@ def coding_session() -> tuple[list[Event], Stats]:
             "Tally is ready. Run python -m tally summary <folder> for the table, or python -m tally report "
             "<folder> -o report.html for the HTML report. Refunds now net out against purchases. "
             "All 14 tests pass.")}, weight=0.4),
-        _ev(20, 452, "product_capture", "Tally report", "Showreel capture of report.html (full page)", {
+        _ev(20, 452, "product_capture", "Tally report", "Auteur capture of report.html (full page)", {
             "path": "assets/capture_report_full.png", "url": "file:///~/projects/tally/report.html",
             "viewport": [1280, 800], "full_page": True, "page_title": "Tally - Monthly spending"}, weight=0.8),
-        _ev(21, 453, "product_capture", "Tally report", "Showreel capture of report.html", {
+        _ev(21, 453, "product_capture", "Tally report", "Auteur capture of report.html", {
             "path": "assets/capture_report.png", "url": "file:///~/projects/tally/report.html",
             "viewport": [1280, 800], "full_page": False, "page_title": "Tally - Monthly spending"}, weight=0.9),
     ]
@@ -397,7 +397,7 @@ INDEX_HTML = '''<!doctype html>
 
 
 def webapp_session() -> tuple[list[Event], Stats]:
-    """A small web app with Showreel product captures (the product-first happy path)."""
+    """A small web app with Auteur product captures (the product-first happy path)."""
     prompt = ("Make me a minimal pomodoro timer web app called Focusfox with a 25 and 5 minute cycle, a task "
               "list, and a dark mode toggle.")
     items = ["Timer with start and pause", "Task list", "Dark mode toggle", "Chime when a session ends", "Tests"]
@@ -443,13 +443,13 @@ def webapp_session() -> tuple[list[Event], Stats]:
             "Focusfox is ready at http://localhost:3000. The timer runs 25 minute focus sessions with 5 minute "
             "breaks, tasks stay in the list, and the dark mode toggle remembers your choice. All 12 tests pass.")},
             weight=0.4),
-        _ev(13, 262, "product_capture", "Focusfox", "Showreel capture: timer", {
+        _ev(13, 262, "product_capture", "Focusfox", "Auteur capture: timer", {
             "path": "assets/capture_home.png", "url": "http://localhost:3000", "viewport": [1440, 900],
             "full_page": False, "page_title": "Focusfox"}, weight=0.95),
-        _ev(14, 263, "product_capture", "Focusfox", "Showreel capture: full page", {
+        _ev(14, 263, "product_capture", "Focusfox", "Auteur capture: full page", {
             "path": "assets/capture_full.png", "url": "http://localhost:3000", "viewport": [1440, 900],
             "full_page": True, "page_title": "Focusfox"}, weight=0.8),
-        _ev(15, 264, "product_capture", "Focusfox dark", "Showreel capture: dark mode", {
+        _ev(15, 264, "product_capture", "Focusfox dark", "Auteur capture: dark mode", {
             "path": "assets/capture_dark.png", "url": "http://localhost:3000/?theme=dark", "viewport": [1440, 900],
             "full_page": False, "page_title": "Focusfox"}, weight=0.85),
     ]

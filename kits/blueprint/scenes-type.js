@@ -1,4 +1,4 @@
-// Showreel kit "blueprint" — lettering scenes: TITLE (general arrangement), PROBLEM (requirement spec), PLAN
+// Auteur kit "blueprint" — lettering scenes: TITLE (general arrangement), PROBLEM (requirement spec), PLAN
 // (numbered process flow), STATS (measurement readouts), CALLOUT (margin note), END (final title block, signed).
 
 import { css } from '../base/dom.js';
@@ -315,15 +315,15 @@ bpScene('kit:blueprint/CALLOUT', {
 
 // --------------------------------------------------------------------------------------------- END
 bpScene('kit:blueprint/END', {
-  describe: 'End card as the final title block, enlarged: product name, tagline, the CTA in a boxed field, URL, "made with Hermes · Showreel" as DRAWN BY, a plotted signature and the RELEASED stamp (speedrun: TIME = the PB).',
+  describe: 'End card as the final title block, enlarged: product name, tagline, the CTA in a boxed field, URL, "made with Hermes · Auteur" as DRAWN BY, a plotted signature and the RELEASED stamp (speedrun: TIME = the PB).',
   params: {
     title: { type: 'string', default: '', doc: 'product name' }, cta: { type: 'string', default: '', doc: 'command or link to try it' },
-    url: { type: 'string', default: '', doc: 'repo / site URL' }, credit: { type: 'string', default: 'made with Hermes \u00b7 Showreel', doc: 'small credit line' },
+    url: { type: 'string', default: '', doc: 'repo / site URL' }, credit: { type: 'string', default: 'made with Hermes \u00b7 Auteur', doc: 'small credit line' },
     tagline: { type: 'string', default: '', doc: 'optional line under the title' }, pb_display: { type: 'string', default: '', doc: 'speedrun final time (PB)' },
   },
   build(ctx, p, F, S) {
     const dur = ctx.dur, L = S.L, bx = S.box, P = S.P;
-    const title = String(p.title || '').trim() || 'Showreel';
+    const title = String(p.title || '').trim() || 'Auteur';
     const W = L ? bx.w : 1400, x = L ? bx.x : bx.x + (bx.w - W) / 2;
     const tsz = fitTitle(title.toUpperCase(), W - 80, L ? 120 : 140, 64, 0.64, L ? 2 : 1);
     const rows = [];

@@ -1,23 +1,23 @@
 # Customizing presets
 
-Showreel's presets (launch, cinematic, pixel, terminal, blueprint, comic, ink, plus the lore and speedrun modes)
+Auteur's presets (launch, cinematic, pixel, terminal, blueprint, comic, ink, plus the lore and speedrun modes)
 are starting points, not fixed templates. Any request can reshape them. You get two channels, and they work on
-every surface: the `/showreel` slash command, the `showreel_render` tool, the `hermes showreel render` CLI and the
+every surface: the `/auteur` slash command, the `auteur_render` tool, the `hermes auteur render` CLI and the
 Desktop Make tab.
 
 1. **Knobs.** `key=value` settings. They are deterministic and need no model.
 2. **Free text.** Name a preset and add words, for example
-   `/showreel pixel make the boss a giant bug and use neon colours`. The engine starts from that preset's Quick film
+   `/auteur pixel make the boss a giant bug and use neon colours`. The engine starts from that preset's Quick film
    and makes one small, validated set of changes to it.
 
 ## Routing rule
 
 | You type | Engine |
 |---|---|
-| `/showreel pixel 60 vertical` (no free text) | **Preset.** Quick film; knobs apply |
+| `/auteur pixel 60 vertical` (no free text) | **Preset.** Quick film; knobs apply |
 | a preset (style, `lore` or `speedrun`) at the start or end, plus free text | **Customize that preset** |
 | a preset plus a request it cannot make: another style or world midway ("transition into a different style mid way", "then bloom into anime"), a second preset named, new or invented scenes, "free roam", "the director" | **Directed**, starting from that preset (the existing behaviour) |
-| free text without a preset (`/showreel make it feel like a late-night infomercial`) | **Directed** (free roam) |
+| free text without a preset (`/auteur make it feel like a late-night infomercial`) | **Directed** (free roam) |
 | `directed` or `customize` as the first or last word | forces that route |
 
 A style word *inside* a sentence ("for launch day", "in pixel art") is a hint for the Director, not a preset pick.
@@ -49,15 +49,15 @@ them directly, and the Director receives them as hints (`options.hints.customize
   the knobs above.
 - **Bad keys and values.** An unknown key gets a friendly message that lists the valid keys. It is ignored on the
   slash command and rejected on the API (HTTP 400). A bad value, such as `accent=blurple`, is dropped with a note.
-- **Defaults.** Set them in the plugin setting `customize` (`plugins.entries.showreel.settings.customize`, or
-  Desktop → Capabilities → Plugins → Showreel), for example `"accent=#ff4fa3 energy=high"`. They have the lowest
+- **Defaults.** Set them in the plugin setting `customize` (`plugins.entries.auteur.settings.customize`, or
+  Desktop → Capabilities → Plugins → Auteur), for example `"accent=#ff4fa3 energy=high"`. They have the lowest
   priority and apply to every preset film: look, sound and words (accent, palette, bg, text, font, music, energy,
   voice, captions, transitions, logo, title, tagline, cta, language). Length, aspect and narration have their own
   settings. A YAML mapping also works, but Hermes warns at load because the setting is declared as a string.
 
 ## Free-text customization
 
-`/showreel <preset> <request>` runs the preset's normal Quick pipeline and adds three things:
+`/auteur <preset> <request>` runs the preset's normal Quick pipeline and adds three things:
 
 1. **Before the storyboard.** The request goes to the storyboard writer as a tone and wording note (facts stay
    facts). The *keyword reader* also turns the request's own words into a spec, with no model: colours and
@@ -118,7 +118,7 @@ them into a film.json `theme` block:
     and `GET /customize` lists the vocabulary.
   - *Free roam* is the Director's Direction box.
   - Revise on the Result tab keeps working: a revision reuses the parent's customization.
-- **Tool.** `showreel_render` takes `customize` (free text) and `knobs` (object) next to `style`.
-- **CLI.** `hermes showreel render --style terminal --customize "green phosphor, faster" --set accent=#00ff66 --set energy=high`.
+- **Tool.** `auteur_render` takes `customize` (free text) and `knobs` (object) next to `style`.
+- **CLI.** `hermes auteur render --style terminal --customize "green phosphor, faster" --set accent=#00ff66 --set energy=high`.
 - **Code.** `showreel_core/customize/` (`knobs`, `spec`, `llm`, `route`, `theme`, `apply`, `command`, `hook`,
   `vocab`), the runtime theme block (`runtime/core/runtime.js` `themeOverrideCss`) and `kits/brand`.

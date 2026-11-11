@@ -1,6 +1,6 @@
-# Pixel kit (`kit:pixel/*`) — 16-bit RPG world for Showreel
+# Pixel kit (`kit:pixel/*`) — 16-bit RPG world for Auteur
 
-Original 16-bit art (CC0, made for Showreel): one palette ("Dusk 32"), one pixel size, crisp 1-bit text, motion on
+Original 16-bit art (CC0, made for Auteur): one palette ("Dusk 32"), one pixel size, crisp 1-bit text, motion on
 twos. The game world is always 480×270 (16:9) or 270×480 (9:16). Two ways to put it on screen:
 - **`res` = the film size** (`[1920, 1080]` / `[1080, 1920]`, recommended for hero shots): the kit upscales its own
   world through a **camera** — integer pixel sizes (4 px = whole world, 8/10/12 px = close-ups), zooms stepped on

@@ -1,4 +1,4 @@
-"""Dev-only procedural composer for Showreel's shipped music beds and SFX kit.
+"""Dev-only procedural composer for Auteur's shipped music beds and SFX kit.
 
 Run from the repo root with the dev venv (numpy + scipy):
     python -m tools.compose --all              # every bed + the SFX kit (reproducible from seeds)

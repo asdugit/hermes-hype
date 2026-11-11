@@ -1,4 +1,4 @@
-"""Decide what Showreel can capture of a product. Never starts servers, never runs commands.
+"""Decide what Auteur can capture of a product. Never starts servers, never runs commands.
 
 Inputs are the :class:`~showreel_core.contracts.Product` draft (WP-B ``infer_product``, or an
 agent-supplied brief) and the session events (``artifact`` events plus everything that mentions a
@@ -56,7 +56,7 @@ LAN_SUFFIXES = (".local", ".lan", ".home.arpa", ".internal", ".localdomain", ".i
 RENDERABLE_TYPES = ("text/html", "application/xhtml+xml", "text/plain", "application/json", "image/")
 HTML_TYPES = ("text/html", "application/xhtml+xml")
 MEDIA_KINDS = {"image": "image", "video": "video", "pdf": "pdf"}
-UA = "Showreel-capture/1 (local reachability probe)"
+UA = "Auteur-capture/1 (local reachability probe)"
 
 DEFAULT_CAPS = {"web": 2, "image": 4, "video": 2, "pdf": 1}
 STAGE_MAX_FILES = 300

@@ -1,4 +1,4 @@
-// Showreel kit "terminal" — pane scenes: TERMINAL, CODE, DIFF, MONTAGE, PROBLEM, PLAN.
+// Auteur kit "terminal" — pane scenes: TERMINAL, CODE, DIFF, MONTAGE, PROBLEM, PLAN.
 // Layout is computed on the Plex Mono grid (advance 0.6 em, line-height 1.3); the "camera" is the terminal:
 // whole-line scrolls, zoom by font-size steps, the cursor as the point of attention.
 

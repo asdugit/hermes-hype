@@ -135,7 +135,7 @@ def test_theme_variables_only() -> None:
 def test_one_default_export_with_the_plugin_id() -> None:
     src = _source()
     assert src.count("export default") == 1
-    assert re.search(r"^const ID = 'showreel'$", src, re.M) and "id: ID," in src
+    assert re.search(r"^const ID = 'auteur'$", src, re.M) and "id: ID," in src
 
 
 def _upstream_validator() -> object | None:

@@ -201,7 +201,7 @@ async def _run(job: Path, *, per_shot: int, times: Sequence[float] | None, w: in
                     r.render_ms_max = st.get("render_ms_max")
             rep.scene_errors = await p.evaluate("window.__sr.errors.slice()") or []
             rep.cues = await p.evaluate("window.__sr.cues") or []
-            rep.page_errors = [e for e in p.errors if "[showreel]" not in e]
+            rep.page_errors = [e for e in p.errors if "[auteur]" not in e]
             rep.blocked = list(p.blocked)
     except RenderError as e:
         if e.code in ("page_contract", "page_load"):
@@ -253,14 +253,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     ap.add_argument("--no-determinism", action="store_true")
     ap.add_argument("--gpu", action="store_true")
     ap.add_argument("--strict", action="store_true", help="load without ?lenient=1 (first failure rejects ready)")
-    ap.add_argument("--slot-dir", default=os.environ.get("SHOWREEL_RENDER_SLOT_DIR"), help="shared render slots")
+    ap.add_argument("--slot-dir", default=os.environ.get("AUTEUR_RENDER_SLOT_DIR"), help="shared render slots")
     ap.add_argument("--json", action="store_true")
     a = ap.parse_args(argv)
     from .preview import render_slot
 
     times = [float(x) for x in a.times.split(",") if x.strip()] or None
     size = (int(a.size.lower().split("x")[0]), int(a.size.lower().split("x")[1])) if a.size else None
-    with render_slot(a.slot_dir, "showreel-dryrun"):
+    with render_slot(a.slot_dir, "auteur-dryrun"):
         r = dryrun(a.job, per_shot=a.per_shot, times=times, size=size, determinism=not a.no_determinism, gpu=a.gpu,
                    lenient=not a.strict)
     if a.json:

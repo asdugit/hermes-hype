@@ -1,4 +1,4 @@
-// Showreel kit "blueprint" — product captures on the sheet: a screenshot is first traced as white line art (edge
+// Auteur kit "blueprint" — product captures on the sheet: a screenshot is first traced as white line art (edge
 // detection, revealed by the pen), then "develops" inside its outline like a cyanotype exposure (blue print ->
 // the real colours). Plates are painted once in setup; render only moves clip edges and opacities.
 

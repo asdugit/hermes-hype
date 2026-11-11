@@ -1,4 +1,4 @@
-"""Showreel pipeline: one job from session to delivered MP4s, with progress, cancel and fallbacks.
+"""Auteur pipeline: one job from session to delivered MP4s, with progress, cancel and fallbacks.
 
 Stages (SPEC 3.8): ``reading -> storyboard -> voice -> layout -> render -> mix -> qa -> done``
 (``failed`` / ``cancelled`` end a job early). Quick mode builds the film from a typed storyboard;
@@ -201,7 +201,7 @@ class Reporter:
             if getattr(self.handle, "ok", True) is not False:
                 self.handle.edit(text)
         except Exception as exc:  # noqa: BLE001 - messages are best effort
-            log.debug("showreel progress edit failed: %s", exc)
+            log.debug("auteur progress edit failed: %s", exc)
 
     def _estimate(self, frac: float) -> float | None:
         """Seconds left (estimate): remaining render time dominates; small constants for the rest."""
@@ -582,7 +582,7 @@ class _Run:
     blender: Any = None                                       # BlenderFound once located ("" = looked, none)
 
     def warn(self, msg: str) -> None:
-        log.info("showreel %s: %s", self.job_id, msg)
+        log.info("auteur %s: %s", self.job_id, msg)
         self.store.log(self.job_id, msg, "warn")
 
     def info(self, msg: str, **extra: Any) -> None:
@@ -671,9 +671,9 @@ def start_background(job_id: str, host: Host, *, store: JobStore | None = None, 
             try:
                 on_done(final)
             except Exception as exc:  # noqa: BLE001
-                log.warning("showreel on_done callback failed: %s", exc)
+                log.warning("auteur on_done callback failed: %s", exc)
 
-    th = threading.Thread(target=ctx.run, args=(target,), daemon=True, name=f"showreel-{job_id}")
+    th = threading.Thread(target=ctx.run, args=(target,), daemon=True, name=f"auteur-{job_id}")
     th.start()
     return th
 
@@ -763,7 +763,7 @@ def _read(run: _Run) -> None:
     brief = run.opts.brief
     if not getattr(bundle, "events", None) and not brief.get("name"):
         raise StageError("empty_session", "This session has nothing to film yet.",
-                         "Build something first (or pass a product brief to showreel_render), then try again.")
+                         "Build something first (or pass a product brief to auteur_render), then try again.")
     if brief:
         _merge_brief(bundle, brief)
     run.bundle = bundle
@@ -776,13 +776,13 @@ def _read(run: _Run) -> None:
     run.rep.progress(1.0, f"{len(bundle.events)} events")
 
 
-#: Showreel's own tools: their calls, results and contact sheets are not evidence of what the session built.
-OWN_TOOLS = frozenset({"showreel_render", "showreel_status", "showreel"})
-_OWN_FILE = re.compile(r"(^|/)(showreel-[^/]*\.(mp4|webm|mov)|contact_(16x9|9x16|1x1)\.(png|jpg))$", re.I)
+#: Auteur's own tools: their calls, results and contact sheets are not evidence of what the session built.
+OWN_TOOLS = frozenset({"auteur_render", "auteur_status", "auteur"})
+_OWN_FILE = re.compile(r"(^|/)(auteur-[^/]*\.(mp4|webm|mov)|contact_(16x9|9x16|1x1)\.(png|jpg))$", re.I)
 
 
 def own_output_event(ev: Any, own_dirs: list[str], after_first_film: bool) -> bool:
-    """True for evidence that is Showreel's own work: tool calls/results, delivered films, contact sheets, commands
+    """True for evidence that is Auteur's own work: tool calls/results, delivered films, contact sheets, commands
     that inspect them, and (once a film was made in this session) messages about the films."""
     if str(getattr(ev, "tool", "") or "") in OWN_TOOLS:
         return True
@@ -793,14 +793,14 @@ def own_output_event(ev: Any, own_dirs: list[str], after_first_film: bool) -> bo
         return True
     text = " ".join([str(getattr(ev, "title", "") or ""), str(getattr(ev, "summary", "") or ""),
                      str(data.get("cmd") or "")]).replace("\\", "/").lower()
-    if any(d and d in text for d in own_dirs) or "generated/videos/showreel-" in text:
+    if any(d and d in text for d in own_dirs) or "generated/videos/auteur-" in text:
         return True
-    return after_first_film and "showreel" in text and getattr(ev, "kind", "") in (
+    return after_first_film and "auteur" in text and getattr(ev, "kind", "") in (
         "user_prompt", "assistant_note", "final_answer", "terminal", "tool_other", "artifact")
 
 
 def _drop_own_outputs(run: _Run, bundle: Any) -> None:
-    """Earlier Showreel films of this session are not part of what it built: drop them from the evidence (a second
+    """Earlier Auteur films of this session are not part of what it built: drop them from the evidence (a second
     film once showed the first film's contact sheet as a product screenshot and offered the old MP4 as media)."""
     events = list(getattr(bundle, "events", None) or [])
     if not events:
@@ -828,12 +828,12 @@ def _drop_own_outputs(run: _Run, bundle: Any) -> None:
             bundle.digest = run.deps.digest(bundle)
         except Exception as exc:  # noqa: BLE001
             run.info(f"digest rebuild after dropping earlier films failed: {exc}", level="warn")
-    run.info(f"left out {len(dropped)} event(s) about earlier Showreel films of this session",
+    run.info(f"left out {len(dropped)} event(s) about earlier Auteur films of this session",
              dropped=sorted(gone)[:40])
 
 
 def _cap_duration(run: _Run, bundle: Any, events: list[Any], first: int) -> None:
-    """The build's active time ends where the first Showreel call starts: later turns (asking for films, polling
+    """The build's active time ends where the first Auteur call starts: later turns (asking for films, polling
     them) are not build time. Real E2E: a STATS card said 21 min for a 10-minute build after a chat-turn film."""
     stats = getattr(bundle, "stats", None)
     if first >= len(events) or stats is None or not getattr(stats, "duration_s", 0):
@@ -842,7 +842,7 @@ def _cap_duration(run: _Run, bundle: Any, events: list[Any], first: int) -> None
     cut = float(getattr(events[first], "t", 0.0) or 0.0)
     dur = round(active_duration([float(getattr(e, "t", 0.0) or 0.0) for e in events[:first]] + [cut]), 1)
     if 0 < dur < float(stats.duration_s):
-        run.info(f"build time ends at the first Showreel call: {stats.duration_s:.0f} s -> {dur:.0f} s")
+        run.info(f"build time ends at the first Auteur call: {stats.duration_s:.0f} s -> {dur:.0f} s")
         stats.duration_s = dur
 
 
@@ -941,7 +941,7 @@ STRONG_NAME_SCORE = 0.5
 def product_name_locked(bundle: Any, brief: dict[str, Any] | None = None) -> bool:
     """True when the product's name is a session fact the storyboard must keep: the brief names it, or the
     session stage found it in a README title, package/manifest name, page ``<title>`` or git remote (not just
-    a directory or the session title). Real E2E: a model called Orbit Notes "Showreel Product Capture"."""
+    a directory or the session title). Real E2E: a model called Orbit Notes "Auteur Product Capture"."""
     prod = getattr(bundle, "product", None)
     name = str(getattr(prod, "name", "") or "").strip()
     if not name:
@@ -1006,7 +1006,7 @@ def _storyboard(run: _Run) -> Any:
             run.info(f"storyboard fix: {fix}")
         if source == "heuristic" and llm_call is not None:
             run.warn("the model's storyboard was unusable; used the heuristic storyboard")
-    run.title = sb.title or getattr(getattr(sb, "product", None), "name", "") or "Showreel"
+    run.title = sb.title or getattr(getattr(sb, "product", None), "name", "") or "Auteur"
     data = storyboard_to_json(sb)
     (run.job_dir / "storyboard.json").write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8")
     run.store.update(run.job_id, storyboard=data, storyboard_source=source, title=run.title)
@@ -1085,7 +1085,7 @@ def _voice(run: _Run) -> None:
                 seen["dead"] += 1
         return i, clip
 
-    with ThreadPoolExecutor(max_workers=TTS_WORKERS, thread_name_prefix=f"showreel-tts-{run.job_id[-4:]}") as pool:
+    with ThreadPoolExecutor(max_workers=TTS_WORKERS, thread_name_prefix=f"auteur-tts-{run.job_id[-4:]}") as pool:
         futures = [pool.submit(contextvars.copy_context().run, one, item) for item in lines]
         for fut in futures:
             try:
@@ -1307,7 +1307,7 @@ def _directed(run: _Run) -> list[Built] | None:
         run.warn(f"the Director could not finish ({res.get('error') or res.get('fallback') or 'no film'}); "
                  "made a Quick film instead")
         return None
-    run.title = str(film.get("title") or "Showreel")
+    run.title = str(film.get("title") or "Auteur")
     run.store.update(run.job_id, title=run.title, director={k: v for k, v in res.items() if k not in ("film", "log")})
     run.rep.stage("layout", "building the film")
     director_dir = Path(res.get("job_dir") or run.job_dir)
@@ -1421,7 +1421,7 @@ def blender_pass(run: _Run, film: dict[str, Any], assets: dict[str, Any] | None,
 def _back_half(run: _Run) -> None:
     """Layout QA -> render -> audio -> mux -> QA -> delivery, per aspect."""
     if not _RENDER_LOCK.acquire(blocking=False):
-        run.rep.progress(0.0, "waiting for another showreel to finish", force=True)
+        run.rep.progress(0.0, "waiting for another auteur to finish", force=True)
         while not _RENDER_LOCK.acquire(timeout=1.0):
             run.cancel.check()
     try:
@@ -1553,7 +1553,7 @@ def _audio_all(run: _Run, videos: dict[str, Path]) -> dict[str, Path]:
         if key not in mixes:
             mixes[key] = _mix_one(run, b, tag)
         audio, mres = mixes[key]
-        final = run.job_dir / f"showreel_{tag}.mp4"
+        final = run.job_dir / f"auteur_{tag}.mp4"
         if audio is not None:
             try:
                 run.deps.mux(videos[b.aspect], audio, final, b.dur)
@@ -1706,7 +1706,7 @@ def _qa_and_deliver(run: _Run, finals: dict[str, Path]) -> None:
             if rep.get("contact_sheet") and not contact:
                 contact = str(rep["contact_sheet"])
         try:
-            delivered[b.aspect] = str(run.deps.deliver(final, title=run.title or "showreel", job_id=run.job_id,
+            delivered[b.aspect] = str(run.deps.deliver(final, title=run.title or "auteur", job_id=run.job_id,
                                                        aspect=b.aspect))
         except Exception as exc:  # noqa: BLE001
             run.warn(f"could not copy the film to Hermes' video folder ({exc}); use the job copy")

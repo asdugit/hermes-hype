@@ -40,7 +40,7 @@ QUOTE_WORDS = 12
 MIN_SCENES = 3
 MAX_SCENES = 24
 MAX_REFS = 16
-SCHEMA_NAME = "showreel.storyboard"
+SCHEMA_NAME = "auteur.storyboard"
 
 _REF = {"type": "string", "minLength": 1, "maxLength": 32, "description": "event id from the reference index, e.g. e17"}
 
@@ -127,7 +127,7 @@ STORYBOARD_SCHEMA: dict[str, Any] = {
     "required": ["title", "tagline", "cta", "product", "scenes"],
     "properties": {
         "mode": {"type": "string", "enum": list(FILM_MODES),
-                 "description": "film mode; Showreel sets it from the user's choice"},
+                 "description": "film mode; Auteur sets it from the user's choice"},
         "product": PRODUCT_SCHEMA,
         "title": {"type": "string", "minLength": 1, "maxLength": TITLE_CHARS,
                   "description": f"project name or film title, <= {TITLE_CHARS} characters"},
@@ -214,7 +214,7 @@ def _is_type(value: Any, expected: str) -> bool:
 
 
 def validate_schema(value: Any, schema: dict[str, Any] = STORYBOARD_SCHEMA, path: str = "$") -> list[SchemaError]:
-    """Validate ``value`` against the JSON Schema subset used by Showreel.
+    """Validate ``value`` against the JSON Schema subset used by Auteur.
 
     Supports: type, enum, required, properties, additionalProperties (bool), items,
     minItems, maxItems, uniqueItems, minLength, maxLength, pattern, minimum, maximum and

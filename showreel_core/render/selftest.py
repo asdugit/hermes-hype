@@ -89,7 +89,7 @@ def main(argv: list[str] | None = None) -> int:
         a.seconds, a.size, a.preview_size = 2.0, "640x360", "320x180"
     w, h = (int(v) for v in a.size.lower().split("x"))
     pw, ph = (int(v) for v in a.preview_size.lower().split("x"))
-    out = a.out or Path(tempfile.mkdtemp(prefix="showreel-selftest-"))
+    out = a.out or Path(tempfile.mkdtemp(prefix="auteur-selftest-"))
     out.mkdir(parents=True, exist_ok=True)
     say = (lambda *x: None) if a.json else (lambda *x: print(*x, flush=True))
     summary: dict[str, Any] = {"out": str(out), "ok": False}

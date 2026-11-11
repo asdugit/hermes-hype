@@ -241,7 +241,7 @@ class RuntimeRenderer:
                         out.errors.append(ShotError(sid or _shot_at(shots, t), et if et is not None else t, str(e)))
                     seen = len(errs)
                     for e in p.errors:
-                        if "[showreel]" in e:          # console echo of an error already in __sr.errors
+                        if "[auteur]" in e:          # console echo of an error already in __sr.errors
                             continue
                         sid, et = attribute(e, shots)
                         out.errors.append(ShotError(sid or _shot_at(shots, t), t, e))
@@ -356,7 +356,7 @@ def _asset_specs(film: dict[str, Any], page_dir: Path, assets: list[MediaAsset])
 
 
 # The core package is `showreel_core` in a checkout but a sub-package of the plugin when Hermes installs it
-# (e.g. `<plugins pkg>.showreel.showreel_core`): resolve the film layer relative to this package, never by an
+# (e.g. `<plugins pkg>.auteur.showreel_core`): resolve the film layer relative to this package, never by an
 # absolute name (an absolute import failed in every installed copy and was reported as "not in this build").
 _FILM_PKG = (__package__ or "showreel_core.director").rsplit(".", 1)[0] + ".film"
 FILM_IMPORT_ERRORS: dict[str, str] = {}
@@ -383,7 +383,7 @@ def _warn_once(name: str, job_dir: Path | None) -> None:
         return
     _WARNED.add(name)
     import logging
-    logging.getLogger(__name__).warning("showreel director: %s.%s not loaded (%s); skipping that check",
+    logging.getLogger(__name__).warning("auteur director: %s.%s not loaded (%s); skipping that check",
                                         _FILM_PKG, name, why)
 
 

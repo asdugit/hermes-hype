@@ -298,7 +298,7 @@ def test_hermes_llm_adapter_task_fallback_and_images() -> None:
     class Ctx:
         def complete_structured(self, **kw: Any) -> _Res:
             seen.append(kw)
-            if kw["task"] == "showreel":
+            if kw["task"] == "auteur":
                 raise PluginLlmTrustError("slot not registered")
             return _Res('{"a": 1}', {"a": 1})
 
@@ -306,9 +306,9 @@ def test_hermes_llm_adapter_task_fallback_and_images() -> None:
     rep = call(purpose="critic:r1", instructions="i", text="t", images=[Image(b"\x89PNG", "image/png")],
                json_schema={"type": "object"}, schema_name="x")
     assert rep.parsed == {"a": 1} and rep.usage == {"input_tokens": 7, "output_tokens": 3}
-    assert [k["task"] for k in seen] == ["showreel", None]
+    assert [k["task"] for k in seen] == ["auteur", None]
     assert seen[1]["input"][1] == {"type": "image", "data": b"\x89PNG", "mime_type": "image/png"}
-    assert seen[1]["purpose"] == "showreel.critic:r1"
+    assert seen[1]["purpose"] == "auteur.critic:r1"
 
 
 def test_hermes_llm_retries_in_json_mode_after_host_schema_rejection() -> None:

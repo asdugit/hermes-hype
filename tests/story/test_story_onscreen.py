@@ -52,7 +52,7 @@ def _write(i, path, lines):
     ("from pathlib import Path", "python", ""),                                   # an execute_code script
     ("from patchlib import patch", "", ""),                                       # a code line, any shell
     ("python -c \"import x; x.run()\"", "", ""),
-    ("cd ~/work/tempo && SHOWREEL_SLOTS=C:/x ~/work/.venv/Scripts/python.exe -m pytest tests/ -q", "", ""),
+    ("cd ~/work/tempo && AUTEUR_SLOTS=C:/x ~/work/.venv/Scripts/python.exe -m pytest tests/ -q", "", ""),
     ("python -m http.server 8765 --bind 127.0.0.1", "", "python -m http.server 8765"),
     ("cd app && npm install && npm run dev", "", "npm run dev"),
     ("timeout 300 python app.py --port 5000 > log.txt 2>&1 &", "", "python app.py --port 5000"),
@@ -164,11 +164,11 @@ def test_project_root_and_display_forms():
     assert root == "~/work/hermes-app"
     assert display_path("~/work/hermes-app/app/main.py", root) == "app/main.py"
     assert display_path("~/AppData/Local/hermes/cache/scratch/probe.py", root) == "\u2026/scratch/probe.py"
-    cmd = ("cd ~/work/hermes-app && SHOWREEL_RENDER_SLOTS_DIR=C:/Users/x/slots ~/work/.venv-dev/Scripts/python.exe "
+    cmd = ("cd ~/work/hermes-app && AUTEUR_RENDER_SLOTS_DIR=C:/Users/x/slots ~/work/.venv-dev/Scripts/python.exe "
            "-m pytest ~/work/hermes-app/tests/test_main.py -q --durations=10 --maxfail=3 -p no:cacheprovider")
     shown = display_cmd(cmd, root, 64)
     assert shown.startswith("python -m pytest tests/test_main.py -q")
-    assert len(shown) <= 64 and shown.endswith("\u2026") and "~" not in shown and "SHOWREEL" not in shown
+    assert len(shown) <= 64 and shown.endswith("\u2026") and "~" not in shown and "AUTEUR" not in shown
     assert display_cmd("curl -s http://127.0.0.1:8765/api/stats", root) == "curl -s \u2026/api/stats"
     # the rest of the command stays verbatim (';' and pipes keep their meaning); one ellipsis, even for a script
     long = ("cd /d/work/app && node --test < /dev/null 2>&1 | grep -E '^# (tests|pass)'; echo \"--- curl\"; "

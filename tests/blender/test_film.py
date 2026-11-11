@@ -143,7 +143,7 @@ def test_keyframe_times_render_only_needed_frames(tmp_path, media):
 
 
 def test_failure_and_missing_blender(tmp_path, media, monkeypatch):
-    monkeypatch.delenv("SHOWREEL_BLENDER", raising=False)       # hermetic: never find (and run) a real Blender
+    monkeypatch.delenv("AUTEUR_BLENDER", raising=False)       # hermetic: never find (and run) a real Blender
     monkeypatch.setattr("showreel_core.blender.locate.standard_locations", lambda environ=None: [])
     monkeypatch.setattr("showreel_core.blender.locate.shutil.which", lambda name: None)
     film = make_film()
@@ -193,7 +193,7 @@ def test_browser_handoff_mini_film_starts_at_a_later_source_shot(tmp_path, monke
     from types import SimpleNamespace
 
     from showreel_core.film import preview
-    monkeypatch.delenv("SHOWREEL_RENDER_SLOT_DIR", raising=False)
+    monkeypatch.delenv("AUTEUR_RENDER_SLOT_DIR", raising=False)
     seen = {}
 
     async def fake_capture(job, times, *, w, h, gpu=False, **_kw):

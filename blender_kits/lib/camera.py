@@ -1,4 +1,4 @@
-"""Smooth cinematic camera rigs for Showreel Blender scenes (runs inside Blender; the math is pure Python).
+"""Smooth cinematic camera rigs for Auteur Blender scenes (runs inside Blender; the math is pure Python).
 
 Model: a move is a list of **beats** (time, position, target, lens, f-stop, roll). Every channel is a C2 cubic
 spline in *time* through its beats (continuous velocity AND acceleration), so the camera never pops at a beat.

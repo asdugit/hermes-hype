@@ -15,8 +15,8 @@ ASPECT_TAGS = {"16:9": "16x9", "9:16": "9x16", "1:1": "1x1"}
 
 
 def videos_dir() -> Path | None:
-    """``<HERMES_HOME>/cache/generated/videos`` (created), ``$SHOWREEL_VIDEOS_DIR``, or ``None`` outside Hermes."""
-    env = os.environ.get("SHOWREEL_VIDEOS_DIR", "").strip()
+    """``<HERMES_HOME>/cache/generated/videos`` (created), ``$AUTEUR_VIDEOS_DIR``, or ``None`` outside Hermes."""
+    env = os.environ.get("AUTEUR_VIDEOS_DIR", "").strip()
     if env:
         root = Path(env)
     else:
@@ -43,7 +43,7 @@ def deliver(master: Path, *, title: str, job_id: str, aspect: str, dest: Path | 
     root = dest or videos_dir()
     if root is None:
         return Path(master)
-    out = root / f"showreel-{slug(title)}-{job_id[-4:]}-{ASPECT_TAGS.get(aspect, 'film')}{Path(master).suffix}"
+    out = root / f"auteur-{slug(title)}-{job_id[-4:]}-{ASPECT_TAGS.get(aspect, 'film')}{Path(master).suffix}"
     shutil.copy2(master, out)
     return out
 
@@ -55,7 +55,7 @@ def media_lines(paths: dict[str, str]) -> str:
 
 def done_text(job: dict[str, Any], *, media: bool = True) -> str:
     """Final reply: title, length, where the files are, warnings, then the MEDIA lines."""
-    title = job.get("title") or "Your showreel"
+    title = job.get("title") or "Your film"
     dur = job.get("duration_s")
     files = job.get("delivered") or job.get("outputs") or {}
     lines = [f"🎬 {title}" + (f" ({dur:.0f}s)" if isinstance(dur, (int, float)) else "")]
@@ -77,7 +77,7 @@ def failed_text(job: dict[str, Any]) -> str:
     err = job.get("error") or {}
     msg = err.get("message") if isinstance(err, dict) else str(err)
     hint = err.get("hint") if isinstance(err, dict) else ""
-    text = f"🎬 Showreel {job.get('id', '')} failed: {msg or 'unknown error'}"
+    text = f"🎬 Auteur {job.get('id', '')} failed: {msg or 'unknown error'}"
     return text + (f"\n  Hint: {hint}" if hint else "")
 
 
@@ -89,12 +89,12 @@ def progress_text(job: dict[str, Any]) -> str:
     if stage == "failed":
         return failed_text(job)
     if stage == "cancelled":
-        return f"🎬 Showreel {job.get('id', '')} cancelled."
+        return f"🎬 Auteur {job.get('id', '')} cancelled."
     pct = round(float(job.get("pct") or 0) * 100)
     eta = job.get("eta_s")
     eta_txt = f" · ~{_fmt_eta(eta)} left" if isinstance(eta, (int, float)) and eta > 0 else ""
     note = f" · {job['note']}" if job.get("note") else ""
-    return f"🎬 Showreel · {stage} · {pct}%{eta_txt}{note}"
+    return f"🎬 Auteur · {stage} · {pct}%{eta_txt}{note}"
 
 
 def _fmt_eta(seconds: float) -> str:

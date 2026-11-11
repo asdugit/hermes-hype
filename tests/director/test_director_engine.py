@@ -299,7 +299,7 @@ def test_user_revise_with_notes(env: dict[str, Any]) -> None:
 
 def test_pipeline_keyword_entry_with_ctx_llm(env: dict[str, Any]) -> None:
     """The orchestrator calls run(direction=..., llm=<ctx.llm>, options=..., ...)."""
-    replies = {"showreel.treatment": TREATMENT, "showreel.film": FILM, "showreel.critic:r1": critique(9.0)}
+    replies = {"auteur.treatment": TREATMENT, "auteur.film": FILM, "auteur.critic:r1": critique(9.0)}
 
     class Res:
         def __init__(self, text: str, parsed: Any) -> None:
@@ -315,7 +315,7 @@ def test_pipeline_keyword_entry_with_ctx_llm(env: dict[str, Any]) -> None:
         def complete_structured(self, **kw: Any) -> Res:
             self.kwargs.append(kw)
             purpose = kw["purpose"]
-            if purpose.startswith("showreel.scene"):
+            if purpose.startswith("auteur.scene"):
                 return Res(fenced(GOOD_CODE), None)
             obj = replies[purpose]
             return Res(json.dumps(obj), obj)
@@ -334,9 +334,9 @@ def test_pipeline_keyword_entry_with_ctx_llm(env: dict[str, Any]) -> None:
               progress=lambda stage="", frac=0.0, note="", **_: None)
     assert res.ok, res.error
     assert res.film["seed"] == 3
-    critic = next(k for k in ctx_llm.kwargs if k["purpose"] == "showreel.critic:r1")
-    assert critic["task"] == "showreel" and critic["input"][1]["type"] == "image"
+    critic = next(k for k in ctx_llm.kwargs if k["purpose"] == "auteur.critic:r1")
+    assert critic["task"] == "auteur" and critic["input"][1]["type"] == "image"
     assert critic["input"][1]["mime_type"] == "image/jpeg" and isinstance(critic["input"][1]["data"], bytes)
-    scene = next(k for k in ctx_llm.kwargs if k["purpose"].startswith("showreel.scene"))
+    scene = next(k for k in ctx_llm.kwargs if k["purpose"].startswith("auteur.scene"))
     assert "json_schema" not in scene
     assert res.usage["cost_usd"] == round(0.001 * len(ctx_llm.kwargs), 4)

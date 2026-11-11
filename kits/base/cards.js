@@ -1,4 +1,4 @@
-// Showreel kits/base — paper cards: PROBLEM chat bubble, PLAN checklist, MONTAGE tool cards.
+// Auteur kits/base — paper cards: PROBLEM chat bubble, PLAN checklist, MONTAGE tool cards.
 
 import { h, css, cls, ICONS, kindIcon, clock, fitSize } from './dom.js';
 import { seg, ease, clamp, spring } from './motion.js';

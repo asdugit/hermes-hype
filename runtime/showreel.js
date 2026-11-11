@@ -1,4 +1,4 @@
-// Showreel Scene SDK runtime — public entry (SDK.md §3-§6).
+// Auteur Scene SDK runtime — public entry (SDK.md §3-§6).
 //
 //   import { sr } from '../runtime/showreel.js';          // scenes (job/scenes/*.js)
 //   import { sr } from '../../runtime/showreel.js';       // kits (job/kits/<kit>/kit.js)

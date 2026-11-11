@@ -1,4 +1,4 @@
-// Showreel kits/base — product media scenes: HOOK, SCREEN, FEATURE, SCROLL, BEFORE_AFTER, MONTAGE.
+// Auteur kits/base — product media scenes: HOOK, SCREEN, FEATURE, SCROLL, BEFORE_AFTER, MONTAGE.
 
 import { defineDomScene, flatCam, place, fitZoom } from './scene.js';
 import { h, css, fitSize } from './dom.js';

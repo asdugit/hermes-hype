@@ -1,4 +1,4 @@
-// Showreel kit "comic" — art primitives: palette, true halftone screens, sunburst rays, speed lines, burst
+// Auteur kit "comic" — art primitives: palette, true halftone screens, sunburst rays, speed lines, burst
 // balloons, speech tails, silhouette figures (built only from primitive shapes), skyline. Everything is built
 // once in a scene's build() (static art); scenes animate transforms only. Deterministic (seeded mulberry32).
 

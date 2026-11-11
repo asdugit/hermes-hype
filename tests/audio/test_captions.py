@@ -6,11 +6,11 @@ import pytest
 from showreel_core.audio.captions import (LEAD_S, fallback_duration, fallback_timing, phrase_timing, split_phrases,
                                           syllables)
 
-LINE = ("Your agent just built something real. Showreel turns that session into a film: "
+LINE = ("Your agent just built something real. Auteur turns that session into a film: "
         "the code, the diffs, the moment the tests passed.")
 
 
-@pytest.mark.parametrize("word,n", [("agent", 2), ("real", 1), ("Showreel", 2), ("session", 2), ("the", 1),
+@pytest.mark.parametrize("word,n", [("agent", 2), ("real", 1), ("Auteur", 2), ("session", 2), ("the", 1),
                                     ("passed", 1), ("film", 1), ("moment", 2), ("1,247", 5)])
 def test_syllables(word, n):
     assert syllables(word) == n

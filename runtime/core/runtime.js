@@ -1,4 +1,4 @@
-// The Showreel runtime: registries, boot, shot instances, seek/composite, cues, QA and the __sr contract.
+// The Auteur runtime: registries, boot, shot instances, seek/composite, cues, QA and the __sr contract.
 import { ease } from './ease.js';
 import { clamp, fract, keys, lerp, mix, path, remap, seg, shake, smoothstep, spring } from './motion.js';
 import { makeNoise } from './noise.js';
@@ -167,7 +167,7 @@ export class Runtime {
     this.frameErrors.push({ kind: 'error', msg: text, rect: null, shot, src: where });
     if (n === 1 && this.errors.length < MAX_ERRORS) {
       this.errors.push(text);
-      console.error(`[showreel] ${text}`);
+      console.error(`[auteur] ${text}`);
     }
   }
 
@@ -178,7 +178,7 @@ export class Runtime {
       this._res();
     } catch (e) {
       const msg = errText(e);
-      console.error(`[showreel] not ready: ${msg}`);
+      console.error(`[auteur] not ready: ${msg}`);
       this._rej(new Error(msg));
     }
   }

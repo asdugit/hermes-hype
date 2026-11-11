@@ -274,14 +274,14 @@ def judge_job(job: Path, *, model: str = "", provider: str = "") -> dict[str, An
 
 def dev_blender_lock() -> Any:
     """DEV ONLY: blender.lock + a GPU lock around each real Blender run. Both come from the environment only
-    (no machine paths in the repo): ``SHOWREEL_DEV_WORK`` = the dir holding ``blender.lock`` shared with other dev
-    agents, ``SHOWREEL_DEV_GPULOCK_DIR`` = a dir with a ``gpulock.py`` exposing ``gpu(name)``. Unset = no lock."""
+    (no machine paths in the repo): ``AUTEUR_DEV_WORK`` = the dir holding ``blender.lock`` shared with other dev
+    agents, ``AUTEUR_DEV_GPULOCK_DIR`` = a dir with a ``gpulock.py`` exposing ``gpu(name)``. Unset = no lock."""
     import contextlib
     import os
 
     @contextlib.contextmanager
     def held() -> Any:
-        work = os.environ.get("SHOWREEL_DEV_WORK", "").strip()
+        work = os.environ.get("AUTEUR_DEV_WORK", "").strip()
         if not work:
             with _gpu_lock():
                 yield
@@ -300,7 +300,7 @@ def dev_blender_lock() -> Any:
                     pass
                 time.sleep(0.5)       # poll fast: a 10 s poller loses the lock to other agents forever
         with os.fdopen(fd, "w", encoding="utf-8") as f:
-            f.write(f"showreel-engine {os.getpid()} {time.strftime('%Y-%m-%dT%H:%M:%S')}")
+            f.write(f"auteur-engine {os.getpid()} {time.strftime('%Y-%m-%dT%H:%M:%S')}")
         try:
             with _gpu_lock():
                 yield
@@ -310,15 +310,15 @@ def dev_blender_lock() -> Any:
 
 
 def _gpu_lock() -> Any:
-    """The GPU lock from ``SHOWREEL_DEV_GPULOCK_DIR`` (env only), else a no-op."""
+    """The GPU lock from ``AUTEUR_DEV_GPULOCK_DIR`` (env only), else a no-op."""
     import contextlib
     import os
-    gdir = os.environ.get("SHOWREEL_DEV_GPULOCK_DIR", "").strip()
+    gdir = os.environ.get("AUTEUR_DEV_GPULOCK_DIR", "").strip()
     if gdir and Path(gdir, "gpulock.py").is_file():
         if gdir not in sys.path:
             sys.path.insert(0, gdir)
         from gpulock import gpu  # type: ignore[import-not-found]
-        return gpu("showreel-engine")
+        return gpu("auteur-engine")
     return contextlib.nullcontext()
 
 

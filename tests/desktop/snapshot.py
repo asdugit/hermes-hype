@@ -2,13 +2,13 @@
 
 ``SR_SNAPSHOT_DIR=<snap> node render_check.mjs`` writes the markup of key screens. This script wraps each one
 in a page with an approximate Hermes theme (dark or light: the ``--ui-*`` / ``--dt-*`` variables the plugin
-reads, plus look-alike styles for the stub SDK components) and screenshots it with Showreel's own headless
+reads, plus look-alike styles for the stub SDK components) and screenshots it with Auteur's own headless
 Chromium (``showreel_core.render.workers.capture_stills``). Icons are blank (no codicon font) and the core
 video player is a grey box: the real app is the reference; this is for layout and theme checks.
 
     python tests/desktop/snapshot.py <snap dir> <out dir> [dark|light]
 
-On a machine shared by several render agents set SHOWREEL_RENDER_SLOT_DIR to the folder holding the
+On a machine shared by several render agents set AUTEUR_RENDER_SLOT_DIR to the folder holding the
 ``render.slot1..3`` files; one slot is held while Chromium runs.
 """
 from __future__ import annotations
@@ -63,8 +63,8 @@ video[data-fallback]{display:block;width:100%;aspect-ratio:16/9;background:var(-
 
 @contextlib.contextmanager
 def render_slot() -> Iterator[None]:
-    """Hold one ``render.slotN`` file under $SHOWREEL_RENDER_SLOT_DIR while Chromium runs (no-op when unset)."""
-    folder = os.environ.get("SHOWREEL_RENDER_SLOT_DIR", "")
+    """Hold one ``render.slotN`` file under $AUTEUR_RENDER_SLOT_DIR while Chromium runs (no-op when unset)."""
+    folder = os.environ.get("AUTEUR_RENDER_SLOT_DIR", "")
     if not folder:
         yield
         return

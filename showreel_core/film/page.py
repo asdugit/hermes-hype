@@ -261,7 +261,7 @@ def build_job(film: Mapping[str, Any], job_dir: Path, *, kits_root: Path | None 
     (job / "assets" / "manifest.json").write_text(json.dumps(manifest, indent=1, ensure_ascii=False), encoding="utf-8")
     (job / "film.json").write_text(json.dumps(film_n, indent=1, ensure_ascii=False), encoding="utf-8")
     (job / "stage.html").write_text(STAGE_HTML.format(
-        title=html.escape(f"{film_n.get('title') or 'Film'} · Showreel"),
+        title=html.escape(f"{film_n.get('title') or 'Film'} · Auteur"),
         importmap=IMPORTMAP if needs_three else "",
         modules=json.dumps(kit_mods + sorted(scene_mods)),
         fonts=json.dumps(kit_fonts, ensure_ascii=False),

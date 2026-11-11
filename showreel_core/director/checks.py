@@ -163,7 +163,7 @@ def check_film(obj: Any, brief: Brief, catalog: Catalog, *, max_custom: int) -> 
     dur = float(brief.seconds)
     w, h = brief.size
     film.update({"version": 1, "fps": brief.fps, "size": [w, h], "dur": dur, "seed": brief.seed})
-    film.setdefault("title", brief.product.name if brief.product and brief.product.name else "Showreel")
+    film.setdefault("title", brief.product.name if brief.product and brief.product.name else "Auteur")
     film.setdefault("background", "#000")
 
     shots = _check_shots(film, dur, errors, warnings)

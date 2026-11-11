@@ -2,7 +2,7 @@
 
 ``Options`` is what one film is made with; it is persisted in ``job.json`` (SPEC 3.8) and
 shared by the slash command, the agent tools, the CLI and the Desktop pane. ``Settings`` are
-the user's defaults from ``plugins.entries.showreel.settings`` (see ``plugin.yaml``).
+the user's defaults from ``plugins.entries.auteur.settings`` (see ``plugin.yaml``).
 """
 from __future__ import annotations
 
@@ -95,14 +95,14 @@ class Options:
     preview: bool = False                  # 540p15 preview preset
     redact: bool = True
     direction: str = ""                    # free text -> Directed mode
-    notes: str = ""                        # /showreel revise <notes>
+    notes: str = ""                        # /auteur revise <notes>
     brief: dict[str, Any] = field(default_factory=dict)   # agent product brief {name, url, one_liner, features}
     workers: int | None = None             # max parallel render workers (None = auto)
     voice_speed: float | None = None       # narration pace override (None = the style's voice_speed)
     hints: dict[str, Any] = field(default_factory=dict)   # parse hints for the Director (style words in text...)
     explicit: list[str] = field(default_factory=list)     # option names the user set explicitly
     engine_3d: str = "browser"             # 3D shots: browser (three.js) | blender (user's Blender) | auto
-    blender_path: str = ""                 # explicit Blender executable (else SHOWREEL_BLENDER / PATH / standard)
+    blender_path: str = ""                 # explicit Blender executable (else AUTEUR_BLENDER / PATH / standard)
 
     @property
     def directed(self) -> bool:
@@ -145,7 +145,7 @@ class Options:
 
 @dataclass
 class Settings:
-    """User defaults from ``config_schema`` (``plugins.entries.showreel.settings.*``)."""
+    """User defaults from ``config_schema`` (``plugins.entries.auteur.settings.*``)."""
     default_style: str = DEFAULT_STYLE
     default_seconds: int = 60
     aspect: str = "16:9"                   # 16:9 | 9:16 | both | 1:1
@@ -192,7 +192,7 @@ def load_settings(get_config: Callable[[str, Any], Any] | None = None) -> Settin
 
 
 def settings_from_hermes_config() -> Settings:
-    """Settings without a plugin ``ctx`` (dashboard API): ``plugins.entries.showreel.settings`` in config.yaml.
+    """Settings without a plugin ``ctx`` (dashboard API): ``plugins.entries.auteur.settings`` in config.yaml.
 
     Read-only; defaults when not inside Hermes or the file cannot be read.
     """
@@ -200,7 +200,7 @@ def settings_from_hermes_config() -> Settings:
         import yaml  # Hermes core dependency
         from hermes_constants import get_hermes_home  # public, lazy
         raw = yaml.safe_load((Path(get_hermes_home()) / "config.yaml").read_text(encoding="utf-8")) or {}
-        entry = ((raw.get("plugins") or {}).get("entries") or {}).get("showreel") or {}
+        entry = ((raw.get("plugins") or {}).get("entries") or {}).get("auteur") or {}
         values = entry.get("settings") or entry.get("config") or {}
     except Exception:  # noqa: BLE001
         return Settings()

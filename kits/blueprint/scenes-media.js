@@ -1,4 +1,4 @@
-// Showreel kit "blueprint" — media scenes: HOOK, SCREEN, FEATURE, SCROLL, BEFORE_AFTER. A capture is drawn as a
+// Auteur kit "blueprint" — media scenes: HOOK, SCREEN, FEATURE, SCROLL, BEFORE_AFTER. A capture is drawn as a
 // dimensioned view: the frame plots with its real pixel size, the screenshot is traced as line art by the pen and
 // then develops like a cyanotype exposure into the real colours; detail circles + detail zooms for focus regions.
 

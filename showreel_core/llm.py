@@ -18,8 +18,8 @@ from typing import Any
 
 log = logging.getLogger(__name__)
 
-PLUGIN = "showreel"
-AUX_TASK = "showreel"
+PLUGIN = "auteur"
+AUX_TASK = "auteur"
 
 Dispatch = Callable[..., str]
 
@@ -68,7 +68,7 @@ class JsonModeLlm:
                 if not _json_mode_refused(exc):
                     raise
                 JsonModeLlm.plain_only = True
-                log.info("showreel: the model route refused JSON mode (%s); using plain-text JSON replies", exc)
+                log.info("auteur: the model route refused JSON mode (%s); using plain-text JSON replies", exc)
         return self._llm.complete_structured(**kwargs)
 
     def __getattr__(self, name: str) -> Any:
@@ -102,7 +102,7 @@ class Host:
         try:
             self.broadcast(event, payload)
         except Exception as exc:  # noqa: BLE001 - UI push is best effort
-            log.debug("showreel event %s failed: %s", event, exc)
+            log.debug("auteur event %s failed: %s", event, exc)
 
 
 def _broadcaster() -> Callable[[str, dict[str, Any]], Any] | None:
@@ -119,7 +119,7 @@ def host_from_ctx(ctx: Any, *, surface: str = "") -> Host:
         try:
             return ctx.llm
         except Exception as exc:  # noqa: BLE001 - PluginLlm import can fail on odd installs
-            log.warning("showreel: ctx.llm unavailable (%s); using the heuristic storyboard", exc)
+            log.warning("auteur: ctx.llm unavailable (%s); using the heuristic storyboard", exc)
             return None
 
     dispatch: Any = getattr(ctx, "dispatch_tool", None)
@@ -132,7 +132,7 @@ def _registry_dispatch() -> Dispatch | None:
     try:
         from tools.registry import registry  # public, lazy
     except Exception as exc:  # noqa: BLE001
-        log.info("showreel: tools.registry unavailable (%s); captions only", exc)
+        log.info("auteur: tools.registry unavailable (%s); captions only", exc)
         return None
 
     def dispatch(name: str, args: dict[str, Any], **kw: Any) -> str:
@@ -148,7 +148,7 @@ def standalone_host() -> Host:
         from agent.plugin_llm import PluginLlm  # public facade, lazy
         llm = PluginLlm(plugin_id=PLUGIN)
     except Exception as exc:  # noqa: BLE001
-        log.info("showreel: PluginLlm unavailable outside ctx (%s)", exc)
+        log.info("auteur: PluginLlm unavailable outside ctx (%s)", exc)
     return Host(llm=llm, dispatch=_registry_dispatch(), broadcast=_broadcaster(), surface="desktop", label="dashboard")
 
 
@@ -190,7 +190,7 @@ def tts_speed_conflict(requested: float, tts_config: dict[str, Any] | None = Non
     if provider in _SECTION_SPEED_WINS and section.get("speed") not in (None, ""):
         return (f"tts.{provider}.speed={section['speed']} in config.yaml overrides the per-call speed "
                 f"x{requested:g} (Hermes reads the provider speed first), so this style's narration pace is "
-                f"not applied; remove tts.{provider}.speed to let Showreel set the pace")
+                f"not applied; remove tts.{provider}.speed to let Auteur set the pace")
     return None
 
 
@@ -217,7 +217,7 @@ def edge_tts_problem(provider: str | None = None, version: str | None = None) ->
     """Why Hermes' Edge narration will fail on this install, or ``None``.
 
     Microsoft's endpoint rejects edge-tts older than 7.3 with HTTP 403 (``WSServerHandshakeError``), so a
-    Hermes venv that still pins 7.2.x narrates nothing. Showreel never upgrades packages in the Hermes venv;
+    Hermes venv that still pins 7.2.x narrates nothing. Auteur never upgrades packages in the Hermes venv;
     it says so and makes a captions-only film. ``version`` lets tests pass the installed version.
     """
     provider = provider or tts_provider()

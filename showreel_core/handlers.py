@@ -1,4 +1,4 @@
-"""Hermes-facing handlers: the ``/showreel`` command, the agent tools, the CLI and unload.
+"""Hermes-facing handlers: the ``/auteur`` command, the agent tools, the CLI and unload.
 
 Imported by ``register()``; it only pulls in light stdlib modules at import time. The pipeline,
 session reader, renderer and audio stack are imported when a film is actually made.
@@ -36,14 +36,14 @@ TOOL_WAIT_S = 270.0                 # the tool deadline is 420 s; keep a margin 
 TOOL_WAIT_MAX_S = 330.0
 
 RENDER_SCHEMA: dict[str, Any] = {
-    "name": "showreel_render",
+    "name": "auteur_render",
     "description": (
         "Make a finished, narrated promo video of what was built in this session (a launch trailer for the "
         "product, with real code, terminal output, screenshots and stats from the session as proof). Use it when "
         "the user asks for a video, trailer, demo reel or showreel of the work. Presets: mode x style (7 styles). "
         "To change a preset use customize/knobs; for a film unlike any preset use direction (the Director). "
         "Returns JSON with media_tag (MEDIA:<path>) when the film is ready; long renders return status "
-        "'rendering' and a job_id for showreel_status. Runs locally (Chromium + ffmpeg); a 30-60 s preset takes "
+        "'rendering' and a job_id for auteur_status. Runs locally (Chromium + ffmpeg); a 30-60 s preset takes "
         "2-8 minutes, a Directed film 5-30."),
     "parameters": {
         "type": "object",
@@ -53,7 +53,7 @@ RENDER_SCHEMA: dict[str, Any] = {
                                     "speedrun = the build as a speedrun with split timer."},
             "style": {"type": "string",
                       "description": "Preset look: launch (default), cinematic, pixel, terminal, blueprint, comic, "
-                                     "ink. showreel_status styles=true lists what this build has."},
+                                     "ink. auteur_status styles=true lists what this build has."},
             "seconds": {"type": "integer", "minimum": MIN_SECONDS, "maximum": MAX_SECONDS,
                         "description": "Target length in seconds (30, 60 or 90 work best)."},
             "aspect": {"type": "string", "enum": ["16:9", "9:16", "both", "1:1"],
@@ -91,14 +91,14 @@ RENDER_SCHEMA: dict[str, Any] = {
 _cz.extend_schema(RENDER_SCHEMA)  # adds `customize` (free text) + `knobs` (W5)
 
 STATUS_SCHEMA: dict[str, Any] = {
-    "name": "showreel_status",
-    "description": ("Check a Showreel film job: stage, progress, ETA, and media_tag (MEDIA:<path>) once it is done. "
+    "name": "auteur_status",
+    "description": ("Check an Auteur film job: stage, progress, ETA, and media_tag (MEDIA:<path>) once it is done. "
                     "Without job_id it reports this session's latest film. styles=true lists the 7 styles (launch, "
                     "cinematic, pixel, terminal, blueprint, comic, ink) with their blurbs."),
     "parameters": {
         "type": "object",
         "properties": {
-            "job_id": {"type": "string", "description": "Job id from showreel_render (optional)."},
+            "job_id": {"type": "string", "description": "Job id from auteur_render (optional)."},
             "styles": {"type": "boolean", "description": "Also list the available styles."},
         },
         "additionalProperties": False,
@@ -134,7 +134,7 @@ def _store() -> JobStore:
         from .pipeline import running_ids
         store.mark_stale(active_ids=set(running_ids()))
     except Exception as exc:  # noqa: BLE001
-        log.debug("showreel stale-job sweep failed: %s", exc)
+        log.debug("auteur stale-job sweep failed: %s", exc)
     return store
 
 
@@ -162,18 +162,18 @@ def _cancel_job(job_id: str, store: JobStore) -> bool:
 # ------------------------------------------------------------------------- slash command
 
 def make_slash_handler(ctx: Any) -> Any:
-    """The ``/showreel`` handler (sync; gets ``session_id``/``platform`` through ``**kwargs``)."""
-    def showreel(raw_args: str = "", **kwargs: Any) -> str:
+    """The ``/auteur`` handler (sync; gets ``session_id``/``platform`` through ``**kwargs``)."""
+    def auteur(raw_args: str = "", **kwargs: Any) -> str:
         try:
             return slash(ctx, raw_args, **kwargs)
         except Exception as exc:
-            log.exception("showreel command failed")
-            return f"🎬 Showreel hit an internal error: {type(exc).__name__}: {exc}"
-    return showreel
+            log.exception("auteur command failed")
+            return f"🎬 Auteur hit an internal error: {type(exc).__name__}: {exc}"
+    return auteur
 
 
 def slash(ctx: Any, raw_args: str = "", *, session_id: str = "", platform: str = "", **_: Any) -> str:
-    """Handle one ``/showreel`` invocation and return the reply text."""
+    """Handle one ``/auteur`` invocation and return the reply text."""
     settings = _settings(ctx)
     cmd = parse(raw_args, styles=style_ids(), base=settings.options())
     prefix = "".join(f"{m}\n" for m in cmd.messages)
@@ -187,17 +187,17 @@ def slash(ctx: Any, raw_args: str = "", *, session_id: str = "", platform: str =
     if cmd.action == "cancel":
         return prefix + _cancel_text(store, cmd.job_ref, session_id)
     if not session_id:
-        return "🎬 Nothing to film yet: chat with Hermes first (build something), then run /showreel."
+        return "🎬 Nothing to film yet: chat with Hermes first (build something), then run /auteur."
     busy = [j for j in store.running(session_id) if j.get("stage") not in TERMINAL]
     if busy:
         from .deliver import progress_text
-        return (f"🎬 A showreel is already in progress ({busy[0]['id']}):\n{progress_text(busy[0])}\n"
-                "Use /showreel status or /showreel cancel.")
+        return (f"🎬 A film is already in progress ({busy[0]['id']}):\n{progress_text(busy[0])}\n"
+                "Use /auteur status or /auteur cancel.")
     opts, parent = cmd.options, ""
     if cmd.action == "revise":
         last = next((j for j in store.list(session_id) if j.get("stage") == "done"), None)
         if last is None:
-            return prefix + "🎬 There is no finished showreel in this session to revise yet. Run /showreel first."
+            return prefix + "🎬 There is no finished auteur in this session to revise yet. Run /auteur first."
         notes = opts.notes
         opts = Options.from_dict(last.get("options"))
         opts.notes = notes
@@ -212,18 +212,18 @@ def start_film(ctx: Any, store: JobStore, session_id: str, opts: Options, *, sur
     from .pipeline import run_job, start_background
     job = store.create(session_id, opts.to_dict(), kind="directed" if opts.directed else "quick", surface=surface,
                        parent=parent)
-    handle = _post(ctx, f"🎬 Showreel {job['id']}: starting · {describe(opts)}")
+    handle = _post(ctx, f"🎬 Auteur {job['id']}: starting · {describe(opts)}")
     host = _host(ctx, surface)
     if surface in BACKGROUND_SURFACES:
         start_background(job["id"], host, store=store, handle=handle)
-        where = "the Showreel pane" if surface == "desktop" else "the status line"
-        return (f"🎬 Making your showreel ({describe(opts)}). Progress shows in {where}; "
-                f"/showreel status any time, /showreel cancel to stop. Job {job['id']}.")
+        where = "the Auteur pane" if surface == "desktop" else "the status line"
+        return (f"🎬 Making your film ({describe(opts)}). Progress shows in {where}; "
+                f"/auteur status any time, /auteur cancel to stop. Job {job['id']}.")
     final = run_job(job["id"], host, store=store, handle=handle)
     if final.get("stage") == "done":
         return done_text(final, media=True)
     if final.get("stage") == "cancelled":
-        return f"🎬 Showreel {job['id']} cancelled."
+        return f"🎬 Auteur {job['id']} cancelled."
     return failed_text(final)
 
 
@@ -231,7 +231,7 @@ def _status_text(store: JobStore, ref: str, session_id: str) -> str:
     from .deliver import done_text, progress_text
     job = store.find(ref, session_id or None)
     if job is None:
-        return "🎬 No showreel yet in this session. Run /showreel to make one."
+        return "🎬 No film yet in this session. Run /auteur to make one."
     text = done_text(job, media=False) if job.get("stage") == "done" else progress_text(job)
     return f"{text}\n  job {job['id']} · {describe(Options.from_dict(job.get('options')))}"
 
@@ -240,7 +240,7 @@ def _cancel_text(store: JobStore, ref: str, session_id: str) -> str:
     targets = [store.find(ref, session_id or None)] if ref else store.running(session_id or None)
     targets = [j for j in targets if j and j.get("stage") not in TERMINAL]
     if not targets:
-        return "🎬 Nothing to cancel: no showreel is rendering."
+        return "🎬 Nothing to cancel: no film is rendering."
     done = [j["id"] for j in targets if _cancel_job(j["id"], store)]
     return f"🎬 Cancelling {', '.join(done)}…" if done else "🎬 Could not cancel (already finished?)."
 
@@ -292,23 +292,23 @@ def _result(job: dict[str, Any], **extra: Any) -> dict[str, Any]:
 
 
 def render_tool(ctx: Any, args: dict[str, Any] | None, **kwargs: Any) -> str:
-    """``showreel_render`` handler: start a film, wait up to the budget, return JSON (never raises)."""
+    """``auteur_render`` handler: start a film, wait up to the budget, return JSON (never raises)."""
     try:
         args = args if isinstance(args, dict) else {}
         session_id = str(kwargs.get("session_id") or "")
         if not session_id:
-            return json.dumps({"success": False, "error": "showreel_render needs a session (none was given)."})
+            return json.dumps({"success": False, "error": "auteur_render needs a session (none was given)."})
         store = _store()
         busy = store.running(session_id)
         if busy:
             return json.dumps(_result(busy[0], success=False,
-                                      error="A showreel is already rendering for this session; use showreel_status."))
+                                      error="A film is already rendering for this session; use auteur_status."))
         opts = _tool_options(ctx, args)
         job = store.create(session_id, opts.to_dict(), kind="directed" if opts.directed else "quick",
                            surface="tool")
         done = threading.Event()
         from .pipeline import start_background
-        handle = _post(ctx, f"🎬 Showreel {job['id']}: starting · {describe(opts)}")
+        handle = _post(ctx, f"🎬 Auteur {job['id']}: starting · {describe(opts)}")
         start_background(job["id"], _host(ctx, "tool"), store=store, handle=handle, on_done=lambda _f: done.set())
         try:
             wait = float(args.get("wait_seconds", TOOL_WAIT_S))
@@ -326,14 +326,14 @@ def render_tool(ctx: Any, args: dict[str, Any] | None, **kwargs: Any) -> str:
             return json.dumps(_result(final), default=str)
         return json.dumps(_result(final, message=(
             f"Still rendering ({round(100 * float(final.get('pct') or 0))}%). It keeps going in the background; "
-            f"call showreel_status with job_id={job['id']} to get the MEDIA path when it is done.")), default=str)
+            f"call auteur_status with job_id={job['id']} to get the MEDIA path when it is done.")), default=str)
     except Exception as exc:
-        log.exception("showreel_render failed")
+        log.exception("auteur_render failed")
         return json.dumps({"success": False, "error": f"{type(exc).__name__}: {exc}"})
 
 
 def status_tool(ctx: Any, args: dict[str, Any] | None, **kwargs: Any) -> str:
-    """``showreel_status`` handler (never raises)."""
+    """``auteur_status`` handler (never raises)."""
     try:
         args = args if isinstance(args, dict) else {}
         out: dict[str, Any] = {}
@@ -342,7 +342,7 @@ def status_tool(ctx: Any, args: dict[str, Any] | None, **kwargs: Any) -> str:
         store = _store()
         job = store.find(str(args.get("job_id") or ""), str(kwargs.get("session_id") or "") or None)
         if job is None:
-            out.update(success=bool(out), status="none", message="No showreel job found for this session.")
+            out.update(success=bool(out), status="none", message="No film job found for this session.")
         else:
             out.update(_result(job))
             out["log"] = [e.get("msg") for e in public_view(job, 8)["log"]]
@@ -354,9 +354,9 @@ def status_tool(ctx: Any, args: dict[str, Any] | None, **kwargs: Any) -> str:
 # ----------------------------------------------------------------------------------- CLI
 
 def cli_setup(parser: Any) -> None:
-    """``hermes showreel render|styles|doctor|status`` argument tree."""
-    sub = parser.add_subparsers(dest="showreel_cmd")
-    r = sub.add_parser("render", help="make a showreel of a session")
+    """``hermes auteur render|styles|doctor|status`` argument tree."""
+    sub = parser.add_subparsers(dest="auteur_cmd")
+    r = sub.add_parser("render", help="make a film of a session")
     r.add_argument("--session", default="latest", help="session id, prefix or 'latest'")
     r.add_argument("--style", default=None)
     r.add_argument("--seconds", type=int, default=None)
@@ -392,7 +392,7 @@ def make_cli_handler(ctx: Any) -> Any:
 
 def cli(ctx: Any, args: Any) -> int:
     """Run one CLI subcommand; returns the process exit code."""
-    which = getattr(args, "showreel_cmd", None) or "help"
+    which = getattr(args, "auteur_cmd", None) or "help"
     if which == "styles":
         print(styles_text(discover_styles()))
         return 0
@@ -406,7 +406,7 @@ def cli(ctx: Any, args: Any) -> int:
         print(_status_text(store, getattr(args, "job", ""), ""))
         return 0
     if which != "render":
-        print("usage: hermes showreel render|styles|doctor|status  (hermes showreel render --help)")
+        print("usage: hermes auteur render|styles|doctor|status  (hermes auteur render --help)")
         return 2
     from .session import resolve_session_ref
     sid = resolve_session_ref(args.session) or ""
@@ -431,7 +431,7 @@ def cli(ctx: Any, args: Any) -> int:
     opts = opts.normalised()
     _ensure_builtin_tools()
     job = store.create(sid, opts.to_dict(), kind="directed" if opts.directed else "quick", surface="cli")
-    print(f"showreel {job['id']}: {describe(opts)} (session {sid})", flush=True)
+    print(f"auteur {job['id']}: {describe(opts)} (session {sid})", flush=True)
 
     class _Echo:
         ok = True
@@ -451,12 +451,12 @@ def cli(ctx: Any, args: Any) -> int:
 
 
 def _ensure_builtin_tools() -> None:
-    """The bare ``hermes showreel`` CLI has no agent loaded; make ``text_to_speech`` dispatchable."""
+    """The bare ``hermes auteur`` CLI has no agent loaded; make ``text_to_speech`` dispatchable."""
     try:
         from tools.registry import discover_builtin_tools  # public, lazy
         discover_builtin_tools()
     except Exception as exc:  # noqa: BLE001 - narration then falls back to captions
-        log.debug("showreel: builtin tool discovery failed: %s", exc)
+        log.debug("auteur: builtin tool discovery failed: %s", exc)
 
 
 # -------------------------------------------------------------------------------- unload
@@ -467,13 +467,13 @@ def on_unload() -> None:
         from .pipeline import cancel_all
         ids = cancel_all(wait_s=3.0)
         if ids:
-            log.info("showreel: cancelled %s on unload", ", ".join(ids))
+            log.info("auteur: cancelled %s on unload", ", ".join(ids))
     except Exception as exc:  # noqa: BLE001
-        log.debug("showreel unload: %s", exc)
+        log.debug("auteur unload: %s", exc)
 
 
 def skill_path() -> Path:
-    return Path(__file__).resolve().parents[1] / "skills" / "showreel" / "SKILL.md"
+    return Path(__file__).resolve().parents[1] / "skills" / "auteur" / "SKILL.md"
 
 
 __all__ = ["RENDER_SCHEMA", "STATUS_SCHEMA", "Command", "cli", "cli_setup", "make_cli_handler",

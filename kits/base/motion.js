@@ -1,4 +1,4 @@
-// Showreel kits/base — motion maths shared by every kit scene.
+// Auteur kits/base — motion maths shared by every kit scene.
 // Everything here is a pure function of its arguments (no clocks, no global state), so scenes stay
 // pure functions of t as SDK §3 requires. Times are seconds.
 

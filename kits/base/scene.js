@@ -1,4 +1,4 @@
-// Showreel kits/base — the single import point of the runtime + the DOM scene wrapper used by all kits.
+// Auteur kits/base — the single import point of the runtime + the DOM scene wrapper used by all kits.
 // (If the runtime entry moves, only this file changes.)
 import { sr } from '../../runtime/showreel.js';
 import { BASE_CSS } from './css.js';

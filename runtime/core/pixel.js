@@ -1,9 +1,9 @@
 // ctx.pixel: helpers for crisp pixel-art surfaces (palettes, string sprites, blits, 1-bit text, dithering).
 import { drawText, parseColor } from './text.js';
 
-/** Built-in palettes (authored for Showreel, CC0). */
+/** Built-in palettes (authored for Auteur, CC0). */
 export const PALETTES = {
-  // "Showreel Dusk 32" — the pixel style-frame palette.
+  // "Auteur Dusk 32" — the pixel style-frame palette.
   dusk32: {
     ink: '#0d0b1e', night: '#1b1a3a', navy: '#262b5e', royal: '#34489c', blue: '#4a7bd1', sky: '#79b8ef',
     ice: '#c1e8ff', white: '#fdfcf5', plumdk: '#2e1d47', plum: '#4b2c6b', violet: '#75468f', lilac: '#a971b4',

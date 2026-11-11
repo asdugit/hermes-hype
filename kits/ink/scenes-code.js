@@ -1,4 +1,4 @@
-// Showreel kit "ink" — work pages: CODE and DIFF on a legal pad, TERMINAL on the little machine, MONTAGE as index
+// Auteur kit "ink" — work pages: CODE and DIFF on a legal pad, TERMINAL on the little machine, MONTAGE as index
 // cards pegged on a clothesline.
 
 import { inkScene } from './lib/page.js';

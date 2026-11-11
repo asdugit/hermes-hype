@@ -1,4 +1,4 @@
-// Showreel kit "launch" — panel scenes on the table: PROBLEM, PLAN, CODE, DIFF, TERMINAL.
+// Auteur kit "launch" — panel scenes on the table: PROBLEM, PLAN, CODE, DIFF, TERMINAL.
 
 import { launchScene, camTrack, fitRect, nodeIn, pushTrack, panelWires, backdropPanel } from './stage.js';
 import { codeBlock, diffBlock } from '../base/code.js';

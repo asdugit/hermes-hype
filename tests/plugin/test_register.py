@@ -22,8 +22,8 @@ MANIFEST = yaml.safe_load((ROOT / "plugin.yaml").read_text(encoding="utf-8"))
 
 @pytest.fixture
 def env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
-    monkeypatch.setenv("SHOWREEL_DATA_DIR", str(tmp_path / "data"))
-    monkeypatch.setenv("SHOWREEL_VIDEOS_DIR", str(tmp_path / "videos"))
+    monkeypatch.setenv("AUTEUR_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("AUTEUR_VIDEOS_DIR", str(tmp_path / "videos"))
     return {"store": JobStore(tmp_path / "data"), "tmp": tmp_path}
 
 
@@ -35,13 +35,13 @@ def test_register_registers_everything_quickly() -> None:
     t0 = time.perf_counter()
     plugin.register(ctx)
     assert time.perf_counter() - t0 < 2.0
-    assert set(ctx.commands) == {"showreel"}
-    assert ctx.commands["showreel"]["argument_mode"] == "text" and ctx.commands["showreel"]["args_hint"]
-    assert set(ctx.tools) == set(plugin.TOOLS) == {"showreel_render", "showreel_status"}
-    assert all(t["toolset"] == "showreel" for t in ctx.tools.values())
-    assert set(ctx.cli) == {"showreel"} and set(ctx.aux) == {"showreel"}
-    assert ctx.aux["showreel"]["defaults"] == {"timeout": 120}
-    assert ctx.skills["showreel"]["path"].is_file() and len(ctx.unload) == 1
+    assert set(ctx.commands) == {"auteur"}
+    assert ctx.commands["auteur"]["argument_mode"] == "text" and ctx.commands["auteur"]["args_hint"]
+    assert set(ctx.tools) == set(plugin.TOOLS) == {"auteur_render", "auteur_status"}
+    assert all(t["toolset"] == "auteur" for t in ctx.tools.values())
+    assert set(ctx.cli) == {"auteur"} and set(ctx.aux) == {"auteur"}
+    assert ctx.aux["auteur"]["defaults"] == {"timeout": 120}
+    assert ctx.skills["auteur"]["path"].is_file() and len(ctx.unload) == 1
 
 
 def test_register_does_not_import_the_heavy_stack() -> None:
@@ -62,12 +62,12 @@ def test_manifest_matches_registrations() -> None:
     plugin = load_plugin()
     ctx = FakeCtx()
     plugin.register(ctx)
-    assert MANIFEST["name"] == "showreel" and MANIFEST["manifest_version"] == 2
+    assert MANIFEST["name"] == "auteur" and MANIFEST["manifest_version"] == 2
     assert sorted(MANIFEST["provides_tools"]) == sorted(ctx.tools)
     assert MANIFEST["provides_hooks"] == list(plugin.HOOKS) == []
     assert MANIFEST["requires_hermes"] == ">=0.22.5"
     assert MANIFEST["license"] == "AGPL-3.0-or-later"
-    assert MANIFEST["homepage"] == "https://github.com/asdugit/hermes-showreel"
+    assert MANIFEST["homepage"] == "https://github.com/asdugit/hermes-auteur"
     assert isinstance(MANIFEST["version"], str)
 
 
@@ -88,14 +88,14 @@ def test_config_schema_matches_settings() -> None:
 
 
 def test_customize_setting_is_read(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """``plugins.entries.showreel.settings.customize`` (declared in plugin.yaml) feeds the knob defaults."""
+    """``plugins.entries.auteur.settings.customize`` (declared in plugin.yaml) feeds the knob defaults."""
     import sys
     import types
 
     from showreel_core.customize import hook
 
     (tmp_path / "config.yaml").write_text(
-        "plugins:\n  entries:\n    showreel:\n      settings:\n        customize: \"accent=#ff4fa3 energy=high\"\n",
+        "plugins:\n  entries:\n    auteur:\n      settings:\n        customize: \"accent=#ff4fa3 energy=high\"\n",
         encoding="utf-8")
     fake = types.ModuleType("hermes_constants")
     fake.get_hermes_home = lambda: tmp_path  # type: ignore[attr-defined]
@@ -108,10 +108,10 @@ def test_dashboard_manifest_and_skill() -> None:
     dash = json.loads((ROOT / "dashboard" / "manifest.json").read_text(encoding="utf-8"))
     assert dash["name"] == MANIFEST["name"] and dash["version"] == MANIFEST["version"]
     assert (ROOT / "dashboard" / dash["api"]).is_file()
-    skill = (ROOT / "skills" / "showreel" / "SKILL.md").read_text(encoding="utf-8")
+    skill = (ROOT / "skills" / "auteur" / "SKILL.md").read_text(encoding="utf-8")
     front = yaml.safe_load(skill.split("---")[1])
-    assert front["name"] == "showreel" and front["description"].startswith("Use when")
-    assert "showreel_render" in skill and "MEDIA:" in skill
+    assert front["name"] == "auteur" and front["description"].startswith("Use when")
+    assert "auteur_render" in skill and "MEDIA:" in skill
 
 
 def test_tool_schemas_are_valid_function_schemas() -> None:
@@ -139,7 +139,7 @@ def test_tool_schemas_name_every_style_and_channel_and_stay_small() -> None:
 
 def _fake_run(store: JobStore, stage: str = "done") -> Any:
     def run_job(job_id: str, host: Any, *, store: JobStore = store, deps: Any = None, handle: Any = None) -> dict:
-        out = Path(store.job_dir(job_id)) / "showreel_16x9.mp4"
+        out = Path(store.job_dir(job_id)) / "auteur_16x9.mp4"
         out.write_bytes(b"fake")
         fields: dict[str, Any] = {"stage": stage, "title": "Focusfox", "duration_s": 30.0}
         if stage == "done":
@@ -155,7 +155,7 @@ def test_slash_blocking_surfaces_reply_with_media(env: dict[str, Any], monkeypat
     monkeypatch.setattr(pl, "run_job", _fake_run(env["store"]))
     ctx = FakeCtx(surface="telegram")
     reply = handlers.make_slash_handler(ctx)("pixel 30 vertical", session_id="sess-9", platform="telegram")
-    assert "Focusfox" in reply and re.search(r"^MEDIA:.+showreel_16x9\.mp4$", reply, re.MULTILINE)
+    assert "Focusfox" in reply and re.search(r"^MEDIA:.+auteur_16x9\.mp4$", reply, re.MULTILINE)
     job = env["store"].latest("sess-9")
     assert job["options"]["style"] == "pixel" and job["options"]["aspects"] == ["9:16"]
     assert job["surface"] == "telegram" and ctx.posted and "starting" in ctx.posted[0].texts[0]
@@ -176,7 +176,7 @@ def test_slash_background_surfaces_answer_immediately(env: dict[str, Any], monke
     monkeypatch.setattr(pl, "start_background", lambda job_id, host, **kw: started.append(job_id))
     monkeypatch.setattr(pl, "run_job", lambda *a, **k: pytest.fail("must not block on " + surface))
     reply = handlers.slash(FakeCtx(surface=surface), "lore", session_id="s1")
-    assert started and started[0] in reply and "Making your showreel" in reply
+    assert started and started[0] in reply and "Making your film" in reply
 
 
 def test_slash_needs_a_session_and_refuses_a_second_render(env: dict[str, Any],
@@ -191,11 +191,11 @@ def test_slash_needs_a_session_and_refuses_a_second_render(env: dict[str, Any],
 
 def test_slash_actions(env: dict[str, Any], monkeypatch: pytest.MonkeyPatch) -> None:
     ctx = FakeCtx()
-    assert "Usage: /showreel" in handlers.slash(ctx, "help")
+    assert "Usage: /auteur" in handlers.slash(ctx, "help")
     assert "launch" in handlers.slash(ctx, "styles")
-    assert "No showreel yet" in handlers.slash(ctx, "status", session_id="s1")
+    assert "No film yet" in handlers.slash(ctx, "status", session_id="s1")
     assert "Nothing to cancel" in handlers.slash(ctx, "cancel", session_id="s1")
-    assert "no finished showreel" in handlers.slash(ctx, "revise more product", session_id="s1")
+    assert "no finished auteur" in handlers.slash(ctx, "revise more product", session_id="s1")
     job = env["store"].create("s1", {"style": "pixel"})
     assert job["id"] in handlers.slash(ctx, "status", session_id="s1")
     assert "Cancelling" in handlers.slash(ctx, "cancel", session_id="s1")
@@ -254,7 +254,7 @@ def test_render_tool_returns_early_when_the_budget_runs_out(env: dict[str, Any],
     t0 = time.monotonic()
     out = json.loads(handlers.render_tool(FakeCtx(), {"wait_seconds": 0}, session_id="s1"))
     assert time.monotonic() - t0 < 2.0
-    assert out["success"] and out["status"] == "queued" and "showreel_status" in out["message"]
+    assert out["success"] and out["status"] == "queued" and "auteur_status" in out["message"]
     st = json.loads(handlers.status_tool(FakeCtx(), {"job_id": out["job_id"]}))
     assert st["job_id"] == out["job_id"] and st["status"] == "queued"
 
@@ -269,14 +269,14 @@ def test_tools_never_raise(env: dict[str, Any]) -> None:
 # ----------------------------------------------------------------------------------- CLI
 
 def test_cli_parser_and_styles(env: dict[str, Any], capsys: pytest.CaptureFixture[str]) -> None:
-    parser = argparse.ArgumentParser(prog="hermes showreel")
+    parser = argparse.ArgumentParser(prog="hermes auteur")
     handlers.cli_setup(parser)
     args = parser.parse_args(["render", "--session", "latest", "--style", "pixel", "--seconds", "30",
                               "--aspect", "both", "--no-voice"])
-    assert (args.showreel_cmd, args.style, args.seconds, args.aspect, args.no_voice) == \
+    assert (args.auteur_cmd, args.style, args.seconds, args.aspect, args.no_voice) == \
         ("render", "pixel", 30, "both", True)
     assert handlers.make_cli_handler(FakeCtx())(parser.parse_args(["styles"])) == 0
-    assert "Showreel styles" in capsys.readouterr().out
+    assert "Auteur styles" in capsys.readouterr().out
     assert handlers.cli(FakeCtx(), parser.parse_args(["status"])) == 0
 
 
@@ -297,7 +297,7 @@ def test_unload_cancels_running_jobs(env: dict[str, Any], monkeypatch: pytest.Mo
 ])
 def test_cli_render_engine_3d(env: dict[str, Any], monkeypatch: pytest.MonkeyPatch, argv: list[str],
                               engine: str) -> None:
-    """`hermes showreel render --blender` / `--engine-3d` / "use blender" in --direction reach job.options."""
+    """`hermes auteur render --blender` / `--engine-3d` / "use blender" in --direction reach job.options."""
     import showreel_core.pipeline as pl
     import showreel_core.session as sess
     seen: list[dict[str, Any]] = []
@@ -309,7 +309,7 @@ def test_cli_render_engine_3d(env: dict[str, Any], monkeypatch: pytest.MonkeyPat
         seen.append(job["options"])
         return store.update(job_id, stage="failed", error={"code": "x", "message": "stub"}) or job
     monkeypatch.setattr(pl, "run_job", fake_run)
-    parser = argparse.ArgumentParser(prog="hermes showreel")
+    parser = argparse.ArgumentParser(prog="hermes auteur")
     handlers.cli_setup(parser)
     assert handlers.cli(FakeCtx(), parser.parse_args(["render", "--seconds", "30", *argv])) == 1
     assert seen and seen[0]["engine_3d"] == engine and seen[0]["seconds"] == 30

@@ -47,7 +47,7 @@ def test_media_only_capture_numbers_events_after_the_session(tmp_path):
     seen = []
     evs = capture_product(Product(kind="media"), session, tmp_path / "cap", progress=lambda *a: seen.append(a))
     [ev] = evs
-    assert ev.id == "e10" and ev.t == 12.5 and ev.kind == "product_capture" and ev.tool == "showreel_capture"
+    assert ev.id == "e10" and ev.t == 12.5 and ev.kind == "product_capture" and ev.tool == "auteur_capture"
     d = ev.data
     assert d["kind"] == "image" and d["target_kind"] == "image" and d["viewport"] == [960, 540]
     assert d["full_page"] is False and d["page_title"] == "car.png" and d["source_ids"] == ["e1"]

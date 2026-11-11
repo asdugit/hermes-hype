@@ -39,8 +39,8 @@ def demo(tmp_path: Path):
 
 @pytest.fixture(scope="session")
 def render_slot() -> Iterator[None]:
-    """Hold a shared render slot when SHOWREEL_RENDER_SLOT_DIR is set (dev machines with several agents)."""
+    """Hold a shared render slot when AUTEUR_RENDER_SLOT_DIR is set (dev machines with several agents)."""
     from showreel_core.film.preview import render_slot as slot
 
-    with slot(os.environ.get("SHOWREEL_RENDER_SLOT_DIR"), "pytest-film"):
+    with slot(os.environ.get("AUTEUR_RENDER_SLOT_DIR"), "pytest-film"):
         yield

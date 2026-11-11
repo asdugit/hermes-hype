@@ -1,6 +1,6 @@
 """Runtime integration (Chromium): demo film dry-run, QA detection, error capture, determinism probe, preview.
 
-Opt in with ``pytest --runslow``. Set SHOWREEL_RENDER_SLOT_DIR to share render slots on a busy machine.
+Opt in with ``pytest --runslow``. Set AUTEUR_RENDER_SLOT_DIR to share render slots on a busy machine.
 """
 from __future__ import annotations
 

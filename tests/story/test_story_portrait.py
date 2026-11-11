@@ -14,7 +14,7 @@ URL = "http://127.0.0.1:8765/"
 
 
 def _cap(i, kind, size, label):
-    return Event(f"e{i}", 600.0 + i, "product_capture", "showreel_capture", f"Tempo · {label}", "",
+    return Event(f"e{i}", 600.0 + i, "product_capture", "auteur_capture", f"Tempo · {label}", "",
                  {"path": f"cap/{kind}_{i}.png", "url": URL, "kind": kind, "size": size, "label": label,
                   "page_title": "Tempo"}, weight=0.8)
 

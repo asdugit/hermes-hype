@@ -46,7 +46,7 @@ SCHEMA = {"type": "object", "properties": {"title": {"type": "string"}}, "requir
 def test_json_mode_proxy_moves_the_schema_into_the_prompt() -> None:
     inner = RecordingLlm(SimpleNamespace(text='{"title": "Tempo"}', parsed={"title": "Tempo"}, content_type="json"))
     res = JsonModeLlm(inner).complete_structured(instructions="Write it.", input=[], json_schema=SCHEMA,
-                                                 schema_name="sb", task="showreel")
+                                                 schema_name="sb", task="auteur")
     call = inner.calls[0]
     assert "json_schema" not in call and call["json_mode"] is True and call["schema_name"] == "sb"
     assert call["instructions"].startswith("Write it.") and json.dumps(SCHEMA, sort_keys=True) in call["instructions"]

@@ -138,10 +138,10 @@ def test_prune_work(store: JobStore) -> None:
     (d / "chunks_16x9" / "c0.mp4").write_bytes(b"x")
     (d / "mix_16x9").mkdir()
     (d / "mix_16x9" / "mix_stem_voice.wav").write_bytes(b"x")
-    (d / "showreel_16x9.mp4").write_bytes(b"x")
+    (d / "auteur_16x9.mp4").write_bytes(b"x")
     store.prune_work(job["id"])
     assert not (d / "chunks_16x9").exists() and not (d / "mix_16x9" / "mix_stem_voice.wav").exists()
-    assert (d / "showreel_16x9.mp4").exists()
+    assert (d / "auteur_16x9.mp4").exists()
 
 
 def test_concurrent_logs_and_reads_never_corrupt(store: JobStore) -> None:

@@ -1,4 +1,4 @@
-// Showreel kit "launch" — the lit graphite table world: a look-at camera written as one matrix3d from t,
+// Auteur kit "launch" — the lit graphite table world: a look-at camera written as one matrix3d from t,
 // paper panels placed as nodes (hinge tilt, height above the table), projected contact shadows,
 // connectors with travelling pulses, and a JS project() that matches what Chromium draws.
 // All state is recomputed from t by the scene; nothing accumulates across frames.

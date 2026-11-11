@@ -1,4 +1,4 @@
-// Showreel kit "blueprint" — transitions. Drawings never crossfade: `sheet-slide` (the next sheet slides in over the
+// Auteur kit "blueprint" — transitions. Drawings never crossfade: `sheet-slide` (the next sheet slides in over the
 // old one with a hairline edge shadow; the old sheet shifts a little and dims) and `plot-wipe` (a vertical pen line
 // sweeps across, revealing the next sheet behind it). Both are 'css' transitions (DOM shots); lines on tx.g.
 

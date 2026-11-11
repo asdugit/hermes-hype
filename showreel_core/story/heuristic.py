@@ -885,7 +885,7 @@ def _has_digits(text: str) -> bool:
     return any(ch.isdigit() for ch in text)
 
 
-_STOPWORDS = {"with", "when", "that", "this", "from", "your", "into", "page", "full", "view", "showreel", "capture"}
+_STOPWORDS = {"with", "when", "that", "this", "from", "your", "into", "page", "full", "view", "auteur", "capture"}
 
 
 def _content_words(text: str) -> set[str]:

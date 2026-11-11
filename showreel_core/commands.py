@@ -1,4 +1,4 @@
-"""``/showreel`` argument parsing (free word order) and the human replies of the non-render actions.
+"""``/auteur`` argument parsing (free word order) and the human replies of the non-render actions.
 
 Grammar (any order): ``[lore|bts|process|making-of|speedrun|any%] [<style>] [30|60|90|45s|"60 seconds"]
 [vertical|9:16|both|square] [mute|no-voice] [quick|standard|max] [preview]`` plus the flags of the spec
@@ -7,7 +7,7 @@ First-word actions: ``styles``, ``status [job]``, ``cancel [job]``, ``revise <no
 
 Anything that is not an option makes the film **Directed**: the whole text goes to the Director as
 the user's direction, and options recognised at the start or end of it still apply
-(``/showreel pixel but transition into a different style mid way through`` -> directed, style pixel).
+(``/auteur pixel but transition into a different style mid way through`` -> directed, style pixel).
 Option words inside the free text are only *hints* (a style named mid-sentence, ``60 seconds``,
 ``vertical``), so ordinary words such as "the 90s" or "the product" never change settings.
 """
@@ -25,7 +25,7 @@ from .contracts import MODE_ALIASES
 
 ACTIONS = {"styles": "styles", "status": "status", "cancel": "cancel", "revise": "revise",
            "help": "help", "-h": "help", "--help": "help", "?": "help"}
-#: Most words an action may take before the text counts as a direction ("/showreel help me sell it").
+#: Most words an action may take before the text counts as a direction ("/auteur help me sell it").
 _ACTION_MAX_WORDS = {"styles": 1, "help": 1, "status": 2, "cancel": 2, "revise": 10_000}
 _VOICE_OFF = {"mute", "muted", "silent", "no-voice", "novoice", "no-vo", "captions", "captions-only", "no-narration",
               "--no-voice", "--mute", "--captions"}
@@ -33,7 +33,7 @@ _VOICE_ON = {"voice", "narrated", "--voice"}
 _ASPECT_WORDS = {"vertical", "portrait", "9:16", "both", "horizontal", "landscape", "16:9", "wide", "square", "1:1"}
 _STRONG_ASPECTS = {"vertical", "9:16", "16:9", "1:1"}
 _PREVIEW = {"preview", "draft", "--preview"}
-#: 3D engine words (edge tokens): ``/showreel pixel 60 blender``. Inside free text, see blender.trigger.
+#: 3D engine words (edge tokens): ``/auteur pixel 60 blender``. Inside free text, see blender.trigger.
 _ENGINE_WORDS = {"blender": "blender", "--blender": "blender", "--no-blender": "browser", "no-blender": "browser",
                  "--browser": "browser", "--engine-auto": "auto"}
 _FINAL = {"final", "--final"}
@@ -51,20 +51,20 @@ _VALUE_FLAGS = {"--seconds": "seconds", "--length": "seconds", "--duration": "se
                 "--mode": "mode", "--effort": "effort", "--aspect": "aspect", "--engine": "engine_3d"}
 
 HELP = (
-    "Usage: /showreel [lore|speedrun] [style] [30|60|90] [vertical|both] [mute] [quick|standard|max] [blender]\n"
-    "  /showreel                      product trailer of what this session built (default)\n"
-    "  /showreel lore                 the making-of story · /showreel speedrun  the build as a speedrun\n"
-    "  /showreel pixel 60 vertical    style + length + 9:16 · add 'mute' for captions only\n"
-    "  /showreel <any direction>      Directed film, e.g. /showreel pixel, then bloom into anime, sell it\n"
-    "  /showreel revise <notes>       another pass on the last film with your notes\n"
+    "Usage: /auteur [lore|speedrun] [style] [30|60|90] [vertical|both] [mute] [quick|standard|max] [blender]\n"
+    "  /auteur                      product trailer of what this session built (default)\n"
+    "  /auteur lore                 the making-of story · /auteur speedrun  the build as a speedrun\n"
+    "  /auteur pixel 60 vertical    style + length + 9:16 · add 'mute' for captions only\n"
+    "  /auteur <any direction>      Directed film, e.g. /auteur pixel, then bloom into anime, sell it\n"
+    "  /auteur revise <notes>       another pass on the last film with your notes\n"
     "  add 'blender' (or say 'use blender') to render the 3D shots in your own Blender\n"
-    "  /showreel styles | status | cancel"
+    "  /auteur styles | status | cancel"
 )
 
 
 @dataclass
 class Command:
-    """A parsed ``/showreel`` invocation."""
+    """A parsed ``/auteur`` invocation."""
     action: str = "render"            # render | styles | status | cancel | revise | help
     options: Options = field(default_factory=Options)
     job_ref: str = ""                 # status/cancel target (job id or prefix)
@@ -224,7 +224,7 @@ def _apply_hint(opts: Options, t: _Tok) -> None:
 
 
 def parse(raw: str | None, *, styles: Iterable[str] = (), base: Options | None = None) -> Command:
-    """Parse ``/showreel`` arguments into a :class:`Command`. Never raises.
+    """Parse ``/auteur`` arguments into a :class:`Command`. Never raises.
 
     ``styles`` are the accepted style ids (``config.style_ids()``); ``base`` carries the user's
     settings defaults. Any free text makes the film Directed (``options.direction`` = the full text).
@@ -242,7 +242,7 @@ def parse(raw: str | None, *, styles: Iterable[str] = (), base: Options | None =
             if action == "revise":
                 opts.notes = rest
                 if not rest:
-                    cmd.messages.append("Add your notes after 'revise', e.g. /showreel revise slower start, more product.")
+                    cmd.messages.append("Add your notes after 'revise', e.g. /auteur revise slower start, more product.")
             elif action in ("status", "cancel"):
                 cmd.job_ref = rest.split(" ")[0] if rest else ""
             return cmd
@@ -306,13 +306,13 @@ def describe(opts: Options) -> str:
 
 
 def styles_text(styles: dict[str, Any]) -> str:
-    """Reply for ``/showreel styles``: ready styles first, then names this build cannot render yet."""
+    """Reply for ``/auteur styles``: ready styles first, then names this build cannot render yet."""
     ready = [s for s in styles.values() if getattr(s, "ready", False)]
     later = [s for s in styles.values() if not getattr(s, "ready", False)]
-    lines = ["Showreel styles:"]
+    lines = ["Auteur styles:"]
     for s in sorted(ready, key=lambda s: s.id):
         lines.append(f"  {s.id:<10} {s.blurb}".rstrip())
     if later:
         lines.append("Not in this build yet (falls back to launch): " + ", ".join(sorted(s.id for s in later)))
-    lines.append("Use: /showreel <style> [30|60|90] [vertical|both] [mute], or describe any look you want.")
+    lines.append("Use: /auteur <style> [30|60|90] [vertical|both] [mute], or describe any look you want.")
     return "\n".join(lines)

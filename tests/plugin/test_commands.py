@@ -1,4 +1,4 @@
-"""``/showreel`` argument parsing: free word order, actions, Directed free text and hints."""
+"""``/auteur`` argument parsing: free word order, actions, Directed free text and hints."""
 from __future__ import annotations
 
 import pytest
@@ -155,7 +155,7 @@ def test_never_raises_on_garbage() -> None:
 
 
 def test_texts() -> None:
-    assert "/showreel" in HELP
+    assert "/auteur" in HELP
     o = Options(style="pixel", mode="speedrun", seconds=60, aspects=["16:9", "9:16"], voice=False).normalised()
     assert describe(o) == "pixel speedrun · 60s · 16:9 + 9:16 · captions only"
     txt = styles_text({"launch": StyleInfo("launch", blurb="Premium", ready=True),

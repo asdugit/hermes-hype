@@ -1,4 +1,4 @@
-// Showreel kit "comic" — product media pages: HOOK (splash), SCREEN, FEATURE, SCROLL, BEFORE_AFTER. Screenshots are
+// Auteur kit "comic" — product media pages: HOOK (splash), SCREEN, FEATURE, SCROLL, BEFORE_AFTER. Screenshots are
 // printed into the panels (colour halftone first, the real pixels grow in through the dot screen).
 
 import { comicScene, snapIn } from './lib/page.js';

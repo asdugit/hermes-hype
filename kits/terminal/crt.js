@@ -1,4 +1,4 @@
-// Showreel kit "terminal" — text-mode toolkit: character-grid strings (box-drawing panes, dot leaders, soft
+// Auteur kit "terminal" — text-mode toolkit: character-grid strings (box-drawing panes, dot leaders, soft
 // wrap), typing / printing cadences, cursor blink, the block-letter logo face and the phosphor palettes.
 // Everything is a pure function of its arguments (no clocks); scenes derive all state from shot time t.
 

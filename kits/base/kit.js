@@ -1,4 +1,4 @@
-// Showreel kit "base": style-neutral DOM implementations of all 15 storyboard scene types
+// Auteur kit "base": style-neutral DOM implementations of all 15 storyboard scene types
 // (kit:base/<TYPE>), driven only by theme tokens. Style kits re-skin it with a theme stylesheet
 // (registerTheme) and may override individual scene types. Building blocks are exported for other kits.
 

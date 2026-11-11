@@ -1,4 +1,4 @@
-"""Routing: which engine a ``/showreel`` request goes to.
+"""Routing: which engine a ``/auteur`` request goes to.
 
 The rule (docs/CUSTOMIZE.md):
 

@@ -1,6 +1,6 @@
 # Credits and third-party notices
 
-Showreel is © 2026 asdugit and the Showreel contributors, licensed AGPL-3.0-or-later (see `LICENSE`).
+Auteur is © 2026 asdugit and the Auteur contributors, licensed AGPL-3.0-or-later (see `LICENSE`).
 Everything not listed below is original to this repository.
 
 ## Bundled third-party code
@@ -39,10 +39,10 @@ publicly documented behaviour of the 2A03 sound chip.
 
 Pixel sprites, scene art, the ink robot, comic panels and every other visual in the kits are drawn in code in
 this repository. Style previews (`assets/previews/`) and the README media (`docs/media/`, `docs/screenshots/`)
-were rendered by Showreel itself. The products shown in them are test media made for this project: the red car
+were rendered by Auteur itself. The products shown in them are test media made for this project: the red car
 is an original procedural three.js model, and "Focusfox" and "Tiny Todo" are synthetic sample apps.
 
 ## Runtime tools (not bundled)
 
-Showreel drives tools you already have: Chromium (Hermes-managed or your installed Chrome/Edge), ffmpeg
+Auteur drives tools you already have: Chromium (Hermes-managed or your installed Chrome/Edge), ffmpeg
 (Hermes-managed or yours) and, optionally, your own Blender. None of them is bundled or downloaded by the plugin.

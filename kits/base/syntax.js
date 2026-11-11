@@ -1,4 +1,4 @@
-// Showreel kits/base — a tiny per-line syntax tokenizer for CODE / DIFF panels.
+// Auteur kits/base — a tiny per-line syntax tokenizer for CODE / DIFF panels.
 // Returns [[cls, text], ...] with cls in: '' (plain), 'k' keyword, 's' string, 'c' comment,
 // 'n' number, 'f' defined name, 'p' punctuation-ish operators. Themes colour these via .tk-* classes.
 

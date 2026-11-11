@@ -256,7 +256,7 @@ def flipped_assets(page_dir: Path, names: Iterable[str], cache_dir: Path) -> dic
 
             def one(p: Path, src: Path = src, dst: Path = dst) -> None:
                 flip_image(p, dst / p.relative_to(src))
-            with ThreadPoolExecutor(max_workers=4, thread_name_prefix="showreel-flip") as pool:
+            with ThreadPoolExecutor(max_workers=4, thread_name_prefix="auteur-flip") as pool:
                 list(pool.map(one, files))
             done.write_text("ok", encoding="utf-8")
         out[name] = dst

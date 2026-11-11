@@ -1,4 +1,4 @@
-// Showreel kits/base — type-led scenes: TITLE, STATS, CALLOUT, END.
+// Auteur kits/base — type-led scenes: TITLE, STATS, CALLOUT, END.
 
 import { defineDomScene, flatCam, place, centerBox } from './scene.js';
 import { h, css, fitSize } from './dom.js';
@@ -182,11 +182,11 @@ defineDomScene('kit:base/CALLOUT', CALLOUT_DEF);
 
 // ------------------------------------------------------------------------------------- END
 export const END_DEF = {
-  describe: 'End card (thumbnail frame): title lockup, CTA command pill, URL and the "made with Hermes · Showreel" credit; speedrun adds the PB time.',
+  describe: 'End card (thumbnail frame): title lockup, CTA command pill, URL and the "made with Hermes · Auteur" credit; speedrun adds the PB time.',
   params: {
     ...COMMON,
     title: { type: 'string', default: '', doc: 'product name' }, cta: { type: 'string', default: '', doc: 'command or link to try it' },
-    url: { type: 'string', default: '', doc: 'repo / site URL' }, credit: { type: 'string', default: 'made with Hermes \u00b7 Showreel', doc: 'small credit line' },
+    url: { type: 'string', default: '', doc: 'repo / site URL' }, credit: { type: 'string', default: 'made with Hermes \u00b7 Auteur', doc: 'small credit line' },
     tagline: { type: 'string', default: '', doc: 'optional line under the title' },
     pb_display: { type: 'string', default: '', doc: 'speedrun final time (shown as PB)' },
   },

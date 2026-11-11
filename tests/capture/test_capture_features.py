@@ -50,7 +50,7 @@ def test_strip_crop_rule():
 
 
 def test_element_crop_shape_comes_from_its_pixels():
-    ev = Event("e44", 1.0, "product_capture", "showreel_capture", "Tempo · Stats", "", {
+    ev = Event("e44", 1.0, "product_capture", "auteur_capture", "Tempo · Stats", "", {
         "path": "x/element_02_stats.png", "url": "http://127.0.0.1:8765/", "viewport": [1440, 900],
         "kind": "element", "size": [2096, 626], "dpr": 2.0})
     img = image_of(ev)
@@ -59,7 +59,7 @@ def test_element_crop_shape_comes_from_its_pixels():
 
 def test_portrait_twin_is_the_phone_capture_of_the_same_page():
     def cap(i, kind, size, url="http://127.0.0.1:8765/"):
-        return Event(f"e{i}", 1.0, "product_capture", "showreel_capture", kind, "", {
+        return Event(f"e{i}", 1.0, "product_capture", "auteur_capture", kind, "", {
             "path": f"x/{kind}_{i}.png", "url": url, "kind": kind, "size": size})
     desk, full, elem = cap(1, "viewport", [1440, 900]), cap(2, "full", [1440, 2400]), cap(3, "element", [976, 1336])
     mob, mob_full = cap(4, "mobile", [780, 1688]), cap(5, "mobile_full", [780, 3200])

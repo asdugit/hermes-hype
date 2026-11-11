@@ -1,4 +1,4 @@
-// Showreel kit "ink" — transitions (css kind: they work on DOM shots; tx.g is an overlay canvas above both).
+// Auteur kit "ink" — transitions (css kind: they work on DOM shots; tx.g is an overlay canvas above both).
 //  kit:ink/ink-bleed    the next scene bleeds in through an organic ink blot that spreads from a point, with a
 //                       wet ink rim and a few seeded droplets running ahead of the edge.
 //  kit:ink/paper-slide  the next paper sheet is slid in over the current one by hand (a slight turn that settles,

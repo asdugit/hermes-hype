@@ -23,7 +23,7 @@ SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 LOOPBACK_ALIASES = ("127.0.0.1", "localhost", "[::1]")
 
 POLICY_DISCLOSURE = (
-    "Showreel's capture browser loads only the product's own origin (plus data:/blob:). Every other host is "
+    "Auteur's capture browser loads only the product's own origin (plus data:/blob:). Every other host is "
     "blocked by request interception and by disabling DNS for all other names; write requests (POST/PUT/PATCH/"
     "DELETE) are blocked so capturing never changes your app's data. It never starts servers or runs commands. "
     "With allow_network, public https pages that appeared in the session may be opened and pages may load "

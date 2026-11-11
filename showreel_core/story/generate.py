@@ -81,7 +81,7 @@ class _Candidate:
     result: ValidationResult | None       # auto-fixed storyboard when the JSON was schema-valid
 
 
-def hermes_llm(ctx_llm: Any, task: str | None = "showreel") -> LlmCall:
+def hermes_llm(ctx_llm: Any, task: str | None = "auteur") -> LlmCall:
     """Adapt ``ctx.llm`` (``PluginLlm``) to :class:`LlmCall`; exceptions become ``LlmReply.error``.
 
     If the auxiliary ``task`` slot is refused (not registered), retries once on the
@@ -91,7 +91,7 @@ def hermes_llm(ctx_llm: Any, task: str | None = "showreel") -> LlmCall:
              temperature: float, max_tokens: int, timeout: float) -> LlmReply:
         kwargs = dict(instructions=instructions, input=[{"type": "text", "text": input_text}],  # noqa: C408
                       json_schema=json_schema, schema_name=schema_name, temperature=temperature,
-                      max_tokens=max_tokens, timeout=timeout, purpose="showreel.storyboard")
+                      max_tokens=max_tokens, timeout=timeout, purpose="auteur.storyboard")
         for slot in ([task, None] if task else [None]):
             try:
                 res = ctx_llm.complete_structured(**kwargs, task=slot)

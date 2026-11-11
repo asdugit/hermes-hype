@@ -1,4 +1,4 @@
-"""Read models for the Showreel Desktop pane (stdlib + optional Pillow; no FastAPI, no core imports).
+"""Read models for the Auteur Desktop pane (stdlib + optional Pillow; no FastAPI, no core imports).
 
 ``plugin_api.py`` loads this file by path and calls these functions from the thread pool. Everything
 here reads files a job or the Director already wrote: job records, ``<job>/director/`` artefacts
@@ -518,17 +518,17 @@ _MODE_LINES = {
 def post_text(job: dict[str, Any], tagline: str = "", logline: str = "") -> str:
     """A ready-to-post caption for the finished film (≤ 280 characters where the title allows)."""
     opts = job.get("options") or {}
-    title = clip(job.get("title") or "My showreel", 60)
+    title = clip(job.get("title") or "My film", 60)
     directed = bool(str(opts.get("direction") or "").strip()) or job.get("kind") == "directed"
     style = str(opts.get("style") or "").strip()
     dur = job.get("duration_s") or opts.get("seconds")
-    tail = "\n\n#HermesAgent #Showreel"
+    tail = "\n\n#HermesAgent #Auteur"
     if directed:
-        body = "Directed from one line of text with /showreel in Hermes Agent."
+        body = "Directed from one line of text with /auteur in Hermes Agent."
         hook = logline or tagline
     else:
         body = _MODE_LINES.get(str(opts.get("mode") or "product"), _MODE_LINES["product"])
-        made = "Made with /showreel" + (f" ({style}, {round(float(dur))} s)." if style and dur else ".")
+        made = "Made with /auteur" + (f" ({style}, {round(float(dur))} s)." if style and dur else ".")
         body = f"{body} {made}"
         hook = tagline
     head = f"{title}: {hook}" if hook else title

@@ -1,4 +1,4 @@
-// Showreel kit "ink" — drawing primitives: palette, seeded Rough.js outlines (deterministic: every call passes a
+// Auteur kit "ink" — drawing primitives: palette, seeded Rough.js outlines (deterministic: every call passes a
 // seed derived from a stable key), clean fills with the outline offset by the print misregistration, draw-on
 // strokes (pathLength = 1, dashoffset driven by t), pictograms, sparkles, arrows, marker loops, ticks and the small
 // motion helpers every ink scene shares. Art is built once in build(); render(t) only writes transforms/opacity/

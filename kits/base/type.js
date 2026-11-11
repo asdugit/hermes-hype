@@ -1,4 +1,4 @@
-// Showreel kits/base — stage typography blocks: kinetic lines, count-up numerals, quotes, CTA pill.
+// Auteur kits/base — stage typography blocks: kinetic lines, count-up numerals, quotes, CTA pill.
 // Shared by base scenes, style kits and the type overlay kit.
 
 import { h, css, words, pickEmphasis, ICONS } from './dom.js';

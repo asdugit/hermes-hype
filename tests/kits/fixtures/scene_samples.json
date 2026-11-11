@@ -32,8 +32,8 @@
   "BEFORE_AFTER": {"before": {"kind": "terminal", "cmd": "pytest tests/test_export.py -q", "output": ["F......", "E   IndexError: list index out of range", "1 failed, 6 passed in 0.22s"], "truncated_top": false, "exit_code": 1, "elapsed_s": 0.9, "ok": false, "tests_passed": false}, "after": {"kind": "terminal", "cmd": "pytest tests/test_export.py -q", "output": [".......", "7 passed in 0.20s"], "truncated_top": false, "exit_code": 0, "elapsed_s": 0.8, "ok": true, "tests_passed": true}},
   "BEFORE_AFTER_img": {"before": {"kind": "image", "asset": "home", "path": "assets/focusfox_home.png", "w": 1440, "h": 900, "url": "http://localhost:3000"}, "after": {"kind": "image", "asset": "dark", "path": "assets/focusfox_dark.png", "w": 1440, "h": 900, "url": "http://localhost:3000/?theme=dark"}},
   "CALLOUT": {"text": "Refunds now net out against the purchase they undo.", "who": "agent", "ref": "e19"},
-  "END": {"title": "Focusfox", "cta": "npx serve focusfox", "url": "github.com/example/focusfox", "credit": "made with Hermes \u00b7 Showreel"},
-  "END_speedrun": {"title": "Tally", "cta": "python -m tally summary samples/", "url": "", "credit": "made with Hermes \u00b7 Showreel", "pb_time_s": 2843, "pb_display": "47:23"},
+  "END": {"title": "Focusfox", "cta": "npx serve focusfox", "url": "github.com/example/focusfox", "credit": "made with Hermes \u00b7 Auteur"},
+  "END_speedrun": {"title": "Tally", "cta": "python -m tally summary samples/", "url": "", "credit": "made with Hermes \u00b7 Auteur", "pb_time_s": 2843, "pb_display": "47:23"},
   "FEATURE": {"image": {"asset": "home", "path": "assets/focusfox_home.png", "w": 1440, "h": 900, "url": "http://localhost:3000", "full_page": false, "page_title": "Focusfox", "source_kind": "product_capture"}, "feature": "Timer with start and pause", "bbox": [0.15, 0.27, 0.27, 0.53], "click": [0.241, 0.75]},
   "SCROLL": {"image": {"asset": "full", "path": "assets/focusfox_full.png", "w": 1440, "h": 2240, "url": "http://localhost:3000", "full_page": true, "page_title": "Focusfox", "source_kind": "product_capture"}, "scroll": [0.0, 1.0]}
 }

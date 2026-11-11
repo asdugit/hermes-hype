@@ -13,7 +13,7 @@ class StoryOptions:
 
     ``seconds`` is the target film length (30/60/90 typical, 15..180 accepted),
     ``style`` a style-pack id, ``aspect`` "16:9" or "9:16", ``mode`` "product" (launch
-    trailer for what was built; default), "making_of" (``/showreel lore``: the build story
+    trailer for what was built; default), "making_of" (``/auteur lore``: the build story
     is the hero) or "speedrun" (the build as a speedrun with milestone splits); command
     aliases like "lore" are accepted. ``voice`` says whether narration will be spoken
     (captions-only films still get narration text for captions); ``brief`` is an

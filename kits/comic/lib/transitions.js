@@ -1,4 +1,4 @@
-// Showreel kit "comic" — transitions (css kind: they work on DOM shots; tx.g is an overlay canvas above both).
+// Auteur kit "comic" — transitions (css kind: they work on DOM shots; tx.g is an overlay canvas above both).
 //  kit:comic/page-turn   the page lifts at the bottom-right corner and turns over to the left; the back of the
 //                        page (newsprint) and the curl shadow are painted on the overlay.
 //  kit:comic/splat-iris  the next page bursts open through a jagged explosion balloon with a heavy ink rim.

@@ -3,7 +3,7 @@
 Each scene renders 2 frames (first + last) at a tiny preview resolution in both aspects on synthetic UI captures
 (PIL-drawn): the build must not raise, frames must decode and not be blank,
 and device screens must show the capture's exact colours in the frame (Standard view, no tone shift).
-Needs Blender >= 4.2 (SHOWREEL_BLENDER or the usual locations; skipped otherwise). Dev-PC locks: devguard.py.
+Needs Blender >= 4.2 (AUTEUR_BLENDER or the usual locations; skipped otherwise). Dev-PC locks: devguard.py.
 """
 from __future__ import annotations
 
@@ -53,7 +53,7 @@ def _render(blender, tmp_path, scene: str, aspect: str, assets: dict, product: s
     job = runner.make_job(kc.KITS / f"{scene}.py", tmp_path / scene.replace("/", "_") / aspect.replace(":", "x"),
                           dur=dur, fps=30, res=RES[aspect], params=params or {}, tier="preview",
                           frames=[1, int(dur * 30)], assets=assets, product=product)
-    r = runner.run_job(job, blender, lock=lambda: dev_lock("showreel-kit-tests"), min_free_gb=min_free_gb(),
+    r = runner.run_job(job, blender, lock=lambda: dev_lock("auteur-kit-tests"), min_free_gb=min_free_gb(),
                        timeout_s=300)
     assert r.ok, (r.error, r.traceback[-2000:] if r.traceback else "", r.log)
     return [runner.frame_path(job, f) for f in (1, int(dur * 30))]

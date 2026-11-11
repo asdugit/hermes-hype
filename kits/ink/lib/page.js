@@ -1,4 +1,4 @@
-// Showreel kit "ink" — the page: warm paper with a procedural texture (grain tile + soft mottling, generated once
+// Auteur kit "ink" — the page: warm paper with a procedural texture (grain tile + soft mottling, generated once
 // per page size as PNG data URLs and shown as plain <img>/background layers, decoded in setup), a printed vignette,
 // and the hand-held camera (2D transform: gentle drift, slow pushes along PCHIP keys). inkScene() registers a
 // kit:ink scene with the same contract as kit:base defineDomScene plus an async setup that awaits image decodes.

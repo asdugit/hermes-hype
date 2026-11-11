@@ -1,4 +1,4 @@
-// Showreel kit "launch" — scene scaffold: every kit:launch scene is a base content block placed on the lit
+// Auteur kit "launch" — scene scaffold: every kit:launch scene is a base content block placed on the lit
 // table world, shot by a PCHIP look-at camera, with screen-space kinetic type on top.
 
 import { defineDomScene } from '../base/scene.js';

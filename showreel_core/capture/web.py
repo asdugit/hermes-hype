@@ -1,4 +1,4 @@
-"""Capture a web product with Showreel's own headless Chromium.
+"""Capture a web product with Auteur's own headless Chromium.
 
 Per page (a reachable URL, or a local HTML file served read-only over loopback):
 

@@ -1,4 +1,4 @@
-// Showreel kit "terminal" — box-drawn panes on the character grid: terminal run, code listing, unified diff,
+// Auteur kit "terminal" — box-drawn panes on the character grid: terminal run, code listing, unified diff,
 // plus odometer drums. Each builder returns {el, cols, rows, update(t), cues, ...}; update re-renders the pane's
 // HTML from t (the DOM is only touched when the visible text changes).
 

@@ -1,13 +1,13 @@
 """On-screen hygiene for films made from a stranger's session.
 
-A judge runs ``/showreel`` on their own session, so a Quick film must never print:
+A judge runs ``/auteur`` on their own session, so a Quick film must never print:
 
 * a "run command" that is really a line of code: a real END card read ``from pathlib import Path`` (the first
   line of an ``execute_code`` script). The END command comes only from the product - its launch/install
   commands (:func:`launch_command`, :func:`install_command`) - and otherwise the END shows no command;
 * a loopback / dev-server address (``Open it at localhost``, ``127.0.0.1:8765``): :func:`scrub_text`,
   :func:`scrub_film`;
-* machine paths and shell noise (``cd ~/work/app && SHOWREEL_X=1 ~/.venv/Scripts/python.exe ...``):
+* machine paths and shell noise (``cd ~/work/app && AUTEUR_X=1 ~/.venv/Scripts/python.exe ...``):
   :func:`display_cmd` / :func:`display_path` give the project-relative form.
 
 Pure functions over strings and events; the story stage, the timeline and the Quick film all use them.

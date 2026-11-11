@@ -1,7 +1,7 @@
 """Deterministic customization knobs: ``key=value`` tokens, settings defaults, tool/API fields.
 
 ``extract(text)`` pulls every ``key=value`` token (quotes allowed: ``title="ORBIT QUEST"``) out of a
-``/showreel`` argument string and returns the remaining text for the normal option parser. ``normalise``
+``/auteur`` argument string and returns the remaining text for the normal option parser. ``normalise``
 turns raw values into canonical ones (``accent=pink`` -> ``#FF5FA2``, ``music=playful`` -> ``comic_b``) and
 reports friendly problems instead of raising. No LLM is involved anywhere in this module.
 """
@@ -120,7 +120,7 @@ def help_text() -> str:
 def unknown_message(keys: list[str]) -> str:
     names = ", ".join(f"'{k}'" for k in keys)
     return (f"Unknown setting {names} (ignored). Valid settings: {', '.join(KNOBS)}. "
-            "Example: /showreel pixel accent=#00e5ff energy=high title=\"ORBIT QUEST\"")
+            "Example: /auteur pixel accent=#00e5ff energy=high title=\"ORBIT QUEST\"")
 
 
 def _bool(v: Any) -> bool | None:

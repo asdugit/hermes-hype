@@ -1,7 +1,7 @@
 """The storyboard prompt: instructions + session input for one structured LLM call.
 
 The model *chooses and orders* real session events, describes the product the session
-built (grounded in evidence) and writes narration and short labels; Showreel resolves
+built (grounded in evidence) and writes narration and short labels; Auteur resolves
 every on-screen string from the referenced events and computes all numbers. The prompt
 is parameterised by film mode (product trailer by default, making-of "lore", speedrun),
 length, style tone and aspect.
@@ -69,7 +69,7 @@ Voice: a launch film. Say what the product does for its user and show it ("Type 
 The build story is the hero, told honestly and in the order it happened: problem, then plan, then the struggle (real failures from the session, shown as they happened), then the breakthrough (the fix that worked), then the result (the product working), then the stats. After HOOK and TITLE, scenes follow session time.
 Voice: a candid documentary narrator. Hermes is the protagonist; say plainly what went wrong and what fixed it. No invented drama: every setback must be a real failing event.""",
     "speedrun": """# This film: the build as a speedrun
-A fast, chronological time-lapse with a live split timer. Choose 4 to 7 milestone splits from real events (for example "First file", "First run", "First red", "Tests green", "Shipped"): put the label (18 characters max) in extra.split of the scene whose refs[0] is that milestone event. Splits must follow session time. Keep most scenes short, use MONTAGE as the time-lapse between splits, and make the last scene before END the "Shipped" milestone. END is the PB card: the title and the final time, which Showreel computes.
+A fast, chronological time-lapse with a live split timer. Choose 4 to 7 milestone splits from real events (for example "First file", "First run", "First red", "Tests green", "Shipped"): put the label (18 characters max) in extra.split of the scene whose refs[0] is that milestone event. Splits must follow session time. Keep most scenes short, use MONTAGE as the time-lapse between splits, and make the last scene before END the "Shipped" milestone. END is the PB card: the title and the final time, which Auteur computes.
 Voice: an energetic speedrun commentator in complete, short sentences ("The first test run catches a refund bug, and that costs a little time."). You may mention the minute mark an event happened at. Celebrate clean moves, own the mistakes, and close on the final time.""",
 }
 
@@ -165,13 +165,13 @@ _CATALOGUE_ROWS: list[tuple[SceneType, str, str, str]] = [
     (T.TERMINAL, "the command, its last 12 output lines and exit status", "terminal", "-"),
     (T.MONTAGE, "6-16 tool calls flashing by on the beat", "any tool-call events",
      "montage_refs: 6-16 ids in time order"),
-    (T.STATS, "1-3 numbers computed by Showreel", "no refs needed", "stat_keys: 1-3 keys listed under STATS"),
+    (T.STATS, "1-3 numbers computed by Auteur", "no refs needed", "stat_keys: 1-3 keys listed under STATS"),
     (T.BEFORE_AFTER, "two states, wiped from before to after",
      ("two images (captures/screenshots), or two text events (file_patch/terminal) such as the failing run "
       "then the passing run"), "before_ref, after_ref"),
     (T.CALLOUT, "one line quoted from the session", "user_prompt, assistant_note, final_answer or terminal",
      "quote_ref + quote: copy 4-12 words exactly from that event"),
-    (T.END, "title, cta, url and \"made with Hermes - Showreel\" (speedrun: the PB card)", "no refs needed", "-"),
+    (T.END, "title, cta, url and \"made with Hermes - Auteur\" (speedrun: the PB card)", "no refs needed", "-"),
 ]
 
 
@@ -182,7 +182,7 @@ def template_for(seconds: float, mode: str = "product") -> str:
 
 
 def _catalogue() -> str:
-    lines = ["type | shows (resolved by Showreel from refs) | refs[0] must be | extra | seconds | narration words"]
+    lines = ["type | shows (resolved by Auteur from refs) | refs[0] must be | extra | seconds | narration words"]
     for st, shows, refs, extra in _CATALOGUE_ROWS:
         lo, hi, _ = SCENE_RULES[st]
         cap = VO_WORD_CAPS[st]
@@ -202,13 +202,13 @@ def build_instructions(options: StoryOptions) -> str:
     voice_note = "" if options.voice else (
         "\nThis film has no voice: narration becomes burned-in captions, so keep lines short and readable.")
     split_rule = " Speedrun splits: 4-7 scenes carry extra.split, in session order." if mode == "speedrun" else ""
-    return f"""You are the editor of a {secs:g}-second film made from one Hermes Agent session (Hermes is an AI agent). Showreel renders your storyboard with the session's REAL evidence: the verbatim code, diffs, terminal output, screenshots, product captures and plans of the events you reference, plus numbers that Showreel computed itself. You describe the product the session built, choose and order events, write the narration a voice will read, and write short on-screen labels. You never type code, commands, output or statistics; you point at events and Showreel shows them.
+    return f"""You are the editor of a {secs:g}-second film made from one Hermes Agent session (Hermes is an AI agent). Auteur renders your storyboard with the session's REAL evidence: the verbatim code, diffs, terminal output, screenshots, product captures and plans of the events you reference, plus numbers that Auteur computed itself. You describe the product the session built, choose and order events, write the narration a voice will read, and write short on-screen labels. You never type code, commands, output or statistics; you point at events and Auteur shows them.
 Make the strongest honest film this session allows, one the user is proud to post.
 
 # The film
 - Length {secs:g} s, {ASPECT_NOTES[aspect]}
 - Style "{style}": {STYLE_TONES[style]}
-- Aim for {lo}-{hi} scenes. Showreel times every scene to the music within the ranges below.
+- Aim for {lo}-{hi} scenes. Auteur times every scene to the music within the ranges below.
 - Narration budget: about {budget} words in total. The voice speaks about 2.4 words per second, and the montage and end-card hold are music-only. Leave room to breathe; shorter is better than crammed.{voice_note}
 
 {MODE_BRIEFS[mode]}
@@ -218,12 +218,12 @@ Make the strongest honest film this session allows, one the user is proud to pos
 Adapt it to the session: leave out scene types the session has no evidence for instead of forcing them. A short chat without tools becomes TITLE, PROBLEM, one or two CALLOUT quotes from the answer, STATS if any, and END.
 
 # The product (always fill "product", in every mode)
-- name: its real name (README title, package or repo name, page title); 40 characters max. Never name it after a tool, a Showreel stage or a capture label ("product capture", "screenshot", "write_file"): the film is about the thing the session built, not about how it was filmed.
+- name: its real name (README title, package or repo name, page title); 40 characters max. Never name it after a tool, an Auteur stage or a capture label ("product capture", "screenshot", "write_file"): the film is about the thing the session built, not about how it was filmed.
 - one_liner: what it does for its user, 90 characters max, using only what the session shows.
 - kind: web_app, site, cli, library, api, game, doc, media, data or other.
 - features: up to 6 names of 6 words or fewer, each visible in the evidence (a capture, a todo item, a README line, a command, a code identifier). Never invent a feature.
 - urls, entry_files, run_commands: copied exactly from the session; hero_event_ids: the best evidence of the product.
-A PRODUCT DRAFT inferred by Showreel may be in the input; correct it where the evidence disagrees. When the draft says "name (fixed)", keep that name (you may drop a descriptive suffix, as in "Tempo" for "Tempo — focus timer").
+A PRODUCT DRAFT inferred by Auteur may be in the input; correct it where the evidence disagrees. When the draft says "name (fixed)", keep that name (you may drop a descriptive suffix, as in "Tempo" for "Tempo — focus timer").
 
 # Picking evidence
 Prefer high-weight events and product captures. Prefer the final, working state over intermediate attempts, except in BEFORE_AFTER and in making-of or speedrun films, where real failures are part of the story. Skip trivial events (file reads, ls, cat) outside MONTAGE. Each scene shows one thing; never show the same event in two scenes except the HOOK.
@@ -245,7 +245,7 @@ Prefer high-weight events and product captures. Prefer the final, working state 
 Specific and concrete: "Refunds stop double counting", "Every test passes", "Reports for every month". Not "Code changes", "Step 3" or "Amazing results". No trailing period. Numbers follow the narration rule.
 
 # Title, tagline, CTA, URL
-- title: the product's name (or, for a session with no product, a short descriptive name); 40 characters max. No "Hermes" or "Showreel" in it unless the product is about them.
+- title: the product's name (or, for a session with no product, a short descriptive name); 40 characters max. No "Hermes" or "Auteur" in it unless the product is about them.
 - tagline: one line, 60 characters max: what it does, for whom.
 - cta: 40 characters max, a concrete next step from the session (the install or run command, or "Read the code on GitHub").
 - url: only a public URL that appears verbatim in the session (repo, deployed page); otherwise omit it.
@@ -382,7 +382,7 @@ def build_stats_block(facts: SessionFacts) -> str:
 
 
 def build_product_block(product: Product | None, name_locked: bool = False) -> str:
-    """The PRODUCT DRAFT block (Showreel's own inference), or a note that there is none."""
+    """The PRODUCT DRAFT block (Auteur's own inference), or a note that there is none."""
     if product is None or not (product.name or product.features or product.hero_event_ids):
         return "(no draft: infer the product from the evidence)"
     p = product
@@ -428,7 +428,7 @@ def build_input(digest: str, facts: SessionFacts, options: StoryOptions, product
     return f"""# Film settings
 mode {mode} | target {secs:g} s | style {options.style} | aspect {options.aspect} | narration budget about {narration_budget(secs, mode)} words | {lo}-{hi} scenes | narration {'spoken' if options.voice else 'captions only'}{brief}
 
-# STATS (computed by Showreel: the only numbers narration may use besides numbers quoted in the session)
+# STATS (computed by Auteur: the only numbers narration may use besides numbers quoted in the session)
 {build_stats_block(facts)}
 
 # PRODUCT DRAFT

@@ -1,11 +1,11 @@
 ---
-name: showreel
-description: "Use when the user wants a video, trailer, promo, demo reel or showreel of what was built in this session. Make it with the showreel_render tool."
+name: auteur
+description: "Use when the user wants a video, trailer, promo, demo reel or showreel of what was built in this session. Make it with the auteur_render tool."
 ---
 
-# Showreel: a launch trailer of what this session built
+# Auteur: a launch trailer of what this session built
 
-`showreel_render` turns this session into a finished, narrated video. It reads the session itself, so don't ask
+`auteur_render` turns this session into a finished, narrated video. It reads the session itself, so don't ask
 the user to explain the project. The product is the hero (about 70 %: hook, name and one-liner, 2-4 feature beats)
 and the session is the proof (about 30 %: real diffs, terminal output, green tests, computed stats). Code,
 commands, output and numbers on screen are verbatim from the session; the model only picks, orders and narrates.
@@ -16,7 +16,7 @@ It renders locally with headless Chromium and ffmpeg and narrates with Hermes `t
 - The user asks for a video, trailer, promo, launch clip, demo reel, "showreel" or "something to post" about
   what you built together.
 - After shipping something visual or demoable you may offer it once. Don't render unasked: a film takes minutes.
-- The user typed `/showreel ...` themselves: that command already runs it; don't call the tool as well.
+- The user typed `/auteur ...` themselves: that command already runs it; don't call the tool as well.
 
 ## Pick the route (keep the user's words verbatim)
 
@@ -39,7 +39,7 @@ usage, so say so before you start one.
 - `mode`: `product` (launch trailer, default), `lore` (the making-of), `speedrun` (the build as a speedrun with a
   live split timer from the session's real timestamps).
 - `style`: `launch` (default), `cinematic`, `pixel`, `terminal`, `blueprint`, `comic`, `ink`.
-  `showreel_status` with `{"styles": true}` lists what this install can render.
+  `auteur_status` with `{"styles": true}` lists what this install can render.
 - `seconds`: 30, 60 or 90 work best (15-180). `aspect`: `16:9`, `9:16`, `both` (`1:1` is experimental).
 - `voice`: false = captions only. `preview`: true = a fast 540p draft.
 - `customize`: a free-text change to the chosen preset.
@@ -61,7 +61,7 @@ usage, so say so before you start one.
 
 The result is JSON. When `status` is `done`, put the `media_tag` (`MEDIA:<path>`) on its own line in your reply so
 the video is delivered (`outputs` has one file per aspect). If `status` is still a working stage (`storyboard`,
-`render`, `mix`, ...), tell the user it is going and call `showreel_status` with the `job_id` later; don't start a
+`render`, `mix`, ...), tell the user it is going and call `auteur_status` with the `job_id` later; don't start a
 second render. On `success: false`, relay `error.message` and `error.hint` plainly. Pass on `warnings` that matter,
 such as an ignored knob or a Blender fallback.
 
@@ -73,7 +73,7 @@ such as an ignored knob or a Blender fallback.
              "kind": "web_app"}}
 ```
 
-Showreel screenshots the product with its own headless browser when a local URL is reachable, but it never
+Auteur screenshots the product with its own headless browser when a local URL is reachable, but it never
 starts servers or runs commands. To film the live app, start it first with your normal, approved tools and wait
 until it answers. Then pass `product.url`, and stop the server afterwards if you started it only for the film.
 Public URLs are used only if they already appeared in this session.
@@ -81,14 +81,14 @@ Public URLs are used only if they already appeared in this session.
 ## Troubleshooting
 
 - "No Chromium" or "ffmpeg not found": `hermes pm install chromium` or `hermes pm install ffmpeg`;
-  `hermes showreel doctor` shows what was found.
+  `hermes auteur doctor` shows what was found.
 - Captions but no voice: the TTS provider failed (the job log names the line). Narration at the wrong pace:
   `tts.<provider>.speed` in config.yaml overrides the per-call speed.
 - A Directed film fell back to a preset: the Director hit an error or its budget, and the job log says why.
-  Suggest the `quick` effort (`/showreel ... quick` or the `effort` setting), a shorter direction, or
+  Suggest the `quick` effort (`/auteur ... quick` or the `effort` setting), a shorter direction, or
   customizing a preset instead.
 - Blender asked for but not found: the film uses the browser engine and warns. Set `blender_path` or
-  `SHOWREEL_BLENDER`.
+  `AUTEUR_BLENDER`.
 
 ## Privacy
 

@@ -19,7 +19,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-PLUGIN = "showreel"
+PLUGIN = "auteur"
 STAGES = ("queued", "reading", "storyboard", "voice", "layout", "render", "mix", "qa", "done")
 TERMINAL = frozenset({"done", "failed", "cancelled"})
 LOG_CAP = 400
@@ -29,12 +29,12 @@ _LOCKS_GUARD = threading.Lock()
 
 
 def data_root() -> Path:
-    """``<HERMES_HOME>/plugin-data/showreel`` (profile-following); ``$SHOWREEL_DATA_DIR`` overrides it.
+    """``<HERMES_HOME>/plugin-data/auteur`` (profile-following); ``$AUTEUR_DATA_DIR`` overrides it.
 
-    Outside Hermes (tests, dev tools) it falls back to ``<temp>/showreel-data`` so nothing is
+    Outside Hermes (tests, dev tools) it falls back to ``<temp>/auteur-data`` so nothing is
     written into a Hermes home that is not there.
     """
-    env = os.environ.get("SHOWREEL_DATA_DIR", "").strip()
+    env = os.environ.get("AUTEUR_DATA_DIR", "").strip()
     if env:
         root = Path(env)
     else:
@@ -49,7 +49,7 @@ def data_root() -> Path:
                 root = Path(get_hermes_home()) / "plugin-data" / PLUGIN
             except Exception:  # noqa: BLE001
                 import tempfile
-                root = Path(tempfile.gettempdir()) / "showreel-data"
+                root = Path(tempfile.gettempdir()) / "auteur-data"
     root.mkdir(parents=True, exist_ok=True)
     return root
 

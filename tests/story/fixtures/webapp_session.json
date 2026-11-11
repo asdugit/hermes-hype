@@ -311,7 +311,7 @@
    "kind": "product_capture",
    "tool": "",
    "title": "Focusfox",
-   "summary": "Showreel capture: timer",
+   "summary": "Auteur capture: timer",
    "data": {
     "path": "assets/capture_home.png",
     "url": "http://localhost:3000",
@@ -331,7 +331,7 @@
    "kind": "product_capture",
    "tool": "",
    "title": "Focusfox",
-   "summary": "Showreel capture: full page",
+   "summary": "Auteur capture: full page",
    "data": {
     "path": "assets/capture_full.png",
     "url": "http://localhost:3000",
@@ -351,7 +351,7 @@
    "kind": "product_capture",
    "tool": "",
    "title": "Focusfox dark",
-   "summary": "Showreel capture: dark mode",
+   "summary": "Auteur capture: dark mode",
    "data": {
     "path": "assets/capture_dark.png",
     "url": "http://localhost:3000/?theme=dark",

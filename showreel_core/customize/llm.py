@@ -20,7 +20,7 @@ TEMPERATURE = 0.3
 MAX_TOKENS = 1800
 TIMEOUT_S = 90.0
 
-INSTRUCTIONS = """You customize a Showreel preset film. The film already exists (shot list below); the user asked for \
+INSTRUCTIONS = """You customize an Auteur preset film. The film already exists (shot list below); the user asked for \
 changes in their own words. Reply with ONE small JSON object that matches the schema: only the keys the request \
 needs, nothing else.
 
@@ -115,7 +115,7 @@ def customize_spec(request: str, film: dict[str, Any], *, style: str, llm_call: 
     t0 = time.monotonic()
     try:
         reply = llm_call(instructions=INSTRUCTIONS, input_text=body, json_schema=S.SCHEMA,
-                         schema_name="showreel_customize", temperature=TEMPERATURE, max_tokens=MAX_TOKENS,
+                         schema_name="auteur_customize", temperature=TEMPERATURE, max_tokens=MAX_TOKENS,
                          timeout=TIMEOUT_S)
     except Exception as exc:  # noqa: BLE001 - model trouble never blocks the film
         out.update(error=f"{type(exc).__name__}: {exc}", seconds=round(time.monotonic() - t0, 1))

@@ -35,7 +35,7 @@ async def read_scenes(kits: list[str]) -> list[dict]:
 
 def main(argv: list[str]) -> int:
     kits = argv or ["comic", "ink"]
-    with render_slot(os.environ.get("SHOWREEL_RENDER_SLOT_DIR"), "gen-comic-ink-catalog"):
+    with render_slot(os.environ.get("AUTEUR_RENDER_SLOT_DIR"), "gen-comic-ink-catalog"):
         scenes = asyncio.run(read_scenes(kits))
     for kit in kits:
         md = ROOT / "kits" / kit / "KIT.md"

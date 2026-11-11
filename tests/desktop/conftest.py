@@ -10,12 +10,12 @@ from typing import Any
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
-P = "/api/plugins/showreel"
+P = "/api/plugins/auteur"
 
 
 def load_api() -> Any:
     """``dashboard/plugin_api.py`` imported standalone, the way Hermes imports it."""
-    name = "showreel_plugin_api_desktop_tests"
+    name = "auteur_plugin_api_desktop_tests"
     if name in sys.modules:
         return sys.modules[name]
     spec = importlib.util.spec_from_file_location(name, ROOT / "dashboard" / "plugin_api.py")
@@ -33,8 +33,8 @@ def api(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
 
-    monkeypatch.setenv("SHOWREEL_DATA_DIR", str(tmp_path / "data"))
-    monkeypatch.setenv("SHOWREEL_VIDEOS_DIR", str(tmp_path / "videos"))
+    monkeypatch.setenv("AUTEUR_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("AUTEUR_VIDEOS_DIR", str(tmp_path / "videos"))
     mod = load_api()
     previews = tmp_path / "previews"
     previews.mkdir()

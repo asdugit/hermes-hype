@@ -267,7 +267,7 @@ def readme_block(res: dict[str, Any]) -> str:
 
 def update_readme(out: Path, res: dict[str, Any]) -> Path:
     p = out / "README.md"
-    text = p.read_text(encoding="utf-8") if p.is_file() else "# Showreel audio previews\n\n"
+    text = p.read_text(encoding="utf-8") if p.is_file() else "# Auteur audio previews\n\n"
     text = re.sub(r"<!-- wave3 -->.*?<!-- /wave3 -->\n?", "", text, flags=re.S)
     block = readme_block(res)
     m = re.search(r"^## ", text, flags=re.M)

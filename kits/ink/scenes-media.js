@@ -1,4 +1,4 @@
-// Showreel kit "ink" — product pages: HOOK, SCREEN, FEATURE, SCROLL, BEFORE_AFTER. Real captures are taped onto
+// Auteur kit "ink" — product pages: HOOK, SCREEN, FEATURE, SCROLL, BEFORE_AFTER. Real captures are taped onto
 // the page (cream mat, flat shadow, masking tape); marks over a capture (marker loops, cursor, notes) live on the
 // top layer so the capture never covers them.
 

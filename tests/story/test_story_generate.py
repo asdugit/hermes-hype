@@ -51,7 +51,7 @@ def test_good_json_is_accepted_in_one_call(coding, good_json):
     assert len(llm.calls) == 1
     assert report.storyboard.scenes[1].vo.startswith("Meet Tally")
     call = llm.calls[0]
-    assert call["schema_name"] == "showreel.storyboard"
+    assert call["schema_name"] == "auteur.storyboard"
     assert "REFERENCE INDEX" in call["input_text"] and "launch trailer" in call["instructions"]
 
 
@@ -164,8 +164,8 @@ def test_adapter_passes_structured_kwargs():
     reply = _call(hermes_llm(ctx))
     assert reply.parsed == {"a": 1} and reply.model == "fake-1" and reply.usage["total_tokens"] == 30
     kw = ctx.calls[0]
-    assert kw["task"] == "showreel" and kw["json_schema"] == {"type": "object"}
-    assert kw["input"] == [{"type": "text", "text": "x"}] and kw["purpose"] == "showreel.storyboard"
+    assert kw["task"] == "auteur" and kw["json_schema"] == {"type": "object"}
+    assert kw["input"] == [{"type": "text", "text": "x"}] and kw["purpose"] == "auteur.storyboard"
 
 
 def test_adapter_falls_back_to_main_model_when_task_is_refused():
@@ -175,7 +175,7 @@ def test_adapter_falls_back_to_main_model_when_task_is_refused():
         return _result("plain text")
     ctx = FakeCtxLlm(behaviour)
     reply = _call(hermes_llm(ctx))
-    assert [c["task"] for c in ctx.calls] == ["showreel", None]
+    assert [c["task"] for c in ctx.calls] == ["auteur", None]
     assert reply.text == "plain text" and reply.parsed is None
 
 

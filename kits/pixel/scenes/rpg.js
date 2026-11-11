@@ -69,7 +69,7 @@ const TITLE_P = {
 function titleRender(ctx, t, p) {
   const P = withDefaults(TITLE_P, p), S = screenOf(ctx), V = isVertical(ctx), I = insets(ctx), tq = step(t, 30), sy = sayer(ctx, S);
   world(S, P.world, tq, Math.round(tq * 12));
-  const text = String(P.title || ctx.film?.title || 'SHOWREEL').toUpperCase();
+  const text = String(P.title || ctx.film?.title || 'AUTEUR').toUpperCase();
   const lf = logoFit(text, I.R - I.L - 8, V ? 3 : 2), lh = 8 * lf.scale + 6;
   const ly = I.T + (V ? 30 : 18), drop = ease.outBounce(seg(step(tq, 15), 0.15, 0.85)), dy = Math.round((1 - drop) * -(ly + lh * lf.lines.length + 20));
   let box = null;

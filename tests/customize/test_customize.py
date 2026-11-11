@@ -264,7 +264,7 @@ def test_customize_spec_always_yields_a_usable_spec(fake, source):
     assert res["spec"]["theme"]["palette"] == "neon"                # the keyword floor always holds
     if fake is not None and fake.calls:
         kw = fake.calls[0]
-        assert kw["schema_name"] == "showreel_customize" and "s00_hook" in kw["input_text"]
+        assert kw["schema_name"] == "auteur_customize" and "s00_hook" in kw["input_text"]
         assert "kit:pixel/HOOK" in kw["input_text"]                # the scene catalog for the used scenes
 
 

@@ -1,4 +1,4 @@
-/* Showreel style "terminal": a single-phosphor CRT (P3 amber by default, P1 green as a per-film swap). Every
+/* Auteur style "terminal": a single-phosphor CRT (P3 amber by default, P1 green as a per-film swap). Every
    face is IBM Plex Mono on a character grid (box-drawing + blocks connect at line-height 1.3), VT323 only for
    display numerals/taglines. The --sr-* tokens re-skin kit:base / kit:type scenes; the .tm-* classes style the
    text-mode scenes of kit:terminal. Wide halation, curvature and RGB misconvergence are the ffmpeg `crt` post

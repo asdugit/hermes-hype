@@ -1,4 +1,4 @@
-// Showreel kit "launch" — type-led scenes over the table world: TITLE, STATS, CALLOUT, END.
+// Auteur kit "launch" — type-led scenes over the table world: TITLE, STATS, CALLOUT, END.
 // The lockups reuse kit:base layouts (TITLE_DEF, ...) on a screen-space type layer; the table, light pool,
 // converging connectors and pulses live in the 3D world underneath (slightly defocused so type stays crisp).
 

@@ -1,4 +1,4 @@
-"""``hermes showreel doctor``: can this machine make a film? (read-only checks, nothing installed)."""
+"""``hermes auteur doctor``: can this machine make a film? (read-only checks, nothing installed)."""
 from __future__ import annotations
 
 import os
@@ -57,7 +57,7 @@ def _assets() -> list[dict[str, Any]]:
         _check("music beds", bool(beds), ", ".join(beds) or "none", "the music falls back to silence", False),
         _check("sound effects", sfx, "sfx.json found" if sfx else "missing", "films are made without SFX", False),
         _check("film runtime", runtime and film, "runtime/ + film builder present" if runtime and film
-               else "not in this build", "update the plugin (hermes plugins update showreel)"),
+               else "not in this build", "update the plugin (hermes plugins update auteur)"),
         _check("styles", bool(ready), ", ".join(ready) or "no style pack is ready yet", "", False),
     ]
 
@@ -86,13 +86,13 @@ def _services(ctx: Any) -> list[dict[str, Any]]:
         llm_ok = ctx is not None and ctx.llm is not None
     except Exception:  # noqa: BLE001
         llm_ok = False
-    out.append(_check("storyboard model", llm_ok, "ctx.llm available (task 'showreel')" if llm_ok
+    out.append(_check("storyboard model", llm_ok, "ctx.llm available (task 'auteur')" if llm_ok
                       else "unavailable", "storyboards fall back to the built-in heuristic", False))
     tts = False
     try:
         from tools.registry import registry  # public, lazy
         tts = registry.get_entry("text_to_speech") is not None
-        if not tts:   # the bare `hermes showreel` CLI has no agent: discover the built-ins like `render` does
+        if not tts:   # the bare `hermes auteur` CLI has no agent: discover the built-ins like `render` does
             from tools.registry import discover_builtin_tools  # public, lazy
             discover_builtin_tools()
             tts = registry.get_entry("text_to_speech") is not None
@@ -106,7 +106,7 @@ def _services(ctx: Any) -> list[dict[str, Any]]:
         if problem:
             out.append(_check("narration (edge-tts version)", False, problem.split(";")[0],
                               "narration fails, films are captions-only until Hermes is updated "
-                              "(Showreel never changes packages in the Hermes environment)", False))
+                              "(Auteur never changes packages in the Hermes environment)", False))
     return out
 
 
@@ -126,7 +126,7 @@ def _blender() -> list[dict[str, Any]]:
 def doctor_report(ctx: Any = None) -> dict[str, Any]:
     """All checks as JSON; ``ok`` is False only when a required check fails."""
     checks: list[dict[str, Any]] = [
-        _check("python", sys.version_info >= (3, 11), platform.python_version(), "Showreel needs Python 3.11+"),
+        _check("python", sys.version_info >= (3, 11), platform.python_version(), "Auteur needs Python 3.11+"),
     ]
     for fn in (_ffmpeg, lambda: [_chromium()], _assets, _storage, lambda: _services(ctx), _blender):
         try:
@@ -139,7 +139,7 @@ def doctor_report(ctx: Any = None) -> dict[str, Any]:
 
 
 def format_report(rep: dict[str, Any]) -> str:
-    lines = [f"Showreel {rep['version']} doctor · {rep['platform']}"]
+    lines = [f"Auteur {rep['version']} doctor · {rep['platform']}"]
     for c in rep["checks"]:
         mark = "ok  " if c["ok"] else ("FAIL" if c["required"] else "warn")
         lines.append(f"  [{mark}] {c['name']}: {c['detail']}")

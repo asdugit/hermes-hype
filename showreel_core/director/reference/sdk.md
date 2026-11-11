@@ -1,4 +1,4 @@
-# Showreel Scene SDK (condensed reference for the Director)
+# Auteur Scene SDK (condensed reference for the Director)
 
 ## film.json (what the film step writes)
 ```jsonc

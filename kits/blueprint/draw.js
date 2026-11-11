@@ -1,4 +1,4 @@
-// Showreel kit "blueprint" — SVG drafting primitives. Every stroke is a <path pathLength="1"> so the plotter can
+// Auteur kit "blueprint" — SVG drafting primitives. Every stroke is a <path pathLength="1"> so the plotter can
 // draw it on with stroke-dashoffset 1 -> 0; fills (arrowheads, balloon discs) "pop" when their stroke lands.
 // Drafting grammar: object lines (obj, 2.4 px), thin (1.4), hidden (dashed 9 6), centre (chain 26 7 4 7),
 // construction (dotted 4 5), dimensions with 16 px filled arrowheads and unidirectional (horizontal) lettering.

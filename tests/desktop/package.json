@@ -1,6 +1,6 @@
 {
   "private": true,
-  "name": "showreel-desktop-tests",
+  "name": "auteur-desktop-tests",
   "type": "module",
   "description": "Render check for desktop/plugin.js: real React + React Query in jsdom with a stub SDK. Run: npm install && node render_check.mjs",
   "dependencies": {

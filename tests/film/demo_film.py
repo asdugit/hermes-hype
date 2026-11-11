@@ -17,7 +17,7 @@ DEMO_FILM: dict[str, Any] = {
     "background": "#05060a",
     "assets": {"clip": {"type": "frames"}, "logo": {"type": "image"}},
     "shots": [
-        {"id": "intro", "t0": 0.0, "t1": 2.2, "scene": "kit:demo/bars", "params": {"title": "Showreel runtime", "clip": "clip"}},
+        {"id": "intro", "t0": 0.0, "t1": 2.2, "scene": "kit:demo/bars", "params": {"title": "Auteur runtime", "clip": "clip"}},
         {"id": "card", "t0": 2.0, "t1": 4.2, "scene": "kit:demo/card", "params": {"title": "DOM shot"}},
         {"id": "cube", "t0": 4.0, "t1": 6.0, "scene": "kit:demo/cube", "params": {"image": "logo"}},
         {"id": "px", "t0": 5.8, "t1": 8.0, "scene": "kit:demo/pixel", "res": [480, 270]},

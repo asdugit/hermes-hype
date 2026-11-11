@@ -29,12 +29,12 @@ SPEC_FILE = "customize.json"
 
 
 def settings_knobs() -> dict[str, Any]:
-    """Knob defaults from the plugin setting ``customize`` (``plugins.entries.showreel.settings.customize``)."""
+    """Knob defaults from the plugin setting ``customize`` (``plugins.entries.auteur.settings.customize``)."""
     try:
         import yaml  # Hermes core dependency
         from hermes_constants import get_hermes_home  # public, lazy
         raw = yaml.safe_load((Path(get_hermes_home()) / "config.yaml").read_text(encoding="utf-8")) or {}
-        entry = ((raw.get("plugins") or {}).get("entries") or {}).get("showreel") or {}
+        entry = ((raw.get("plugins") or {}).get("entries") or {}).get("auteur") or {}
         values = entry.get("settings") or entry.get("config") or {}
         return K.from_settings(values.get("customize")) if isinstance(values, dict) else {}
     except Exception:  # noqa: BLE001 - outside Hermes / unreadable config: no defaults
@@ -45,7 +45,7 @@ def _info(run: Any, msg: str, **extra: Any) -> None:
     try:
         run.info(msg, **extra)
     except Exception:  # noqa: BLE001
-        log.info("showreel customize: %s", msg)
+        log.info("auteur customize: %s", msg)
 
 
 def resolve(run: Any) -> dict[str, Any] | None:
@@ -111,7 +111,7 @@ def install(run: Any) -> dict[str, Any] | None:
     try:
         return _install(run)
     except Exception as exc:  # noqa: BLE001 - a broken customization must never cost the film
-        log.exception("showreel customize install failed")
+        log.exception("auteur customize install failed")
         try:
             run.warn(f"customization could not be applied ({type(exc).__name__}: {exc}); made the plain preset")
         except Exception:  # noqa: BLE001

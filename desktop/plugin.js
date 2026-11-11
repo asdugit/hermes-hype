@@ -1,7 +1,7 @@
 /**
- * Showreel — the Hermes Desktop half of the `showreel` plugin.
+ * Auteur — the Hermes Desktop half of the `auteur` plugin.
  *
- *   Pane + page   one studio, two sizes: a right-side pane ("Showreel") and a full page at /showreel with a
+ *   Pane + page   one studio, two sizes: a right-side pane ("Auteur") and a full page at /auteur with a
  *                 sidebar entry. Tabs:
  *                   Make        mode (Trailer · Lore · Speedrun), style gallery with looping previews, length,
  *                               aspect, narration, effort, and a free-text Direction box (-> Directed film)
@@ -13,12 +13,12 @@
  *                   Result      the core video player (MessageTextContent + MEDIA:), Reveal file, Render the
  *                               other aspect, Revise with notes, Copy post text
  *                   Library     scenes and worlds the Director saved, reusable by name
- *   Palette       "Showreel: make a trailer / the lore / a speedrun of this chat", "Showreel: open the studio"
+ *   Palette       "Auteur: make a trailer / the lore / a speedrun of this chat", "Auteur: open the studio"
  *   Status bar    a chip with the active render's progress (click: open the studio)
- *   Tool media    a card around the core player for showreel_render / showreel_status results (Hermes >= 0.22.6)
+ *   Tool media    a card around the core player for auteur_render / auteur_status results (Hermes >= 0.22.6)
  *
  * Data comes from this plugin's own backend (dashboard/plugin_api.py, reached with ctx.rest) and the
- * `plugin.showreel.job.progress` event; every live view also polls, so it keeps working where events do
+ * `plugin.auteur.job.progress` event; every live view also polls, so it keeps working where events do
  * not arrive. Imports: the SDK (namespace import, optional exports feature-detected), react and
  * react/jsx-runtime only. Colours come from the app theme's variables only.
  */
@@ -26,9 +26,9 @@ import * as sdk from '@hermes/plugin-sdk'
 import { Fragment, jsx, jsxs } from 'react/jsx-runtime'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
-const ID = 'showreel'
-const ROUTE = '/showreel'
-const PROGRESS_EVENT = 'plugin.showreel.job.progress'
+const ID = 'auteur'
+const ROUTE = '/auteur'
+const PROGRESS_EVENT = 'plugin.auteur.job.progress'
 const TERMINAL = new Set(['done', 'failed', 'cancelled'])
 const STAGES = ['reading', 'storyboard', 'voice', 'layout', 'render', 'mix', 'qa']
 const TABS = [
@@ -157,7 +157,7 @@ function parseError(err) {
 }
 
 async function api(path, opts) {
-  if (!CTX) throw new Error('Showreel is not loaded')
+  if (!CTX) throw new Error('Auteur is not loaded')
   try {
     return await CTX.rest(path, opts)
   } catch (err) {
@@ -177,7 +177,7 @@ function invalidate(...parts) {
   try {
     sdk.queryClient && sdk.queryClient.invalidateQueries({ queryKey: qk(...parts) })
   } catch (e) {
-    console.warn('[showreel] invalidate failed', e)
+    console.warn('[auteur] invalidate failed', e)
   }
 }
 
@@ -194,7 +194,7 @@ function notify(kind, message) {
   try {
     sdk.host && sdk.host.notify && sdk.host.notify({ kind, message })
   } catch (e) {
-    console.warn('[showreel]', message, e)
+    console.warn('[auteur]', message, e)
   }
 }
 
@@ -202,7 +202,7 @@ async function copyText(text) {
   try {
     if (CTX && CTX.os && CTX.os.writeClipboard && (await CTX.os.writeClipboard(text))) return true
   } catch (e) {
-    console.warn('[showreel] clipboard door failed', e)
+    console.warn('[auteur] clipboard door failed', e)
   }
   try {
     await navigator.clipboard.writeText(text)
@@ -216,7 +216,7 @@ async function reveal(path) {
   try {
     if (CTX && CTX.os && CTX.os.revealPath && (await CTX.os.revealPath(path))) return
   } catch (e) {
-    console.warn('[showreel] reveal failed', e)
+    console.warn('[auteur] reveal failed', e)
   }
   notify('warning', `Could not open the folder. The file is at ${path}`)
 }
@@ -225,7 +225,7 @@ function navigate(path) {
   try {
     sdk.host && sdk.host.navigate && sdk.host.navigate(path)
   } catch (e) {
-    console.warn('[showreel] navigate failed', e)
+    console.warn('[auteur] navigate failed', e)
   }
 }
 
@@ -245,15 +245,15 @@ function observe(job) {
 function announce(job) {
   if (!job || !job.id || notified.has(job.id) || !TERMINAL.has(job.stage)) return
   notified.add(job.id)
-  const title = job.title || 'Your showreel'
+  const title = job.title || 'Your film'
   if (job.stage === 'done') {
     try {
-      CTX && CTX.os && CTX.os.notify && CTX.os.notify({ title: 'Showreel ready', body: `${title} finished rendering.`, activate: ROUTE })
+      CTX && CTX.os && CTX.os.notify && CTX.os.notify({ title: 'Auteur ready', body: `${title} finished rendering.`, activate: ROUTE })
     } catch (e) {
-      console.warn('[showreel] os notify failed', e)
+      console.warn('[auteur] os notify failed', e)
     }
   } else if (job.stage === 'failed') {
-    notify('error', `Showreel failed: ${job.error && job.error.message ? job.error.message : job.error || title}`)
+    notify('error', `Auteur failed: ${job.error && job.error.message ? job.error.message : job.error || title}`)
   }
 }
 
@@ -264,7 +264,7 @@ function onProgress(event) {
     sdk.queryClient && sdk.queryClient.setQueryData(qk('job', p.id), old =>
       old ? { ...old, stage: p.stage || old.stage, pct: p.pct ?? old.pct, eta_s: p.eta_s, note: p.note ?? old.note, updated: Date.now() / 1000 } : old)
   } catch (e) {
-    console.warn('[showreel] progress patch failed', e)
+    console.warn('[auteur] progress patch failed', e)
   }
   throttled('lists', 1200, () => { invalidate('jobs'); invalidate('active') })
   if (TERMINAL.has(p.stage)) {
@@ -328,7 +328,7 @@ function storageSet(key, value) {
   try {
     CTX && CTX.storage && CTX.storage.set(key, value)
   } catch (e) {
-    console.warn('[showreel] storage write failed', e)
+    console.warn('[auteur] storage write failed', e)
   }
 }
 
@@ -459,7 +459,7 @@ function StylePlaceholder({ id, name }) {
     launch: [jsx('i', { className: 'p a' }, 'a'), jsx('i', { className: 'p b' }, 'b'), jsx('i', { className: 'shine' }, 's')],
     cinematic: [jsx('i', { className: 'bokeh' }, 'k'), jsx('i', { className: 'c c1' }, '1'), jsx('i', { className: 'c c2' }, '2'), jsx('i', { className: 'c c3' }, '3'), jsx('i', { className: 'lb t' }, 't'), jsx('i', { className: 'lb b' }, 'b')],
     pixel: [jsx('i', { className: 'stars' }, 's'), jsx('i', { className: 'ground' }, 'g'), jsx('i', { className: 'hero' }, 'h'), jsx('i', { className: 'hp' }, 'p')],
-    terminal: [jsxs('div', { className: 'tx', children: [jsx('div', { children: '$ /showreel terminal' }), jsx('div', { className: 'ok', children: '✓ 41 tests passed' }), jsxs('div', { children: ['> rendering', jsx('b', { className: 'cur' })] })] }, 't'), jsx('i', { className: 'scan' }, 's')],
+    terminal: [jsxs('div', { className: 'tx', children: [jsx('div', { children: '$ /auteur terminal' }), jsx('div', { className: 'ok', children: '✓ 41 tests passed' }), jsxs('div', { children: ['> rendering', jsx('b', { className: 'cur' })] })] }, 't'), jsx('i', { className: 'scan' }, 's')],
     blueprint: [jsx('svg', { viewBox: '0 0 160 90', 'aria-hidden': true, children: [
       jsx('rect', { x: 46, y: 18, width: 68, height: 46, rx: 4 }, 'r'),
       jsx('circle', { cx: 80, cy: 41, r: 11 }, 'c'),
@@ -545,7 +545,7 @@ function customizeFrom(text, knobs) {
 /** Start a film for a chat; resolves the new job, or null (the user was told why). */
 async function startFilm(sid, options, customize) {
   if (!sid) {
-    notify('warning', 'Open a chat first: Showreel films the chat you are looking at.')
+    notify('warning', 'Open a chat first: Auteur films the chat you are looking at.')
     return null
   }
   try {
@@ -558,9 +558,9 @@ async function startFilm(sid, options, customize) {
     if (e.status === 409 && e.body && e.body.job) {
       selectJob(sid, e.body.job.id)
       requestTab('live')
-      notify('info', 'A showreel is already rendering for this chat.')
+      notify('info', 'A film is already rendering for this chat.')
     } else {
-      notify('error', `Could not start the showreel: ${e.message}`)
+      notify('error', `Could not start the auteur: ${e.message}`)
     }
     return null
   }
@@ -619,9 +619,9 @@ function MakeView({ sid, jobs, backendDown, onStarted }) {
   const summary = [modeLabel(prefs.mode), chosen ? chosen.name : prefs.style, `${prefs.seconds} s`,
     prefs.aspect === 'both' ? '16:9 + 9:16' : prefs.aspect, prefs.voice ? 'narrated' : 'captions only'].concat(customize ? ['customized'] : []).join(' · ')
   let blocker = ''
-  if (backendDown) blocker = 'The Showreel backend is off.'
-  else if (!sid) blocker = 'Open a chat first: Showreel films the chat you are looking at.'
-  else if (running) blocker = 'A showreel is rendering for this chat.'
+  if (backendDown) blocker = 'The Auteur backend is off.'
+  else if (!sid) blocker = 'Open a chat first: Auteur films the chat you are looking at.'
+  else if (running) blocker = 'A film is rendering for this chat.'
 
   return jsxs('div', {
     className: 'srl-make',
@@ -692,7 +692,7 @@ function MakeView({ sid, jobs, backendDown, onStarted }) {
             jsx('div', { className: 'srl-summary', children: summary }),
             jsx(Btn, {
               variant: 'default', size: 'lg', icon: directed ? 'sparkle' : 'device-camera-video', busy, disabled: Boolean(blocker),
-              onClick: make, children: directed ? 'Direct this film' : customize ? 'Make customized showreel' : 'Make showreel'
+              onClick: make, children: directed ? 'Direct this film' : customize ? 'Make customized auteur' : 'Make auteur'
             }),
             blocker ? jsx('div', { className: 'srl-hint srl-blocker', children: blocker }) : null,
             running ? jsx('button', { type: 'button', className: 'srl-link', onClick: () => requestTab('live'), children: 'Watch the running one in Live' }) : null
@@ -761,7 +761,7 @@ function LiveView({ job, sid, now, onTab }) {
     setCancelling(true)
     try {
       await api(`/jobs/${job.id}/cancel`, { method: 'POST' })
-      notify('info', 'Stopping the showreel…')
+      notify('info', 'Stopping the film…')
       invalidate('job', job.id)
     } catch (e) {
       notify('error', `Could not cancel: ${e.message}`)
@@ -786,7 +786,7 @@ function LiveView({ job, sid, now, onTab }) {
         className: 'srl-live-main',
         children: [
           jsxs('div', { className: 'srl-jobhead', children: [
-            jsx('div', { className: 'srl-jobtitle', children: job.title || (isDirected(job) ? 'Directed film' : 'Showreel') }),
+            jsx('div', { className: 'srl-jobtitle', children: job.title || (isDirected(job) ? 'Directed film' : 'Auteur') }),
             jsx('div', { className: 'srl-jobmeta', children: [isDirected(job) ? 'Directed' : modeLabel(opts.mode), opts.style, opts.seconds ? `${opts.seconds} s` : '', (opts.aspects || []).join(' + '), opts.voice === false ? 'captions only' : 'narrated'].filter(Boolean).join(' · ') })
           ] }),
           jsxs('div', { className: 'srl-progress-block', 'data-st': job.stage, children: [
@@ -1036,7 +1036,7 @@ function keyed(sb) {
 
 function StoryboardView({ job, sid, onTab }) {
   const directed = isDirected(job)
-  if (!job) return jsx(Empty, { icon: 'list-ordered', title: 'No film yet', children: 'Make a showreel first; its storyboard shows up here for editing.' })
+  if (!job) return jsx(Empty, { icon: 'list-ordered', title: 'No film yet', children: 'Make a film first; its storyboard shows up here for editing.' })
   if (directed) return jsx(DirectedShots, { job })
   return jsx(StoryboardEditor, { job, sid, onTab }, job.id)
 }
@@ -1220,7 +1220,7 @@ function ResultView({ job, sid, onTab }) {
   const done = job && job.stage === 'done'
   const postQ = useApi(qk('post', job && job.id), job ? `/jobs/${job.id}/post-text` : '', { enabled: Boolean(done), staleTime: 60000 })
   const thumbsQ = useApi(qk('thumbs', job && job.id), job ? `/jobs/${job.id}/thumbs` : '', { enabled: Boolean(done), staleTime: Infinity })
-  if (!job) return jsx(Empty, { icon: 'play-circle', title: 'No film yet', children: 'Your finished showreel plays here.' })
+  if (!job) return jsx(Empty, { icon: 'play-circle', title: 'No film yet', children: 'Your finished auteur plays here.' })
   if (!done) {
     return isRunning(job)
       ? jsx(Empty, { icon: 'play-circle', title: `Still rendering (${pctText(job.pct)})`, children: jsx('button', { type: 'button', className: 'srl-link', onClick: () => onTab('live'), children: 'Watch it in Live' }) })
@@ -1268,7 +1268,7 @@ function ResultView({ job, sid, onTab }) {
     children: [
       jsxs('div', { className: 'srl-result-main', children: [
         jsxs('div', { className: 'srl-jobhead', children: [
-          jsx('div', { className: 'srl-jobtitle', children: job.title || 'Showreel' }),
+          jsx('div', { className: 'srl-jobtitle', children: job.title || 'Auteur' }),
           jsx('div', { className: 'srl-jobmeta', children: [directed ? 'Directed' : modeLabel((job.options || {}).mode), (job.options || {}).style, job.duration_s ? fmtDur(job.duration_s) : '', job.wall_s ? `made in ${fmtDur(job.wall_s)}` : '', qaWarn ? `${qaWarn} note${qaWarn === 1 ? '' : 's'}` : ''].filter(Boolean).join(' · ') })
         ] }),
         outs.length > 1 ? jsx(Seg, { label: 'Aspect', options: outs.map(o => ({ id: o.aspect, label: o.aspect })), value: current.aspect, onChange: setAspect }) : null,
@@ -1340,7 +1340,7 @@ function LibraryView({ onTab }) {
 // ── the studio (pane + page) ───────────────────────────────────────────────────────────────────────
 function JobPicker({ jobs, value, onChange, now }) {
   if (!jobs.length) return null
-  const label = j => `${j.title || (isDirected(j) ? 'Directed film' : 'Showreel')} · ${j.stage === 'done' ? 'done' : TERMINAL.has(j.stage) ? j.stage : pctText(j.pct)} · ${fmtAgo(j.created, now)}`
+  const label = j => `${j.title || (isDirected(j) ? 'Directed film' : 'Auteur')} · ${j.stage === 'done' ? 'done' : TERMINAL.has(j.stage) ? j.stage : pctText(j.pct)} · ${fmtAgo(j.created, now)}`
   return jsx('select', {
     className: 'srl-picker', value: value || '', 'aria-label': 'Film', onChange: e => onChange(e.target.value),
     children: jobs.map(j => jsx('option', { value: j.id, children: label(j) }, j.id))
@@ -1411,17 +1411,17 @@ function Studio({ variant }) {
     children: [
       jsx('style', { children: CSS }),
       jsxs('header', { className: 'srl-head', children: [
-        jsxs('div', { className: 'srl-brand', children: [jsx(Icon, { name: 'device-camera-video' }), jsx('span', { children: 'Showreel' })] }),
+        jsxs('div', { className: 'srl-brand', children: [jsx(Icon, { name: 'device-camera-video' }), jsx('span', { children: 'Auteur' })] }),
         jsx(JobPicker, { jobs, value: selectedId, now, onChange: id => selectJob(sid, id) })
       ] }),
-      jsx('nav', { className: 'srl-tabs', role: 'tablist', 'aria-label': 'Showreel', children: TABS.map(t => jsxs('button', {
+      jsx('nav', { className: 'srl-tabs', role: 'tablist', 'aria-label': 'Auteur', children: TABS.map(t => jsxs('button', {
         type: 'button', role: 'tab', className: 'srl-tab', 'aria-selected': tab === t.id, onClick: () => setTab(t.id),
         children: [jsx(Icon, { name: t.icon }), jsx('span', { children: t.label }), badge(t.id)]
       }, t.id)) }),
       jsxs('div', { className: 'srl-body', role: 'tabpanel', children: [
         backendDown ? jsx(Alert, { tone: 'warn', children: jsxs('div', { className: 'srl-stack', children: [
-          jsx('b', { children: 'The Showreel backend is not running.' }),
-          jsx('span', { children: 'Enable the showreel plugin for the agent too (Capabilities → Plugins, or `hermes plugins enable showreel`), then restart Hermes. The pane needs it to read sessions and render.' })
+          jsx('b', { children: 'The Auteur backend is not running.' }),
+          jsx('span', { children: 'Enable the auteur plugin for the agent too (Capabilities → Plugins, or `hermes plugins enable auteur`), then restart Hermes. The pane needs it to read sessions and render.' })
         ] }) }) : null,
         jsx('div', { className: 'srl-view', children: body })
       ] })
@@ -1454,21 +1454,21 @@ function StatusChip() {
     requestTab(live ? 'live' : 'result')
     navigate(ROUTE)
   }
-  const label = live ? `${job.title || 'Showreel'}: ${stageLabel(job.stage, job)} ${pctText(job.pct)}${job.eta_s ? ` · ${fmtEta(job.eta_s)}` : ''}` : `${job.title || 'Your showreel'} is ready`
+  const label = live ? `${job.title || 'Auteur'}: ${stageLabel(job.stage, job)} ${pctText(job.pct)}${job.eta_s ? ` · ${fmtEta(job.eta_s)}` : ''}` : `${job.title || 'Your film'} is ready`
   return jsxs('span', { className: 'srl-chipwrap', children: [
     jsx('style', { children: CHIP_CSS }),
     withTip(label, jsxs('button', {
       type: 'button', className: 'srl-chip', 'data-st': live ? 'running' : 'done', onClick: open, 'aria-label': label,
       children: [
         live ? jsx('i', { className: 'srl-chip-spin', 'aria-hidden': true }) : jsx(Icon, { name: 'pass-filled' }),
-        jsx('span', { children: live ? `Showreel ${pctText(job.pct)}${runningJobs.length > 1 ? ` +${runningJobs.length - 1}` : ''}` : 'Showreel ready' }),
+        jsx('span', { children: live ? `Auteur ${pctText(job.pct)}${runningJobs.length > 1 ? ` +${runningJobs.length - 1}` : ''}` : 'Auteur ready' }),
         live ? jsx('i', { className: 'srl-chip-bar', children: jsx('b', { style: { width: pctText(job.pct) } }) }) : null
       ]
     }))
   ] })
 }
 
-// ── tool media card (showreel_render / showreel_status results in the transcript) ──────────────────
+// ── tool media card (auteur_render / auteur_status results in the transcript) ──────────────────
 function resultObject(result) {
   if (result && typeof result === 'object') return result
   try {
@@ -1506,13 +1506,13 @@ function ReelCard(props) {
       jsx('style', { children: CARD_CSS }),
       jsxs('figcaption', { className: 'srl-reel-head', children: [
         jsx(Icon, { name: 'device-camera-video' }),
-        jsx('b', { children: r.title || file.name || 'Showreel' }),
+        jsx('b', { children: r.title || file.name || 'Auteur' }),
         meta ? jsx('span', { children: meta }) : null
       ] }),
       fallback,
       jsxs('div', { className: 'srl-reel-actions', children: [
         jsx(Btn, { variant: 'ghost', size: 'xs', icon: 'folder-opened', onClick: () => reveal(file.path), children: 'Reveal' }),
-        jsx(Btn, { variant: 'ghost', size: 'xs', icon: 'device-camera-video', onClick: open, children: 'Open in Showreel' }),
+        jsx(Btn, { variant: 'ghost', size: 'xs', icon: 'device-camera-video', onClick: open, children: 'Open in Auteur' }),
         jobId ? jsx(Btn, { variant: 'ghost', size: 'xs', icon: 'copy', onClick: copyPost, children: 'Copy post text' }) : null
       ] })
     ]
@@ -1526,17 +1526,17 @@ async function quickMake(mode) {
   const job = await startFilm(sid, optionsFrom(prefs, ''))
   if (job) {
     requestTab('live')
-    notify('success', `Showreel started: ${modeLabel(mode).toLowerCase()} in ${prefs.style}, ${prefs.seconds} s. Progress is in the status bar.`)
+    notify('success', `Auteur started: ${modeLabel(mode).toLowerCase()} in ${prefs.style}, ${prefs.seconds} s. Progress is in the status bar.`)
   }
 }
 
 function paletteEntries() {
   const make = (id, label, mode, keywords) => ({ id, area: sdk.PALETTE_AREA, data: { id: `${ID}.${id}`, label, keywords, run: () => { quickMake(mode) } } })
   return [
-    make('trailer', 'Showreel: make a trailer of this chat', 'product', ['video', 'trailer', 'promo', 'showreel', 'film']),
-    make('lore', 'Showreel: make the lore (making-of) of this chat', 'making_of', ['lore', 'making of', 'behind the scenes', 'bts', 'video']),
-    make('speedrun', 'Showreel: make a speedrun of this chat', 'speedrun', ['speedrun', 'any%', 'timer', 'video']),
-    { id: 'open', area: sdk.PALETTE_AREA, data: { id: `${ID}.open`, label: 'Showreel: open the studio', keywords: ['showreel', 'video', 'studio', 'library'], run: () => navigate(ROUTE) } }
+    make('trailer', 'Auteur: make a trailer of this chat', 'product', ['video', 'trailer', 'promo', 'auteur', 'film']),
+    make('lore', 'Auteur: make the lore (making-of) of this chat', 'making_of', ['lore', 'making of', 'behind the scenes', 'bts', 'video']),
+    make('speedrun', 'Auteur: make a speedrun of this chat', 'speedrun', ['speedrun', 'any%', 'timer', 'video']),
+    { id: 'open', area: sdk.PALETTE_AREA, data: { id: `${ID}.open`, label: 'Auteur: open the studio', keywords: ['auteur', 'video', 'studio', 'library'], run: () => navigate(ROUTE) } }
   ]
 }
 
@@ -1880,11 +1880,11 @@ const CARD_CSS = `
 // ── registration ───────────────────────────────────────────────────────────────────────────────────
 export default {
   id: ID,
-  name: 'Showreel',
+  name: 'Auteur',
   register(ctx) {
     const missing = ['host', 'useQuery', 'queryClient'].filter(name => sdk[name] == null)
     if (missing.length) {
-      throw new Error(`Showreel needs a newer Hermes Desktop: the plugin SDK has no ${missing.join(', ')}.`)
+      throw new Error(`Auteur needs a newer Hermes Desktop: the plugin SDK has no ${missing.join(', ')}.`)
     }
     CTX = ctx
     ctx.onDispose(() => {
@@ -1894,15 +1894,15 @@ export default {
       throttles.clear()
     })
     const items = [
-      { id: 'pane', area: sdk.PANES_AREA || 'panes', title: 'Showreel', data: { placement: 'right', width: '400px' }, render: () => jsx(Studio, { variant: 'pane' }) }
+      { id: 'pane', area: sdk.PANES_AREA || 'panes', title: 'Auteur', data: { placement: 'right', width: '400px' }, render: () => jsx(Studio, { variant: 'pane' }) }
     ]
     if (sdk.ROUTES_AREA) items.push({ id: 'page', area: sdk.ROUTES_AREA, data: { path: ROUTE }, render: () => jsx(Studio, { variant: 'page' }) })
-    if (sdk.SIDEBAR_NAV_AREA) items.push({ id: 'nav', area: sdk.SIDEBAR_NAV_AREA, data: { path: ROUTE, label: 'Showreel', codicon: 'device-camera-video' } })
+    if (sdk.SIDEBAR_NAV_AREA) items.push({ id: 'nav', area: sdk.SIDEBAR_NAV_AREA, data: { path: ROUTE, label: 'Auteur', codicon: 'device-camera-video' } })
     if (sdk.PALETTE_AREA) items.push(...paletteEntries())
     if (sdk.STATUSBAR_AREAS && sdk.STATUSBAR_AREAS.right) items.push({ id: 'progress', area: sdk.STATUSBAR_AREAS.right, order: 130, render: () => jsx(StatusChip, {}) })
     // Hermes >= 0.22.6: draw our own card around the core player for videos our tools produced.
     if (typeof sdk.TOOL_MEDIA_RENDERER_AREA === 'string') {
-      items.push({ id: 'reel-card', area: sdk.TOOL_MEDIA_RENDERER_AREA, data: { tools: ['showreel_render', 'showreel_status'], render: props => jsx(ReelCard, props) } })
+      items.push({ id: 'reel-card', area: sdk.TOOL_MEDIA_RENDERER_AREA, data: { tools: ['auteur_render', 'auteur_status'], render: props => jsx(ReelCard, props) } })
     }
     if (typeof ctx.registerMany === 'function') ctx.registerMany(items)
     else items.forEach(item => ctx.register(item))

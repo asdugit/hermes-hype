@@ -1,4 +1,4 @@
-"""Showreel audio stage (runtime: stdlib + ffmpeg subprocess only; no numpy).
+"""Auteur audio stage (runtime: stdlib + ffmpeg subprocess only; no numpy).
 
 Modules:
   tts         synthesize(dispatch, text, out_path) -> VoiceClip | None   (Hermes text_to_speech via ctx.dispatch_tool)

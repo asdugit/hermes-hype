@@ -148,5 +148,5 @@ def dry_run(kit: str, aspect: str, tmp: Path):
 
     film, assets = gallery(kit, aspect)
     job = build_job(film, tmp / "job", assets=assets)
-    with render_slot(os.environ.get("SHOWREEL_RENDER_SLOT_DIR"), f"pytest-kits-{kit}"):
+    with render_slot(os.environ.get("AUTEUR_RENDER_SLOT_DIR"), f"pytest-kits-{kit}"):
         return dryrun(job, per_shot=2)

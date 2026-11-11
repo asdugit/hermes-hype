@@ -1,4 +1,4 @@
-"""Showreel renderer core: HTML page implementing ``window.__sr`` -> MP4 via headless Chromium + ffmpeg.
+"""Auteur renderer core: HTML page implementing ``window.__sr`` -> MP4 via headless Chromium + ffmpeg.
 
 Entry points (all in :mod:`showreel_core.render.workers`, never raise):
   ``render_video(RenderSpec, progress=, cancel=) -> RenderResult``

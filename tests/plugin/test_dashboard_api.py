@@ -17,7 +17,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def _load_api() -> Any:
-    name = "showreel_plugin_api_under_test"
+    name = "auteur_plugin_api_under_test"
     if name in sys.modules:
         return sys.modules[name]
     spec = importlib.util.spec_from_file_location(name, ROOT / "dashboard" / "plugin_api.py")
@@ -30,23 +30,23 @@ def _load_api() -> Any:
 
 @pytest.fixture
 def api(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
-    monkeypatch.setenv("SHOWREEL_DATA_DIR", str(tmp_path / "data"))
-    monkeypatch.setenv("SHOWREEL_VIDEOS_DIR", str(tmp_path / "videos"))
+    monkeypatch.setenv("AUTEUR_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("AUTEUR_VIDEOS_DIR", str(tmp_path / "videos"))
     mod = _load_api()
     pipeline = mod._sub("pipeline")
     started: list[str] = []
     monkeypatch.setattr(pipeline, "start_background", lambda job_id, host, **kw: started.append(job_id))
     app = FastAPI()
-    app.include_router(mod.router, prefix="/api/plugins/showreel")
+    app.include_router(mod.router, prefix="/api/plugins/auteur")
     return {"client": TestClient(app), "mod": mod, "started": started, "store": mod._sub("jobs").JobStore()}
 
 
-P = "/api/plugins/showreel"
+P = "/api/plugins/auteur"
 
 
 def test_core_is_loaded_by_path_under_a_private_name(api: dict[str, Any]) -> None:
     core = api["mod"]._load_core()
-    assert core.__name__ == "_showreel_dashboard_core"
+    assert core.__name__ == "_auteur_dashboard_core"
     assert Path(core.__file__).resolve() == (ROOT / "showreel_core" / "__init__.py").resolve()
 
 

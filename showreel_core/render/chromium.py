@@ -1,6 +1,6 @@
 """Chromium resolution, launch flags, launch and clean shutdown.
 
-Resolution order: ``SHOWREEL_CHROMIUM`` env -> Hermes ``pm`` Chromium (lazy import) -> system
+Resolution order: ``AUTEUR_CHROMIUM`` env -> Hermes ``pm`` Chromium (lazy import) -> system
 Chrome / Chromium / Edge / Brave at well-known per-OS paths and on PATH. Every candidate is
 returned so a launch failure (e.g. missing Linux shared libraries) can fall through to the next.
 
@@ -32,7 +32,7 @@ from typing import Any
 from .errors import RenderError
 from .ffmpeg import NO_WINDOW, _pm_binary
 
-ENV_VAR = "SHOWREEL_CHROMIUM"
+ENV_VAR = "AUTEUR_CHROMIUM"
 PROFILE_PREFIX = "sr-chrome-"
 
 # Playwright 1.64 chromiumSwitches() disabled features (packages/playwright-core/src/server/chromium/
@@ -80,7 +80,7 @@ LINUX_LIBS_HINT = ("Chromium is missing system libraries. On Debian/Ubuntu: `sud
                    "libgbm1 libpango-1.0-0 libcairo2 libasound2` (Fedora: `sudo dnf install -y nss atk at-spi2-atk "
                    "cups-libs libxkbcommon libXcomposite libXdamage libXrandr mesa-libgbm pango cairo alsa-lib`).")
 NO_BROWSER_HINT = ("Run `hermes pm install chromium`, install Google Chrome / Chromium / Microsoft Edge, "
-                   "or set SHOWREEL_CHROMIUM to a Chromium-based browser executable.")
+                   "or set AUTEUR_CHROMIUM to a Chromium-based browser executable.")
 
 
 # ----------------------------------------------------------------------------- resolve
@@ -307,7 +307,7 @@ def _launch_hint(stderr: str) -> str:
         return LINUX_LIBS_HINT
     if "Missing X server" in stderr or "cannot open display" in stderr:
         return "Chromium tried to open a display; make sure it supports --headless=new (Chrome >= 112)."
-    return "Try another browser via SHOWREEL_CHROMIUM, or `hermes pm install chromium`."
+    return "Try another browser via AUTEUR_CHROMIUM, or `hermes pm install chromium`."
 
 
 def launch(candidate: BrowserCandidate, *, gpu: bool, window_size: tuple[int, int] = (1920, 1080),

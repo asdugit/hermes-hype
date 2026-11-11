@@ -1,4 +1,4 @@
-// Showreel kit "comic" — the page: newsprint paper, a grid of ink-bordered panels with halftone / sunburst
+// Auteur kit "comic" — the page: newsprint paper, a grid of ink-bordered panels with halftone / sunburst
 // backgrounds, panels that assemble, and the motion-comic camera (holds on a panel, glides along the Z-path to
 // the next, pulls back to the full page) with page shake on impacts. comicScene() registers a kit:comic scene.
 
