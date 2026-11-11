@@ -2,7 +2,9 @@
 
 ## 1.0.0 (2026-11-11)
 
-First public release, built for the Nous Research Hermes Agent plugin hackathon.
+First public release, built for the Nous Research Hermes Agent plugin hackathon. Formerly Showreel: the plugin
+was renamed to Auteur (`/auteur`, `auteur_render`, `hermes auteur`) because the catalog name `showreel` already
+belongs to another plugin.
 
 **Zero prompting**
 - `/auteur` reads the current session read-only (prompts, tool calls, diffs, terminal output, tests,
@@ -50,6 +52,14 @@ First public release, built for the Nous Research Hermes Agent plugin hackathon.
   assembles the film. Every reply is auto-repaired (lenient JSON, schema coercion, misspelt scene ids snapped to
   the catalog). Without vision, a measured review (product size and visibility, layout QA, frozen frames, story
   timing) stands in for the critic.
+- Measured on the same product and direction: small models land about one point below a frontier model at a
+  fraction of the cost (noir trailer, same vision critic: Claude Haiku 4.5 5.7 and DeepSeek V4.1 Flash 5.7 vs
+  6.7, US$0.88 and US$0.30 vs US$12.97). The README has the table.
+- A direction changes the whole look, not just the words: its mood picks the world and a grade runs over every
+  frame, the product captures included. Noir: black and white that keeps only the product's own colour, hard
+  light, rain and grain (with Blender, a 3D product gets a studio at night with venetian-blind light). VHS:
+  scanlines, chroma bleed, tape smear and a tracking band. Anime: heavy kinetic type and hard cuts. Documentary:
+  warm light, the meadow at dawn. The critic sees the graded keyframes.
 - Fallbacks: free path → compose path → an engine-built film with no model → a preset film. Browser stalls and
   Blender memory waits are retried instead of being treated as a bad film.
 - A library of scenes that passed the critic, reusable by name in later films.
@@ -71,6 +81,11 @@ First public release, built for the Nous Research Hermes Agent plugin hackathon.
 - Desktop studio (pane and page): style gallery with preview loops, *Customize this preset* or *Free roam*, live
   progress with a calibrated ETA, watch the Director work, storyboard editing with re-render and no model call,
   result player, revise, library. Also palette commands, a status-bar chip and a tool-media card.
+
+**On-screen hygiene for any session**: the END card shows only the product's own launch or install command (from
+the session's runs, the README, package.json, pyproject or a Makefile), or no command at all. Loopback addresses
+and machine paths never reach the screen (paths are shown relative to the project), terminal panels keep the
+session's command verbatim, and test or fixture pages are never filmed as the product.
 
 **Quality gates on every film**: layout QA (clipped text, safe areas, minimum glyph size), a determinism probe,
 decoded-frame and black-frame checks, loudness at -14 LUFS with a true-peak ceiling, and a speech-band SNR check.

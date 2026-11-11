@@ -3,11 +3,13 @@
 **An engine inside a Hermes plugin: type `/auteur` and the session you just worked in becomes a narrated
 launch trailer for the thing you built.**
 
-![Auteur: the product, a red car, flies alongside the camera over a pink meadow while dozens of red cars stream across the sky and a lone figure watches from the flowers](docs/media/hero_v2.webp)
+![Auteur: a figure in a straw hat walks into a pink and lilac meadow while flocks of red cars stream across a sunset sky, then the product, a red sports car, glides in close to the camera](docs/media/hero_v3.webp)
 
-*8 seconds from Auteur's hand-directed hero film: one continuous Blender shot (`blender_kits/meadow/oner.py`)
-through the opt-in Blender engine, after a pixel-art boss battle. Rendered by Auteur's own pipeline: Blender
-for the 3D, HTML scenes in headless Chromium, original music and SFX, ffmpeg.*
+*8 seconds from Auteur's hand-directed hero film: two moments of its one continuous Blender shot
+(`blender_kits/meadow/oner.py`, opt-in Blender engine), joined by a short dissolve. A figure walks into the
+flowers while flocks of the product stream across the sky, then the hero car glides in. In the film this comes
+after a pixel-art boss battle. Rendered by Auteur's own pipeline: Blender for the 3D, HTML scenes in headless
+Chromium, original music and SFX, ffmpeg.*
 
 [![CI](https://github.com/asdugit/hermes-auteur/actions/workflows/ci.yml/badge.svg)](https://github.com/asdugit/hermes-auteur/actions/workflows/ci.yml)
 License: AGPL-3.0-or-later · Hermes Agent >= 0.22.5 · Windows, macOS, Linux
@@ -25,8 +27,9 @@ License: AGPL-3.0-or-later · Hermes Agent >= 0.22.5 · Windows, macOS, Linux
 - **A free-roam engine.** Don't want presets? Write a direction in plain words and the Director engine writes a
   treatment, codes the scenes it needs, renders keyframes, has a vision critic score them, and revises before the
   final render. Kits, proven blueprints, schema repair and measured gates carry the craft; smaller models get a
-  simpler compose path (pick a blueprint, write the words, the engine assembles and checks the film). The goal is
-  that any model can make a cinematic film.
+  simpler compose path (pick a blueprint, write the words, the engine assembles and checks the film). Measured:
+  a small model lands about one point below a frontier model, at a fraction of the cost
+  ([Any model](#any-model-measured)).
 
 ## Quick start
 
@@ -129,6 +132,34 @@ If the Director fails, you still get a preset film in the style you asked for.
 Directed films cost real model usage. In our trials with a frontier model, a standard-effort film took about
 25 minutes and about US$7 of model usage, and a quick one about 14 minutes and US$3. Presets make a few model
 calls per film.
+
+### Any model (measured)
+
+The Director picks a path from the model it gets. Strong models take the free path (treatment, script, custom
+scene code, vision critique, revisions). Small models (Haiku, Flash, mini and local models) take the compose path:
+two small schema-checked calls pick a proven blueprint and write the words, and the engine assembles, repairs,
+grades and checks the film. Without vision, a measured review (product size and visibility, layout, frozen or flat
+frames, pacing) replaces the critic.
+
+Our trials: same product, same direction, 30 s films. Noir scores are from the same strong vision critic on
+its 10-point scale (the bar is 8); keynote scores are our own review by eye, because the frontier model's critique
+was skipped in that run (no like-for-like critic score; the critic gave Haiku's keynote 5.4).
+
+| Direction | Model and path | Score | Model cost |
+|---|---|---|---|
+| "a noir detective trailer" | frontier model (`claude-fable-5-2`), free path, 2 custom scenes, 2 critic rounds | 6.7 | US$12.97 |
+| | Claude Haiku 4.5, compose path | 5.7 | US$0.88 (US$0.64 of it the strong critic) |
+| | DeepSeek V4.1 Flash, compose path, no vision | 5.7 | US$0.01 (+ US$0.29 for the critic's score) |
+| "an Apple keynote reveal" | frontier model, kit and Blender scenes | about 7 (by eye) | US$1.38 |
+| | Claude Haiku 4.5, compose path | about 6.5 (by eye) | US$0.45 |
+
+The honest reading: small models land **about one point below** the frontier model, for a fraction of the cost
+and time (in our dev runs Haiku's noir took 13 minutes, the frontier model's 93). The gap is in ideas, not
+polish: all three noir films are clean, legible and on-brand, with the product in every product shot, but only
+the strong model invented new scenes (a case board that turns into an orbit); the small models re-dressed a proven
+blueprint with noir words. Small models' revisions made films worse, so they get one critique and the best
+version wins. The two keynote films, Haiku and the frontier model on the same product and direction, play side by
+side in the demo video.
 
 ### Blender (optional 3D engine)
 
