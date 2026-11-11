@@ -103,6 +103,15 @@ def test_disk_full_detection() -> None:
     assert not disk_full(OSError(errno.EACCES, "denied")) and not disk_full(ValueError("x")) and not disk_full(None)
 
 
+def test_music_only_film_status_does_not_say_captions_only(env: dict[str, Any]) -> None:
+    """The default film is music-only; its status line said 'captions only' during the voice stage."""
+    store = env["store"]
+    job = store.create("sess-1", Options(seconds=30).normalised().to_dict())
+    final = run_job(job["id"], _host(), store=store, deps=make_deps(Recorder()))
+    msgs = [e["msg"] for e in final["log"]]
+    assert "stage voice: music only, no narration" in msgs and not any("captions only" in m for m in msgs)
+
+
 def test_a_stage_reporting_no_space_as_text_gets_the_same_advice(env: dict[str, Any]) -> None:
     from showreel_core.pipeline import StageError
 

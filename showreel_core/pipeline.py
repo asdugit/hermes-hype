@@ -1020,7 +1020,7 @@ def _quick_front(run: _Run) -> None:
     run.rep.stage("storyboard", "writing the storyboard")
     run.storyboard = _storyboard(run)
     run.cancel.check()
-    run.rep.stage("voice", "recording narration" if run.opts.voice else "captions only")
+    run.rep.stage("voice", "recording narration" if run.opts.voice else "music only, no narration")
     _voice(run)
     run.cancel.check()
     run.rep.stage("layout", "building the film")
