@@ -31,7 +31,7 @@ def _tree(tmp_path: Path) -> Path:
         "skills/showreel/SKILL.md": '---\nname: showreel\ndescription: "Use when the user wants a demo reel or '
                                     'showreel of what was built."\n---\nA Showreel film. demo reel, "showreel" or\n',
         "README.md": "# Showreel\n`hermes plugins install asdugit/hermes-showreel` (not Duffey234/hermes-showreel)\n"
-                     "Dev: C:/x/showreel-work and D:/showreel-scratch; a showreel of the session.\r\n",
+                     "Dev: ~/showreel-work and ~/showreel-scratch; a showreel of the session.\r\n",
         "runtime/showreel.js": "export const sr = {} // Showreel runtime\n",
         "assets/logo.png": "\x89PNG showreel",
     }
