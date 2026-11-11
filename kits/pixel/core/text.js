@@ -5,23 +5,43 @@
 import { GLYPHS } from './glyphs.js';
 import { ci, NONE } from './palette.js';
 
-const FALLBACK = { '✓': 'v', '✗': 'x', '★': '*', '♥': '<3', '…': '...', '→': '->', '←': '<-', '↪': '>', '▼': 'v', '►': '>', '•': '*', '·': '.', '×': 'x' };
+const FALLBACK = {
+  '✓': 'v', '✗': 'x', '★': '*', '♥': '<3', '…': '...', '→': '->', '←': '<-', '↪': '>', '▼': 'v', '►': '>', '•': '.', '·': '.', '×': 'x',
+  // typography real product names and model-written captions use (E4: 'Tempo — focus timer' printed 'Tempo ? focus timer')
+  '—': '-', '–': '-', '‒': '-', '―': '-', '−': '-', '‐': '-', '‑': '-', '‘': "'", '’': "'", '‚': ',', '′': "'", '`': "'", '´': "'",
+  '“': '"', '”': '"', '„': '"', '″': '"', '«': '"', '»': '"', '‹': '<', '›': '>', '\u00a0': ' ', '\u2009': ' ', '\u202f': ' ',
+  '\u2007': ' ', '\u2002': ' ', '\u2003': ' ', '\u200b': '', '\u200d': '', '\ufe0f': '', '©': '(c)', '®': '(r)', '™': 'TM',
+  '°': 'o', '½': '1/2', '¼': '1/4', '¾': '3/4', '≥': '>=', '≤': '<=', '≠': '!=', '≈': '~', '±': '+-', '÷': '/', '∙': '.',
+  '●': '*', '◆': '*', '■': '#', '□': '[]', '☐': '[]', '☑': '[v]', '✔': 'v', '✘': 'x', '⇒': '=>', '↑': '^', '↓': 'v', '¡': '!', '¿': '?',
+  'ß': 'ss', 'æ': 'ae', 'Æ': 'AE', 'œ': 'oe', 'Œ': 'OE', 'ø': 'o', 'Ø': 'O', 'đ': 'd', 'Đ': 'D', 'ł': 'l', 'Ł': 'L', 'ı': 'i', 'þ': 'th',
+};
 
 /** Font metrics {size, asc, lh}. */
 export function fontInfo(font = 'mono') { const f = GLYPHS[font]; return { size: f.size, asc: f.asc, lh: f.lh }; }
 
 function glyph(f, ch) { return f.glyphs[ch] || null; }
-/** Normalise characters the font lacks (fallback ASCII, else '?'). */
+const has = (f, s) => [...s].every((c) => glyph(f, c));
+/**
+ * Normalise characters the font lacks: the fallback map, then the letter without its accents (é -> e), then the
+ * other case; anything still unknown (emoji, CJK) is dropped instead of printing '?'.
+ */
 export function normalize(str, font = 'mono') {
   const f = GLYPHS[font]; let out = '';
   for (const ch of String(str)) {
-    if (glyph(f, ch)) out += ch;
-    else if (FALLBACK[ch] && [...FALLBACK[ch]].every(c => glyph(f, c))) out += FALLBACK[ch];
-    else if (glyph(f, ch.toUpperCase())) out += ch.toUpperCase();
-    else out += (ch === '\t' ? '  ' : '?');
+    if (glyph(f, ch)) { out += ch; continue; }
+    if (ch === '\t') { out += '  '; continue; }
+    if (ch in FALLBACK && has(f, FALLBACK[ch])) { out += FALLBACK[ch]; continue; }
+    const base = ch.normalize('NFKD').replace(/[\u0300-\u036f]/g, '');
+    if (base && base !== ch && has(f, base)) { out += base; continue; }
+    if (base && base !== ch && has(f, base.toUpperCase())) { out += base.toUpperCase(); continue; }
+    if (glyph(f, ch.toUpperCase())) { out += ch.toUpperCase(); continue; }
+    if (glyph(f, ch.toLowerCase())) { out += ch.toLowerCase(); continue; }
+    if (/\s/.test(ch) && glyph(f, ' ')) { out += ' '; continue; }
+    // unknown: drop it (never a '?'), but keep words apart
   }
-  return out;
+  return out.replace(/ {2,}/g, (m) => (String(str).includes(m) ? m : ' ')).replace(/^ (?=\S)/, (m) => (/^\s/.test(String(str)) ? m : ''));
 }
+
 /** Width in screen px of `str` (normalised) at `scale`. */
 export function measure(str, font = 'mono', scale = 1, spacing = 0) {
   const f = GLYPHS[font], s = normalize(str, font); let w = 0, n = 0;
