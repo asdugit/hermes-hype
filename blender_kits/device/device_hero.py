@@ -48,9 +48,9 @@ def build(sc) -> None:
     p = s.params
     mobile = cm.media(s, "mobile", want="mobile")
     kind = cm.pick_kind(s, p["device"], mobile)
-    m = mobile if kind == "phone" and mobile else cm.media(s, "media", "image", want="desktop")
-    if kind == "phone" and p.get("media") and not p.get("mobile"):
-        m = cm.media(s, "media", want="desktop")
+    m = cm.media(s, "media", "image", want="desktop")
+    if kind == "phone":
+        m = cm.phone_media(cm.media(s, "media", want="desktop") if p.get("media") else None, mobile) or m
     finish = None if p["finish"] == "auto" else p["finish"]
     entrance = p["entrance"] if p["entrance"] != "auto" else ("open" if kind == "laptop" else "rise")
     D = s.dur

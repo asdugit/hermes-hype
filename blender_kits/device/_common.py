@@ -77,8 +77,9 @@ def media(s: studio.Shot, *keys: str, want: str = "desktop") -> dict | None:
         cands = [c for c in cands if "mobile" not in c[0] and "full" not in c[0]]
     elif want == "full":
         cands = [c for c in cands if "mobile" not in c[0]]
-    for n, d in cands:
-        if any(k == n or n.startswith(k) for k in names):
+    for n, d in cands:   # pipeline asset names carry prefixes/suffixes: m3_mobile_390x844, cap_full_1440
+        toks = n.replace("-", "_").split("_")
+        if any(k == n or n.startswith(k) or k in toks for k in names):
             return d
     for n, d in cands:
         tall = _is_tall(d)
@@ -108,6 +109,14 @@ def accent(s: studio.Shot) -> str:
             if d.get(k):
                 return str(d[k])
     return "#6d5df5"
+
+
+def phone_media(given: dict | None, mobile: dict | None) -> dict | None:
+    """Screen media for a phone: a portrait capture as given, else the mobile capture (a wide desktop capture
+    cover-fitted into a phone crops the UI mid-word), else whatever was given."""
+    if given and _is_tall(given):
+        return given
+    return mobile or given
 
 
 def pick_kind(s: studio.Shot, requested: str, mobile: dict | None) -> str:

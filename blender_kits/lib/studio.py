@@ -581,7 +581,7 @@ def stage(s: Shot, *, preset: str = "studio", center: Vec3 = (0, 0, 0), radius: 
         "rim_r": _area("sr_rim_r", (r * 0.3, r * 2.4), pr["rim"], 120 * e2 * pr["rim_e"],
                        (cx + r * 3.2, cy + r * 2.8, cz + r * 0.25), (cx, cy, cz + r * 1.1), spread_deg=36),
         "top": _area("sr_top", (r * 4.0, r * 4.0), pr["top"], 120 * e2 * pr["top_e"],
-                     (cx, cy, cz + r * 5.0), (cx, cy, cz), spec=0.5, spread_deg=60),
+                     (cx, cy, cz + r * 5.0), (cx, cy, cz), spec=0.25, spread_deg=60),
     }
     cd = max(cam_dist or r * 3.0, r * 2.0)
     card("sr_card_front", (r * 7.0, r * 3.0), (cx + ks * r * 0.8, cy - cd * 1.35, cz + max(r * 3.5, cd * 0.9)),

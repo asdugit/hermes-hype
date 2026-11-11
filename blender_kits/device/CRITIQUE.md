@@ -45,3 +45,17 @@ Notes written right after each look (vision on contact sheets). Scores are my ho
 - Remaining (b2 full frame): deck/keyboard read dark grey (metal sees only the dark world behind the lid; top
   softbox has spec 0), thin noisy highlight speckles on the lid's left edge (preview RT), device centred in HOOK/TITLE
   while the kit:type title sits left (needs `space`).
+- b3-b4: `space` left honoured (device right, left third dark: the kit:type title sits there) 7/10; FEATURE push now
+  stops with the whole screen at ~1.15 frame widths and a 20 deg angle: the bezel edge stays in frame, reads 3D
+  6/10; SCROLL fill 0.55 shows the device (keyboard + bezel) and the page stays readable 6/10. Deck now silver
+  (bead-blasted alu 0.42 + top softbox specular, light-linked off the floor).
+- First real Quick x Blender film (preview, Orbit Notes session B, launch style, 30 s): HOOK/TITLE text left +
+  device right works; FEATURE lower-third fine; END: the centred kit:type/end-lockup sat on top of the laptop
+  (device_end space left) = collision; film frame 0 black (HOOK reveal from darkness; video QA thumbnail warning).
+  -> HOOK mapping `reveal: false` (lit from frame 1); END mapping `space: none, size 0.6, defocus 0.85`: the device
+  starts sharp and melts into a soft bokeh glow behind the centred lockup + scrim (6/10, reads as an end card).
+- 9:16: phone hero/END showed the DESKTOP capture cover-fitted into the phone (text cut mid-word: "ur ideas, in o")
+  because the mapping passes the desktop image as media -> `phone_media()`: a phone always prefers the mobile
+  capture unless the given media is portrait; pipeline asset names (`m3_mobile_390x844`) now match by token.
+  END 9:16 size formula fixed (phone filled the frame). Decks blew out white in 9:16 close-ups -> top softbox
+  specular 0.5 -> 0.25.

@@ -24,10 +24,14 @@ PARAMS = {
     "push": {"type": "float", "default": 0.05, "min": 0.0, "max": 0.3, "doc": "slow dolly-in amount"},
     "dim_bg": {"type": "float", "default": 0.0, "min": 0.0, "max": 0.8,
                "doc": "darken the stage towards the end (fraction) so overlay text pops"},
+    "defocus": {"type": "float", "default": 0.0, "min": 0.0, "max": 1.0,
+                "doc": "end-card backdrop: the device melts into a soft bokeh glow behind a CENTRED lockup "
+                       "(0 = sharp; 1 = fully soft; use with space none)"},
 }
 DESCRIBE = ("END lockup: the device rests 3/4 to camera on the stage, screen showing the product, on one side of the "
             "frame; the other side stays clean, dark and evenly lit for the browser title / CTA / URL overlay; near-"
-            "still camera with a slow push that settles (no motion at the last frame).")
+            "still camera with a slow push that settles (no motion at the last frame); defocus turns the device into a soft "
+            "bokeh glow behind a centred lockup.")
 
 
 def build(sc) -> None:
@@ -35,7 +39,9 @@ def build(sc) -> None:
     p = s.params
     mobile = cm.media(s, want="mobile")
     kind = cm.pick_kind(s, p["device"], mobile)
-    m = mobile if kind == "phone" and mobile and not p.get("media") else cm.media(s, "media", want="desktop")
+    m = cm.media(s, "media", want="desktop")
+    if kind == "phone":
+        m = cm.phone_media(m if p.get("media") else None, mobile) or m
     dev = cm.make(s, kind, m, open_deg=106.0)
     space = p["space"]
     if space == "auto":
@@ -55,7 +61,7 @@ def build(sc) -> None:
     lens = 50.0
     size = p["size"]
     if s.vertical:
-        dist = studio.fit_distance(wd, ht, lens, s.aspect, 1.0) * (0.92 / max(size * 1.9, 0.3))
+        dist = studio.fit_distance(wd, ht, lens, s.aspect, 1.0) * (0.8 / max(size, 0.2))
     else:
         dist = studio.fit_distance(wd, ht, lens, s.aspect, 1.0) * (1.0 / max(size, 0.1)) * 0.9
     st = cm.setup(s, preset=p["env"], center=tuple(center), radius=radius, key_side=-sgn, cam_dist=dist)
@@ -71,8 +77,18 @@ def build(sc) -> None:
     beats = [studio.Beat(0.0, studio.look_from(tgt, 6 * sgn, 9, dist * (1 + p["push"])), tuple(tgt), lens),
              studio.Beat(D, studio.look_from(tgt, 2 * sgn, 8, dist), tuple(tgt), lens)]
     focus_pt = center.copy()
-    studio.CameraRig(beats, end_speed=0.0, handheld=0.0, fstop=max(2.8, studio.dof_fstop(radius)), seed=s.seed,
-                     focus=lambda t, pos, tg: (focus_pt - Vector(pos)).length).build(s)
+    dfc = float(p.get("defocus") or 0.0)
+    fstop = max(2.8, studio.dof_fstop(radius))
+    if dfc > 0:   # focus slides from the device to well in front of it: sharp start, soft glow at the end
+        fstop = studio.lerp(fstop, 1.0, dfc)
+
+    def focus(t: float, pos, tg) -> float:
+        d0 = (focus_pt - Vector(pos)).length
+        if dfc <= 0:
+            return d0
+        return d0 * (1.0 - 0.6 * dfc * studio.window(t, 0.0, min(D * 0.4, 1.6)))
+
+    studio.CameraRig(beats, end_speed=0.0, handheld=0.0, fstop=fstop, seed=s.seed, focus=focus).build(s)
     if p["dim_bg"] > 0:
         for name, ob in st.lights.items():
             for f in s.frames():
