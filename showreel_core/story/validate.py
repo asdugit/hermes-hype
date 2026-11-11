@@ -678,6 +678,10 @@ _SELF_PRAISE = re.compile(
 
 def _check_montage(scene: StoryScene, path: str, ctx: _Ctx) -> bool:
     facts = ctx.facts
+    if ctx.mode == "product":       # tool-call cards ('PATCH styles.css') say nothing to a stranger: dead time there
+        ctx.issue("montage_product", path, "a product film shows the product, not a montage of tool calls",
+                  "warning", "scene dropped")
+        return False
     raw = list(scene.extra.get("montage_refs") or []) or list(scene.refs)
     refs: list[str] = []
     for j, ref in enumerate(raw):

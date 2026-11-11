@@ -424,6 +424,31 @@ def looks_like_test_pass(ev: Event) -> bool:
     return bool(_TEST_PASS_RE.search(text)) or is_test_cmd(str((ev.data or {}).get("cmd") or ""))
 
 
+def is_fix_session(facts: "SessionFacts") -> bool:
+    """A session that FIXED an existing project rather than building one: a failing test run, then patches of
+    existing files, then the same suite passing, with (almost) no new files written. Its film tells the fix story
+    (failing test -> diff -> green), never a launch of a product the session did not make."""
+    evs = facts.events
+    red = next((e.t for e in evs if e.kind == "terminal" and is_test_cmd(str((e.data or {}).get("cmd") or ""))
+                and looks_like_failure(e)), None)
+    if red is None:
+        return False
+    green = any(e.t > red and looks_like_test_pass(e) for e in evs)
+    patches = sum(1 for e in evs if e.kind == "file_patch" and e.t > red)
+    writes = sum(1 for e in evs if e.kind == "file_write")
+    return green and patches >= 1 and writes <= 1 and not facts.visuals()
+
+
+#: tool chatter in a run's output that is not the product: git's line-ending notes, uv's hardlink fallback, hints
+_NOISE_LINE_RE = re.compile(r"(?i)^\s*(?:warning: (?:in the working copy of|LF will be replaced|CRLF will be replaced|"
+                            r"failed to hardlink)|hint: |\s*If the cache and target directories are on different)")
+
+
+def is_noise_line(line: str) -> bool:
+    """True for a tool warning/hint line that says nothing about the product (filtered from TERMINAL beats)."""
+    return bool(_NOISE_LINE_RE.match(str(line or "")))
+
+
 def looks_like_failure(ev: Event) -> bool:
     """A terminal run that failed (non-zero exit or reported failures)."""
     if ev.kind != "terminal":

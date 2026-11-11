@@ -1,0 +1,81 @@
+"""Product films carry no tool-call MONTAGE, terminal beats drop tool chatter, and a session that FIXED an existing
+project is told as a fix (never 'Introducing ...') (synthetic events only)."""
+from __future__ import annotations
+
+from showreel_core.contracts import Event, Product, SceneType as T, Stats, Storyboard, StoryScene
+from showreel_core.story.facts import SessionFacts, is_fix_session, is_noise_line
+from showreel_core.story.prompt import build_input
+from showreel_core.story.timing import _terminal, resolve_scene_data
+from showreel_core.story.validate import validate_storyboard
+
+
+def _run(i: int, t: float, cmd: str, out: list[str], ok: bool = True) -> Event:
+    return Event(f"e{i}", t, "terminal", "terminal", cmd[:60], "", {"cmd": cmd, "output_lines": out,
+                                                                     "exit_code": 0 if ok else 1}, ok=ok)
+
+
+def _fix_facts() -> SessionFacts:
+    evs = [
+        Event("e0", 0.0, "user_prompt", "", "fix tests", "", {"text": "The test suite is failing. Please fix it."}),
+        _run(1, 5.0, "python -m pytest -q", ["FAILED tests/test_invoice.py::test_discount", "5 failed, 2 passed"],
+             ok=False),
+        Event("e2", 10.0, "file_read", "read_file", "invoice.py", "", {"path": "invoicely/invoice.py"}),
+        Event("e3", 20.0, "file_patch", "patch", "invoice.py", "", {"path": "invoicely/invoice.py",
+                                                                    "action": "update"}),
+        _run(4, 30.0, "python -m pytest -q", ["7 passed in 0.01s"]),
+        _run(5, 35.0, "git add -A && git commit -m 'Fix discount'",
+             ["warning: in the working copy of 'invoicely/invoice.py', LF will be replaced by CRLF the next time Git "
+              "touches it", "[main 1a2b3c] Fix discount", " 1 file changed, 3 insertions(+)"]),
+        Event("e6", 40.0, "final_answer", "", "done", "", {"text": "Root cause: discount was a percent."}),
+    ]
+    return SessionFacts(evs, Stats(duration_s=60, files_created=0))
+
+
+def test_fix_session_is_recognised_and_a_build_is_not() -> None:
+    assert is_fix_session(_fix_facts())
+    build = [
+        Event("e0", 0.0, "user_prompt", "", "lib", "", {"text": "Build patience, a retry library"}),
+        Event("e1", 5.0, "file_write", "write_file", "a.py", "", {"path": "src/a.py", "lines": ["x = 1"]}),
+        Event("e2", 6.0, "file_write", "write_file", "b.py", "", {"path": "src/b.py", "lines": ["y = 1"]}),
+        _run(3, 10.0, "python -m pytest -q", ["1 failed, 3 passed"], ok=False),
+        Event("e4", 12.0, "file_patch", "patch", "a.py", "", {"path": "src/a.py", "action": "update"}),
+        _run(5, 15.0, "python -m pytest -q", ["4 passed in 0.1s"]),
+    ]
+    assert not is_fix_session(SessionFacts(build, Stats(duration_s=60, files_created=2)))
+
+
+def test_fix_film_title_is_not_an_introduction_and_the_model_hears_it() -> None:
+    facts = _fix_facts()
+    product = Product(name="invoicely", one_liner="Invoice math", kind="library")
+    sb = Storyboard(title="invoicely", tagline="Invoice math, finally correct", cta="", mode="product",
+                    product=product, scenes=[StoryScene(T.TITLE, [], "", "invoicely")])
+    data = resolve_scene_data(sb.scenes[0], sb, facts)
+    assert data["eyebrow"] == "Fixed"
+    from showreel_core.story.options import StoryOptions
+    text = build_input("", facts, StoryOptions(seconds=30))
+    assert "FIXED AN EXISTING PROJECT" in text
+
+
+def test_tool_chatter_is_not_shown_in_a_terminal_beat() -> None:
+    assert is_noise_line("warning: in the working copy of 'a.py', LF will be replaced by CRLF the next time")
+    assert is_noise_line("warning: Failed to hardlink files; falling back to full copy.")
+    assert not is_noise_line("warning: 3 habits have no colour")      # the product's own warning stays
+    shown = _terminal(_fix_facts().by_id["e5"], 8)
+    assert not any("CRLF" in ln for ln in shown["output"])
+
+
+def test_product_film_has_no_tool_call_montage() -> None:
+    evs = [Event("e0", 0.0, "user_prompt", "", "app", "", {"text": "Build Streaks"})]
+    evs += [Event(f"e{i}", float(i), "file_patch", "patch", "styles.css", "", {"path": "styles.css",
+                                                                              "action": "update"})
+            for i in range(1, 7)]
+    facts = SessionFacts(evs, Stats(duration_s=60, files_created=1))
+    sb = Storyboard(title="Streaks", tagline="Habits", cta="", mode="product", product=Product(name="Streaks"),
+                    scenes=[StoryScene(T.TITLE, [], "", "Streaks"),
+                            StoryScene(T.MONTAGE, ["e1", "e2", "e3", "e4"], "", "How it was built",
+                                       {"montage_refs": ["e1", "e2", "e3", "e4", "e5"]}),
+                            StoryScene(T.END, [], "", "")])
+    res = validate_storyboard(sb, facts, 30, "product")
+    assert T.MONTAGE not in [s.type for s in res.storyboard.scenes]
+    lore = validate_storyboard(sb, facts, 30, "making_of")
+    assert T.MONTAGE in [s.type for s in lore.storyboard.scenes]

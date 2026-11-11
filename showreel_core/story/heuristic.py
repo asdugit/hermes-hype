@@ -634,9 +634,7 @@ class _ProductFilm(_Film):
             self.used.update({pair[0].id, pair[1].id})
             yield StoryScene(T.BEFORE_AFTER, [pair[0].id, pair[1].id], "", "Broken, then fixed",
                              {"before_ref": pair[0].id, "after_ref": pair[1].id})
-        mont = self.montage("How it was built")
-        if mont:
-            yield mont
+        # (no MONTAGE in a product film: tool-call cards are the making-of, dead time for a stranger)
         for ev in sorted(self._unused(self.writes), key=lambda e: -e.weight)[:2]:
             yield self.code_scene(ev, "")
         for ev in sorted(self._unused(self.patches), key=lambda e: -e.weight)[:2]:
@@ -674,10 +672,6 @@ class _ProductFilm(_Film):
                 self.used.update({pair[0].id, pair[1].id})
                 out.insert(0, StoryScene(T.BEFORE_AFTER, [pair[0].id, pair[1].id], "", "Broken, then fixed",
                                          {"before_ref": pair[0].id, "after_ref": pair[1].id}))
-        if self.secs >= 50 and room - sum(1 for s in out if s.type != T.BEFORE_AFTER) >= 2:
-            mont = self.montage("How it was built")
-            if mont:
-                out.append(mont)
         vo = "" if out else "Hermes built it in a single session."
         stats = self.stats("Built with Hermes", vo)
         if stats:

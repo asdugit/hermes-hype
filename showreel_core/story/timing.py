@@ -30,6 +30,8 @@ from ..contracts import (
     TimelineScene,
 )
 from .facts import (
+    is_fix_session,
+    is_noise_line,
     STAT_LABELS,
     SessionFacts,
     code_lines,
@@ -410,8 +412,11 @@ def _resolve_scene_data(scene: StoryScene, sb: Storyboard, facts: SessionFacts,
         return None
     product = getattr(sb, "product", None)
     if st == T.TITLE:
-        return {"title": sb.title, "tagline": sb.tagline, "product": product.name if product else sb.title,
-                "one_liner": product.one_liner if product else ""}
+        out_t = {"title": sb.title, "tagline": sb.tagline, "product": product.name if product else sb.title,
+                 "one_liner": product.one_liner if product else ""}
+        if film_mode(getattr(sb, "mode", None)) == "product" and is_fix_session(facts):
+            out_t["eyebrow"] = "Fixed"   # the session fixed an existing project: never 'Introducing' it
+        return out_t
     if st == T.END:
         out: dict[str, Any] = {"title": sb.title, "cta": sb.cta, "url": sb.url, "credit": CREDIT}
         if not sb.cta and sb.tagline:
@@ -593,7 +598,7 @@ def _terminal(ev: Event, limit: int) -> dict[str, Any] | None:
         return None
     if "\n" in cmd.strip():
         cmd = main_command(cmd)      # a multi-line script: its first real command, never its `cd "api"` line
-    out = [str(x) for x in data_get(ev, "output_lines") or []]
+    out = [str(x) for x in data_get(ev, "output_lines") or [] if not is_noise_line(str(x))]
     while out and not out[-1].strip():
         out.pop()
     # a product run reads from the top (header, best rows); a test/build run is read at its summary (the tail)

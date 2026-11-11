@@ -13,6 +13,7 @@ import re
 
 from ..contracts import SCENE_RULES, STAT_KEYS, Event, Product, SceneType
 from .facts import (
+    is_fix_session,
     STAT_LABELS,
     SessionFacts,
     code_lines,
@@ -425,6 +426,11 @@ def build_input(digest: str, facts: SessionFacts, options: StoryOptions, product
         digest_text = digest_text[: DIGEST_MAX_CHARS * 2] + "\n... (digest truncated)"
     minutes = duration_minutes(facts.stats.duration_s) if facts.stats.duration_s else 0
     brief = f"\n\n# BRIEF FROM THE USER\n{normalize_ws(options.brief)}" if options.brief.strip() else ""
+    if mode == "product" and is_fix_session(facts):
+        brief += ("\n\n# THIS SESSION FIXED AN EXISTING PROJECT\nHermes did not build this project; it found and fixed "
+                  "bugs in it. Tell the fix story in this order: the failing test run, the root cause (a CALLOUT of the "
+                  "session's own diagnosis), the DIFF, the tests passing (BEFORE_AFTER red then green). Never present it "
+                  "as a new product or a launch; the title is the project's name, the tagline says what was fixed.")
     return f"""# Film settings
 mode {mode} | target {secs:g} s | style {options.style} | aspect {options.aspect} | narration budget about {narration_budget(secs, mode)} words | {lo}-{hi} scenes | narration {'spoken' if options.voice else 'captions only'}{brief}
 
