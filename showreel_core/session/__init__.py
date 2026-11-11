@@ -72,7 +72,10 @@ def analyze_rows(rows: list[dict[str, Any]], meta: dict[str, Any] | None = None,
             if ev.kind in VISUAL_KINDS and name_signals(str((ev.data or {}).get("src") or "")
                                                         or str((ev.data or {}).get("path") or ""))[0]:
                 ev.weight = min(ev.weight, 0.02)
-        bundle.assets = collect_assets(bundle.events, assets_dir, base_dir=meta.get("cwd") or None)
+        stamps = [float(r["timestamp"]) for r in rows if isinstance(r.get("timestamp"), (int, float))]
+        t0 = min(stamps) if stamps else float(meta.get("started_at") or 0.0)
+        bundle.assets = collect_assets(bundle.events, assets_dir, base_dir=meta.get("cwd") or None,
+                                       session_t0=t0 or None)
         link_previews(bundle.events)
         bundle.warnings += bundle.assets.errors
         try:                                                # debug renders / contact sheets never reach a film

@@ -40,7 +40,23 @@ class AssetReport:
     missing: int = 0
     skipped: int = 0
     inline: int = 0
+    stale: int = 0              # pictures whose file was rewritten after the session looked at it (not this session's)
     errors: list[str] = field(default_factory=list)
+
+
+#: a screenshot file is written while its tool call runs; a file much newer than the last event that looked at it
+#: was overwritten later (browser harnesses reuse ONE scratch file for every screenshot of every session)
+STALE_SLACK_S = 120.0
+
+
+def _inside(p: Path, base_dir: str | Path | None) -> bool:
+    if not base_dir:
+        return False
+    try:
+        p.resolve().relative_to(Path(base_dir).expanduser().resolve())
+        return True
+    except (ValueError, OSError):
+        return False
 
 
 def image_size(data: bytes) -> tuple[int | None, int | None]:
@@ -123,11 +139,17 @@ def _safe_name(eid: str, src: Path | None, ext: str) -> str:
 
 
 def collect_assets(events: list[Event], assets_dir: str | Path | None, *, max_files: int = MAX_FILES,
-                   max_bytes: int = MAX_BYTES, base_dir: str | Path | None = None) -> AssetReport:
+                   max_bytes: int = MAX_BYTES, base_dir: str | Path | None = None,
+                   session_t0: float | None = None) -> AssetReport:
     """Copy image files referenced by screenshot/image events into ``assets_dir`` (never raises).
 
     With ``assets_dir=None`` nothing is copied; existence is still checked so ``missing`` is set,
     and inline payloads are dropped from event data.
+
+    ``session_t0`` (epoch seconds of event ``t == 0``) enables the overwrite guard: when several events point at one
+    file only the LAST one shows it (the file holds that state now), and a file outside the project folder that was
+    written well after the last event that looked at it belongs to someone else (a later session reused the same
+    scratch path: a habit-tracker film showed another session's game).
     """
     report = AssetReport()
     out_dir = Path(assets_dir) if assets_dir else None
@@ -140,6 +162,12 @@ def collect_assets(events: list[Event], assets_dir: str | Path | None, *, max_fi
     candidates = [e for e in events if e.kind in _IMAGE_KINDS
                   or (e.kind == "artifact" and e.data.get("kind") == "image")]
     order = sorted(candidates, key=lambda e: (-e.weight, -e.t))
+    last_t: dict[str, float] = {}
+    for e in candidates:
+        k = str(e.data.get("src_key") or e.data.get("src") or "")
+        if k and not e.data.get("_inline_b64"):
+            last_t[k] = max(last_t.get(k, float("-inf")), float(e.t or 0.0))
+    guard = bool(session_t0 and session_t0 > 0)
     copied_by_src: dict[str, tuple[str, int | None, int | None]] = {}
     budget = max_files
     for ev in order:
@@ -169,6 +197,10 @@ def collect_assets(events: list[Event], assets_dir: str | Path | None, *, max_fi
                 report.missing += 1
             continue
         key = str(d.get("src_key") or src)
+        if guard and float(ev.t or 0.0) < last_t.get(key, float("-inf")) - 1.0:
+            d["missing"], d["overwritten"] = True, True     # a later event rewrote this file: it shows that state
+            report.missing += 1
+            continue
         if key in copied_by_src:
             d[tkey], d["w"], d["h"] = copied_by_src[key]
             d["asset"] = True
@@ -183,6 +215,17 @@ def collect_assets(events: list[Event], assets_dir: str | Path | None, *, max_fi
             d["missing"] = True
             report.missing += 1
             continue
+        if guard:
+            try:
+                mtime = p.stat().st_mtime
+            except OSError:
+                mtime = 0.0
+            if mtime > float(session_t0) + last_t.get(key, float(ev.t or 0.0)) + STALE_SLACK_S \
+                    and not _inside(p, base_dir):
+                d["missing"], d["stale"] = True, True
+                report.missing += 1
+                report.stale += 1
+                continue
         try:
             size = p.stat().st_size
             with open(p, "rb") as fh:
