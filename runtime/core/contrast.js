@@ -170,7 +170,7 @@ export function lowContrast(root, stage, { W, H, minSize = 22, picSize = 0, base
       if (px < 0 || py < 0 || px > W || py > H) continue;
       const bd = backdropAt(b.el, sr.left + px * sc, sr.top + py * sc, stage.el, base, scope);
       const c = [tc[0] * tc[3] + bd[0] * (1 - tc[3]), tc[1] * tc[3] + bd[1] * (1 - tc[3]), tc[2] * tc[3] + bd[2] * (1 - tc[3])];
-      if (onlyPic && !(bd.pic > 0.3)) continue;
+      if (onlyPic && !(bd.pic > 0.1)) continue;
       const r = ratio(c, bd);
       if (r < worst) { worst = r; wbd = bd; }
     }
