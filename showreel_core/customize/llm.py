@@ -34,6 +34,7 @@ or a palette name.
 - "shots": edit at most a few shots by id: "params" only with names listed for that scene; "text" rewrites words on \
 screen (headline/label/title/tagline/cta/feature/boss_name...); "hold" adds (+) or trims (-) seconds; "remove": true \
 drops a shot (never the TITLE or END shot).
+- Story requests ("the villain is a swarm of bugs", "make it a heist") must show on screen: rewrite the words of 2-4 non-fact shots (HOOK/FEATURE/SCREEN/BEFORE_AFTER labels and headlines, END tagline) so a viewer sees the idea without the narration; keep each line short and keep the product's real feature names.
 - "order" only if the user asks to rearrange.
 - Set "restructure": true ONLY if the request needs a different film than this preset can make (another style or world \
 midway, totally new scenes); then the user is offered a Directed film.

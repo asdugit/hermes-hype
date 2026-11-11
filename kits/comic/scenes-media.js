@@ -4,7 +4,7 @@
 import { comicScene, snapIn } from './lib/page.js';
 import { h, css } from '../base/dom.js';
 import { seg, ease, clamp, lerp } from '../base/motion.js';
-import { mediaOf } from '../base/media.js';
+import { mediaOf, addressText } from '../base/media.js';
 import { C, agentSvg, figure, burst, speedLines, CURSOR_SVG } from './lib/art.js';
 import { caption, sfx, slam, headline } from './lib/letter.js';
 import { printShot, comicBrowser, scrollBrowser, heroBlock } from './lib/print.js';
@@ -407,7 +407,7 @@ comicScene('kit:comic/SCROLL', {
     const t0 = 0.7, t1 = Math.max(t0 + 1, dur - 0.7);
     const sw = sfx('SWOOSH!', L ? { x: bx + bw + 20, y: R.h / 2 - 60, size: 104, color: C.yellow, rot: -10 } : { x: R.w - 400, y: by + b.h - 160, size: 92, color: C.yellow, rot: -10 });
     pn.el.appendChild(sw.el);
-    const url = String(img.url || img.page_title || '').replace(/^[a-z]+:\/\/(\/)?/i, '').replace(/\/$/, '');
+    const url = addressText(img, 44);     // a web URL or the page title, never a machine path (it showed ~/.../index.html)
     const cap = caption(url ? `Scrolling ${url}\u2026` : 'Scrolling the whole page\u2026', { x: 30, y: L ? 22 : 40 });
     pn.el.appendChild(cap.el);
     const [s0, s1] = (p.scroll || [0, 1]).map(Number);
