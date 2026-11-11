@@ -34,6 +34,7 @@ export function kineticLetters(text, { className = 'srb-display' } = {}) {
   const letters = [];
   for (const ch of Array.from(String(text))) {
     if (ch === ' ') { el.append(' '); continue; }
+    if (ch === '\n') { el.appendChild(h('br')); continue; }     // a two-line title (titleFit)
     const m = h('span', 'srb-mask');
     const inner = h('span', 'srb-wi', { text: ch });
     m.appendChild(inner);

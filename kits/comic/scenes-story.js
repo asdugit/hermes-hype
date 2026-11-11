@@ -26,6 +26,16 @@ function twoLines(s) {
 /** Bangers size so `text` (n chars) fits `width` on one line. */
 const bangersFit = (text, width, max, min) => Math.round(clamp(width / (Math.max(3, String(text).length) * 0.6), min, max));
 
+/** Masthead text + size: one line when it fits `width` at >= min px, else two balanced lines ("\n"; masthead breaks
+ * there), else (one long word) smaller: a 40-character product name used to run ~2x off the 9:16 frame. */
+function mastFit(text, width, max, min) {
+  const one = width / (Math.max(3, String(text).length) * 0.6);
+  if (one >= min) return { text, size: Math.round(Math.min(max, one)), lines: 1 };
+  const ls = twoLines(text);
+  const n = Math.max(...ls.map((x) => x.length));
+  return { text: ls.join('\n'), size: Math.round(Math.min(max, width / (Math.max(3, n) * 0.6))), lines: ls.length };
+}
+
 // ------------------------------------------------------------------------------------- TITLE
 comicScene('kit:comic/TITLE', {
   describe: 'Cover page: the title drops in letter by letter as a masthead over a turning sunburst and magenta halftone, the tagline ribbon wipes on, a NEW ISSUE burst slams, the agent hero stands over a code-tower skyline.',
@@ -53,10 +63,11 @@ comicScene('kit:comic/TITLE', {
     // masthead
     const mx = L ? S.l + cw + 40 : S.l, my = L ? S.t - 4 : S.t + ch + 20;
     const mW = L ? W - mx - S.r - 300 : W - S.l - S.r;
-    const ms = bangersFit(title, mW, L ? 290 : 220, 96);
-    const mast = masthead(title, { x: mx, y: my, size: ms, ls: Math.round(ms * 0.02) });
+    const mf = mastFit(title, mW, L ? 290 : 220, 96);
+    const ms = mf.size;
+    const mast = masthead(mf.text, { x: mx, y: my, size: ms, ls: Math.round(ms * 0.02) });
     P.content.appendChild(mast.el);
-    let y = my + ms * 1.02;
+    let y = my + ms * 1.02 * mf.lines;
     let sub = null;
     if (p.eyebrow) {
       sub = h('div', 'cx-sub', { text: String(p.eyebrow) });
@@ -443,10 +454,11 @@ comicScene('kit:comic/END', {
       P.content.appendChild(pb.el);
       if (!L) y += 220;
     }
-    const ms = bangersFit(title, L ? Math.min(colW, W - S.r - (pb ? 470 : 0) - x0) : colW, L ? 250 : 230, 96);
-    const mast = masthead(title, { x: x0 - 12, y, size: ms, ls: Math.round(ms * 0.02) });
+    const mf = mastFit(title, L ? Math.min(colW, W - S.r - (pb ? 470 : 0) - x0) : colW, L ? 250 : 230, 96);
+    const ms = mf.size;
+    const mast = masthead(mf.text, { x: x0 - 12, y, size: ms, ls: Math.round(ms * 0.02) });
     P.content.appendChild(mast.el);
-    y += ms * 1.1;
+    y += ms * (mf.lines - 1) + ms * 1.1;
     let tag = null;
     if (p.tagline) {
       const ts = fitSize(p.tagline, colW - 80, 2, 42, 32, 0.5);

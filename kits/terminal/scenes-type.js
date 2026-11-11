@@ -25,10 +25,15 @@ export function logoBlock(title, w, maxFs = 20, minFs = 10, maxLines = 2) {
   return null;
 }
 
-/** VT323 size so `s` fits `w` px on `lines` lines (VT323 advance ~0.4 em). */
-const dispSize = (s, w, max, min = 48, lines = 1) => {
-  for (let z = max; z >= min; z -= 4) if (Math.ceil(len(s) * z * 0.42 / w) <= lines) return z;
-  return min;
+/** VT323 title that fits `lines` word-wrapped lines of width w: {z, n, text} (text pre-wrapped with "\n", so the
+ * block height below is exact). A 40-character name used to wrap to 3 lines over the tagline / CTA. */
+const dispFit = (s, w, max, min = 48, lines = 1) => {
+  const at = (z) => wrap(s, Math.max(4, Math.floor(w / (z * 0.46))));
+  let z = max;
+  while (z > min && at(z).length > lines) z -= 4;
+  z = Math.max(min, z);
+  const ls = at(z);
+  return { z, n: ls.length, text: ls.join('\n') };
 };
 
 // --------------------------------------------------------------------------------------------- TITLE
@@ -71,10 +76,11 @@ tubeScene('kit:terminal/TITLE', {
         y += 10 * lineH(lb.fs);
       }
     } else {
-      const z = dispSize(title, W, L ? 150 : 220, 64, L ? 3 : 2);
-      fallback = T.disp(M.l, cy - z * 0.6, z, 'h');
-      fallback.style.width = `${W}px`; fallback.style.textAlign = 'center'; fallback.style.whiteSpace = 'normal';
-      logoH = z * 1.1;
+      const df = dispFit(title, W, L ? 150 : 220, 64, L ? 3 : 2), z = df.z;
+      fallback = T.disp(M.l, cy - z * (0.55 * df.n + 0.05), z, 'h');
+      fallback.style.width = `${W}px`; fallback.style.textAlign = 'center';
+      fallback.__title = df.text;
+      logoH = z * 1.1 * df.n;
     }
     const tagY = cy + logoH / 2 + (L ? 70 : 40);
     const tagZ = L ? 56 : 58;
@@ -94,7 +100,7 @@ tubeScene('kit:terminal/TITLE', {
         css(boot, { opacity: '0.82' });
         const rows = clamp(Math.floor((t - logoAt) / rowGap) + 1, 0, 9);
         for (const l of logoEls) l.el.set(logo(l.word, rows).lines.join('\n'));
-        if (fallback) { fallback.textContent = t >= logoAt ? title : ''; css(fallback, { clipPath: `inset(0 0 ${((1 - seg(t, logoAt, logoAt + 0.4)) * 100).toFixed(1)}% 0)` }); }
+        if (fallback) { fallback.textContent = t >= logoAt ? fallback.__title : ''; css(fallback, { clipPath: `inset(0 0 ${((1 - seg(t, logoAt, logoAt + 0.4)) * 100).toFixed(1)}% 0)` }); }
         const n = tagTy.count(t);
         tag.set(esc([...tagTy.chars].slice(0, n).join('')));
         prompt.set(t >= tagTy.end + 0.1 ? sp('d', '$ ') + cursor(blink(t - tagTy.end)) : '');
@@ -224,10 +230,11 @@ tubeScene('kit:terminal/END', {
         y += 10 * lineH(lb.fs);
       }
     } else {
-      const z = dispSize(title, W, L ? 140 : 180, 60, 2);
-      fallback = T.disp(M.l, cy - z * 0.55, z, 'h');
-      fallback.style.width = `${W}px`; fallback.style.textAlign = 'center'; fallback.style.whiteSpace = 'normal';
-      logoH = z;
+      const df = dispFit(title, W, L ? 140 : 180, 60, 2), z = df.z;
+      fallback = T.disp(M.l, cy - z * 0.55 * df.n, z, 'h');
+      fallback.style.width = `${W}px`; fallback.style.textAlign = 'center';
+      fallback.__title = df.text;
+      logoH = z * df.n;
     }
     let y = cy + logoH / 2 + (L ? 60 : 44);
     const pb = String(p.pb_display || '').trim();
@@ -260,7 +267,7 @@ tubeScene('kit:terminal/END', {
         css(head, { opacity: t > lockAt ? '0.55' : '1' });
         const rows = clamp(Math.floor((t - lockAt) / 0.04) + 1, 0, 9);
         for (const l of logoEls) l.el.set(logo(l.word, rows).lines.join('\n'));
-        if (fallback) fallback.textContent = t >= lockAt ? title : '';
+        if (fallback) fallback.textContent = t >= lockAt ? fallback.__title : '';
         if (pbEl) pbEl.textContent = t >= lockAt + 0.2 ? `PB ${pb}` : '';
         const k = ctaTy.count(t);
         const typed = [...ctaTy.chars].slice(0, k).join('').split('\n');

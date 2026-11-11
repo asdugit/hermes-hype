@@ -32,6 +32,34 @@ export function titleSize(text, maxW, max = 220, min = 96) {
   return Math.round(clamp(maxW / (Math.max(3, String(text).length) * 0.56), min, max));
 }
 
+/**
+ * Title text + display size that never runs off the frame: one line when it fits maxW at >= min px, else the words
+ * split into two balanced lines ("\n", kineticLetters breaks there), else (one long word) the size shrinks to fit.
+ * A 40-character product name at the old one-line minimum ran ~2.5x past the frame edge.
+ */
+export function titleFit(text, maxW, max = 220, min = 96) {
+  const s = String(text).trim().replace(/\s+/g, ' ');
+  const one = maxW / (Math.max(3, visLen(s)) * 0.56);
+  if (one >= min) return { text: s, size: Math.round(Math.min(max, one)), lines: 1 };
+  const words = s.split(' ');
+  let best = { n: visLen(s), text: s, lines: 1 };
+  for (let i = 1; i < words.length; i++) {
+    const a = words.slice(0, i).join(' '), b = words.slice(i).join(' ');
+    const n = Math.max(visLen(a), visLen(b));
+    if (n < best.n) best = { n, text: `${a}\n${b}`, lines: 2 };
+  }
+  // 0.6 em/char (a little wider than the one-line estimate): headroom for wide glyphs and upper-case themes
+  return { text: best.text, size: Math.round(Math.min(max, maxW / (Math.max(3, best.n) * 0.6))), lines: best.lines };
+}
+
+// CJK / Hangul / full-width forms / emoji are ~1 em wide: they count as ~1.8 Latin characters
+const WIDE = /[\u1100-\u115F\u2E80-\uA4CF\uAC00-\uD7A3\uF900-\uFAFF\uFE30-\uFE4F\uFF00-\uFF60\uFFE0-\uFFE6\u{1F300}-\u{1FAFF}]/u;
+function visLen(s) {
+  let n = 0;
+  for (const ch of Array.from(s)) n += WIDE.test(ch) ? 1.8 : 1;
+  return n;
+}
+
 // ------------------------------------------------------------------------------------- TITLE
 export const TITLE_DEF = {
   describe: 'Name + thesis: eyebrow, huge kinetic title, tagline with one emphasis word; optional product hero beside it.',
@@ -51,10 +79,11 @@ export const TITLE_DEF = {
     const hasHero = heroElsewhere || !!heroData;
     const centered = L || !hasHero;
     const maxW = L ? 800 : hasHero ? 860 : 1500;     // 9:16: safe width 840 less the camera's 1.04 push-in
-    const ts = titleSize(title, maxW, L ? 200 : 220, L ? 90 : 110);
+    const tf = titleFit(title, maxW, L ? 200 : 220, L ? 90 : 110);
+    const ts = tf.size;
     const box = h('div', 'srb-abs');
     const eb = p.eyebrow ? h('div', 'srb-eyebrow', null, [h('i'), String(p.eyebrow)]) : null;
-    const tl = kineticLetters(title, { className: 'srb-display' });
+    const tl = kineticLetters(tf.text, { className: 'srb-display' });
     tl.el.style.cssText = `font-size:${ts}px;white-space:nowrap;margin-top:${eb ? Math.round(36 + ts * 0.12) : 0}px;`;
     const tgs = fitSize(tagline, maxW, 2, L ? 64 : 72, 52, 0.5);
     const tg = tagline ? kineticLine(tagline, { className: 'srb-h1', emphasis: 'auto' }) : null;
@@ -194,7 +223,8 @@ export const END_DEF = {
     const L = F.portrait;
     const title = String(p.title || '').trim();
     const bd = backdropLayer(ctx, F, p);
-    const ts = titleSize(title, L ? 840 : 1400, L ? 190 : 200, 90);
+    const tf = titleFit(title, L ? 840 : 1400, L ? 190 : 200, 90);
+    const ts = tf.size;
     const col = centerBox(F, L ? -60 : -30);
     let pb = null;
     if (p.pb_display) {
@@ -206,7 +236,7 @@ export const END_DEF = {
       pb.append(pl, pn);
       col.appendChild(pb);
     }
-    const tl = kineticLetters(title, { className: 'srb-display' });
+    const tl = kineticLetters(tf.text, { className: 'srb-display' });
     tl.el.style.cssText = `font-size:${ts}px;white-space:nowrap;`;
     col.appendChild(tl.el);
     let tg = null;

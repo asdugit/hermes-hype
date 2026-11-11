@@ -417,10 +417,13 @@ inkScene('kit:ink/END', {
     const update = film.bind(A.el);
     const bx = L ? 1030 : S.l - 30, bw = L ? W - 1030 - S.r + 20 : W - 2 * (S.l - 30);
     let y = L ? S.t + 70 : S.t + 10;
-    const ts = fitText(title, bw, 1, L ? 150 : 140, 80, CW.display);
-    const tEl = text(P, 'ik-title', '', bx, y, `font-size:${ts}px;width:${bw + 40}px;white-space:nowrap;`);
+    const ts1 = fitText(title, bw, 1, L ? 150 : 140, 80, CW.display);
+    // a long product name wraps to two lines (word boundaries: charSpans keeps words whole) instead of running off
+    const lines2 = ts1 <= 80 && title.length * ts1 * CW.display > bw;
+    const ts = lines2 ? fitText(title, bw, 2, 120, 60, CW.display) : ts1;
+    const tEl = text(P, 'ik-title', '', bx, y, lines2 ? `font-size:${ts}px;width:${bw}px;` : `font-size:${ts}px;width:${bw + 40}px;white-space:nowrap;`);
     const letters = charSpans(tEl, title);
-    y += ts * 0.95 + 20;
+    y += ts * 0.95 * (lines2 ? 2 : 1) + 20;
     let tg = null;
     if (tag) { const s2 = fitText(tag, bw, 2, 46, 36, CW.serifIt); tg = text(P, 'ik-tagline', tag, bx + 4, y, `font-size:${s2}px;width:${bw}px;`); y += s2 * 1.22 * (tag.length * s2 * CW.serifIt > bw ? 2 : 1) + 20; }
     let cta = null;

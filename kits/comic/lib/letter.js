@@ -171,6 +171,7 @@ export function masthead(text, o = {}) {
   const letters = [];
   for (const ch of Array.from(String(text))) {
     if (ch === ' ') { el.append(' '); continue; }
+    if (ch === '\n') { el.appendChild(h('br')); continue; }     // a two-line masthead (long product names)
     const s = h('span', 'cx-l', { text: ch });
     el.appendChild(s);
     letters.push(s);
