@@ -181,7 +181,9 @@ def test_floor_makes_valid_films_for_any_direction(tmp_path: Path) -> None:
     assert chk.value is not None, chk.errors
     film, _ = chk.value
     assert film["assets"]["car3d"] == {"type": "model"} and film["meta"]["product_asset"] == "car3d"
-    assert all(blender_product_shot(s) for s in film["shots"]) and product_share(film, {"car", "car3d"})[0] == 1.0
+    assert all(blender_product_shot(s) for s in film["shots"] if s["scene"].startswith("blender:"))
+    assert product_share(film, {"car", "car3d"})[0] >= 0.75
+    assert film["shots"][0]["params"]["text"] == "Red Car"            # unfilled teaser -> the product name
 
 
 def test_blender_scenes_in_catalog_only_with_blender() -> None:

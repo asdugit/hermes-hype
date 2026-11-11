@@ -201,31 +201,37 @@ def _blender_blueprints() -> list[Blueprint]:
         look="a real 3D model in a dark premium studio: rims draw the silhouette from darkness, a strip light "
              "sweeps the body, slow orbits, a macro detail pass, a hover on a pooled-colour cyc; minimal type",
         shots=(
-            {"id": "reveal", "share": (0.0, 0.30), "scene": "blender:studio/product_hero", "product": True,
-             "params": {"move": "orbit", "env": "studio", "reveal": True, "yaw": -40, "orbit_deg": 34, "fill": 0.72,
+            {"id": "tease", "share": (0.0, 0.10), "scene": "kit:type/title", "product": False,
+             "params": {"text": "<a 2-4 word keynote teaser shown on black before the reveal>", "sub": ""},
+             "beat": "black stage, one line of type: the keynote tease"},
+            {"id": "reveal", "share": (0.10, 0.38), "scene": "blender:studio/product_hero", "product": True,
+             "params": {"move": "orbit", "env": "studio", "reveal": True, "yaw": 145, "orbit_deg": 34, "fill": 0.74,
                         "wheel_rps": 0.0, "paint": "{paint}"},
-             "beat": "out of darkness, rims draw the silhouette; a light sweep"},
-            {"id": "detail", "share": (0.30, 0.52), "scene": "blender:studio/product_hero", "product": True,
-             "params": {"move": "dolly", "env": "studio", "reveal": False, "yaw": 70, "pitch": 5, "orbit_deg": 18,
-                        "fill": 0.84, "paint": "{paint}"}, "beat": "a low side dolly along the body: the craft, close"},
-            {"id": "float", "share": (0.52, 0.78), "scene": "blender:studio/product_float", "product": True,
-             "params": {"env": "accent", "accent": "{accent}", "turn_deg": 60, "fill": 0.66, "wheel_rps": 0.8,
-                        "paint": "{paint}"}, "beat": "it lifts off the floor and turns, pooled in the accent colour"},
-            {"id": "hero", "share": (0.78, 1.0), "scene": "blender:studio/product_hero", "product": True,
-             "params": {"move": "turntable", "env": "studio", "reveal": False, "turn_deg": 50, "fill": 0.58,
-                        "pitch": 8, "paint": "{paint}"}, "beat": "the hero turntable under the name"},
+             "beat": "out of darkness, rims draw the silhouette; a light sweep; the front three-quarter"},
+            {"id": "detail", "share": (0.38, 0.56), "scene": "blender:studio/product_hero", "product": True,
+             "params": {"move": "dolly", "env": "studio", "reveal": False, "yaw": 105, "pitch": 4, "orbit_deg": 16,
+                        "fill": 0.82, "paint": "{paint}"}, "beat": "a low side dolly along the body: the craft, close"},
+            {"id": "float", "share": (0.56, 0.80), "scene": "blender:studio/product_float", "product": True,
+             "params": {"env": "accent", "accent": "{accent}", "turn_deg": 60, "fill": 0.68, "wheel_rps": 0.8,
+                        "yaw": 150, "paint": "{paint}"},
+             "beat": "it lifts off the floor and turns, pooled in the accent colour"},
+            {"id": "hero", "share": (0.80, 0.90), "scene": "blender:studio/product_hero", "product": True,
+             "params": {"move": "turntable", "env": "studio", "reveal": False, "turn_deg": 40, "fill": 0.66,
+                        "yaw": 160, "pitch": 8, "paint": "{paint}"}, "beat": "the hero turntable, front on"},
+            {"id": "endcard", "share": (0.90, 1.0), "scene": "kit:type/end-lockup", "product": False,
+             "params": {"title": "{name}", "tagline": "{tagline}", "cta": "{cta}", "scrim": 0.0},
+             "beat": "the name on black, keynote style"},
         ),
-        transitions=({"from": "reveal", "to": "detail", "type": "dip-black", "dur": 0.5},
-                     {"from": "detail", "to": "float", "type": "crossfade", "dur": 0.6},
-                     {"from": "float", "to": "hero", "type": "dip-black", "dur": 0.6}),
-        overlays=({"id": "name", "share": (0.11, 0.28), "scene": "kit:type/lower-third",
+        # same-car shots never crossfade (two translucent cars read as an error): dips on act changes, cuts inside
+        transitions=({"from": "tease", "to": "reveal", "type": "dip-black", "dur": 0.6},
+                     {"from": "detail", "to": "float", "type": "dip-black", "dur": 0.5},
+                     {"from": "hero", "to": "endcard", "type": "dip-black", "dur": 0.6}),
+        overlays=({"id": "name", "share": (0.20, 0.35), "scene": "kit:type/lower-third",
                    "params": {"title": "{name}", "sub": "{tagline}"}},
-                  {"id": "line", "share": (0.56, 0.74), "scene": "kit:type/lower-third",
-                   "params": {"title": "<a 2-4 word benefit, no numbers>", "sub": "<a 4-8 word line, no claims>"}},
-                  {"id": "end", "share": (0.84, 1.0), "scene": "kit:type/end-lockup",
-                   "params": {"title": "{name}", "tagline": "{tagline}", "cta": "{cta}", "scrim": 0.35}}),
-        music=({"bed": "cinematic_a", "share": (0.0, 0.52)}, {"sting": "riser", "at": 0.5},
-               {"bed": "launch_b", "share": (0.52, 1.0)}),
+                  {"id": "line", "share": (0.60, 0.76), "scene": "kit:type/lower-third",
+                   "params": {"title": "<a 2-4 word benefit, no numbers>", "sub": "<a 4-8 word line, no claims>"}}),
+        music=({"bed": "cinematic_a", "share": (0.0, 0.56)}, {"sting": "riser", "at": 0.54},
+               {"bed": "launch_b", "share": (0.56, 1.0)}),
         voice="sparse", finish={"grain": 0.015, "vignette": 0.18}, recipe="launch-keynote",
         keywords=("keynote", "apple", "reveal", "unveil", "premium", "luxury", "studio", "commercial", "elegant",
                   "minimal", "3d", "showroom"), seconds=(16.0, 45.0))
@@ -739,6 +745,8 @@ def assemble(brief: Brief, bp: Blueprint, pick: dict[str, Any], texts: dict[str,
     for s in _layout_shots(bp, seconds, brief):
         params = _put_slots(_fill(copy.deepcopy(s.get("params") or {}), vals), texts, s["id"])
         params = {k: v for k, v in params.items() if not (k in ("paint", "accent") and not v)}
+        if s["scene"] == "kit:type/title" and not params.get("text"):
+            params["text"] = vals["name"]          # an unfilled teaser still says something: the name
         if s["scene"].startswith("blender:") and vals["model"] and s["scene"].startswith("blender:studio/"):
             params.setdefault("model", vals["model"])
         if s["scene"] == "blender:meadow/oner":

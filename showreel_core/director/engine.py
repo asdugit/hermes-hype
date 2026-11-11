@@ -781,7 +781,7 @@ def _code_scene(r: _Run, v: Version, name: str, *, issues: list[dict[str, Any]] 
             instr, text = prompts.scene_prompt(r.brief, r.catalog, spec, shots, plan_shots)
         reply = r.ask(f"scene:{name}", instr, text, images=see, temperature=0.5,
                       max_tokens=PATCH_MAX_TOKENS if patch_mode else SCENE_MAX_TOKENS, timeout=600.0)
-        if reply.error and not reply.text.strip() and re.search(r"timed? ?out|timeout", reply.error, re.I):
+        if reply.error and not reply.text.strip() and re.search(r"timed? ?out|timeout", reply.error, re.IGNORECASE):
             # a scene call that times out (a slow model: > 30 min in trials) will time out again: stop paying
             # for retries and let the kit fallback / previous code stand in
             r.warn("scenes", f"Scene {name}: the model timed out writing it; using the kit fallback")
@@ -975,7 +975,7 @@ def _dry_run(r: _Run, v: Version) -> bool:
             r.shot_ok.update(sfp.values())
             return True
         if not by_scene:
-            if stalls < 2 and re.search(r"timed out|stall|crash|disconnect|closed", pv.load_error or "", re.I):
+            if stalls < 2 and re.search(r"timed out|stall|crash|disconnect|closed", pv.load_error or "", re.IGNORECASE):
                 stalls += 1             # an intermittent browser stall: retry with a fresh browser, not a new film
                 r.warn("dryrun", f"Browser stalled ({pv.load_error[:120]}); retrying with a fresh browser")
                 continue
