@@ -93,9 +93,9 @@ def test_login_name_masked_only_where_it_identifies():
     ("/c/Users/Alice Smith/proj/app.py", "~/proj/app.py"),            # git-bash: Hermes's terminal on Windows
     ("/mnt/c/Users/Alice Smith/proj", "~/proj"),                      # WSL
     ("cd 'c:/users/alice smith/proj' && ls", "cd '~/proj' && ls"),
-    ("C:\Users\Alice Smith\proj\app.py", "~\proj\app.py"),
+    (r"C:\Users\Alice Smith\proj\app.py", r"~\proj\app.py"),
 ])
 def test_home_with_a_space_is_masked_in_every_spelling(text, expect):
     """Audit 2026-11-11: the generic home patterns stop at a space, so an MSYS/WSL/lower-case spelling of
-    C:\Users\Alice Smith left '~ Smith' on screen (and broke the capture's path resolution)."""
-    assert Redactor(home="C:\Users\Alice Smith").text(text) == expect
+    C:/Users/Alice Smith left '~ Smith' on screen (and broke the capture's path resolution)."""
+    assert Redactor(home=r"C:\Users\Alice Smith").text(text) == expect
