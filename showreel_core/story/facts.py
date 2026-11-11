@@ -490,7 +490,7 @@ def shows_error(ev: Event) -> bool:
 
 
 _SETUP_LINE_RE = re.compile(r"^\s*(?:cd\b|pushd\b|export\b|set\b|source\b|\.\s|#|[A-Za-z_]\w*=\S*\s*$|"
-                            r"(?:\.?\S*/)?activate\b|echo\s+(?:-+|=+|['\"]?-{2,}))")
+                            r"(?:\.?\S*/)?activate\b|echo\s*$|echo\s+(?:-+|=+|['\"]?(?:-{2,}|={2,}|#{2,}|\*{2,})))")
 
 
 def main_command(cmd: str) -> str:

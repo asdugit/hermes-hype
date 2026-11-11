@@ -173,3 +173,10 @@ def test_a_product_without_pictures_shows_its_tests_and_code() -> None:
     types = [(s.type, s.refs[:1]) for s in res.storyboard.scenes]
     assert (T.TERMINAL, ["e3"]) in types and (T.CODE, ["e1"]) in types
     assert [t for t, _ in types].index(T.TERMINAL) == [t for t, _ in types].index(T.TITLE) + 1
+
+
+def test_a_curl_script_shows_its_first_request_not_its_banner_echo() -> None:
+    from showreel_core.story.facts import main_command
+    script = ('cd "api"\necho "=== 1. POST /links (auto-generated code) ==="\n'
+              "curl -s -i -X POST /links -d '{}'\necho\necho \"=== 2. GET ===\"\ncurl -s /x")
+    assert main_command(script) == "curl -s -i -X POST /links -d '{}' \u2026"
