@@ -30,6 +30,9 @@ TEXT_WORDS = re.compile(r"\b(text|type|title|caption|label|legib|read|tiny|small
 PRODUCT_WORDS = re.compile(r"\b(product|app|ui|screen|interface|capture|screenshot)\b.*\b(small|tiny|lost|hard to "
                            r"see|barely|distant|far|cropped|cut off|unclear|dark|murky)|\b(small|tiny|barely|hard "
                            r"to see)\b.*\b(product|app|ui|screen|interface)", re.IGNORECASE)
+CROP_WORDS = re.compile(r"\b(crop\w*|cut off|runs? off|off[- ]frame|off the (frame|edge)|edges?|bounded|breathing "
+                        r"room|partial\w*|half[- ]visible|too tight|tight)\b", re.IGNORECASE)
+WHOLE_BBOX = [0.03, 0.03, 0.94, 0.94]
 BASE_THEMES = ("terminal", "blueprint", "comic", "ink", "launch", "noir", "anime")
 
 
@@ -47,7 +50,7 @@ def _image_of(params: dict[str, Any], product: set[str]) -> Any:
 
 
 def worst_shots(film: dict[str, Any], critique: dict[str, Any] | None, per_shot: dict[str, dict[str, Any]],
-                qa: Sequence[dict[str, Any]] = (), n: int = 2) -> list[str]:
+                qa: Sequence[dict[str, Any]] = (), n: int = 2, cropped: Iterable[str] = ()) -> list[str]:
     """Shot ids ranked worst first: critic per-shot score, then issue severity, measured small product, QA text."""
     crit = critique or {}
     score = {str(s.get("id")): float(s.get("score") or 7.0) for s in crit.get("shots") or [] if isinstance(s, dict)}
@@ -59,6 +62,8 @@ def worst_shots(film: dict[str, Any], critique: dict[str, Any] | None, per_shot:
     for q in qa:
         if str(q.get("kind")) in ("clip", "overlap", "small_text") and q.get("shot"):
             sev[str(q["shot"])] = sev.get(str(q["shot"]), 0.0) + 1.0
+    for sid in cropped:
+        sev[str(sid)] = sev.get(str(sid), 0.0) + 1.0
     rows = []
     for s in film.get("shots") or []:
         sid = str(s.get("id"))
@@ -110,7 +115,7 @@ def _shorten(params: dict[str, Any], words: int = 4) -> list[str]:
 
 def fix_worst(film: dict[str, Any], plan: dict[str, Any], *, critique: dict[str, Any] | None,
               per_shot: dict[str, dict[str, Any]], qa: Sequence[dict[str, Any]] = (), product: Iterable[str] = (),
-              screen: bool = True, theme: str = "", name: str = "", n: int = 2
+              screen: bool = True, theme: str = "", name: str = "", n: int = 2, cropped: Iterable[str] = ()
               ) -> tuple[dict[str, Any], list[str]]:
     """A copy of ``film`` with engine fixes on the worst shots, and what changed ([] = nothing to fix safely)."""
     prod = set(product)
@@ -122,7 +127,8 @@ def fix_worst(film: dict[str, Any], plan: dict[str, Any], *, critique: dict[str,
         if q.get("shot"):
             qa_by.setdefault(str(q["shot"]), []).append(q)
     by_id = {str(s.get("id")): s for s in out.get("shots") or []}
-    for sid in worst_shots(film, critique, per_shot, qa, n=n):
+    crop = {str(x) for x in cropped}
+    for sid in worst_shots(film, critique, per_shot, qa, n=n, cropped=crop):
         s = by_id.get(sid)
         if s is None:
             continue
@@ -134,8 +140,16 @@ def fix_worst(film: dict[str, Any], plan: dict[str, Any], *, critique: dict[str,
         small = bool(d) and (not d.get("visible") or float(d.get("max_width") or 0.0) < SMALL)
         img = _image_of(p, prod)
         kit = _kit(scene)
+        cut_off = sid in crop or bool(CROP_WORDS.search(notes))
+        if wants and img is not None and kit == "base" and cut_off and not (
+                isinstance(p.get("image"), dict) and p["image"].get("frame") == "card"):
+            # the base frame pushed the capture past the frame edges: show the picture whole on a card
+            p["image"] = {**(p["image"] if isinstance(p.get("image"), dict) else img), "frame": "card"}
+            p["bbox"] = list(WHOLE_BBOX)
+            changes.append(f"{sid}: the product ran off the frame -> shown whole (card, no push past the edges)")
+            continue
         if (screen and wants and img is not None and kit not in ("", "base", "type", "frames")
-                and (small or PRODUCT_WORDS.search(notes))):
+                and (small or cut_off or PRODUCT_WORDS.search(notes))):
             to = "kit:base/FEATURE" if p.get("feature") else "kit:base/SCREEN"
             np: dict[str, Any] = {"image": img}
             if p.get("feature"):
@@ -143,6 +157,9 @@ def fix_worst(film: dict[str, Any], plan: dict[str, Any], *, critique: dict[str,
             th = theme or (kit if kit in BASE_THEMES else "")
             if th:
                 np["theme"] = th
+            if cut_off:
+                np["image"] = {**img, "frame": "card"}
+                np["bbox"] = list(WHOLE_BBOX)
             s["scene"], s["params"] = to, np
             s.pop("res", None)
             changes.append(f"{sid}: {scene} -> {to} (the product read "

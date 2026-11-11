@@ -1299,7 +1299,9 @@ def _engine_revision(r: _Run, v: Version) -> Version | None:
         film, changes = shotfix.fix_worst(v.film, v.plan, critique=v.critique,
                                           per_shot=v.prom.per_shot if v.prom is not None else {},
                                           qa=v.preview.qa if v.preview else [], product=r.product,
-                                          screen=not compose.physical(r.brief), theme=theme, name=name)
+                                          screen=not compose.physical(r.brief), theme=theme, name=name,
+                                          cropped=[sid for sid, (_e, k) in pm.cropped(list(v.measures)).items()
+                                                   if k >= 2])
     except Exception as exc:  # noqa: BLE001 - never costs the film
         r.emit("revise", f"Engine fix skipped ({type(exc).__name__}: {str(exc)[:120]})", level="debug")
         return None

@@ -92,3 +92,22 @@ def test_weak_tier_runs_one_engine_fix_round_and_best_of_keeps_the_better(tmp_pa
     assert any(m.startswith("Engine fix v2") for m in msgs)
     assert not [c for c in llm.calls if c["purpose"].startswith(("critic", "revise"))]   # model-free, no vision
     assert dataclasses.is_dataclass(res) or res.version in (1, 2, 3)
+
+
+def test_base_shot_that_runs_off_the_frame_becomes_a_whole_card():
+    film = {"shots": [{"id": "feature1", "t0": 0, "t1": 6, "scene": "kit:base/FEATURE",
+                       "params": {"image": {"asset": "timer"}, "feature": "Timer", "theme": "noir"}}]}
+    plan = {"shots": [{"id": "feature1", "product_visible": True}]}
+    crit = {"shots": [{"id": "feature1", "score": 4}],
+            "per_shot_issues": [{"shot": "feature1", "severity": 3, "issue": "tight UI crop, frames run off the "
+                                 "right/top edges", "fix": "keep it bounded"}]}
+    out, changes = shotfix.fix_worst(film, plan, critique=crit, per_shot={}, product={"timer"})
+    p = out["shots"][0]["params"]
+    assert p["image"] == {"asset": "timer", "frame": "card"} and p["bbox"] == shotfix.WHOLE_BBOX
+    assert p["theme"] == "noir" and changes
+    # measured edge crops alone (no critic words) do it too
+    out2, ch2 = shotfix.fix_worst(film, plan, critique=None, per_shot={}, product={"timer"}, cropped=["feature1"])
+    assert out2["shots"][0]["params"]["image"]["frame"] == "card" and ch2
+    # already a card: nothing more to do
+    _o, ch3 = shotfix.fix_worst(out, plan, critique=crit, per_shot={}, product={"timer"})
+    assert not any("ran off" in c for c in ch3)
