@@ -25,7 +25,7 @@ from .config import (
     norm_mode,
     style_ids,
 )
-from .jobs import TERMINAL, JobStore, public_view
+from .jobs import TERMINAL, JobStore, public_view, shared_lock
 from .customize import command as _cz  # W5 preset customization: knobs + text (docs/CUSTOMIZE.md)
 
 log = logging.getLogger(__name__)
@@ -232,12 +232,23 @@ def blender_missing_line(config_path: str | None = None) -> str:
             "`hermes hype install-blender` in a terminal or use Install in the Desktop Hype pane.\n")
 
 
+def _create_job(store: JobStore, session_id: str, opts: Options, *, surface: str, parent: str = "") -> dict | None:
+    """Create the session's job unless a film is already running for it (``None``). Check and create happen under
+    one process-wide lock: two ``/hype`` (or a ``/hype`` and the tool) at the same moment started two films."""
+    with shared_lock("start"):
+        if store.running(session_id):
+            return None
+        return store.create(session_id, opts.to_dict(), kind="directed" if opts.directed else "quick",
+                            surface=surface, parent=parent)
+
+
 def start_film(ctx: Any, store: JobStore, session_id: str, opts: Options, *, surface: str, parent: str = "") -> str:
     """Create the job and run it: background on Desktop/TUI/ACP, blocking (then MEDIA lines) elsewhere."""
     from .deliver import done_text, failed_text
     from .pipeline import run_job, start_background
-    job = store.create(session_id, opts.to_dict(), kind="directed" if opts.directed else "quick", surface=surface,
-                       parent=parent)
+    job = _create_job(store, session_id, opts, surface=surface, parent=parent)
+    if job is None:
+        return "🎬 A film is already in progress for this session. Use /hype status or /hype cancel."
     handle = _post(ctx, f"🎬 Hype {job['id']}: starting · {describe(opts)}")
     host = _host(ctx, surface)
     if surface in BACKGROUND_SURFACES:
@@ -336,8 +347,11 @@ def render_tool(ctx: Any, args: dict[str, Any] | None, **kwargs: Any) -> str:
             return json.dumps(_result(busy[0], success=False,
                                       error="A film is already rendering for this session; use hype_status."))
         opts = _tool_options(ctx, args)
-        job = store.create(session_id, opts.to_dict(), kind="directed" if opts.directed else "quick",
-                           surface="tool")
+        job = _create_job(store, session_id, opts, surface="tool")
+        if job is None:
+            busy = store.running(session_id)
+            return json.dumps(_result(busy[0] if busy else {}, success=False,
+                                      error="A film is already rendering for this session; use hype_status."))
         done = threading.Event()
         from .pipeline import start_background
         handle = _post(ctx, f"🎬 Hype {job['id']}: starting · {describe(opts)}")

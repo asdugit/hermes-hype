@@ -189,6 +189,32 @@ def test_slash_needs_a_session_and_refuses_a_second_render(env: dict[str, Any],
     assert "already in progress" in second
 
 
+def test_two_simultaneous_requests_start_one_film(env: dict[str, Any], monkeypatch: pytest.MonkeyPatch) -> None:
+    """A double-sent /hype (or /hype and the tool at once) used to pass the busy check twice: 30/30 trials
+    started two films for one session."""
+    import threading
+
+    import showreel_core.pipeline as pl
+    monkeypatch.setattr(pl, "start_background", lambda *a, **k: None)
+    for trial in range(10):
+        sid = f"race{trial}"
+        gate = threading.Barrier(3)
+
+        def slash() -> None:
+            gate.wait()
+            handlers.slash(FakeCtx(surface="desktop"), "", session_id=sid)
+
+        def tool() -> None:
+            gate.wait()
+            handlers.render_tool(FakeCtx(), {"wait_seconds": 0}, session_id=sid)
+        threads = [threading.Thread(target=f) for f in (slash, slash, tool)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join(30)
+        assert len(env["store"].list(sid)) == 1
+
+
 def test_slash_actions(env: dict[str, Any], monkeypatch: pytest.MonkeyPatch) -> None:
     ctx = FakeCtx()
     assert "Usage: /hype" in handlers.slash(ctx, "help")
