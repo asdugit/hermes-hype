@@ -64,6 +64,19 @@ const DIRECTION_EXAMPLES = [
   'a slow cinematic teaser that ends on the dashboard, no narration in the first ten seconds',
   'make it feel like a late-night infomercial for developers'
 ]
+// Preset customization (docs/CUSTOMIZE.md): free text + knobs on top of the picked preset; Free roam = the Director.
+const ROUTES = [{ id: 'preset', label: 'Customize preset' }, { id: 'roam', label: 'Free roam' }]
+const ENERGY_OPTS = [{ id: '', label: 'Auto' }, { id: 'calm', label: 'Calm' }, { id: 'normal', label: 'Normal' }, { id: 'high', label: 'High' }]
+const FALLBACK_VOCAB = {
+  moods: ['playful', 'warm', 'uplifting', 'calm', 'dark', 'moody', 'epic', 'upbeat', 'chiptune', 'synthwave', 'mechanical', 'funk'],
+  fonts: ['Bangers', 'Caveat', 'Comic Neue', 'Cormorant Garamond', 'Fraunces', 'Geist', 'IBM Plex Mono', 'Inter', 'JetBrains Mono', 'Silkscreen', 'Space Grotesk', 'VT323'],
+  voices: ['whisper', 'warm', 'deep', 'bright', 'playful', 'serious']
+}
+const CUSTOMIZE_EXAMPLES = [
+  'pink and playful with a punchier ending',
+  'green phosphor hacker vibe, faster',
+  'moody blue night, slower, whispered narration'
+]
 const RAIL = [
   { id: 'setup', label: 'Brief' },
   { id: 'treatment', label: 'Treatment' },
@@ -370,6 +383,29 @@ function Seg({ options, value, onChange, disabled, label }) {
   return jsx('div', { role: 'radiogroup', 'aria-label': label, className: 'srl-segwrap', children: control })
 }
 
+function Pick({ label, value, options, onChange }) {
+  return jsx('select', {
+    className: 'srl-select', 'aria-label': label, value: value || '', onChange: e => onChange(e.target.value),
+    children: options.map(o => jsx('option', { value: o.id, children: o.label }, o.id || 'auto'))
+  })
+}
+
+/** Accent colour, energy, music, font and narration voice for the picked preset (all optional, "Auto" = the preset's). */
+function KnobRow({ knobs, setKnob, vocab }) {
+  const auto = { id: '', label: 'Auto' }
+  const opts = list => [auto].concat(list.map(x => ({ id: x, label: x })))
+  return jsxs('div', { className: 'srl-knobs', children: [
+    jsxs('label', { className: 'srl-knob', children: [jsx('span', { children: 'Accent' }), jsxs('span', { className: 'srl-knob-colour', children: [
+      jsx('input', { type: 'color', 'aria-label': 'Accent colour', value: knobs.accent || '#7f7f7f', onChange: e => setKnob('accent', e.target.value) }),
+      knobs.accent ? jsx('button', { type: 'button', className: 'srl-link', 'aria-label': 'Clear accent', onClick: () => setKnob('accent', ''), children: 'auto' }) : null
+    ] })] }),
+    jsxs('div', { className: 'srl-knob', children: [jsx('span', { children: 'Energy' }), jsx(Seg, { label: 'Energy', options: ENERGY_OPTS, value: knobs.energy || '', onChange: v => setKnob('energy', v) })] }),
+    jsxs('label', { className: 'srl-knob', children: [jsx('span', { children: 'Music' }), jsx(Pick, { label: 'Music', value: knobs.music, options: opts(vocab.moods || FALLBACK_VOCAB.moods), onChange: v => setKnob('music', v) })] }),
+    jsxs('label', { className: 'srl-knob', children: [jsx('span', { children: 'Font' }), jsx(Pick, { label: 'Font', value: knobs.font, options: opts(vocab.fonts || FALLBACK_VOCAB.fonts), onChange: v => setKnob('font', v) })] }),
+    jsxs('label', { className: 'srl-knob', children: [jsx('span', { children: 'Voice' }), jsx(Pick, { label: 'Narration voice', value: knobs.voice, options: opts(vocab.voices || FALLBACK_VOCAB.voices), onChange: v => setKnob('voice', v) })] })
+  ] })
+}
+
 function Toggle({ checked, onChange, label }) {
   if (sdk.Switch) return jsx(sdk.Switch, { checked, onCheckedChange: v => onChange(Boolean(v)), 'aria-label': label })
   return jsx('input', { type: 'checkbox', checked, onChange: e => onChange(e.target.checked), 'aria-label': label })
@@ -482,7 +518,7 @@ function StyleCard({ style, selected, onSelect }) {
 }
 
 // ── Make ───────────────────────────────────────────────────────────────────────────────────────────
-const DEFAULT_PREFS = { mode: 'product', style: 'launch', seconds: '60', aspect: '16:9', voice: true, effort: 'standard' }
+const DEFAULT_PREFS = { mode: 'product', style: 'launch', seconds: '60', aspect: '16:9', voice: true, effort: 'standard', route: 'preset' }
 
 function loadPrefs() {
   const p = storageGet('make', null)
@@ -498,14 +534,22 @@ function optionsFrom(prefs, direction) {
   }
 }
 
+/** The customization of the picked preset (POST /jobs `customize`), or null when nothing is set. */
+function customizeFrom(text, knobs) {
+  const k = {}
+  for (const [key, v] of Object.entries(knobs || {})) if (v !== '' && v != null) k[key] = v
+  const t = String(text || '').trim()
+  return t || Object.keys(k).length ? { text: t, knobs: k } : null
+}
+
 /** Start a film for a chat; resolves the new job, or null (the user was told why). */
-async function startFilm(sid, options) {
+async function startFilm(sid, options, customize) {
   if (!sid) {
     notify('warning', 'Open a chat first: Showreel films the chat you are looking at.')
     return null
   }
   try {
-    const job = await api('/jobs', { method: 'POST', body: { session_id: sid, options } })
+    const job = await api('/jobs', { method: 'POST', body: customize ? { session_id: sid, options, customize } : { session_id: sid, options } })
     selectJob(sid, job.id)
     invalidate('jobs')
     invalidate('active')
@@ -525,16 +569,23 @@ async function startFilm(sid, options) {
 function MakeView({ sid, jobs, backendDown, onStarted }) {
   const [prefs, setPrefs] = useState(loadPrefs)
   const [direction, setDirection] = useState(() => String(storageGet('direction', '') || ''))
+  const [custom, setCustom] = useState(() => String(storageGet('customize', '') || ''))
+  const [knobs, setKnobs] = useState(() => { const k = storageGet('knobs', null); return k && typeof k === 'object' ? k : {} })
+  const vocabQ = useApi(qk('customize'), '/customize', { staleTime: 600000 })
+  const vocab = (vocabQ.data && typeof vocabQ.data === 'object') ? vocabQ.data : FALLBACK_VOCAB
   const [busy, setBusy] = useState(false)
   const ui = useAtomValue($ui)
   const stylesQ = useApi(qk('styles'), '/styles', { staleTime: 300000 })
   const styles = (stylesQ.data && stylesQ.data.styles && stylesQ.data.styles.length ? stylesQ.data.styles : FALLBACK_STYLES)
   const running = (jobs || []).find(isRunning)
-  const directed = direction.trim().length > 0
+  const roam = prefs.route === 'roam'
+  const directed = roam && direction.trim().length > 0
+  const customize = roam ? null : customizeFrom(custom, knobs)
 
   useEffect(() => {
     if (!ui.prefill) return
     setDirection(d => (d.trim() ? `${d.trim()} ${ui.prefill}` : ui.prefill))
+    set({ route: 'roam' })               // library scenes are Director material
     patchUi({ prefill: '' })
   }, [ui.prefill])
 
@@ -549,15 +600,24 @@ function MakeView({ sid, jobs, backendDown, onStarted }) {
     setDirection(v)
     storageSet('direction', v)
   }
+  const setCust = v => {
+    setCustom(v)
+    storageSet('customize', v)
+  }
+  const setKnob = (key, v) => setKnobs(k => {
+    const next = { ...k, [key]: v }
+    storageSet('knobs', next)
+    return next
+  })
   const make = async () => {
     setBusy(true)
-    const job = await startFilm(sid, optionsFrom(prefs, direction))
+    const job = await startFilm(sid, optionsFrom(prefs, roam ? direction : ''), customize)
     setBusy(false)
     if (job) onStarted(job)
   }
   const chosen = styles.find(s => s.id === prefs.style) || styles[0]
   const summary = [modeLabel(prefs.mode), chosen ? chosen.name : prefs.style, `${prefs.seconds} s`,
-    prefs.aspect === 'both' ? '16:9 + 9:16' : prefs.aspect, prefs.voice ? 'narrated' : 'captions only'].join(' · ')
+    prefs.aspect === 'both' ? '16:9 + 9:16' : prefs.aspect, prefs.voice ? 'narrated' : 'captions only'].concat(customize ? ['customized'] : []).join(' · ')
   let blocker = ''
   if (backendDown) blocker = 'The Showreel backend is off.'
   else if (!sid) blocker = 'Open a chat first: Showreel films the chat you are looking at.'
@@ -598,27 +658,41 @@ function MakeView({ sid, jobs, backendDown, onStarted }) {
             ] })
           }),
           jsx(Section, {
-            label: 'Direction',
-            aside: directed ? jsx('span', { className: 'srl-pill', 'data-tone': 'accent', children: 'Directed film' }) : 'optional',
+            label: roam ? 'Direction' : 'Customize this preset',
+            aside: directed ? jsx('span', { className: 'srl-pill', 'data-tone': 'accent', children: 'Directed film' })
+              : customize ? jsx('span', { className: 'srl-pill', 'data-tone': 'accent', children: 'Customized' }) : 'optional',
             children: jsxs('div', { className: 'srl-stack', children: [
-              jsx(TextArea, {
+              jsx(Seg, { label: 'Preset or free roam', options: ROUTES, value: roam ? 'roam' : 'preset', onChange: r => set({ route: r }) }),
+              roam ? jsx(TextArea, {
                 value: direction,
                 rows: 4,
                 maxLength: 2000,
                 placeholder: 'Describe the film you want, in your own words. For example: pixel but transition into a different style mid way through, goal is to sell the product.',
                 'aria-label': 'Direction',
                 onChange: e => setDir(e.target.value)
+              }) : jsx(TextArea, {
+                value: custom,
+                rows: 3,
+                maxLength: 800,
+                placeholder: `Customize this preset\u2026 For example: ${CUSTOMIZE_EXAMPLES[0]}.`,
+                'aria-label': 'Customize this preset',
+                onChange: e => setCust(e.target.value)
               }),
-              directed
-                ? jsx('div', { className: 'srl-hint', children: 'The Director writes a treatment, codes the scenes it needs, renders keyframes, has a critic score them and revises before the final render. You can watch it work in Live.' })
-                : jsx('div', { className: 'srl-examples', children: DIRECTION_EXAMPLES.map(x => jsx('button', { type: 'button', className: 'srl-example', onClick: () => setDir(x), children: x }, x)) })
+              roam ? null : jsx(KnobRow, { knobs, setKnob, vocab }),
+              roam
+                ? (directed
+                    ? jsx('div', { className: 'srl-hint', children: 'The Director writes a treatment, codes the scenes it needs, renders keyframes, has a critic score them and revises before the final render. You can watch it work in Live.' })
+                    : jsx('div', { className: 'srl-examples', children: DIRECTION_EXAMPLES.map(x => jsx('button', { type: 'button', className: 'srl-example', onClick: () => setDir(x), children: x }, x)) }))
+                : (custom.trim()
+                    ? jsx('div', { className: 'srl-hint', children: `Keeps the ${chosen ? chosen.name : prefs.style} preset and reshapes it: colours, words, music, pacing and shots. Asking for a different style midway hands it to the Director.` })
+                    : jsx('div', { className: 'srl-examples', children: CUSTOMIZE_EXAMPLES.map(x => jsx('button', { type: 'button', className: 'srl-example', onClick: () => setCust(x), children: x }, x)) }))
             ] })
           }),
           jsxs('div', { className: 'srl-make-go', children: [
             jsx('div', { className: 'srl-summary', children: summary }),
             jsx(Btn, {
               variant: 'default', size: 'lg', icon: directed ? 'sparkle' : 'device-camera-video', busy, disabled: Boolean(blocker),
-              onClick: make, children: directed ? 'Direct this film' : 'Make showreel'
+              onClick: make, children: directed ? 'Direct this film' : customize ? 'Make customized showreel' : 'Make showreel'
             }),
             blocker ? jsx('div', { className: 'srl-hint srl-blocker', children: blocker }) : null,
             running ? jsx('button', { type: 'button', className: 'srl-link', onClick: () => requestTab('live'), children: 'Watch the running one in Live' }) : null
@@ -1547,6 +1621,11 @@ button.srl-card:hover{transform:translateY(-1px);box-shadow:inset 0 0 0 1px var(
 .srl-row>span:first-child{color:var(--ui-text-secondary);flex:none}
 .srl-row.is-dim{opacity:.55}
 .srl-examples{display:flex;flex-direction:column;gap:4px}
+.srl-knobs{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px 12px}
+.srl-knob{display:flex;flex-direction:column;gap:3px;font-size:11px;color:var(--ui-text-tertiary);min-width:0}
+.srl-knob-colour{display:flex;align-items:center;gap:8px}
+.srl-knob-colour input[type=color]{width:34px;height:24px;padding:0;border:0;border-radius:4px;background:transparent;cursor:pointer}
+.srl-select{font:inherit;font-size:12px;color:var(--ui-text-primary);background:var(--ui-bg-card,var(--srl-soft));border:0;box-shadow:inset 0 0 0 1px var(--srl-line);border-radius:6px;padding:4px 6px;min-width:0}
 .srl-example{appearance:none;border:0;background:transparent;text-align:left;font:inherit;font-size:11.5px;color:var(--ui-text-tertiary);padding:3px 6px;border-radius:4px;cursor:pointer;font-style:italic}
 .srl-example::before{content:"“"}
 .srl-example::after{content:"”"}

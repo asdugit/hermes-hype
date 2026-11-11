@@ -9,11 +9,13 @@ read with a size cap, everything else runs in the thread pool.
 Routes
   GET  /health                         {ok, api}: the pane's "is the backend on" probe
   GET  /styles                         styles in roster order + preview availability (small ones inline)
+  GET  /customize                      knob vocabulary for preset customization (palettes, moods, fonts, ...)
   GET  /styles/{id}/preview            {kind, mime, url}: one style's looping preview as a data URL
   GET  /jobs?session_id=&limit=        jobs, newest first (log tails only)
   GET  /jobs/active                    running jobs of every session + ones that just finished (status chip)
   GET  /jobs/latest?session_id=        newest job of the session, or {"stage": "none"}
-  POST /jobs                           {session_id, options} -> start a film (409 while one is running)
+  POST /jobs                           {session_id, options, customize?: {text, knobs}} -> start a film (409 while
+                                       one is running; 400 for unknown knobs)
   GET  /jobs/{id}                      one job
   POST /jobs/{id}/cancel               raise the cancel flag
   GET  /jobs/{id}/storyboard           {storyboard, edited}: the pane's edit if saved, else the job's own
@@ -209,7 +211,25 @@ async def post_job(request: Request) -> Any:
         return _err(400, "session_id is required")
     raw = body.get("options")
     opts: dict[str, Any] = raw if isinstance(raw, dict) else {}
+    if body.get("customize") is not None:            # preset customization: {text, knobs} (docs/CUSTOMIZE.md)
+        opts, msgs, status = _sub("customize.command").from_request(opts, body.get("customize"))
+        if status != 200:
+            return _err(status, " ".join(msgs))
     return _reply(await run_in_threadpool(_start, sid, opts))
+
+
+@router.get("/customize")
+async def customize_vocab() -> Any:
+    """What the Make tab's knobs offer: palettes, energies, music moods + beds, fonts, voice styles, ..."""
+    def go() -> dict[str, Any]:
+        v, k = _sub("customize.vocab"), _sub("customize.knobs")
+        return {"knobs": {name: help_ for name, (_kind, help_) in k.KNOBS.items()},
+                "palettes": v.PALETTES, "energies": list(v.ENERGIES), "moods": sorted(v.MOODS),
+                "beds": sorted(v.beds().values(), key=lambda b: (b["family"], b["id"])),
+                "fonts": sorted(r["family"] for r in v.fonts().values()), "voices": list(v.VOICE_STYLES),
+                "captions": list(v.CAPTION_STYLES), "transitions": list(v.TRANSITION_FAMILIES),
+                "languages": {c: row[1] for c, row in v.LANGUAGES.items()}}
+    return await run_in_threadpool(go)
 
 
 @router.get("/jobs")

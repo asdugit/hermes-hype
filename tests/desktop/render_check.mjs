@@ -319,6 +319,9 @@ check(listeners.has('plugin.showreel.job.progress'), '1 listens to plugin.showre
   click($(v.div, '[data-seg-opt=both]'))
   click($(v.div, '[role=switch]'))
   await sleep(20)
+  check(Boolean($(v.div, 'textarea[aria-label="Customize this preset"]')), '3 a picked preset offers "Customize this preset" by default')
+  click($(v.div, '[data-seg-opt=roam]'))
+  await waitFor(() => $(v.div, 'textarea[aria-label=Direction]'), '3 Free roam shows the Direction box')
   check(v.div.textContent.includes('Effort applies to Directed films'), '3 effort is explained as Directed-only while the Direction box is empty')
   typeInto($(v.div, 'textarea[aria-label=Direction]'), 'pixel but transition into a different style mid way through, goal is to sell the product')
   await waitFor(() => byText(v.div, 'button', 'Direct this film'), '3 a direction turns the button into "Direct this film"')
@@ -334,6 +337,34 @@ check(listeners.has('plugin.showreel.job.progress'), '1 listens to plugin.showre
   check(o.mode === 'speedrun' && o.style === 'pixel' && o.seconds === 30 && JSON.stringify(o.aspects) === '["16:9","9:16"]' && o.voice === false && o.effort === 'quick' && o.direction.startsWith('pixel but transition'), `3 options sent as picked: ${JSON.stringify(o)}`)
   await waitFor(() => tabSelected(v.div, 'Live'), '3 the studio moves to Live')
   check(JSON.parse(JSON.stringify(kept.get('make'))).style === 'pixel', '3 choices are remembered (ctx.storage)')
+  check(!('customize' in sent), '3 a Free roam film sends no customization')
+  await v.unmount()
+}
+
+// ── 3b Make: customize a preset (free text + knobs -> POST /jobs customize) ───────────────────────────
+{
+  focus('s-cust')
+  kept.set('tab.pane', 'make')
+  const v = await mount(pane.render())
+  await waitFor(() => $$(v.div, '.srl-card').length === 4, '3b style cards')
+  click(byText(v.div, '.srl-card', 'Launch'))
+  click($(v.div, '[data-seg-opt=preset]'))
+  await waitFor(() => $(v.div, 'textarea[aria-label="Customize this preset"]'), '3b back on the preset: the Customize box')
+  check(Boolean($(v.div, 'input[type=color][aria-label="Accent colour"]') && $(v.div, 'select[aria-label=Music]') && $(v.div, 'select[aria-label=Font]') && $(v.div, 'select[aria-label="Narration voice"]')), '3b the knobs row: accent, energy, music, font, voice')
+  typeInto($(v.div, 'textarea[aria-label="Customize this preset"]'), 'pink and playful with a punchier ending')
+  click($(v.div, '[data-seg-opt=high]'))
+  const music = $(v.div, 'select[aria-label=Music]')
+  Object.getOwnPropertyDescriptor(W.HTMLSelectElement.prototype, 'value').set.call(music, 'playful')
+  fire(music, 'change')
+  typeInto($(v.div, 'input[type=color][aria-label="Accent colour"]'), '#ff4fa3')
+  await waitFor(() => byText(v.div, 'button', 'Make customized showreel'), '3b the button says "Make customized showreel"')
+  check(v.div.textContent.includes('customized'), '3b the summary says customized')
+  const before = calls('POST', '/jobs').length
+  click(byText(v.div, 'button', 'Make customized showreel'))
+  await waitFor(() => calls('POST', '/jobs').length === before + 1, '3b POST /jobs')
+  const body = calls('POST', '/jobs')[before].body
+  check(body.options.style === 'launch' && body.options.direction === '', `3b the preset stays a Quick film: ${JSON.stringify(body.options)}`)
+  check(body.customize && body.customize.text === 'pink and playful with a punchier ending' && body.customize.knobs.energy === 'high' && body.customize.knobs.music === 'playful' && body.customize.knobs.accent === '#ff4fa3', `3b customize sent: ${JSON.stringify(body.customize)}`)
   await v.unmount()
 }
 
