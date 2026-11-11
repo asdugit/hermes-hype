@@ -396,7 +396,14 @@ def scrub_film(film: dict[str, Any], *, name: str, url: str = "") -> list[str]:
 # ------------------------------------------------------------------------------------------- paths
 
 def _norm(p: str) -> str:
-    return str(p or "").replace("\\", "/").rstrip("/")
+    """Forward slashes, no trailing slash; MSYS / WSL / Cygwin drive forms (``/d/x``, ``/mnt/d/x``) as ``D:/x``."""
+    s = str(p or "").replace("\\", "/").rstrip("/")
+    m = re.match(r"^/(?:mnt/|cygdrive/)?([A-Za-z])(?=/)", s)
+    if m:
+        s = m.group(1).upper() + ":" + s[m.end():]
+    elif re.match(r"^[a-z]:/", s):
+        s = s[0].upper() + s[1:]
+    return s
 
 
 def _ancestors(path: str) -> list[str]:
@@ -466,7 +473,9 @@ def display_path(path: str, root: str = "", parts: int = 2) -> str:
             return r.rsplit("/", 1)[-1]
         if p.lower().startswith(r.lower() + "/"):
             return p[len(r) + 1:]
-    if p.startswith("/") and not re.match(r"(?i)/(?:home|users|mnt/[a-z]/users)/", p):
+        if p.lower() == r.lower():
+            return r.rsplit("/", 1)[-1]
+    if p.startswith("/") and not re.match(r"(?i)/(?:home|users)/", p):
         return p                    # a system path (/usr/bin/bash, /tmp/x) says nothing about this machine
     if p.startswith(("~/", "/")) or re.match(r"[A-Za-z]:/", p):
         comps = [c for c in p.split("/") if c and c != "~" and not re.fullmatch(r"[A-Za-z]:", c)]

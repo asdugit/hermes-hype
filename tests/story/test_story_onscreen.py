@@ -179,6 +179,11 @@ def test_project_root_and_display_forms():
     script = display_cmd("cd ~/work/hermes-app && ~/.venv/Scripts/python.exe - <<'EOF'\nfrom x import y\nEOF", root, 64)
     assert script == "python - <<'EOF' \u2026"
     assert display_path("/usr/bin/bash", root) == "/usr/bin/bash"          # system paths are not machine-specific
+    # Git-Bash / WSL spellings of a Windows project folder are the same folder (a real panel printed /d/...)
+    win = "D:/work/app"
+    assert display_cmd("mkdir -p /d/work/app && cd /d/work/app && ls -la", win) == "mkdir -p app && cd app && ls -la"
+    assert display_path("/mnt/d/work/app/src/x.js", win) == "src/x.js"
+    assert display_path("d:\\work\\app\\index.html", win) == "index.html"
 
 
 def test_terminal_and_montage_show_project_relative_paths():
