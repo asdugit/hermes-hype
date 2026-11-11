@@ -243,6 +243,10 @@ def install_blender_cli(*, yes: bool = False, parent: str | None = None, out: An
         bar.end()
         out(f"Blender install failed: {exc}")
         return 1
+    except Exception as exc:  # noqa: BLE001 - one clear line, not a traceback (nothing is left behind)
+        bar.end()
+        out(f"Blender install failed: {type(exc).__name__}: {exc}")
+        return 1
     bar.end()
     if res.get("skipped"):
         out(f"Blender {res['version']} is already at {res['path']}; left it as it is.")

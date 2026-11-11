@@ -144,6 +144,51 @@ def test_install_tar_xz_keeps_the_executable_bit(tmp_path: Path) -> None:
         assert os.access(exe, os.X_OK)
 
 
+def _tar_xz_with_links(top: str = f"blender-{VER}-linux-x64") -> bytes:
+    """Like the real Linux tarball: shared-library symlinks and a hard link, read back as one stream."""
+    buf = io.BytesIO()
+    with tarfile.open(fileobj=buf, mode="w:xz") as tf:
+        for name, data, mode in ((f"{top}/blender", b"#!/bin/sh\necho Blender 9.9.9\n", 0o755),
+                                 (f"{top}/lib/libx.so.1", b"ELF fake lib", 0o644)):
+            info = tarfile.TarInfo(name)
+            info.size, info.mode = len(data), mode
+            tf.addfile(info, io.BytesIO(data))
+        sym = tarfile.TarInfo(f"{top}/lib/libx.so")
+        sym.type, sym.linkname = tarfile.SYMTYPE, "libx.so.1"
+        tf.addfile(sym)
+        hard = tarfile.TarInfo(f"{top}/blender-softwaregl")
+        hard.type, hard.linkname = tarfile.LNKTYPE, f"{top}/blender"
+        tf.addfile(hard)
+    return buf.getvalue()
+
+
+@pytest.mark.skipif(os.name == "nt" or not hasattr(tarfile, "data_filter"),
+                    reason="the Linux build is only installed on POSIX (symlinks); needs tarfile filters")
+def test_install_tar_xz_streams_symlinks_and_hard_links_in_one_pass(tmp_path: Path) -> None:
+    data = _tar_xz_with_links()
+    seen: list[tuple[str, int, int]] = []
+    res = bi.install(build=_build(data, "linux-x64"), parent=tmp_path, opener=_opener(data),
+                     progress=lambda stage, done, total: seen.append((stage, done, total)), **_kw())
+    target = Path(res["target"])
+    assert (target / "lib" / "libx.so").is_symlink() and (target / "lib" / "libx.so").read_bytes() == b"ELF fake lib"
+    assert (target / "blender-softwaregl").read_bytes() == (target / "blender").read_bytes()
+    unpack = [(d, t) for s, d, t in seen if s == "unpack"]
+    assert unpack and unpack[-1] == (len(data), len(data))           # progress = compressed bytes, ends at 100 %
+    assert [d for d, _ in unpack] == sorted(d for d, _ in unpack)     # one forward pass, never back
+
+
+def test_unsafe_tar_paths_are_refused(tmp_path: Path) -> None:
+    buf = io.BytesIO()
+    with tarfile.open(fileobj=buf, mode="w:xz") as tf:
+        info = tarfile.TarInfo("../evil.txt")
+        info.size = 5
+        tf.addfile(info, io.BytesIO(b"pwned"))
+    data = buf.getvalue()
+    with pytest.raises(bi.InstallError, match="unsafe path"):
+        bi.install(build=_build(data, "linux-x64"), parent=tmp_path / "in", opener=_opener(data), **_kw())
+    assert not (tmp_path / "evil.txt").exists() and list((tmp_path / "in").iterdir()) == []
+
+
 def test_checksum_mismatch_is_refused_and_leaves_nothing(tmp_path: Path) -> None:
     data = _zip()
     with pytest.raises(bi.InstallError, match="checksum mismatch"):
@@ -204,6 +249,16 @@ def test_unsafe_archive_paths_are_refused(tmp_path: Path) -> None:
     with pytest.raises(bi.InstallError, match="unsafe path"):
         bi.install(build=_build(data), parent=tmp_path / "in", opener=_opener(data), **_kw())
     assert not (tmp_path / "evil.txt").exists() and list((tmp_path / "in").iterdir()) == []
+
+
+def test_a_corrupt_archive_with_a_matching_checksum_is_a_clear_error(tmp_path: Path) -> None:
+    data = b"PK\x03\x04 not really a zip" * 10
+    with pytest.raises(bi.InstallError, match="unpacking .* failed"):
+        bi.install(build=_build(data), parent=tmp_path, opener=_opener(data), **_kw())
+    data = b"\xfd7zXZ\x00 not really xz" * 10
+    with pytest.raises(bi.InstallError, match="unpacking .* failed"):
+        bi.install(build=_build(data, "linux-x64"), parent=tmp_path, opener=_opener(data), **_kw())
+    assert list(tmp_path.iterdir()) == []
 
 
 def test_a_blender_that_does_not_run_is_removed_again(tmp_path: Path) -> None:

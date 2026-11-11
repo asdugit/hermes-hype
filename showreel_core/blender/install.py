@@ -34,6 +34,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
+try:  # the Linux .tar.xz needs it; every python-build-standalone (Hermes' Python) has it
+    import lzma
+except ImportError:  # pragma: no cover - a Python built without liblzma
+    lzma = None  # type: ignore[assignment]
+
 RELEASE_BASE = "https://download.blender.org/release"
 CHUNK = 1 << 20
 NET_TIMEOUT_S = 60.0
@@ -278,9 +283,14 @@ def _unzip(archive: Path, into: Path, cancel: threading.Event | None, progress: 
 
 
 def _untar(archive: Path, into: Path, cancel: threading.Event | None, progress: Progress | None) -> None:
-    with tarfile.open(archive, mode="r:xz") as tf:
-        members = tf.getmembers()
-        for k, m in enumerate(members):
+    """Strictly sequential (``r|`` stream): random-access extraction from an .xz re-decompresses from the start
+    for every member. Progress = compressed bytes read."""
+    if lzma is None:
+        raise InstallError("this Python has no lzma (.xz) support; unpack the Blender archive yourself and set "
+                           "HYPE_BLENDER")
+    total = archive.stat().st_size
+    with open(archive, "rb") as raw, lzma.open(raw) as lz, tarfile.open(fileobj=lz, mode="r|") as tf:
+        for k, m in enumerate(tf):
             if cancel is not None and cancel.is_set():
                 raise InstallCancelled("cancelled")
             if not _safe_member(m.name) or m.isdev():
@@ -289,8 +299,10 @@ def _untar(archive: Path, into: Path, cancel: threading.Event | None, progress: 
                 tf.extract(m, into, filter="data")
             else:  # pragma: no cover - Python < 3.11.4
                 tf.extract(m, into)
-            if progress and (k % 200 == 0 or k == len(members) - 1):
-                progress("unpack", k + 1, len(members))
+            if progress and k % 200 == 0:
+                progress("unpack", raw.tell(), total)
+        if progress:
+            progress("unpack", total, total)
 
 
 def _undmg(archive: Path, into: Path, cancel: threading.Event | None, progress: Progress | None,
@@ -383,7 +395,13 @@ def install(*, build: Build | None = None, parent: Path | str | None = None, pro
                                "Refused to install it (the file was deleted).")
         unpacked = stage / "unpacked"
         unpacked.mkdir()
-        {"zip": _unzip, "tar.xz": _untar, "dmg": _undmg}[build.kind](archive, unpacked, cancel, progress)
+        try:
+            {"zip": _unzip, "tar.xz": _untar, "dmg": _undmg}[build.kind](archive, unpacked, cancel, progress)
+        except InstallError:
+            raise
+        except (tarfile.TarError, zipfile.BadZipFile, getattr(lzma, "LZMAError", OSError), OSError,
+                subprocess.SubprocessError) as exc:
+            raise InstallError(f"unpacking {build.file} failed: {type(exc).__name__}: {exc}") from exc
         archive.unlink(missing_ok=True)
         src = _find_root(unpacked, build)
         if cancel is not None and cancel.is_set():
