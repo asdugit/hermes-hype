@@ -176,6 +176,7 @@ def validate_storyboard(sb: Storyboard, facts: SessionFacts, target_seconds: flo
         kept = _check_product_film(kept, ctx)
         kept = _enrich_pictures(kept, ctx, target_seconds)
         kept = _enrich_runs(kept, ctx, target_seconds)
+        kept = _library_usage(kept, ctx)
     else:
         kept = _check_chronology(kept, ctx)
     if ctx.mode == "speedrun":
@@ -1106,6 +1107,56 @@ def _enrich_runs(kept: list[tuple[int, StoryScene]], ctx: _Ctx, target_seconds: 
     ctx.issue("runs_added", "$.scenes", f"{len(adds)} real run(s) of the CLI shown", "warning",
               "added " + ", ".join(sc.refs[0] for sc in adds))
     return kept[:at] + [(idx, sc) for sc in adds] + kept[at:]
+
+
+_FENCE_RE = re.compile(r"^\s*```\s*([\w+-]*)\s*$")
+
+
+def readme_usage(facts: SessionFacts) -> tuple[str, int, int] | None:
+    """(event id, first, last) 1-based lines of the README's first usage code block (2-14 lines), else None."""
+    for ev in reversed(facts.events):                      # the README as it ended up
+        path = str((ev.data or {}).get("path") or "").replace("\\", "/").rsplit("/", 1)[-1].lower()
+        if ev.kind != "file_write" or not path.startswith("readme"):
+            continue
+        lines = [str(x) for x in (ev.data or {}).get("lines") or []]
+        k = 0
+        while k < len(lines):
+            m = _FENCE_RE.match(lines[k])
+            if not m:
+                k += 1
+                continue
+            end = next((j for j in range(k + 1, len(lines)) if _FENCE_RE.match(lines[j])), None)
+            if end is None:
+                break
+            body = [ln for ln in lines[k + 1:end] if ln.strip()]
+            lang = m.group(1).lower()
+            if lang not in ("bash", "sh", "shell", "console", "text", "") and 2 <= len(body) and end - k - 1 <= 14:
+                return ev.id, k + 2, end
+            k = end + 1
+        return None
+    return None
+
+
+def _library_usage(kept: list[tuple[int, StoryScene]], ctx: _Ctx) -> list[tuple[int, StoryScene]]:
+    """A library's product beat is how you USE it: its README usage block as the first CODE beat, right after the
+    TITLE (a library film showed 25 s of internal docstrings and never the `@retry(...)` example)."""
+    if str(getattr(ctx.product, "kind", "") or "") != "library":
+        return kept
+    use = readme_usage(ctx.facts)
+    if use is None:
+        return kept
+    eid, a, b = use
+    if any(sc.type == T.CODE and sc.refs[:1] == [eid] for _, sc in kept):
+        return kept
+    codes = [k for k, (_, sc) in enumerate(kept) if sc.type == T.CODE]
+    scene = StoryScene(T.CODE, [eid], "", "", {"focus_lines": [a, b]})
+    if codes and len(codes) + 1 > max_type_count(len(kept) + 1):
+        kept = kept[:codes[-1]] + kept[codes[-1] + 1:]   # the last internal code wall gives way
+    at = next((k + 1 for k, (_, sc) in enumerate(kept) if sc.type == T.TITLE), 1 if kept else 0)
+    idx = kept[at - 1][0] if kept and at > 0 else 0
+    ctx.issue("usage_added", "$.scenes", "the README usage example shown as the library's product beat", "warning",
+              f"added {eid} lines {a}-{b}")
+    return kept[:at] + [(idx, scene)] + kept[at:]
 
 
 def _best_product_ref(facts: SessionFacts, product: Product) -> str:

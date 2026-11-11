@@ -110,3 +110,24 @@ def test_browser_game_pictures_are_cards_and_montage_never_prints_asset_paths() 
     assert picture_frame(shot) == "card"
     arg, _ = _verbatim_arg(shot)
     assert arg == "shot.png" and "assets" not in arg
+
+
+def test_library_film_shows_the_readme_usage_block() -> None:
+    from showreel_core.story.timing import _code_window
+    readme = ["# patience", "", "Retries with backoff.", "", "```bash", "pip install patience", "```", "",
+              "```python", "from patience import retry", "", "@retry(attempts=3, backoff=2.0)", "def fetch():",
+              "    return get('/x')", "```"]
+    evs = [Event("e0", 0.0, "user_prompt", "", "retry lib", "", {"text": "Build patience, a retry library"}),
+           Event("e1", 5.0, "file_write", "write_file", "src/patience/core.py", "",
+                 {"path": "src/patience/core.py", "lines": ["def retry(attempts=3):", '    """Args: ..."""', "    pass"]}),
+           Event("e2", 9.0, "file_write", "write_file", "README.md", "", {"path": "README.md", "lines": readme})]
+    facts = SessionFacts(evs, Stats(duration_s=60))
+    sb = Storyboard(title="patience", tagline="Retries", cta="", mode="product",
+                    product=Product(name="patience", kind="library"),
+                    scenes=[StoryScene(T.TITLE, [], "", "patience"), StoryScene(T.CODE, ["e1"], "", "The decorator"),
+                            StoryScene(T.END, [], "", "")])
+    res = validate_storyboard(sb, facts, 30, "product")
+    codes = [s for s in res.storyboard.scenes if s.type == T.CODE]
+    assert codes[0].refs == ["e2"] and codes[0].extra["focus_lines"] == [10, 14]   # the python block, not bash
+    win = _code_window(facts.by_id["e2"], [10, 14], 12)
+    assert win["lang"] == "python" and "@retry(attempts=3, backoff=2.0)" in win["lines"]

@@ -535,7 +535,12 @@ def _code_window(ev: Event, focus: Any, size: int) -> dict[str, Any] | None:
     else:
         start = max(1, min(a - (size - span) // 2, n - size + 1))
     end = min(n, start + size - 1)
-    return {"path": str(data_get(ev, "path", ev.title)), "lang": str(data_get(ev, "lang", "")),
+    lang = str(data_get(ev, "lang", ""))
+    if str(data_get(ev, "path", "")).lower().endswith((".md", ".markdown", ".rst")):
+        # a usage block inside a README: highlight it in the fence's language, not as markdown
+        fence = next((ln.strip()[3:].strip() for ln in reversed(lines[:a]) if ln.strip().startswith("```")), "")
+        lang = fence or lang
+    return {"path": str(data_get(ev, "path", ev.title)), "lang": lang,
             "lines": lines[start - 1:end], "start": start, "focus": [a, min(b, end)], "total_lines": n,
             "new_file": bool(data_get(ev, "new_file", True))}
 
