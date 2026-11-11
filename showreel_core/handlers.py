@@ -309,8 +309,14 @@ def render_tool(ctx: Any, args: dict[str, Any] | None, **kwargs: Any) -> str:
             wait = float(args.get("wait_seconds", TOOL_WAIT_S))
         except (TypeError, ValueError):
             wait = TOOL_WAIT_S
-        done.wait(max(0.0, min(TOOL_WAIT_MAX_S, wait)))
+        wait = max(0.0, min(TOOL_WAIT_MAX_S, wait))
+        done.wait(wait)
         final = store.load(job["id"]) or job
+        if final.get("stage") not in TERMINAL and wait > 0 and (
+                final.get("stage") in ("mix", "qa") or float(final.get("pct") or 0) >= 0.9):
+            # Nearly there (real E2E: QA ended 3 s after the 270 s budget): use the rest of the tool budget.
+            done.wait(max(0.0, TOOL_WAIT_MAX_S - wait))
+            final = store.load(job["id"]) or final
         if final.get("stage") in TERMINAL:
             return json.dumps(_result(final), default=str)
         return json.dumps(_result(final, message=(

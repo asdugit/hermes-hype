@@ -276,3 +276,36 @@ def test_cli_render_engine_3d(env: dict[str, Any], monkeypatch: pytest.MonkeyPat
     handlers.cli_setup(parser)
     assert handlers.cli(FakeCtx(), parser.parse_args(["render", "--seconds", "30", *argv])) == 1
     assert seen and seen[0]["engine_3d"] == engine and seen[0]["seconds"] == 30
+
+
+def test_render_tool_uses_the_rest_of_its_budget_when_the_film_is_in_qa(env: dict[str, Any],
+                                                                       monkeypatch: pytest.MonkeyPatch) -> None:
+    """Real E2E: QA finished 3 s after the 270 s wait, so the agent got 'rendering' and had to poll."""
+    import threading
+
+    import showreel_core.pipeline as pl
+    store = env["store"]
+    fake = _fake_run(store)
+    monkeypatch.setattr(handlers, "TOOL_WAIT_MAX_S", 1.5)
+
+    def start_background(job_id: str, host: Any, *, store: JobStore, handle: Any = None, on_done: Any = None,
+                         **_: Any) -> None:
+        store.update(job_id, stage="qa", pct=0.97)
+
+        def later() -> None:
+            time.sleep(0.6)
+            on_done(fake(job_id, host, store=store))
+        threading.Thread(target=later, daemon=True).start()
+    monkeypatch.setattr(pl, "start_background", start_background)
+    out = json.loads(handlers.render_tool(FakeCtx(), {"wait_seconds": 0.3}, session_id="s1"))
+    assert out["status"] == "done" and out["media_tag"].startswith("MEDIA:")
+
+
+def test_render_tool_does_not_extend_early_stages(env: dict[str, Any], monkeypatch: pytest.MonkeyPatch) -> None:
+    import showreel_core.pipeline as pl
+    monkeypatch.setattr(handlers, "TOOL_WAIT_MAX_S", 5.0)
+    monkeypatch.setattr(pl, "start_background",
+                        lambda job_id, host, *, store, **k: store.update(job_id, stage="render", pct=0.4))
+    t0 = time.monotonic()
+    out = json.loads(handlers.render_tool(FakeCtx(), {"wait_seconds": 0.2}, session_id="s1"))
+    assert time.monotonic() - t0 < 2.0 and out["status"] == "render"
