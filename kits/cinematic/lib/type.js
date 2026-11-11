@@ -13,22 +13,48 @@ export function title(g, F, text, t, o = {}) {
   const s = F.scale, size = (o.size ?? (F.portrait ? 96 : 132)) * s * (o.k ?? 1);
   const str = String(text || '').toUpperCase();
   g.save();
-  g.font = `500 ${size}px ${SERIF}`; g.letterSpacing = `${(0.34 * size).toFixed(1)}px`;
-  let fs = size; const maxW = F.w - 2 * 110 * s;
-  while (g.measureText(str).width > maxW && fs > 40 * s) { fs *= 0.92; g.font = `500 ${fs}px ${SERIF}`; g.letterSpacing = `${(0.34 * fs).toFixed(1)}px`; }
-  const total = g.measureText(str).width;
-  let x = F.w / 2 - total / 2 + 0.17 * fs;
-  const y = o.y ?? F.h / 2;
+  const maxW = F.w - 2 * 110 * s;
+  const setF = (z) => { g.font = `500 ${z}px ${SERIF}`; g.letterSpacing = `${(0.34 * z).toFixed(1)}px`; };
+  const fitTo = (line, floor) => { let z = size; setF(z); while (g.measureText(line).width > maxW && z > floor) { z *= 0.92; setF(z); } return z; };
+  let lines = [str], fs = fitTo(str, 40 * s);
+  setF(fs);
+  if (g.measureText(str).width > maxW) {
+    // still wider than the frame at the 40 px floor (a 40-character name on 9:16 ran off both edges): two
+    // balanced lines at a word boundary, the last one on the usual baseline; no space (CJK) -> just smaller
+    lines = twoLines(str);
+    fs = Math.min(...lines.map((l) => fitTo(l, 24)));        // px, not x scale (scale = H/1080 is 1.78 on 9:16)
+  }
+  const y0 = o.y ?? F.h / 2;
   g.textBaseline = 'alphabetic'; g.shadowColor = 'rgba(255,236,210,0.22)'; g.shadowBlur = 28 * s;
-  [...str].forEach((ch, i) => {
-    const u = ramp(t, (o.t0 ?? 0.3) + i * 0.035, 0.7);
-    g.globalAlpha = u * (o.alpha ?? 1); g.fillStyle = INK.paper;
-    g.letterSpacing = '0px';
-    g.fillText(ch, x, y + (1 - u) * 16 * s);
-    x += g.measureText(ch).width + 0.34 * fs;
+  let i = 0;
+  lines.forEach((line, li) => {
+    setF(fs);
+    const total = g.measureText(line).width;
+    let x = F.w / 2 - total / 2 + 0.17 * fs;
+    const y = y0 - (lines.length - 1 - li) * fs * 1.12;
+    for (const ch of [...line]) {
+      const u = ramp(t, (o.t0 ?? 0.3) + i * 0.035, 0.7);
+      g.globalAlpha = u * (o.alpha ?? 1); g.fillStyle = INK.paper;
+      g.letterSpacing = '0px';
+      g.fillText(ch, x, y + (1 - u) * 16 * s);
+      x += g.measureText(ch).width + 0.34 * fs;
+      i += 1;
+    }
   });
   g.restore();
   return fs;
+}
+
+/** Split at the space that balances the two halves best ([s] when there is no space). */
+function twoLines(s) {
+  const ws = String(s).split(/\s+/).filter(Boolean);
+  if (ws.length < 2) return [String(s)];
+  let best = 1, bd = 1e9;
+  for (let k = 1; k < ws.length; k++) {
+    const d = Math.abs(ws.slice(0, k).join(' ').length - ws.slice(k).join(' ').length);
+    if (d < bd) { bd = d; best = k; }
+  }
+  return [ws.slice(0, best).join(' '), ws.slice(best).join(' ')];
 }
 
 /** Italic serif line(s), centred or left. */
@@ -105,8 +131,12 @@ export function stats(g, F, items, t, o = {}) {
 
 /** CTA in Geist Mono inside a hairline pill. */
 export function cta(g, F, text, t, o = {}) {
-  const s = F.scale, size = 30 * s;
+  const s = F.scale;
+  let size = 30 * s;
   g.save(); g.font = `400 ${size}px ${MONO}`;
+  // a long command shrinks (to 20 px) to stay inside the frame (9:16 cut a 40-character command on both sides)
+  const room = F.w - 2 * 80 * s - 64 * s, w0 = g.measureText(text).width;
+  if (w0 > room) { size = Math.max(20, size * room / w0); g.font = `400 ${size}px ${MONO}`; }   // px (scale = H/1080)
   const tw = g.measureText(text).width, pw = tw + 64 * s, ph = 64 * s, x = F.w / 2 - pw / 2, y = o.y ?? F.h * 0.62;
   g.globalAlpha = ramp(t, o.t0 ?? 1.0, 0.7);
   g.strokeStyle = 'rgba(255,176,76,0.7)'; g.lineWidth = 1.5 * s;

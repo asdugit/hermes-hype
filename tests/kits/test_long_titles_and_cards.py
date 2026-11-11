@@ -124,3 +124,41 @@ def test_cinematic_card_picture_gets_no_url_bar():
     assert "import { mediaOf, isCard } from '../base/media.js';" in src
     assert "const url = isCard(m.meta) || isCard(d) ? '' :" in src            # contentCard (HOOK / BEFORE_AFTER hero)
     assert "const url = isCard(p.image) ? '' :" in src                         # SCREEN / FEATURE / SCROLL / screen-push
+
+
+_CINE_EXTENTS = """(async () => {
+  const T = await import('./kits/cinematic/lib/type.js');
+  const cv = document.createElement('canvas'); cv.width = 1080; cv.height = 1920;
+  const g = cv.getContext('2d');
+  const F = { w: 1080, h: 1920, barH: 0, portrait: true, scale: 1920 / 1080 };
+  const spans = [];
+  const fill = g.fillText.bind(g);
+  g.fillText = (str, x, y) => {
+    const w = g.measureText(str).width, x0 = g.textAlign === 'center' ? x - w / 2 : x;
+    spans.push([x0, x0 + w]); fill(str, x, y);
+  };
+  const ext = () => { const r = [Math.min(...spans.map((q) => q[0])), Math.max(...spans.map((q) => q[1]))]; spans.length = 0; return r; };
+  const out = {};
+  for (const [k, text] of Object.entries(%s)) { T.title(g, F, text, 5, {}); out[k] = ext(); }
+  T.cta(g, F, %s, 5, {});
+  const [c0, c1] = ext();
+  out.cta_pill = [c0 - 32 * F.scale, c1 + 32 * F.scale];
+  return out;
+})()"""
+
+
+@pytest.mark.slow
+def test_cinematic_canvas_title_and_cta_stay_inside_the_9x16_frame(tmp_path):
+    """cinematic paints TITLE/END type on a canvas, so layout QA cannot see it: a 40-character name ran off both
+    edges of the 9:16 frame ('EDGER RECONCILIAT') and so did the END CTA pill. Measure the drawn glyph extents."""
+    from showreel_core.render.workers import page_session
+    film, job = _film("cinematic", "9:16", LONG, False, tmp_path)
+    titles = {"latin": LONG, "cjk": "東京会計リコンシリエーション・スタジオ", "short": "Tempo"}
+    js = _CINE_EXTENTS % (json.dumps(titles, ensure_ascii=False), json.dumps(CTA + " --serve"))
+
+    async def go():
+        async with page_session(job, "stage.html", w=1080, h=1920) as page:
+            return await page.evaluate(js)
+    ext = asyncio.run(go())
+    for k, (a, b) in ext.items():
+        assert 0 <= a and b <= 1080, (k, a, b)
