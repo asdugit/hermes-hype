@@ -22,7 +22,7 @@ launchScene('kit:launch/CODE', {
     W.light(0, -40, b.w * 1.1, b.h * 1.3);
     const fr = b.focusRect();
     const wires = panelWires(W, n, b, fr.y + fr.h / 2, { outAt: reveal[1] + 0.4 });
-    const cam = pushTrack(W, F, n, b, fr, { tPush: reveal[1] + 0.15, dur, yaw0: 6, pitchWide: 20 });
+    const cam = pushTrack(W, F, n, b, fr, { tPush: reveal[1] + 0.15, dur, yaw0: 6, pitchWide: 20, fitWidth: true });
     const tag = cornerLabel(F, p.label, { at: Math.min(0.5, dur * 0.2) });
     return {
       cues: [...b.cues, { t: reveal[1] + 0.2, sfx: 'move', gain_db: -12 }],
@@ -55,7 +55,7 @@ launchScene('kit:launch/DIFF', {
     W.light(0, -30, b.w * 1.1, b.h * 1.3);
     const cr = b.changedRect(L ? 12 : 9);
     const wires = panelWires(W, n, b, cr.y + cr.h / 2, { outAt: reveal[1] + 0.3 });
-    const cam = pushTrack(W, F, n, b, cr, { tPush: reveal[1] + 0.2, dur, yaw0: -6, pitchWide: 18 });
+    const cam = pushTrack(W, F, n, b, cr, { tPush: reveal[1] + 0.2, dur, yaw0: -6, pitchWide: 18, fitWidth: true });
     const tag = cornerLabel(F, p.label, { at: Math.min(0.5, dur * 0.2) });
     return {
       cues: [...b.cues, { t: reveal[1] + 0.25, sfx: 'move', gain_db: -12 }],

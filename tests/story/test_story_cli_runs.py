@@ -85,3 +85,28 @@ def test_a_server_start_is_not_a_product_beat() -> None:
                             StoryScene(T.END, [], "", "")])
     res = validate_storyboard(sb, facts, 30, "product")
     assert [s.refs for s in res.storyboard.scenes if s.type == T.TERMINAL] == [["e2"]]
+
+
+def test_install_terminal_is_not_a_product_beat() -> None:
+    evs = [Event("e0", 0.0, "user_prompt", "", "retry lib", "", {"text": "Build patience, a retry library"}),
+           _run(1, 5.0, "uv pip install -e .", ["warning: Failed to hardlink files", "Installed 3 packages"]),
+           _run(2, 9.0, "python gitpulse.py ./sample-repo", ["gitpulse - sample-repo (677 commits)", *BARS])]
+    sb = Storyboard(title="patience", tagline="Retries", cta="", mode="product",
+                    product=Product(name="patience", kind="library"),
+                    scenes=[StoryScene(T.TITLE, [], "", "patience"), StoryScene(T.TERMINAL, ["e1"], "", "Install"),
+                            StoryScene(T.TERMINAL, ["e2"], "", "Run"), StoryScene(T.END, [], "", "")])
+    res = validate_storyboard(sb, SessionFacts(evs, Stats(duration_s=60)), 30, "product")
+    assert [s.refs for s in res.storyboard.scenes if s.type == T.TERMINAL] == [["e2"]]
+
+
+def test_browser_game_pictures_are_cards_and_montage_never_prints_asset_paths() -> None:
+    from showreel_core.story.facts import picture_frame
+    from showreel_core.story.timing import _verbatim_arg
+    shot = Event("e3", 4.0, "screenshot", "browser_exec", "shot.png", "",
+                 {"src": "~/.config/browser-harness/tmp/shot.png", "url": "http://example.com/game.html",
+                  "path": "/data/hype/jobs/j1/assets/e3_shot.png", "asset": True})
+    assert picture_frame(shot) == "browser"
+    shot.data["frame_hint"] = "card"                 # solve_timeline sets it for kind == game
+    assert picture_frame(shot) == "card"
+    arg, _ = _verbatim_arg(shot)
+    assert arg == "shot.png" and "assets" not in arg

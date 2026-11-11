@@ -118,6 +118,11 @@ def solve_timeline(storyboard: Storyboard, events: list[Event], stats: Stats | N
     target = max(bar, float(target_seconds or 60.0))
 
     portrait = int(h) > int(w)
+    if str(getattr(getattr(storyboard, "product", None), "kind", "") or "") == "game":
+        # a browser game is a game, not a web page: whole picture on a card, no address bar / cursor / focus ring
+        for ev in facts.events:
+            if ev.data is not None and image_of(ev) is not None:
+                ev.data["frame_hint"] = "card"
     plans: list[_Plan] = []
     for i, scene in enumerate(storyboard.scenes):
         plan = _plan_scene(i, scene, storyboard, facts, voice_durations, beat, mode, portrait)
@@ -615,7 +620,11 @@ def _verbatim_arg(ev: Event, limit: int = ARG_CHARS, root: str = "") -> tuple[st
     """A MONTAGE card's argument as the screen shows it: a path project-relative (``src/app.js``, never
     ``~/work/...`` running off the card), a command without shell noise, ellipsized at a word boundary."""
     data = ev.data or {}
-    for key in ("path", "cmd", "url", "query"):
+    keys = ("path", "cmd", "url", "query")
+    if data.get("asset") and data.get("src"):
+        # a picture copied into the job: its own name, never Hype's asset path (`…/assets/e3_shot.png` on a card)
+        data = {**data, "path": str(data["src"]).replace("\\", "/").rsplit("/", 1)[-1]}
+    for key in keys:
         if data.get(key):
             raw = str(data[key])
             break

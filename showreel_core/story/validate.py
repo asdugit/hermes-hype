@@ -24,6 +24,7 @@ from .facts import (
     image_of,
     is_demo_run,
     is_server_cmd,
+    is_setup_cmd,
     is_stub,
     is_test_cmd,
 )
@@ -774,10 +775,11 @@ def _check_terminal(scene: StoryScene, path: str, ctx: _Ctx) -> bool:
     if not _check_primary(scene, path, ctx):
         return False
     ev = ctx.facts.get(scene.refs[0]) if scene.refs else None
-    if ctx.mode == "product" and ev is not None and ev.kind == "terminal" \
-            and is_server_cmd(str((ev.data or {}).get("cmd") or "")):
-        ctx.issue("server_terminal", f"{path}.refs[0]", "a server start is not a product beat", "warning",
-                  fix="scene dropped")
+    cmd = str((ev.data or {}).get("cmd") or "") if ev is not None else ""
+    if ctx.mode == "product" and ev is not None and ev.kind == "terminal" and (is_server_cmd(cmd) or is_setup_cmd(cmd)):
+        # (a library film spent a beat on `uv pip install` and its "Failed to hardlink files" warning)
+        ctx.issue("server_terminal", f"{path}.refs[0]", "a server start or an install is not a product beat",
+                  "warning", fix="scene dropped")
         return False
     return True
 

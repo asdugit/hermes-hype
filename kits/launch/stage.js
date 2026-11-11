@@ -86,6 +86,9 @@ export function pushTrack(W, F, n, b, rect, o) {
   let dW = fitRect(W, F, b.w, b.h, relW, 0.88 * fx, 0.82 * fy) * (o.wideMul ?? 1.0);
   let dP = fitRect(W, F, rect.w, rect.h, relP, (o.pushFillW ?? 0.9) * fx, (o.pushFillH ?? 0.62) * fy);
   dP = clamp(dP, dW / (o.maxPush ?? 2.1), dW / 1.4);
+  // text panels (code, diff): never push closer than the whole panel width fits the frame (library films cut every
+  // long line at the right frame edge for 25 s)
+  if (o.fitWidth) dP = Math.max(dP, fitRect(W, F, b.w, Math.min(b.h, rect.h), relP, 0.96 * fx, 1.0));
   const ps = o.scale || 1;          // product_scale: the whole move happens closer
   dW /= ps; dP /= ps;
   const c = rectCenter(W, n, rect);

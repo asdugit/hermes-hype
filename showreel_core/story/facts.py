@@ -322,6 +322,8 @@ def picture_frame(ev: Event) -> str:
     Ken-Burns move across the whole picture) for everything else: game/app/desktop screenshots, renders,
     generated images, captured image files, PDF pages."""
     data = ev.data or {}
+    if data.get("frame_hint") in ("card", "browser"):       # set from the product kind (a game is never a web page)
+        return str(data["frame_hint"])
     url = str(data.get("url") or "")
     if ev.kind == "product_capture":
         tk = str(data.get("target_kind") or "")
