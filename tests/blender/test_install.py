@@ -196,6 +196,28 @@ def test_checksum_mismatch_is_refused_and_leaves_nothing(tmp_path: Path) -> None
     assert list(tmp_path.iterdir()) == []
 
 
+def test_staging_left_by_a_killed_install_is_swept(tmp_path: Path) -> None:
+    """A killed install (power off, kill -9) never runs its finally: its ~400 MB staging folder stayed forever and
+    every retry added another. Stale ones (a day old) go on the next install; fresh ones and strangers stay."""
+    import os
+    import time as _t
+
+    stale = tmp_path / ".hype-blender-5.2.4-dead"
+    (stale / "unpacked").mkdir(parents=True)
+    (stale / "blender-5.2.4-windows-x64.zip").write_bytes(b"x" * 100)
+    old = _t.time() - 2 * 86400
+    os.utime(stale, (old, old))
+    fresh = tmp_path / ".hype-blender-5.2.4-running"
+    fresh.mkdir()
+    other = tmp_path / "my-stuff"
+    other.mkdir()
+    os.utime(other, (old, old))
+    data = _zip()
+    res = bi.install(build=_build(data), parent=tmp_path, opener=_opener(data), **_kw())
+    assert not res["skipped"]
+    assert not stale.exists() and fresh.is_dir() and other.is_dir()
+
+
 def test_existing_install_is_skipped_without_downloading(tmp_path: Path) -> None:
     data = _zip()
     exe = tmp_path / f"Blender {VER[:3]}" / "blender.exe"

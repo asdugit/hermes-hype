@@ -350,6 +350,26 @@ def _default_probe(exe: Path) -> str | None:
     return got[1] if got else None
 
 
+STAGE_PREFIX = ".hype-blender-"
+STALE_STAGE_S = 24 * 3600
+
+
+def _sweep_stale_stages(root: Path, max_age_s: float = STALE_STAGE_S) -> None:
+    """Remove staging folders a killed install left behind (a 400 MB download each; the ``finally`` clean-up
+    never ran). Only our own prefix, only when untouched for a day (never a concurrent install's)."""
+    now = time.time()
+    try:
+        cands = list(root.glob(STAGE_PREFIX + "*"))
+    except OSError:
+        return
+    for d in cands:
+        try:
+            if d.is_dir() and not d.is_symlink() and now - d.stat().st_mtime > max_age_s:
+                shutil.rmtree(d, ignore_errors=True)
+        except OSError:
+            continue
+
+
 def install(*, build: Build | None = None, parent: Path | str | None = None, progress: Progress | None = None,
             cancel: threading.Event | None = None, opener: Callable[..., Any] | None = None,
             probe: Callable[[Path], str | None] | None = None,
@@ -380,6 +400,7 @@ def install(*, build: Build | None = None, parent: Path | str | None = None, pro
     except OSError as exc:
         raise InstallError(f"cannot create {root}: {exc}") from exc
     need = int(build.size * (1 + UNPACK_FACTOR))
+    _sweep_stale_stages(root)
     free = (disk_free or (lambda p: shutil.disk_usage(p).free))(root)
     if free < need:
         raise InstallError(f"not enough disk space in {root}: Blender needs about {need // 1_000_000} MB free "
