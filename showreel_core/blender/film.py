@@ -39,6 +39,7 @@ from .locate import BlenderFound, BlenderMissing, locate
 PREFIX = "blender:"
 FRAMES_SCENE = "kit:frames/play"
 SCENE_RE = re.compile(r"^blender:([a-z0-9_-]+)/([a-z0-9_.-]+)$", re.IGNORECASE)
+SHOT_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,47}$")      # = film.schema.SHOT_ID_RE
 MODEL_EXT = {".glb", ".gltf", ".blend", ".fbx", ".obj", ".usdz", ".usd", ".usda", ".usdc", ".stl", ".ply"}
 IMAGE_EXT = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tif", ".tiff", ".exr", ".hdr"}
 VIDEO_EXT = {".mp4", ".mov", ".webm", ".mkv", ".m4v", ".avi"}
@@ -428,6 +429,9 @@ def _render(film: Mapping[str, Any], job_dir: Path, out: BlenderPass, shots: lis
     plans: list[_Plan] = []
     for shot in shots:
         sid = str(shot.get("id"))
+        if not SHOT_ID_RE.match(sid):   # the id names folders we rmtree/hard-link into: never a path
+            out.errors.append(f"shot {sid[:60]!r}: invalid shot id (letters, digits, _ and -, at most 48)")
+            continue
         try:
             scene = scene_file(str(shot["scene"]), kit_root)
         except ValueError as exc:

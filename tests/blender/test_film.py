@@ -216,3 +216,22 @@ def test_browser_handoff_mini_film_starts_at_a_later_source_shot(tmp_path, monke
     assert mini["dur"] == pytest.approx(1.2)
     assert seen["times"] == [pytest.approx(1.2 - 0.5 / 30)] and seen["size"] == (320, 180)
     assert film["shots"][1]["t0"] == 1.2                      # the caller's film is untouched
+
+
+def test_shot_ids_that_are_paths_are_refused_before_any_folder_is_touched(tmp_path):
+    """The shot id names the frames folder (``assets/bl_<id>``) that is rmtree'd and re-linked: an id like
+    ``../../victim`` (an unvalidated film) must never reach the filesystem."""
+    import sys as _sys
+
+    from showreel_core.blender import film as bf
+
+    victim = tmp_path / "victim"
+    victim.mkdir()
+    (victim / "keep.txt").write_text("precious", encoding="utf-8")
+    film = {"version": 1, "fps": 30, "size": [64, 36], "dur": 1.0, "seed": 1, "title": "t", "assets": {},
+            "shots": [{"id": "../../victim", "t0": 0, "t1": 1.0, "scene": "blender:_test/hello", "params": {}}],
+            "transitions": [], "overlays": [], "cues": []}
+    out = bf.render_film_shots(film, tmp_path / "job" / "page", blender=Path(_sys.executable), benchmark=False,
+                               command=lambda p: [_sys.executable, "-c", "pass"])
+    assert not out.ok and "invalid shot id" in out.message
+    assert (victim / "keep.txt").read_text(encoding="utf-8") == "precious"
