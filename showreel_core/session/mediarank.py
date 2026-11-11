@@ -266,6 +266,21 @@ def _hamming(a: int, b: int) -> int:
     return bin(a ^ b).count("1")
 
 
+def _broken_picture(path: str) -> bool:
+    """An existing file with a picture extension Pillow always reads (png/jpg/gif/bmp/webp) that it could not
+    decode: empty, truncated, or an error page saved as ``logo.png``. Formats Pillow may lack (AVIF/HEIC/SVG)
+    are never called broken."""
+    p = Path(path)
+    try:
+        if not p.is_file():
+            return False
+        if p.stat().st_size == 0:
+            return True
+    except OSError:
+        return False
+    return p.suffix.lower() in IMAGE_EXTS
+
+
 def rank_media(events: list[Event], *, analyze: bool = True) -> dict[str, Any]:
     """Score every picture event in place (``data["media_rank"]``, weight) and return a summary
     ``{"pictures": n, "junk": n, "kept": [ids best first]}``. Never raises; web captures are never junked."""
@@ -316,6 +331,8 @@ def rank_media(events: list[Event], *, analyze: bool = True) -> dict[str, Any]:
                     why.append("grid")
                 if px["sat"] < 0.06 and px["colorful"] < 0.08 and set_colour >= 0.18:
                     why.append("greyscale")
+            elif analyze and r["path"] and _broken_picture(r["path"]):
+                why.append("unreadable")              # empty / truncated / not really a picture: a blank card
         if px:
             score += 0.25 * min(1.0, px["detail"] / 0.25) + 0.15 * min(1.0, px["colorful"] / 0.5)
         if _presented(ev, final_text):

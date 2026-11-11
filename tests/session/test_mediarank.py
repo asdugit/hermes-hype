@@ -156,3 +156,21 @@ def test_rank_never_raises_on_missing_files() -> None:
               data={"path": "nope/missing_contact_sheet.png", "w": 1920, "h": 1080}, ok=True, weight=0.8)
     rank_media([e])
     assert is_junk(e) and "token:contact" in e.data["media_rank"]["why"]
+
+
+def test_broken_pictures_never_become_heroes(tmp_path: Path) -> None:
+    """Audit 2026-11-11: an empty render (``final.png``, 0 bytes) or an error page saved as ``logo.png`` used to rank
+    as a real picture (and a hero name even first), so the film showed a blank card."""
+    good = tmp_path / "e1_street.png"
+    scene(960, 540, 3).save(good)
+    empty = tmp_path / "e2_final.png"
+    empty.write_bytes(b"")
+    html = tmp_path / "e3_logo.png"
+    html.write_bytes(b"<!doctype html><title>404 Not Found</title>")
+    avif = tmp_path / "e4_shot.avif"                       # a format Pillow may lack is never called broken
+    avif.write_bytes(b"\x00\x00\x00\x1cftypavif" + b"\x00" * 64)
+    evs = [ev("e1", good, 1), ev("e2", empty, 2), ev("e3", html, 3), ev("e4", avif, 4, kind="image_generated")]
+    out = rank_media(evs)
+    assert is_junk(evs[1]) and is_junk(evs[2]) and "unreadable" in evs[1].data["media_rank"]["why"]
+    assert not is_junk(evs[0]) and not is_junk(evs[3])
+    assert out["kept"][0] == "e1" and "e2" not in out["kept"] and "e3" not in out["kept"]
