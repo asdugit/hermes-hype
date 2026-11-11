@@ -183,6 +183,35 @@ def test_narration_retries_transient_tts_failures(tmp_path: Path) -> None:
     assert out == [] and len(slept) == 2 and len([w for w in warns if "could not be spoken" in w]) == 3
 
 
+def test_lock_waits_do_not_spend_the_effort_clock(tmp_path: Path) -> None:
+    """A keynote run waited ~40 min for other jobs' Blender (GPU lock) and the engine then skipped its vision critic
+    as 'late': waits measured by the renderer are subtracted from the effort's wall clock."""
+    import contextlib
+    import time as _time
+
+    from showreel_core.director import engine
+    from showreel_core.director.backend import RuntimeRenderer
+
+    rr = RuntimeRenderer(job_dir=tmp_path)
+
+    @contextlib.contextmanager
+    def slow_lock() -> Any:
+        _time.sleep(0.05)
+        yield
+    with rr._timed(slow_lock)():
+        pass
+    assert rr.waited_s >= 0.04 and rr._timed(None) is None
+
+    class R:
+        budget = dataclasses.replace(EFFORTS["standard"], deadline_s=100.0)
+        effort = "standard"
+        t0 = _time.monotonic() - 90.0
+        renderer = rr
+    assert engine._late(R, 0.5)                      # 90 s of 100 s spent
+    rr.waited_s = 60.0
+    assert not engine._late(R, 0.5)                  # 60 s of it was waiting for someone else's Blender
+
+
 def test_pick_repairs_malformed_and_hallucinated(tmp_path: Path) -> None:
     b = _screen_brief(tmp_path, "a 1980s VHS infomercial")
     bps = compose.blueprints(catalog=build_catalog(assets=b.assets))

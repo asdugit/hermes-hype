@@ -1177,7 +1177,8 @@ def _prominence_pass(r: _Run, v: Version) -> None:
 def _late(r: _Run, frac: float) -> str:
     """A reason string when the run has used more than ``frac`` of its effort's wall-clock target, else ""."""
     dl = float(getattr(r.budget, "deadline_s", 0.0) or 0.0)
-    spent = time.monotonic() - r.t0
+    # waits for another job's Blender/GPU lock or free memory are not the Director's time (renderer.waited_s)
+    spent = time.monotonic() - r.t0 - float(getattr(r.renderer, "waited_s", 0.0) or 0.0)
     return f"{spent / 60:.0f} of the {r.effort} effort's {dl / 60:.0f} min used" if dl and spent > frac * dl else ""
 
 

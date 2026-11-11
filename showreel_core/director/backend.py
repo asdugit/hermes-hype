@@ -118,6 +118,7 @@ class RuntimeRenderer:
         self.blender_times: list[float] = []    # film times the preview will show (set by the engine per build)
         self.job_dir = job_dir
         self.blender_log: list[dict[str, Any]] = []
+        self.waited_s = 0.0                     # time spent waiting for Blender locks / free memory (not work)
 
     # ------------------------------------------------------------------ film layer (optional modules)
     def validate_film(self, film: dict[str, Any]) -> list[str]:
@@ -189,17 +190,32 @@ class RuntimeRenderer:
         # frames are materialised under the page dir (manifest paths are relative to it); the cache survives
         for attempt in range(4):          # a busy machine is not a broken film: wait for memory, then retry
             bp = render_film_shots(film, page_dir, blender=found, tier="preview", assets=full, times=times,
-                                   lock=self.blender_lock, min_free_gb=self.blender_min_free_gb, scenes=sources,
-                                   cache_dir=jd / "director" / "blender-cache")
+                                   lock=self._timed(self.blender_lock), min_free_gb=self.blender_min_free_gb,
+                                   scenes=sources, cache_dir=jd / "director" / "blender-cache")
             if bp.ok or not any("free memory" in str(e) for e in (getattr(bp, "errors", None) or [])) or attempt == 3:
                 break
             time.sleep(60)
+            self.waited_s += 60.0
         self.blender_log.append({"ok": bp.ok, "seconds": round(time.monotonic() - t0, 1), "times": len(times or []),
                                  "errors": list(getattr(bp, "errors", []) or [])[:4]})
         if not bp.ok:
             errs = list(getattr(bp, "errors", []) or []) or [str(getattr(bp, "message", "") or "Blender pass failed")]
             return film, specs, [f"Blender: {e}" for e in errs[:6]]
         return bp.film, {**bp.browser_assets, **bp.manifest}, []
+
+    def _timed(self, lock: Callable[[], Any] | None) -> Callable[[], Any] | None:
+        """``lock`` with the time spent WAITING for it added to ``waited_s``: the effort's clock must not run while
+        another job's Blender holds the GPU (a keynote run lost its vision critic after 40 min of lock waits)."""
+        if lock is None:
+            return None
+
+        @contextlib.contextmanager
+        def held() -> Iterator[None]:
+            t = time.monotonic()
+            with lock():
+                self.waited_s += time.monotonic() - t
+                yield
+        return held
 
     # ------------------------------------------------------------------ dry run + keyframes
     def preview(self, page_dir: Path, *, probe_times: Sequence[float], capture_times: Sequence[float],
