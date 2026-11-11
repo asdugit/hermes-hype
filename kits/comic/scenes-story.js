@@ -465,7 +465,8 @@ comicScene('kit:comic/END', {
       if (p.cta) {
         const row = h('div', 'cx-cr');
         row.style.fontSize = `${cs}px`;
-        row.append(h('span', 'cx-p', { text: '$' }), h('span', '', { text: String(p.cta) }));
+        const isCmd = /^[a-z0-9_.\/@~-]+(?:\s|$)/.test(String(p.cta).trim());   // words get no shell prompt
+        row.append(...(isCmd ? [h('span', 'cx-p', { text: '$' })] : []), h('span', '', { text: String(p.cta) }));
         coupon.appendChild(row);
       }
       if (p.url) coupon.appendChild(h('div', 'cx-cu', { text: String(p.url).replace(/^https?:\/\//, '') }));

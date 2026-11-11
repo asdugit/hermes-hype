@@ -169,7 +169,9 @@ export function statsBlock(stats, o = {}) {
 export function ctaPill(cmd, o = {}) {
   const el = h('div', 'srb-pill');
   if (o.size) { el.style.fontSize = o.size + 'px'; el.style.height = Math.round(o.size * 2.6) + 'px'; }
-  const isCmd = o.prompt ?? !/^https?:|^[\w.-]+\.[a-z]{2,}(\/|$)/i.test(String(cmd));
+  // a shell prompt only for a command ('npm start'), never for a URL or words ('Read the code on GitHub')
+  const isCmd = o.prompt ?? (!/^https?:|^[\w.-]+\.[a-z]{2,}(\/|$)/i.test(String(cmd))
+    && /^[a-z0-9_.\/@~-]+(?:\s|$)/.test(String(cmd).trim()));
   if (isCmd) el.appendChild(h('span', 'srb-prompt', { text: '$' }));
   el.appendChild(h('span', '', { text: String(cmd) }));
   const caret = h('span', 'srb-caret2');

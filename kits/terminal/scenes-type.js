@@ -235,8 +235,9 @@ tubeScene('kit:terminal/END', {
     if (pb) { pbEl = T.disp(M.l, y, L ? 84 : 90, 'h'); pbEl.style.width = `${W}px`; pbEl.style.textAlign = 'center'; y += L ? 110 : 108; }
     const ctaFs = L ? 30 : 36;
     // the product's command as a hot prompt line; with no command (never a line of code), the tagline as words
-    const isCmd = !!String(p.cta || '').trim();
-    const cta = isCmd ? String(p.cta) : String(p.tagline || '');
+    const rawCta = String(p.cta || '').trim();
+    const isCmd = /^[a-z0-9_.\/@~-]+(?:\s|$)/.test(rawCta);      // 'Read the code on GitHub' is words, not a command
+    const cta = rawCta || String(p.tagline || '');
     const ctaLines = wrap(cta, Math.floor(W / (ctaFs * ADV)) - 3, '  ');
     const ctaEl = T.pre(M.l, y, ctaFs);
     ctaEl.style.width = `${W}px`; ctaEl.style.textAlign = 'center';
