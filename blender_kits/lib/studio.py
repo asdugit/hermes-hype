@@ -667,22 +667,22 @@ def _noir(lights: dict, world: Any, cyc_ob: Any, *, center: Vec3, r: float, e2: 
         e_bl = 2600 * e2
     else:
         bx, by = -math.sin(a), math.cos(a)                 # away from the camera
-        wall = (cx + bx * r * 2.0, cy + by * r * 2.0, 0.0)
-        bl = (cx - bx * r * 3.5 - by * ks * r * 1.5, cy - by * r * 3.5 + bx * ks * r * 1.5, cz + r * 7.5)
-        e_bl = 1500 * e2
+        wall = (cx + bx * r * 0.3, cy + by * r * 0.3, cz)     # the stripes fall across the body itself
+        bl = (cx - bx * r * 4.5 - by * ks * r * 1.5, cy - by * r * 4.5 + bx * ks * r * 1.5, cz + r * 6.5)
+        e_bl = 2600 * e2
     blinds = _spot("sr_blinds", "#e8e2d6", e_bl, bl, wall, 22.0, 0.08, r * 0.003)
     lights["blinds"] = blinds
     piv = bpy.data.objects.new("sr_blinds_frame", None)
     bpy.context.scene.collection.objects.link(piv)
     piv.location = bl
     piv.rotation_euler = blinds.rotation_euler.copy()
-    for i in range(-7, 8):
+    for i in range(-11, 12):
         bpy.ops.mesh.primitive_cube_add(size=1.0)
         sl = bpy.context.object
-        sl.name = f"sr_slat_{i + 7:02d}"
+        sl.name = f"sr_slat_{i + 11:02d}"
         sl.parent = piv
-        sl.location = (0.0, i * r * 0.055, -r * 1.0)
-        sl.scale = (r * 0.9, r * 0.024, r * 0.004)
+        sl.location = (0.0, i * r * 0.036, -r * 1.0)
+        sl.scale = (r * 0.9, r * 0.016, r * 0.004)
         for attr in ("visible_camera", "visible_glossy", "visible_diffuse", "visible_transmission"):
             _try(sl, attr, False)
     # haze: a uniform world volume (optical depth ~0.25 across the stage) so the cones read
