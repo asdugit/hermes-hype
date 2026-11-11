@@ -3,7 +3,7 @@
 // letterbox, Cormorant titles and one amber accent. Registers the 15 Quick-mode types (kit:cinematic/<TYPE>,
 // data = TimelineScene.data shapes) plus kit:cinematic/card-field and kit:cinematic/screen-push.
 import { sr } from '../../runtime/showreel.js';
-import { mediaOf } from '../base/media.js';
+import { mediaOf, isCard } from '../base/media.js';
 import * as cards from './lib/cards.js';
 import { makeCine, rig, mulberry32, clamp, lerp, inOut, outCubic, TPU } from './lib/world.js';
 import * as type from './lib/type.js';
@@ -53,7 +53,9 @@ function contentCard(ctx, d) {
   const k = d && (d.kind || (d.image || d.asset || d.path && /\.(png|jpe?g|webp)$/i.test(d.path) ? 'image' : d.cmd ? 'terminal' : d.hunks ? 'diff' : d.lines ? 'code' : d.items ? 'plan' : 'prompt'));
   if (k === 'image' || k === 'screenshot') {
     const m = mediaOf(ctx, d.image || d);
-    return m.image ? cards.screenshotCard(m.image, (d.url || (m.meta && m.meta.url) || ''), { viewH: 1000 }) : cards.promptCard({ text: d.page_title || d.url || '' });
+    // a game/app picture (image.frame 'card') has no address: no URL bar with its file name on the glass card
+    const url = isCard(m.meta) || isCard(d) ? '' : (d.url || (m.meta && m.meta.url) || '');
+    return m.image ? cards.screenshotCard(m.image, url, { viewH: 1000 }) : cards.promptCard({ text: d.page_title || url || '' });
   }
   if (k === 'terminal') return cards.terminalCard(d);
   if (k === 'diff') return cards.diffCard(d);
@@ -249,7 +251,8 @@ defineCine('kit:cinematic/MONTAGE', 'The tool-call chips at many depths; fast la
 // ------------------------------------------------------------------------------------- SCREEN / FEATURE / SCROLL / screen-push
 function screenScene(ctx, p, r, seed, o = {}) {
   const m = mediaOf(ctx, p.image || {});
-  const url = (p.image && p.image.url) || p.url || '';
+  // a game/app picture (image.frame 'card'): no URL bar on the card and no URL line in the lower third
+  const url = isCard(p.image) ? '' : (p.image && p.image.url) || p.url || '';
   const full = m.image && (m.h / m.w) > 1.1;
   const viewH = full ? Math.round(Math.min(1600, m.w) * 0.62) : null;
   let scrollU = -1;

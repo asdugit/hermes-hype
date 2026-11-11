@@ -112,3 +112,13 @@ def test_a_card_picture_gets_no_web_framing(style, aspect, tmp_path):
         feat = next(s for s in film["shots"] if s["scene"].endswith("/FEATURE"))
         clicks = [c for c in cues if c.get("sfx") == "click" and feat["t0"] <= c["t"] <= feat["t1"]]
         assert clicks == [], clicks
+
+
+def test_cinematic_card_picture_gets_no_url_bar():
+    """cinematic paints its cards on canvas (no DOM text to check): a card's file name ('shots/game_capture_01.png')
+    was drawn in the glass card's URL bar and as the lower-third URL line. Both now get '' for image.frame 'card'."""
+    from pathlib import Path
+    src = (Path(__file__).resolve().parents[2] / "kits" / "cinematic" / "kit.js").read_text(encoding="utf-8")
+    assert "import { mediaOf, isCard } from '../base/media.js';" in src
+    assert "const url = isCard(m.meta) || isCard(d) ? '' :" in src            # contentCard (HOOK / BEFORE_AFTER hero)
+    assert "const url = isCard(p.image) ? '' :" in src                         # SCREEN / FEATURE / SCROLL / screen-push
