@@ -111,3 +111,13 @@ def test_mood_films_open_on_the_product_so_frame_0_is_lit(tmp_path: Path, bp_id:
     bp = next(x for x in compose.blueprints() if x.id == bp_id)
     first = compose._layout_shots(bp, 30.0, b)[0]
     assert first["product"] and first["scene"] == "kit:base/SCREEN" and first["t0"] == 0.0
+
+
+@pytest.mark.parametrize("bp_id", sorted(set(ASKS.values())))
+def test_type_cards_never_crossfade(bp_id: str) -> None:
+    """Two lines of type laid over each other mid-crossfade read as a glitch: type cards dip through black."""
+    bp = next(x for x in compose.blueprints() if x.id == bp_id)
+    scene = {s["id"]: s["scene"] for s in bp.shots}
+    for tr in bp.transitions:
+        if "kit:type/" in scene[tr["from"]] + scene[tr["to"]]:
+            assert tr["type"] != "crossfade", tr
