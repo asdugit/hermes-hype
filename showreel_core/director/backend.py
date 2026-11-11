@@ -183,7 +183,8 @@ class RuntimeRenderer:
         times = sorted(set(self.blender_times)) or None
         t0 = time.monotonic()
         found = self.blender.get("path") if isinstance(self.blender, dict) else self.blender
-        bp = render_film_shots(film, jd, blender=found, tier="preview", assets=full, times=times,
+        # frames are materialised under the page dir (manifest paths are relative to it); the cache survives
+        bp = render_film_shots(film, page_dir, blender=found, tier="preview", assets=full, times=times,
                                lock=self.blender_lock, min_free_gb=self.blender_min_free_gb, scenes=sources,
                                cache_dir=jd / "director" / "blender-cache")
         self.blender_log.append({"ok": bp.ok, "seconds": round(time.monotonic() - t0, 1), "times": len(times or []),

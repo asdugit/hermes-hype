@@ -110,7 +110,13 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--no-vision", action="store_true", help="the Director's model cannot see: measured review")
     ap.add_argument("--model-asset", default="", help="the product's 3D model (glb/blend) for blender: shots")
     ap.add_argument("--blender", default="", help="Blender executable: enables blender: shots (dev: GPU lock)")
+    ap.add_argument("--judge", default="", help="job dir: score its final version once with the strong vision "
+                                                "critic (fair judging of runs that had no vision)")
     args = ap.parse_args(argv)
+    if args.judge:
+        out = judge_job(Path(args.judge).resolve())
+        print(json.dumps(out, indent=1, default=str))
+        return 0 if out.get("ok") else 1
 
     lock = (lambda: render_slot(Path(args.slots), who="w3-director")) if args.slots else None
     if args.render_only:
@@ -231,6 +237,39 @@ def _summary(job: Path, t0: float) -> None:
 
 
 # ------------------------------------------------------------------------------------ dev render + mix
+
+def judge_job(job: Path, *, model: str = "", provider: str = "") -> dict[str, Any]:
+    """Score a finished job's final version with the (strong) vision critic, without changing the job."""
+    from . import tiers
+    from .engine import Version, _critique
+    from .sheet import Frame
+    from .types import brief_from_dict
+    state = json.loads((job / "director" / "state.json").read_text(encoding="utf-8"))
+    best = int(state.get("best") or 1)
+    vdir = job / "director" / f"v{best}"
+    brief = brief_from_dict(state["brief"])
+    brief.capabilities.vision = True
+    jdir = job / "judge"
+    cat = build_catalog(assets=brief.assets, capabilities=brief.capabilities)
+    llm = hermes_cli_llm(model=model, provider=provider)
+    r = _setup(brief, llm, RuntimeRenderer(), "quick", _print, None, jdir, jdir / "library", cat,
+               tier=tiers.detect(model, configured="strong", vision=True))
+    r.treatment = state.get("treatment") or {}
+    v = Version(best, json.loads((vdir / "film.json").read_text(encoding="utf-8")),
+                json.loads((vdir / "plan.json").read_text(encoding="utf-8")))
+    rows = json.loads((vdir / "frames.json").read_text(encoding="utf-8"))
+    v.frames = [Frame(**{k: row[k] for k in ("cell", "shot", "t", "local", "dur", "transition") if k in row})
+                for row in rows]
+    v.images = [Path(row["path"]).read_bytes() for row in rows]
+    t0 = time.monotonic()
+    score = _critique(r, v, 1)
+    out = {"ok": score is not None, "seconds": round(time.monotonic() - t0, 1),
+           "cost": cost_of(jdir / "director" / "calls")}
+    if score is not None:
+        out.update(mean=score.mean, min=score.min, scores=score.scores, verdict=score.verdict)
+    (job / "judge.json").write_text(json.dumps(out, indent=1, default=str), encoding="utf-8")
+    return out
+
 
 def dev_blender_lock() -> Any:
     """DEV ONLY: blender.lock + the user's GPU lock (W5 rules) around each real Blender run."""

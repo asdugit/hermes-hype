@@ -169,19 +169,19 @@ def _style_blueprint(kit: str, kits_root: Path) -> Blueprint:
          "params": {"image": {"asset": "{asset2}"}, "feature": "{feature1}"}, "beat": "feature one, clicked"},
         {"id": "feature2", "share": (0.44, 0.61), "scene": f"{k}/FEATURE", "product": True,
          "params": {"image": {"asset": "{asset3}"}, "feature": "{feature2}"}, "beat": "feature two"},
-        {"id": "screen", "share": (0.61, 0.76), "scene": f"{k}/SCREEN", "product": True,
-         "params": {"image": {"asset": "{asset1}"}, "bbox": [0.08, 0.06, 0.84, 0.62]},
-         "beat": "the whole product, pushed in"},
-        {"id": "quote", "share": (0.76, 0.87), "scene": f"{k}/CALLOUT", "product": False,
+        {"id": "screen", "share": (0.61, 0.79), "scene": f"{k}/SCREEN", "product": True,
+         "params": {"image": {"asset": "{asset1}"}, "bbox": [0.2, 0.22, 0.6, 0.42]},
+         "beat": "the product, pushed in on its headline"},
+        {"id": "quote", "share": (0.79, 0.87), "scene": f"{k}/CALLOUT", "product": False,
          "params": {"text": "<one short line a delighted user would say; no numbers, no claims>", "who": "user"},
          "beat": "the reaction"},
         {"id": "end", "share": (0.87, 1.0), "scene": f"{k}/END", "product": False,
          "params": {"title": "{name}", "cta": "{cta}", "url": "{url}"}, "beat": "lockup + CTA"},
     )
+    # act changes get the kit's signature transition; inside the feature act one match cut and hard cuts on the
+    # beat (three identical dips in a row read as slide changes - critic, noir trial)
     trans = ({"from": "hook", "to": "title", "type": act[0], "dur": float(act[1])},
-             {"from": "title", "to": "feature1", "type": inner[0], "dur": float(inner[1])},
              {"from": "feature1", "to": "feature2", "type": inner[0], "dur": float(inner[1])},
-             {"from": "feature2", "to": "screen", "type": inner[0], "dur": float(inner[1])},
              {"from": "screen", "to": "quote", "type": act[0], "dur": float(act[1])},
              {"from": "quote", "to": "end", "type": act[0], "dur": float(act[1])})
     music: tuple[dict[str, Any], ...] = ({"bed": beds[0], "share": (0.0, 1.0)},)
@@ -202,23 +202,24 @@ def _blender_blueprints() -> list[Blueprint]:
              "sweeps the body, slow orbits, a macro detail pass, a hover on a pooled-colour cyc; minimal type",
         shots=(
             {"id": "reveal", "share": (0.0, 0.30), "scene": "blender:studio/product_hero", "product": True,
-             "params": {"move": "orbit", "env": "studio", "reveal": True, "yaw": -40, "orbit_deg": 34, "fill": 0.74,
-                        "wheel_rps": 0.0}, "beat": "out of darkness, rims draw the silhouette; a light sweep"},
+             "params": {"move": "orbit", "env": "studio", "reveal": True, "yaw": -40, "orbit_deg": 34, "fill": 0.72,
+                        "wheel_rps": 0.0, "paint": "{paint}"},
+             "beat": "out of darkness, rims draw the silhouette; a light sweep"},
             {"id": "detail", "share": (0.30, 0.52), "scene": "blender:studio/product_hero", "product": True,
-             "params": {"move": "macro", "env": "studio", "reveal": False, "yaw": 25, "pitch": 6, "fill": 0.9},
-             "beat": "macro pass along the body: the craft, close"},
+             "params": {"move": "dolly", "env": "studio", "reveal": False, "yaw": 70, "pitch": 5, "orbit_deg": 18,
+                        "fill": 0.84, "paint": "{paint}"}, "beat": "a low side dolly along the body: the craft, close"},
             {"id": "float", "share": (0.52, 0.78), "scene": "blender:studio/product_float", "product": True,
-             "params": {"env": "accent", "accent": "{accent}", "turn_deg": 60, "fill": 0.66, "wheel_rps": 0.8},
-             "beat": "it lifts off the floor and turns, pooled in the accent colour"},
+             "params": {"env": "accent", "accent": "{accent}", "turn_deg": 60, "fill": 0.66, "wheel_rps": 0.8,
+                        "paint": "{paint}"}, "beat": "it lifts off the floor and turns, pooled in the accent colour"},
             {"id": "hero", "share": (0.78, 1.0), "scene": "blender:studio/product_hero", "product": True,
              "params": {"move": "turntable", "env": "studio", "reveal": False, "turn_deg": 50, "fill": 0.58,
-                        "pitch": 8}, "beat": "the hero turntable under the name"},
+                        "pitch": 8, "paint": "{paint}"}, "beat": "the hero turntable under the name"},
         ),
         transitions=({"from": "reveal", "to": "detail", "type": "dip-black", "dur": 0.5},
                      {"from": "detail", "to": "float", "type": "crossfade", "dur": 0.6},
                      {"from": "float", "to": "hero", "type": "dip-black", "dur": 0.6}),
-        overlays=({"id": "name", "share": (0.10, 0.27), "scene": "kit:type/title",
-                   "params": {"text": "{name}", "sub": "{tagline}", "align": "center"}},
+        overlays=({"id": "name", "share": (0.11, 0.28), "scene": "kit:type/lower-third",
+                   "params": {"title": "{name}", "sub": "{tagline}"}},
                   {"id": "line", "share": (0.56, 0.74), "scene": "kit:type/lower-third",
                    "params": {"title": "<a 2-4 word benefit, no numbers>", "sub": "<a 4-8 word line, no claims>"}},
                   {"id": "end", "share": (0.84, 1.0), "scene": "kit:type/end-lockup",
@@ -321,6 +322,45 @@ def _rank_screens(brief: Brief) -> list[str]:
     return [a.name for a in sorted(imgs, key=key)]
 
 
+def product_color(brief: Brief) -> str:
+    """The product's dominant saturated colour (hex) from its poster frame, '' when it has none (grey/white UI).
+    Blender scenes repaint a neutral 3D model with it, so the 3D product matches the real one."""
+    for a in brief.assets:
+        if not a.product or a.type == "model" or not a.thumbnail or not Path(a.thumbnail).is_file():
+            continue
+        try:
+            from PIL import Image
+            im = Image.open(a.thumbnail).convert("RGB").resize((96, 54))
+            hsv = im.convert("HSV")
+        except Exception:  # noqa: BLE001 - optional (PIL), never fatal
+            return ""
+        bins: dict[int, list[tuple[int, tuple[int, int, int]]]] = {}
+        for (h, s, v), rgb in zip(hsv.getdata(), im.getdata(), strict=False):
+            if s >= 120 and v >= 70:
+                bins.setdefault(h // 12, []).append((s, rgb))
+        if not bins:
+            return ""
+        best = max(bins.values(), key=len)
+        if len(best) < 0.03 * 96 * 54:
+            return ""
+        best.sort(key=lambda x: -x[0])                     # the most saturated half: the paint, not its highlights
+        top = [rgb for _, rgb in best[: max(1, len(best) // 2)]]
+        r, g, b = (sorted(c[i] for c in top)[len(top) // 2] for i in range(3))
+        return f"#{r:02x}{g:02x}{b:02x}"
+    return ""
+
+
+def _paint_tone(hex_color: str) -> str:
+    """A sunlit poster colour -> the paint base a 3D studio should use (deeper, more saturated; same hue)."""
+    if not is_hex(hex_color):
+        return ""
+    import colorsys
+    r, g, b = (int(hex_color[i:i + 2], 16) / 255 for i in (1, 3, 5))
+    h, s, v = colorsys.rgb_to_hsv(r, g, b)
+    r, g, b = colorsys.hsv_to_rgb(h, max(s, 0.85), min(v, 0.72))
+    return "#" + "".join(f"{round(c * 255):02x}" for c in (r, g, b))
+
+
 def facts(brief: Brief, pick: dict[str, Any] | None = None) -> dict[str, str]:
     """Placeholder values: product, name, tagline, CTA, features, assets, accent, time."""
     p = brief.product
@@ -343,6 +383,7 @@ def facts(brief: Brief, pick: dict[str, Any] | None = None) -> dict[str, str]:
         rest = [s for s in screens[1:] if "mobile" not in s.lower()] or screens
         return rest[min(i, len(rest) - 1)]
     tagline = str(pick.get("tagline") or "") or (fit_words(one, 8) if one else "") or "Made to be wanted."
+    paint = _paint_tone(product_color(brief)) if _model_asset(brief) else ""
     url = next((u for u in (p.urls if p else []) if u and "127.0.0.1" not in u and "localhost" not in u), "")
     return {
         "product": main, "name": name, "NAME": name.upper()[:14], "tagline": tagline,
@@ -350,8 +391,8 @@ def facts(brief: Brief, pick: dict[str, Any] | None = None) -> dict[str, str]:
         "feature1": fit_words(feats[0], 5) if feats else "Built to delight",
         "feature2": fit_words(feats[1], 5) if len(feats) > 1 else (fit_words(feats[0], 5) if feats else "Made with care"),
         "asset1": screens[0] if screens else main, "asset2": feat_asset(0), "asset3": feat_asset(1),
-        "url": url, "accent": str(pick.get("accent") or "#E8384A"), "time": str(pick.get("time") or "golden"),
-        "model": _model_asset(brief),
+        "url": url, "accent": str(pick.get("accent") or paint or "#E8384A"),
+        "time": str(pick.get("time") or "golden"), "model": _model_asset(brief), "paint": paint,
     }
 
 
@@ -697,6 +738,7 @@ def assemble(brief: Brief, bp: Blueprint, pick: dict[str, Any], texts: dict[str,
     shots, plan_shots = [], []
     for s in _layout_shots(bp, seconds, brief):
         params = _put_slots(_fill(copy.deepcopy(s.get("params") or {}), vals), texts, s["id"])
+        params = {k: v for k, v in params.items() if not (k in ("paint", "accent") and not v)}
         if s["scene"].startswith("blender:") and vals["model"] and s["scene"].startswith("blender:studio/"):
             params.setdefault("model", vals["model"])
         if s["scene"] == "blender:meadow/oner":
@@ -733,9 +775,37 @@ def assemble(brief: Brief, bp: Blueprint, pick: dict[str, Any], texts: dict[str,
             "overlays": overlays, "music": music, "cues": [], "finish": dict(bp.finish)}
     if bp.render:
         film["render"] = copy.deepcopy(bp.render)
+    mood_look(film, brief.direction)
     plan = {"shots": plan_shots, "custom_scenes": [], "voiceover": list(voiceover or []),
             "blueprint": bp.id}
     return {"film": film, "plan": plan}
+
+
+MOODS: tuple[tuple[tuple[str, ...], dict[str, Any], dict[str, Any]], ...] = (
+    # (direction words, finish, render post) - the engine's look levers on top of any blueprint
+    (("vhs", "1980", "80s", "eighties", "infomercial", "tape", "camcorder", "late-night", "public access"),
+     {"grain": 0.07, "vignette": 0.35}, {"post": "crt", "post_params": {"crt": {"glow": 0.45, "scanline": 0.32,
+                                                                               "curvature": 0.05, "vignette": 0.4}}}),
+    (("noir", "detective", "thriller", "crime", "gritty", "mystery"), {"grain": 0.08, "vignette": 0.55}, {}),
+    (("dream", "anime", "soft", "nostalgic", "pastel", "fairy"), {"bloom": 0.22, "grain": 0.02, "vignette": 0.15}, {}),
+    (("documentary", "nature", "film stock", "35mm", "cinematic"), {"grain": 0.035, "vignette": 0.22}, {}),
+)
+
+
+def mood_look(film: dict[str, Any], direction: str) -> list[str]:
+    """Mood words in the direction -> finish (grain / vignette / bloom) and post chain (CRT for VHS asks), so even a
+    blueprint picked by the weakest model looks like the ask. Never overrides a style kit's own post chain."""
+    d = direction.lower()
+    done = []
+    for words, finish, render in MOODS:
+        if any(w in d for w in words):
+            for k, v in finish.items():
+                film.setdefault("finish", {})
+                film["finish"][k] = max(float(film["finish"].get(k) or 0.0), float(v))
+            if render and not (film.get("render") or {}).get("post"):
+                film["render"] = copy.deepcopy(render)
+            done.append(words[0])
+    return done
 
 
 def treatment_of(bp: Blueprint, pick: dict[str, Any], brief: Brief) -> dict[str, Any]:
