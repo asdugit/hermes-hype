@@ -369,8 +369,8 @@ def screen_text(data: Any, root: str, name: str = "") -> Any:
                     out[k] = display_path(v, root, 3)
                 elif k == "output" and isinstance(v, list):        # terminal output lines (code stays verbatim)
                     out[k] = [display_text_paths(x, root) if isinstance(x, str) else x for x in v]
-                elif k == "header" and isinstance(v, str):         # diff header ("new file ~/work/app/x.py")
-                    out[k] = display_text_paths(v, root)
+                elif k in ("header", "text") and isinstance(v, str):   # diff header, a quoted prompt / plan item
+                    out[k] = display_text_paths(v, root)             # ("...in the current folder (~/work/app)")
                 elif isinstance(v, (dict, list)):
                     out[k] = walk(v, k)
                 else:

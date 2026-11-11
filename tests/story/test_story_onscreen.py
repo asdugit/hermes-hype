@@ -188,7 +188,7 @@ def test_project_root_and_display_forms():
 
 def test_terminal_and_montage_show_project_relative_paths():
     root = "~/work/tempo"
-    events = [_ev(0, "user_prompt", {"text": "build a focus timer called Tempo"})]
+    events = [_ev(0, "user_prompt", {"text": f"Build a focus timer called Tempo in the current folder ({root})."})]
     for i, f in enumerate(["index.html", "app.js", "style.css", "README.md", "src/components/ring/progress-ring.js"]):
         events.append(_write(i + 1, f"{root}/{f}", ["// " + f, "export const x = 1;"]))
     events.append(_term(9, f"cd {root} && NODE_ENV=test ~/tools/node/node.exe {root}/scripts/check.js --all",
@@ -198,11 +198,14 @@ def test_terminal_and_montage_show_project_relative_paths():
     sb = Storyboard(title="Tempo", tagline="A focus timer", cta="", mode="making_of",
                     product=Product(name="Tempo", kind="web_app"),
                     scenes=[StoryScene(T.HOOK, ["e9"], "", "Tempo"),
+                            StoryScene(T.PROBLEM, ["e0"], "", "The ask"),
                             StoryScene(T.MONTAGE, ["e1", "e2", "e3", "e4", "e5"], "", "Files",
                                        {"montage_refs": ["e1", "e2", "e3", "e4", "e5"]}),
                             StoryScene(T.TERMINAL, ["e9"], "", "Check"),
                             StoryScene(T.END, [], "", "")])
     tl = solve_timeline(sb, events, stats, {}, 120.0, 30, "16:9", 30, 1920, 1080, 1)
+    ask = next(s for s in tl.scenes if s.type == T.PROBLEM).data
+    assert ask["text"] == "Build a focus timer called Tempo in the current folder (tempo)."
     term = next(s for s in tl.scenes if s.type == T.TERMINAL).data
     assert term["cmd"] == "node scripts/check.js --all"
     assert term["output"] == ["checked src/components/ring/progress-ring.js", "all good"]
