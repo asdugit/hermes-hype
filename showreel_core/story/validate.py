@@ -28,6 +28,17 @@ from .facts import (
 )
 from .identity import replace_name, same_product, toolish_words
 from .milestones import split_label
+from .onscreen import (
+    approved_cta,
+    display_text_paths,
+    end_command,
+    has_loopback,
+    is_long_page,
+    is_test_page,
+    looks_like_command,
+    scrub_text,
+    unplaceholder,
+)
 from .rules import (
     BUILD_TYPES,
     DROP_PRIORITY,
@@ -44,17 +55,6 @@ from .rules import (
     film_mode,
     max_type_count,
     narration_budget,
-)
-from .onscreen import (
-    approved_cta,
-    display_text_paths,
-    end_command,
-    has_loopback,
-    is_long_page,
-    is_test_page,
-    looks_like_command,
-    scrub_text,
-    unplaceholder,
 )
 from .schema import (
     CTA_CHARS,

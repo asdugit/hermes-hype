@@ -81,7 +81,8 @@ def host_model() -> str:
     ``ctx.llm`` carries no model id before a call (only its results do), so inside the plugin every model looked
     like "the user's main model" and took the strong path; Hermes answers ``ctx.llm`` calls with this model."""
     try:
-        from hermes_cli.config import load_config_readonly  # inside Hermes only (lazy); never mutate the result
+        # inside Hermes only (lazy); the readonly config must never be mutated
+        from hermes_cli.config import load_config_readonly
         cfg = load_config_readonly()
     except Exception:  # noqa: BLE001 - outside Hermes / an older host: unknown
         return ""

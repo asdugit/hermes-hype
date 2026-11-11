@@ -8,14 +8,13 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from director_fakes import FakeRenderer
 from test_director_anymodel import FREE_QUICK, _screen_brief
 
 from showreel_core.director import tiers
 from showreel_core.director.catalog import build_catalog
 from showreel_core.director.engine import run
 from showreel_core.director.tiers import host_model as real_host_model
-
-from director_fakes import FakeRenderer  # noqa: I001
 
 
 class _Res:
