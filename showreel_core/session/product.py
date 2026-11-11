@@ -70,7 +70,8 @@ _TITLE_RE = re.compile(r"<title[^>]*>\s*([^<]{2,120}?)\s*</title>", re.I)
 _META_DESC_RE = re.compile(r"<meta\s+name=[\"']description[\"']\s+content=[\"']([^\"']{8,300})", re.I)
 _HTML_HEAD_RE = re.compile(r"<h[23][^>]*>\s*([^<]{3,80}?)\s*</h[23]>", re.I)
 _REMOTE_RE = re.compile(r"(?:github\.com|gitlab\.com|codeberg\.org)[/:]([\w.\-]+)/([\w.\-]+?)(?:\.git)?(?=[\s\"'/]|$)")
-_ABS_PATH_RE = re.compile(r"(?:[A-Za-z]:[\\/]|~[\\/]|/)[^\s\"'`<>|*?]+\.(\w{2,8})\b")
+# The drive-letter form needs a left boundary: in "MEDIA:/tmp/x.mp4" the "A:/" of MEDIA is not a drive.
+_ABS_PATH_RE = re.compile(r"(?:(?<![\w])[A-Za-z]:[\\/]|~[\\/]|/)[^\s\"'`<>|*?]+\.(\w{2,8})\b")
 _MD_LINK_RE = re.compile(r"\[([^\]]+)\]\([^)]*\)")
 
 MAX_ARTIFACTS = 24
