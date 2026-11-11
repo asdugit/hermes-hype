@@ -570,3 +570,15 @@ def test_palette_text_stays_readable_on_a_background_from_elsewhere(text):
     knob_tokens = TH.resolve({"bg": "#FFFFFF"}, {"palette": "neon"})          # knob bg + a palette from free text
     assert V.contrast(knob_tokens["bg"], knob_tokens["text"]) >= 4.5
     assert TH.resolve({"bg": "#FFFFFF", "text": "#EEEEEE"}, {})["text"] == "#EEEEEE"   # an explicit choice is kept
+
+
+@pytest.mark.parametrize("text,bg,accent", [
+    ("pastel palette but on a black background please", "#0A0A0C", None),
+    ("on a dark background, pink accents", "#0A0A0C", "pink"),
+    ("a hot pink background with blue text", "pink", "blue"),
+])
+def test_a_colour_background_is_the_stage_not_the_accent(text, bg, accent):
+    """Audit 2026-11-11: "on a black background" made black the ACCENT and kept the light pastel stage."""
+    theme = S.keywords(text, [], style="launch")["theme"]
+    assert theme["bg"] == V.COLOURS.get(bg, bg)
+    assert theme.get("accent") == (V.COLOURS[accent] if accent else None)

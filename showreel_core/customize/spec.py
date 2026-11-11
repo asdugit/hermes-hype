@@ -347,9 +347,20 @@ def keywords(text: str, shots: list[dict[str, Any]] | None = None, *, style: str
         theme["accent"] = V.COLOURS["phosphor"]
         theme.pop("palette", None) if style == "terminal" else None
     colour_hits = []
+    # "<colour> background": that colour is the stage, not the accent ("pastel palette on a black background")
+    bgm = re.search(r"\b(light|bright|white|dark|black|[a-z]+(?:[ -][a-z]+)?)\s+(?:background|bg|stage|backdrop)\b", t)
+    bg_span = bgm.span(1) if bgm else (-1, -1)
+    if bgm:
+        word = re.split(r"[ -]", bgm.group(1))[-1]
+        if word in ("dark", "black"):
+            theme["bg"] = "#0A0A0C"
+        elif word in V.COLOURS and word not in ("white",):
+            theme["bg"] = V.COLOURS[word]
     for name in sorted(V.COLOURS, key=len, reverse=True):
         spaced = re.sub(r"(neon|hot|electric|sky|phosphor)(?=[a-z])", r"\1[ -]?", name)
         m = re.search(rf"\b{spaced}\b", t)
+        if m and bg_span[0] <= m.start() < bg_span[1]:
+            continue
         if m and not any(m.start() >= a and m.end() <= b for a, b, _ in colour_hits):
             colour_hits.append((m.start(), m.end(), name))
     colour_hits.sort()
