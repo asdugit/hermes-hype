@@ -40,9 +40,11 @@ RENDER_SCHEMA: dict[str, Any] = {
     "description": (
         "Make a finished, narrated promo video of what was built in this session (a launch trailer for the "
         "product, with real code, terminal output, screenshots and stats from the session as proof). Use it when "
-        "the user asks for a video, trailer, demo reel or showreel of the work. Returns JSON with media_tag "
-        "(MEDIA:<path>) when the film is ready; long renders return status 'rendering' and a job_id for "
-        "showreel_status. Runs locally (Chromium + ffmpeg); a 60 s film usually takes 2-5 minutes."),
+        "the user asks for a video, trailer, demo reel or showreel of the work. Presets: mode x style (7 styles). "
+        "To change a preset use customize/knobs; for a film unlike any preset use direction (the Director). "
+        "Returns JSON with media_tag (MEDIA:<path>) when the film is ready; long renders return status "
+        "'rendering' and a job_id for showreel_status. Runs locally (Chromium + ffmpeg); a 30-60 s preset takes "
+        "2-8 minutes, a Directed film 5-30."),
     "parameters": {
         "type": "object",
         "properties": {
@@ -50,8 +52,8 @@ RENDER_SCHEMA: dict[str, Any] = {
                      "description": "product = launch trailer (default); lore = making-of story; "
                                     "speedrun = the build as a speedrun with split timer."},
             "style": {"type": "string",
-                      "description": "Look: launch (default), pixel, terminal, blueprint, cinematic. "
-                                     "showreel_status with styles=true lists what this build has."},
+                      "description": "Preset look: launch (default), cinematic, pixel, terminal, blueprint, comic, "
+                                     "ink. showreel_status styles=true lists what this build has."},
             "seconds": {"type": "integer", "minimum": MIN_SECONDS, "maximum": MAX_SECONDS,
                         "description": "Target length in seconds (30, 60 or 90 work best)."},
             "aspect": {"type": "string", "enum": ["16:9", "9:16", "both", "1:1"],
@@ -59,7 +61,8 @@ RENDER_SCHEMA: dict[str, Any] = {
             "voice": {"type": "boolean", "description": "Narrate with Hermes TTS (default true); false = captions only."},
             "direction": {"type": "string",
                           "description": "Optional free-text creative direction (\"pixel art that blooms into an "
-                                         "anime flower field, sell the product\"). Makes a Directed film."},
+                                         "anime flower field, sell the product\"). Makes a Directed film; a "
+                                         "style given too seeds it."},
             "product": {
                 "type": "object",
                 "description": "Optional product brief when the session alone does not say what was built.",
@@ -74,8 +77,9 @@ RENDER_SCHEMA: dict[str, Any] = {
             },
             "preview": {"type": "boolean", "description": "Fast 540p preview instead of the 1080p final."},
             "engine_3d": {"type": "string", "enum": ["browser", "blender", "auto"],
-                          "description": "3D shots: browser (default, no install) or the user's installed Blender "
-                                         "(nicer 3D, slower; set when the user asks for Blender)."},
+                          "description": "3D shots: browser (default, three.js, no install), blender (the "
+                                         "user's installed Blender: 3D device/product shots, nicer, much slower; "
+                                         "set when the user asks for Blender) or auto (Blender when installed)."},
             "wait_seconds": {"type": "integer", "minimum": 0, "maximum": int(TOOL_WAIT_MAX_S),
                              "description": "How long to wait for the film before returning a job id "
                                             f"(default {int(TOOL_WAIT_S)})."},
@@ -89,7 +93,8 @@ _cz.extend_schema(RENDER_SCHEMA)  # adds `customize` (free text) + `knobs` (W5)
 STATUS_SCHEMA: dict[str, Any] = {
     "name": "showreel_status",
     "description": ("Check a Showreel film job: stage, progress, ETA, and media_tag (MEDIA:<path>) once it is done. "
-                    "Without job_id it reports this session's latest film. styles=true lists the available styles."),
+                    "Without job_id it reports this session's latest film. styles=true lists the 7 styles (launch, "
+                    "cinematic, pixel, terminal, blueprint, comic, ink) with their blurbs."),
     "parameters": {
         "type": "object",
         "properties": {

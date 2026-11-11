@@ -121,6 +121,20 @@ def test_tool_schemas_are_valid_function_schemas() -> None:
         json.dumps(schema)
 
 
+def test_tool_schemas_name_every_style_and_channel_and_stay_small() -> None:
+    """The agent picks from the schema: all 7 styles, the 3 modes, customize/knobs vs direction, engine_3d."""
+    from showreel_core.config import style_ids
+    props = handlers.RENDER_SCHEMA["parameters"]["properties"]
+    for sid in style_ids():
+        assert sid in props["style"]["description"], sid
+        assert sid in handlers.STATUS_SCHEMA["description"], sid
+    assert props["mode"]["enum"] == ["product", "lore", "speedrun"]
+    assert {"customize", "knobs", "direction", "engine_3d"} <= set(props)
+    assert props["engine_3d"]["enum"] == ["browser", "blender", "auto"] and "auto" in props["engine_3d"]["description"]
+    assert "customize" in handlers.RENDER_SCHEMA["description"] and "direction" in handlers.RENDER_SCHEMA["description"]
+    assert len(json.dumps(handlers.RENDER_SCHEMA)) < 6000 and len(json.dumps(handlers.STATUS_SCHEMA)) < 800
+
+
 # ------------------------------------------------------------------------- slash command
 
 def _fake_run(store: JobStore, stage: str = "done") -> Any:
