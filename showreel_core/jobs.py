@@ -113,6 +113,23 @@ def _pid_alive(pid: Any) -> bool:
         return False
 
 
+_CREATED_LOCK = threading.Lock()
+_LAST_CREATED = 0.0
+
+
+def _created_now() -> float:
+    """``time.time()``, strictly increasing within this process.
+
+    Windows clocks can tick in ~16 ms steps, so two jobs made back to back got the same ``created`` and
+    "newest first" fell back to the random id suffix.
+    """
+    global _LAST_CREATED
+    with _CREATED_LOCK:
+        now = max(time.time(), _LAST_CREATED + 1e-6)
+        _LAST_CREATED = now
+        return now
+
+
 class JobStore:
     """Job records under ``<root>/jobs``. Thread-safe within a process; see the module docstring."""
 
@@ -133,7 +150,7 @@ class JobStore:
     def create(self, session_id: str, options: dict[str, Any], *, kind: str = "quick", surface: str = "",
                parent: str = "", title: str = "") -> dict[str, Any]:
         """New job record in stage ``queued`` (its directory is created)."""
-        now = time.time()
+        now = _created_now()
         job_id = new_job_id(now)
         while self._file(job_id).exists():
             job_id = new_job_id(now)
