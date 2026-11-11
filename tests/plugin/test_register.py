@@ -198,6 +198,9 @@ def test_slash_actions(env: dict[str, Any], monkeypatch: pytest.MonkeyPatch) -> 
     assert "no finished film" in handlers.slash(ctx, "revise more product", session_id="s1")
     job = env["store"].create("s1", {"style": "pixel"})
     assert job["id"] in handlers.slash(ctx, "status", session_id="s1")
+    assert "No film job matches 'zzzz'" in handlers.slash(ctx, "status zzzz", session_id="s1")
+    assert "matches job_id 'zzzz'" in json.loads(handlers.status_tool(ctx, {"job_id": "zzzz"}, session_id="s1"))[
+        "message"]
     assert "Cancelling" in handlers.slash(ctx, "cancel", session_id="s1")
     assert env["store"].cancel_requested(job["id"])
 

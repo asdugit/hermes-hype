@@ -1,4 +1,4 @@
-"""Hype: turn what you built in this Hermes session into a narrated launch trailer.
+"""Hype: turn what you built in this Hermes session into a launch trailer.
 
 Hermes imports this folder as a package and calls :func:`register`. Registration is cheap: the
 handlers module only pulls in stdlib-level code; the session reader, storyboard, renderer and audio
@@ -31,7 +31,7 @@ def register(ctx, **_kwargs):  # Hermes plugin entry point (ctx: hermes_cli.plug
 
     ctx.register_command(
         "hype", h.make_slash_handler(ctx),
-        description="Make a narrated launch trailer of what this session built",
+        description="Make a launch trailer of what this session built",
         args_hint="[lore|speedrun] [style] [30|60|90] [vertical|both] [mute] | <any direction>",
         argument_mode="text")
 

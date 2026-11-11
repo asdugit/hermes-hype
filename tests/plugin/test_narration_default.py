@@ -28,6 +28,19 @@ def test_plugin_yaml_default_is_off() -> None:
     assert "default: false" in block
 
 
+def test_command_and_tool_descriptions_do_not_promise_narration() -> None:
+    """The /hype autocomplete line and the hype_render description are read by people and models: they must not
+    call the (music-only by default) film narrated."""
+    from showreel_core.handlers import RENDER_SCHEMA
+
+    from .fakes import FakeCtx, load_plugin
+    ctx = FakeCtx()
+    load_plugin().register(ctx)
+    assert "narrated" not in ctx.commands["hype"]["description"].lower()
+    assert "narrated" not in RENDER_SCHEMA["description"].lower()
+    assert "'rendering'" not in RENDER_SCHEMA["description"]      # status is the stage name (storyboard, render...)
+
+
 @pytest.mark.parametrize("raw", ["launch narrated", "narrated", "--narrate", "pixel 30 voice", "launch narration",
                                  "comic with narration", "launch 60 with a narrator", "launch with voiceover"])
 def test_narration_on_request(raw: str) -> None:

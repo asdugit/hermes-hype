@@ -38,12 +38,13 @@ TOOL_WAIT_MAX_S = 330.0
 RENDER_SCHEMA: dict[str, Any] = {
     "name": "hype_render",
     "description": (
-        "Make a finished, narrated promo video of what was built in this session (a launch trailer for the "
-        "product, with real code, terminal output, screenshots and stats from the session as proof). Use it when "
+        "Make a finished promo video of what was built in this session (a launch trailer for the product, with "
+        "real code, terminal output, screenshots and stats from the session as proof; music and on-screen type, "
+        "narration only when asked). Use it when "
         "the user asks for a video, trailer, demo reel or showreel of the work. Presets: mode x style (7 styles). "
         "To change a preset use customize/knobs; for a film unlike any preset use direction (the Director). "
-        "Returns JSON with media_tag (MEDIA:<path>) when the film is ready; long renders return status "
-        "'rendering' and a job_id for hype_status. Runs locally (Chromium + ffmpeg); a 30-60 s preset takes "
+        "Returns JSON with media_tag (MEDIA:<path>) when the film is ready; a long render returns its current "
+        "stage as status and a job_id for hype_status. Runs locally (Chromium + ffmpeg); a 30-60 s preset takes "
         "2-8 minutes, a Directed film 5-30."),
     "parameters": {
         "type": "object",
@@ -256,6 +257,8 @@ def _status_text(store: JobStore, ref: str, session_id: str) -> str:
     from .deliver import done_text, progress_text
     job = store.find(ref, session_id or None)
     if job is None:
+        if ref and ref != "latest":
+            return f"🎬 No film job matches '{ref[:40]}'. /hype status shows this session's latest film."
         return "🎬 No film yet in this session. Run /hype to make one."
     text = done_text(job, media=False) if job.get("stage") == "done" else progress_text(job)
     return f"{text}\n  job {job['id']} · {describe(Options.from_dict(job.get('options')))}"
@@ -371,7 +374,10 @@ def status_tool(ctx: Any, args: dict[str, Any] | None, **kwargs: Any) -> str:
         store = _store()
         job = store.find(str(args.get("job_id") or ""), str(kwargs.get("session_id") or "") or None)
         if job is None:
-            out.update(success=bool(out), status="none", message="No film job found for this session.")
+            wanted = str(args.get("job_id") or "").strip()
+            out.update(success=bool(out), status="none",
+                       message=f"No film job matches job_id '{wanted[:40]}'." if wanted
+                       else "No film job found for this session.")
         else:
             out.update(_result(job))
             out["log"] = [e.get("msg") for e in public_view(job, 8)["log"]]
