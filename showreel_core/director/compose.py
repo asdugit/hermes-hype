@@ -301,7 +301,7 @@ def _blender_blueprints() -> list[Blueprint]:
                         "theme": "noir", "reveal": "type", "scrim": 0.0},
              "beat": "black frame, rain, a typewriter line: the case opens"},
             {"id": "suspect", "share": (0.11, 0.40), "scene": "blender:studio/product_hero", "product": True,
-             "params": {"move": "orbit", "env": "noir", "reveal": True, "yaw": 145, "orbit_deg": 30, "fill": 0.74,
+             "params": {"move": "orbit", "env": "noir", "reveal": True, "yaw": 145, "orbit_deg": 30, "fill": 0.86,
                         "pitch": 7, "wheel_rps": 0.0, "paint": "{paint}"},
              "beat": "the suspect steps out of the dark: rim first, then the hard key; blinds across the wall"},
             {"id": "clues", "share": (0.40, 0.56), "scene": "blender:studio/product_hero", "product": True,
@@ -907,7 +907,7 @@ MOODS: tuple[tuple[tuple[str, ...], dict[str, Any], dict[str, Any], dict[str, An
      {"mono": 0.15, "tint": "#ffd9a0", "tint_amount": 0.25, "shift": 7, "wobble": 4, "smear": 1.6, "band": 1.0,
       "contrast": 0.92, "min_scanline": 0.3}),
     (("noir", "detective", "thriller", "crime", "gritty", "mystery"), {"grain": 0.10, "vignette": 0.6}, {},
-     {"mono": 1.0, "hold": "{product}", "contrast": 1.4, "rain": 0.9}),
+     {"mono": 1.0, "hold": "{product}", "contrast": 1.25, "rain": 0.9}),     # 1.4 crushed dark worlds to black
     (("anime", "shonen", "shounen", "manga", "mecha"), {"bloom": 0.16, "grain": 0.015, "vignette": 0.12}, {},
      {"saturation": 1.28, "contrast": 1.1}),
     (("dream", "soft", "nostalgic", "pastel", "fairy"), {"bloom": 0.22, "grain": 0.02, "vignette": 0.15}, {},
