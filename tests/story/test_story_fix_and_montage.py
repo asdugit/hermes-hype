@@ -103,3 +103,13 @@ def test_a_game_never_shows_a_full_page_capture() -> None:
                                               StoryScene(T.SCREEN, ["e3"], "", "The whole page"),
                                               StoryScene(T.END, [], "", "")])
     assert "e3" in [s.refs[0] for s in validate_storyboard(web, facts, 30, "product").storyboard.scenes if s.refs]
+
+
+def test_agent_working_notes_are_not_pull_quotes() -> None:
+    from showreel_core.story.validate import _agent_fragment
+    for bad in ("let me remove those from the repo.", "scored 90, saved as new high score", "all three data-flow bugs",
+                "Let me look at the tests.", "I'll fix the CSS now."):
+        assert _agent_fragment(bad), bad
+    for ok in ("flipper-mass correlation r=0.871 overall", "produced 27505.0 instead of 275.05.",
+               "Every alibi checks out, minute by minute.", "Discounts were applied as whole numbers."):
+        assert not _agent_fragment(ok), ok

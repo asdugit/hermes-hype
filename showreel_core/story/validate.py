@@ -676,9 +676,30 @@ def _check_callout(scene: StoryScene, path: str, ctx: _Ctx) -> bool:
                   f"{span!r} is the agent praising its own work, not a line about the product", "warning",
                   fix="scene dropped")
         return False
+    if ctx.mode == "product" and facts.kind(ref) in ("assistant_note", "final_answer") and _agent_fragment(span):
+        # the agent's working notes cut mid-sentence ("let me remove those from the repo.", "scored 90, saved as new
+        # high score", "all three data-flow bugs") read as broken testimonials; a measured finding stays (r=0.871)
+        ctx.issue("quote_fragment", f"{path}.extra.quote", f"{span!r} is a fragment of the agent's working notes",
+                  "warning", fix="scene dropped")
+        return False
     scene.extra.update(quote_ref=ref, quote=span)
     scene.refs = [ref] + [r for r in scene.refs if r != ref]
     return True
+
+
+_WORK_NOTE_RE = re.compile(r"(?i)^\s*(?:let me|let's|i'll|i will|i'm|i am|i've|i |now,? (?:let|i)|next,? i|first,? i)\b")
+_FINDING_RE = re.compile(r"\d\.\d|=|%")
+
+
+def _agent_fragment(span: str) -> bool:
+    """True for an agent quote that is a working note ('let me ...') or a lowercase sentence fragment without a
+    measured finding (a decimal number, '=', a percentage)."""
+    s = str(span or "").strip().lstrip("\"'\u201c\u2018(")
+    if not s:
+        return True
+    if _WORK_NOTE_RE.match(s):
+        return True
+    return s[0].islower() and not _FINDING_RE.search(s)
 
 
 #: the agent's verdict on its own work (a fake testimonial in a product trailer)
