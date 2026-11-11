@@ -129,3 +129,18 @@ def test_user_revise_keeps_the_parent_runs_model_tier(tmp_path: Path) -> None:
                   library_dir=tmp_path / "lib", catalog=cat, budget=FREE_QUICK)
     assert res2.tier["name"] == "weak" and not res2.tier["vision"], res2.tier
     assert not [c for c in second.calls if c["purpose"].startswith("critic")]   # measured review, no picture critic
+
+
+def test_call_budget_spent_on_the_free_path_still_gives_the_floor_film(tmp_path: Path) -> None:
+    """BudgetExceeded inside the free path skipped the engine floor (which needs no model) and ended the whole
+    Directed film in a Quick fallback."""
+    import dataclasses
+
+    from director_fakes import FakeLlm
+    b = _screen_brief(tmp_path, "an Apple keynote reveal")
+    llm = FakeLlm({"treatment": ["I am not JSON"]})
+    res = run(b, llm=llm, renderer=FakeRenderer(), effort="quick", job_dir=tmp_path / "job",
+              library_dir=tmp_path / "lib", catalog=build_catalog(assets=b.assets, capabilities=b.capabilities),
+              tier=tiers.detect("claude-opus-5-5"), budget=dataclasses.replace(FREE_QUICK, max_calls=1))
+    assert res.ok, res.error
+    assert llm.purposes() == ["treatment"] and res.tier["path"] == "floor"

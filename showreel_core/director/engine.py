@@ -488,7 +488,11 @@ def _first_version(r: _Run) -> Version | None:
     """v1 by the path the model's tier allows, falling down the floor on failure:
     free (treatment -> film -> custom code) -> compose (pick -> words -> engine film) -> engine floor (no model)."""
     if r.tier.path == "free":
-        v = _free_version(r)
+        try:
+            v = _free_version(r)
+        except BudgetExceeded as exc:      # no calls left for repairs: the engine floor needs none
+            r.warn("budget", f"{exc} before the free-form film came together")
+            v = None
         if v is not None:
             return v
         r.warn("floor", "Composing from a blueprint instead")
