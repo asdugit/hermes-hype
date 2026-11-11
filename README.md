@@ -47,7 +47,8 @@ Then, in any chat where you built something:
 ```
 
 Arguments are free-order: `[lore|speedrun] [style] [30|60|90] [vertical|both] [mute] [blender]`.
-A 60 s film usually takes 2-5 minutes on a laptop. In Desktop and the TUI the command answers at once and the
+A preset film takes a few minutes: 30 s films took about 4-8 minutes in our end-to-end runs, on a laptop busy
+with other renders. In Desktop and the TUI the command answers at once and the
 film renders in the background, with progress in the chat. In CLI and messaging sessions it waits and then
 sends the video.
 
