@@ -186,6 +186,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.rounds:
             budget = dataclasses.replace(EFFORTS[args.effort], rounds=args.rounds)
         res = run(brief, llm=llm, renderer=renderer, effort=args.effort, progress=_print, job_dir=job,
+                  narration=dispatch is not None,
                   library_dir=lib, dispatch=dispatch, tier=tier, budget=budget)
         return _done(res, job, t0, args)
     cat = build_catalog(library_dir=lib, assets=assets, capabilities=brief.capabilities)

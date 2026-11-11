@@ -169,6 +169,7 @@ class _Run:
         self.parent_prom: pm.Prominence | None = None        # measurements of the film being revised
         self.tier: tiers.Tier = tiers.Tier("strong")         # what the model is trusted with (see tiers.py)
         self.path = ""                                       # free | compose | floor: how v1 was made
+        self.narrate = False                                 # speak the voiceover (films are music-only by default)
 
     # -------------------------------------------------------------- events
     def emit(self, step: str, msg: str, frac: float | None = None, level: str = "info", **extra: Any) -> None:
@@ -242,7 +243,8 @@ def run(brief: Brief | None = None, *, llm: Any = None, renderer: Renderer | Non
             return revise(parent, brief.notes, llm=llm, renderer=renderer, effort=effort, progress=progress,
                           cancel=cancel, job_dir=jd, library_dir=library_dir, catalog=catalog,
                           save_library=save_library, budget=budget, dispatch=kwargs.get("dispatch"),
-                          voice_speed=getattr(opts, "voice_speed", None))
+                          voice_speed=getattr(opts, "voice_speed", None),
+                          narration=wants_narration(kwargs, opts, brief.direction))
         if renderer is None and kwargs.get("blender"):
             renderer = RuntimeRenderer(gpu=brief.capabilities.gpu, blender=kwargs.get("blender"), job_dir=jd)
         tier = kwargs.get("tier") if isinstance(kwargs.get("tier"), tiers.Tier) else tiers.detect(
@@ -253,6 +255,7 @@ def run(brief: Brief | None = None, *, llm: Any = None, renderer: Renderer | Non
         r = _setup(brief, llm, renderer, effort, progress, cancel, jd, library_dir, catalog, budget, tier=tier)
         r.dispatch = kwargs.get("dispatch")
         r.voice_speed = getattr(opts, "voice_speed", None)
+        r.narrate = wants_narration(kwargs, opts, brief.direction)
         return _finish(r, _produce(r), save_library, t0)
     except Cancelled:
         return DirectorResult(False, "cancelled", str(jd), error="cancelled", seconds=time.monotonic() - t0)
@@ -269,7 +272,7 @@ def revise(parent_job_dir: str | Path, notes: str, *, llm: Any = None, renderer:
            effort: str = "standard", progress: ProgressFn | None = None, cancel: Any = None,
            job_dir: str | Path | None = None, library_dir: str | Path | None = None, catalog: Catalog | None = None,
            save_library: bool = True, budget: Budget | None = None, dispatch: Any = None,
-           voice_speed: Any = None) -> DirectorResult:
+           voice_speed: Any = None, narration: bool | None = None) -> DirectorResult:
     """``/hype revise <notes>``: another pass on a finished Director film with the user's notes."""
     t0 = time.monotonic()
     parent = Path(parent_job_dir)
@@ -283,6 +286,7 @@ def revise(parent_job_dir: str | Path, notes: str, *, llm: Any = None, renderer:
             if st.get("name") in tiers.TIERS else None      # the parent's model tier (vision, custom code, path)
         r = _setup(brief, llm, renderer, effort, progress, cancel, jd, library_dir, catalog, budget, tier=tier)
         r.dispatch, r.voice_speed = dispatch, voice_speed
+        r.narrate = bool(narration) if narration is not None else wants_narration({}, None, brief.direction)
         r.treatment = state.get("treatment") or {}
         best_n = int(state.get("best") or 0)
         vdir = parent / "director" / f"v{best_n}"
@@ -306,6 +310,21 @@ def revise(parent_job_dir: str | Path, notes: str, *, llm: Any = None, renderer:
 
 
 # ------------------------------------------------------------------------------------ setup
+
+def wants_narration(kw: dict[str, Any], opts: Any, direction: str) -> bool:
+    """Films are music-only unless the user asked for a narrator (the user dislikes an unasked-for voice): the
+    job's narration option when there is one, an explicit ``narration`` kwarg, else the direction's own words
+    ('with narration', 'narrated'). A real Directed film said "Tempo awaits." with narration off before this."""
+    if isinstance(kw.get("narration"), bool):
+        return bool(kw["narration"])
+    if opts is not None and isinstance(getattr(opts, "voice", None), bool):
+        return bool(opts.voice)
+    try:
+        from ..commands import narration_requested
+        return narration_requested(direction or "") is True
+    except Exception:  # noqa: BLE001 - outside the plugin package: no narrator unless asked
+        return False
+
 
 def brief_from_kwargs(kw: dict[str, Any], job_dir: Path) -> Brief:
     """Build a :class:`Brief` from the pipeline's keyword set."""
@@ -402,6 +421,7 @@ def _setup(brief: Brief, llm: Any, renderer: Renderer | None, effort: str, progr
     r = _Run(brief, cat, bud, _as_director_llm(llm),
              renderer or RuntimeRenderer(gpu=brief.capabilities.gpu), job_dir, lib, progress, cancel, effort)
     r.tier = tier
+    r.ledger.guard = lambda: _over_budget(r)
     if hasattr(r.renderer, "job_dir") and getattr(r.renderer, "job_dir", None) is None:
         r.renderer.job_dir = job_dir
     r.save("brief.json", brief.to_dict())
@@ -568,9 +588,11 @@ def _compose(r: _Run, *, use_model: bool) -> Version | None:
                 r.emit("compose", f"pick repaired: {f}", level="debug")
             if reply.error and not reply.text:
                 r.warn("compose", f"Pick call failed ({reply.error[:120]}); engine default blueprint")
-        except BudgetExceeded:
-            r.warn("compose", "No model calls left; engine default blueprint")
+        except BudgetExceeded as exc:
+            r.warn("compose", f"No model calls left ({exc}); engine default blueprint")
     bp = next(b for b in bps if b.id == pick["blueprint"])
+    if not r.narrate:
+        pick["voice"] = "none"                    # music only: no narration windows, the words go on screen
     r.emit("compose", f"Blueprint {bp.id} ({bp.name}); voice {pick.get('voice')}; time {pick.get('time')}"
                       + (f": {pick.get('why')[:160]}" if pick.get("why") else ""), 0.08, blueprint=bp.id)
     if use_model and r.ledger.remaining >= 1:
@@ -583,8 +605,8 @@ def _compose(r: _Run, *, use_model: bool) -> Version | None:
                                                       bp, brief, pick, float(brief.seconds))
             for f in fixes:
                 r.emit("compose", f"words repaired: {f}", level="debug")
-        except BudgetExceeded:
-            r.warn("compose", "No model calls left; the engine writes the words")
+        except BudgetExceeded as exc:
+            r.warn("compose", f"No model calls left ({exc}); the engine writes the words")
     if not voice and pick.get("voice") == "narrated" and not use_model:
         voice = []
     obj = compose.assemble(brief, bp, pick, texts, voice)
@@ -1341,6 +1363,20 @@ def _look_guard(r: _Run, v: Version) -> None:
 
 # ------------------------------------------------------------------------------------ critic
 
+def _over_budget(r: _Run) -> str:
+    """Why no further model call may start ('' = go): the effort's hard wall-clock limit for model work (lock and
+    RAM waits excluded) or its soft spend cap. The run then keeps its best version so far / the engine floor film -
+    a slow or expensive model can no longer hold a film for an hour or run up a bill (story audit, open P2)."""
+    wall = float(getattr(r.budget, "call_wall_s", 0.0) or 0.0)
+    spent = time.monotonic() - r.t0 - float(getattr(r.renderer, "waited_s", 0.0) or 0.0)
+    if wall and spent > wall:
+        return f"the {r.effort} effort's {wall / 60:.0f} min limit for model work"
+    cap = float(getattr(r.budget, "max_usd", 0.0) or 0.0)
+    if cap and r.ledger.spent_usd() >= cap:
+        return f"the {r.effort} effort's soft spend cap (${cap:g})"
+    return ""
+
+
 def _late(r: _Run, frac: float) -> str:
     """A reason string when the run has used more than ``frac`` of its effort's wall-clock target, else ""."""
     dl = float(getattr(r.budget, "deadline_s", 0.0) or 0.0)
@@ -1880,6 +1916,9 @@ def _narrate(r: _Run, best: Version) -> list[dict[str, Any]]:
     lines = [v for v in best.plan.get("voiceover") or [] if isinstance(v, dict)]
     if not lines:
         return []
+    if not r.narrate:
+        r.emit("voice", f"Music only: {len(lines)} planned narration line(s) not spoken (narration is off)")
+        return []
     if r.dispatch is None:
         r.warn("voice", f"{len(lines)} narration line(s) planned but no text_to_speech tool: no voice")
         return []
@@ -1935,12 +1974,25 @@ def _finish(r: _Run, best: Version | None, save_library: bool, t0: float) -> Dir
            + (" - passes the bar" if passed else ""))
     r.emit("done", msg, 1.0)
     files = {f"custom:{n}": str(r.ddir / f"v{best.n}" / "scenes" / f"{n}.js") for n in best.scenes}
+    recs = r.ledger.records
+    no_model = r.path == "floor" or (bool(recs) and not any(x.ok for x in recs))
+    notes: list[str] = []
+    if no_model:
+        first = next((x.error for x in recs if x.error), "")
+        why = _over_budget(r)
+        notes.append((f"Stopped asking the model at {why}" if why else "The model did not answer usably"
+                      + (f" ({first[:160]})" if first else ""))
+                     + ", so this film was assembled by the engine from your direction's words and the product "
+                       "facts, without the model's own words or choices.")
+        r.warn("done", notes[-1])
+    elif any(x.purpose.startswith(("treatment", "film")) and not x.ok for x in recs) and r.path == "compose":
+        notes.append("The model's free-form script failed, so the film was composed from a proven blueprint.")
     res = DirectorResult(True, "done", str(r.job_dir), film=film, film_path=str(film_path),
                          page_dir=str(r.page_dir), scene_files=files, treatment=r.treatment, version=best.n,
                          scores=scores, passed_bar=passed, scenes=scenes, library_saved=saved,
                          usage=r.ledger.totals(), seconds=round(time.monotonic() - t0, 1), log=r.log,
                          measured=best.prom.to_dict() if best.prom else {}, narration=narration,
-                         tier={**r.tier.to_dict(), "path": r.path})
+                         tier={**r.tier.to_dict(), "path": r.path}, no_model=no_model, notes=notes)
     r.save("result.json", {k: v for k, v in res.to_dict().items() if k != "log"})
     return res
 

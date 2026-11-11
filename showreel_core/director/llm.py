@@ -17,7 +17,7 @@ import subprocess
 import tempfile
 import threading
 import time
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Protocol
@@ -272,6 +272,7 @@ class CallLedger:
         self.records: list[CallRecord] = []
         self._lock = threading.Lock()
         self._next = 1
+        self.guard: Callable[[], str] | None = None   # -> a reason string when no further call may start
         if calls_dir:
             calls_dir.mkdir(parents=True, exist_ok=True)
 
@@ -284,6 +285,9 @@ class CallLedger:
                  temperature: float = 0.7, max_tokens: int = 6000, timeout: float = 240.0) -> LlmReply:
         if is_cancelled(self.cancel):
             raise Cancelled("cancelled")
+        why = self.guard() if self.guard is not None else ""
+        if why:
+            raise BudgetExceeded(why)
         with self._lock:
             if self._next > self.max_calls:
                 raise BudgetExceeded(f"model call budget of {self.max_calls} reached")
@@ -310,6 +314,19 @@ class CallLedger:
             _write(self.calls_dir / f"{stem}.reply.txt", reply.text or f"[error] {reply.error}")
             _write(self.calls_dir / f"{stem}.meta.json", json.dumps(asdict(rec), indent=1))
         return reply
+
+    def spent_usd(self) -> float:
+        """Cost of the calls so far: the host's reported cost when there is one, else a deliberately high token
+        estimate ($5/M in, $25/M out) so the soft cap errs on the side of stopping."""
+        total = 0.0
+        for r in self.records:
+            c = r.usage.get("cost_usd")
+            if c is not None:
+                total += float(c)
+            else:
+                total += (int(r.usage.get("input_tokens") or 0) * 5.0
+                          + int(r.usage.get("output_tokens") or 0) * 25.0) / 1e6
+        return total
 
     def totals(self) -> dict[str, Any]:
         """Calls, seconds, tokens and cost so far."""

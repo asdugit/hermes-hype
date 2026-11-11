@@ -99,6 +99,9 @@ class Budget:
     prominence_repairs: int = 1  # measured-product repair passes per version before the critic looks
     path: str = ""              # force a path ("compose" = engine-assembled from blueprints); "" = by model tier
     deadline_s: float = 0.0     # wall-clock target; late critique/revision steps are skipped to meet it (0 = none)
+    call_wall_s: float = 0.0    # hard wall-clock limit for model calls (run time minus lock waits; 0 = none): no new
+                                # call after it - the run degrades to the best version so far / the engine floor film
+    max_usd: float = 0.0        # soft spend cap (reported or estimated cost of the calls so far; 0 = none), same way
 
 
 EFFORTS: dict[str, Budget] = {
@@ -106,11 +109,11 @@ EFFORTS: dict[str, Budget] = {
     # picks + writes words: ~15 s of calls), no custom scene code, one critique and no revision. A real quick job on
     # the free path took 27 min (treatment 4 min + film 9.5 min + custom scene 12 min of model thinking).
     "quick": Budget(rounds=1, keyframes_per_shot=1, scene_tries=2, film_repairs=1, max_calls=16, max_custom=0,
-                    path="compose", deadline_s=600.0),
+                    path="compose", deadline_s=600.0, call_wall_s=900.0, max_usd=2.0),
     "standard": Budget(rounds=2, keyframes_per_shot=3, scene_tries=3, film_repairs=2, max_calls=36, max_custom=3,
-                       deadline_s=2700.0),
+                       deadline_s=2700.0, call_wall_s=3600.0, max_usd=8.0),
     "max": Budget(rounds=4, keyframes_per_shot=5, scene_tries=4, film_repairs=2, max_calls=72, max_custom=4,
-                  prominence_repairs=2),
+                  prominence_repairs=2, call_wall_s=7200.0, max_usd=20.0),
 }
 SCORE_BAR = 8.0                 # every rubric score must reach this to stop early
 PRODUCT_SHARE_BAR = 0.6         # product visible in >= 60 % of frames (critic-judged)
@@ -163,6 +166,8 @@ class DirectorResult:
     measured: dict[str, Any] = field(default_factory=dict)        # pixel-measured product prominence of the result
     narration: list[dict[str, Any]] = field(default_factory=list)  # [{path, start, duration, text, speed}]
     tier: dict[str, Any] = field(default_factory=dict)             # model tier + path used (free/compose/floor)
+    no_model: bool = False        # no usable model reply at all: the engine made the film from the direction words
+    notes: list[str] = field(default_factory=list)                 # things the user should be told (plain words)
 
     def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
