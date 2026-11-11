@@ -162,6 +162,14 @@ def _cancel_job(job_id: str, store: JobStore) -> bool:
 
 # ------------------------------------------------------------------------- slash command
 
+def _error_text(exc: BaseException) -> str:
+    """One line for the user about an unexpected error (a full disk gets its own advice)."""
+    from .pipeline import DISK_FULL_ERROR, disk_full
+    if disk_full(exc):
+        return f"{DISK_FULL_ERROR['message']} {DISK_FULL_ERROR['hint']}"
+    return f"{type(exc).__name__}: {exc}"
+
+
 def make_slash_handler(ctx: Any) -> Any:
     """The ``/hype`` handler (sync; gets ``session_id``/``platform`` through ``**kwargs``)."""
     def hype(raw_args: str = "", **kwargs: Any) -> str:
@@ -169,7 +177,7 @@ def make_slash_handler(ctx: Any) -> Any:
             return slash(ctx, raw_args, **kwargs)
         except Exception as exc:
             log.exception("hype command failed")
-            return f"🎬 Hype hit an internal error: {type(exc).__name__}: {exc}"
+            return f"🎬 Hype hit an internal error: {_error_text(exc)}"
     return hype
 
 
@@ -350,7 +358,7 @@ def render_tool(ctx: Any, args: dict[str, Any] | None, **kwargs: Any) -> str:
             f"call hype_status with job_id={job['id']} to get the MEDIA path when it is done.")), default=str)
     except Exception as exc:
         log.exception("hype_render failed")
-        return json.dumps({"success": False, "error": f"{type(exc).__name__}: {exc}"})
+        return json.dumps({"success": False, "error": _error_text(exc)})
 
 
 def status_tool(ctx: Any, args: dict[str, Any] | None, **kwargs: Any) -> str:
@@ -416,6 +424,10 @@ def make_cli_handler(ctx: Any) -> Any:
             cancel_all(wait_s=5.0)
             print("cancelled")
             return 130
+        except Exception as exc:  # noqa: BLE001 - one clear line, never a traceback
+            log.debug("hermes hype failed", exc_info=True)
+            print(f"hype: {_error_text(exc)}")
+            return 1
     return handler
 
 

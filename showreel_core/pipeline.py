@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import contextlib
 import contextvars
+import errno
 import json
 import logging
 import os
@@ -42,7 +43,7 @@ from .config import (
     PREVIEW_SIZES,
     Options,
 )
-from .jobs import TERMINAL, JobStore
+from .jobs import TERMINAL, JobStore, mark_live, mark_not_live, process_started
 from .llm import Host
 
 log = logging.getLogger(__name__)
@@ -87,6 +88,48 @@ class StageError(Exception):
 
     def to_dict(self) -> dict[str, Any]:
         return {"code": self.code, "message": self.message, **({"hint": self.hint} if self.hint else {})}
+
+
+#: ``job.error`` when the disk filled up mid-film (errno ENOSPC; Windows ERROR_DISK_FULL maps to it too).
+DISK_FULL_ERROR = {"code": "disk_full", "message": "The disk ran out of space while the film was being made.",
+                   "hint": "Free a few GB on the drive that holds Hermes' data (or set HYPE_DATA_DIR to a folder on "
+                           "a roomier drive), then run it again."}
+#: The same condition in a stage's error text (ffmpeg/Chromium report it as text, not as an OSError).
+_NO_SPACE_RE = re.compile(r"no space left on device|not enough space on the disk|\[errno 28\]|disk (?:is )?full",
+                          re.I)
+
+
+def disk_full(exc: BaseException | None) -> bool:
+    """True for 'no space left on device' (also when wrapped as the cause of another error)."""
+    seen = 0
+    while exc is not None and seen < 5:
+        if isinstance(exc, OSError) and exc.errno == errno.ENOSPC:
+            return True
+        exc, seen = exc.__cause__ or exc.__context__, seen + 1
+    return False
+
+
+def _safe_log(store: JobStore, job_id: str, msg: str, level: str = "info", **extra: Any) -> None:
+    """``store.log`` that never raises (the end of a job must not fail on a full disk)."""
+    try:
+        store.log(job_id, msg, level, **extra)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("hype %s: could not write the job log (%s): %s", job_id, exc, msg)
+
+
+def _finish(store: JobStore, job_id: str, outcome: dict[str, Any]) -> dict[str, Any] | None:
+    """Persist the job's terminal state; on a full disk free the job's intermediates and try once more.
+    ``None`` when it still cannot be written (the caller reports the in-memory state; the stale sweep fails the
+    record later)."""
+    for attempt in range(2):
+        try:
+            return store.update(job_id, **outcome)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("hype %s: could not save the final state (%s)", job_id, exc)
+            if attempt == 0:
+                with contextlib.suppress(Exception):
+                    store.prune_work(job_id)
+    return None
 
 
 # ------------------------------------------------------------------------- cancel token
@@ -609,39 +652,47 @@ def run_job(job_id: str, host: Host | None = None, *, store: JobStore | None = N
     token = CancelToken(store, job_id)
     with _RUNNING_GUARD:
         _RUNNING[job_id] = token
+    mark_live(job_id)
     rep = Reporter(store, job_id, host, handle=handle)
     opts = Options.from_dict(job.get("options"))
     rep.render_estimate_s, rep.storyboard_estimate_s = initial_estimates(opts)
     run = _Run(job_id, job, opts, host, store, deps, rep, token, store.job_dir(job_id),
                seed=job_seed(job.get("session_id", ""), opts.style, opts.mode))
-    store.update(job_id, pid=os.getpid(), started=time.time())
     t0 = time.monotonic()
     try:
+        store.update(job_id, pid=os.getpid(), pid_started=process_started(), started=time.time())
         _run(run)
         rep.close_stage()
-        final = store.update(job_id, stage="done", pct=1.0, stage_pct=1.0, eta_s=0, finished=time.time(),
-                             note="", stages=rep.stage_times, wall_s=round(time.monotonic() - t0, 2))
+        outcome: dict[str, Any] = {"stage": "done", "pct": 1.0, "stage_pct": 1.0, "eta_s": 0, "note": ""}
     except Cancelled:
         rep.close_stage()
-        final = store.update(job_id, stage="cancelled", finished=time.time(), eta_s=None, note="",
-                             stages=rep.stage_times, wall_s=round(time.monotonic() - t0, 2))
-        store.log(job_id, "cancelled by the user")
+        outcome = {"stage": "cancelled", "eta_s": None, "note": ""}
+        _safe_log(store, job_id, "cancelled by the user")
     except StageError as e:
         rep.close_stage()
-        store.log(job_id, f"failed: {e.message}", "error", code=e.code)
-        final = store.update(job_id, stage="failed", error=e.to_dict(), finished=time.time(), eta_s=None,
-                             stages=rep.stage_times, wall_s=round(time.monotonic() - t0, 2))
+        _safe_log(store, job_id, f"failed: {e.message}", "error", code=e.code)
+        full = disk_full(e) or bool(_NO_SPACE_RE.search(str(e.message)))   # e.g. ffmpeg: "No space left on device"
+        if full:
+            with contextlib.suppress(Exception):
+                store.prune_work(job_id)
+        outcome = {"stage": "failed", "error": dict(DISK_FULL_ERROR) if full else e.to_dict(), "eta_s": None}
     except Exception as e:  # noqa: BLE001 - last line of defence: a job never dies silently
         rep.close_stage()
-        store.log(job_id, "internal error: " + "".join(traceback.format_exception_only(type(e), e)).strip(),
+        if disk_full(e):
+            with contextlib.suppress(Exception):
+                store.prune_work(job_id)            # this job's own intermediates filled the disk: free them first
+            err = dict(DISK_FULL_ERROR)
+        else:
+            err = {"code": "internal", "message": f"{type(e).__name__}: {e}"}
+        _safe_log(store, job_id, "internal error: " + "".join(traceback.format_exception_only(type(e), e)).strip(),
                   "error", trace=traceback.format_exc()[-4000:])
-        final = store.update(job_id, stage="failed", finished=time.time(), eta_s=None, stages=rep.stage_times,
-                             error={"code": "internal", "message": f"{type(e).__name__}: {e}"},
-                             wall_s=round(time.monotonic() - t0, 2))
+        outcome = {"stage": "failed", "error": err, "eta_s": None}
     finally:
         with _RUNNING_GUARD:
             _RUNNING.pop(job_id, None)
-    final = final or store.load(job_id) or job
+        mark_not_live(job_id)
+    outcome.update(finished=time.time(), stages=rep.stage_times, wall_s=round(time.monotonic() - t0, 2))
+    final = _finish(store, job_id, outcome) or {**(store.load(job_id) or job), **outcome}
     host.emit("job.progress", {"id": job_id, "session_id": final.get("session_id", ""), "stage": final.get("stage"),
                                "pct": final.get("pct"), "eta_s": None, "note": ""})
     _final_message(rep, final)
@@ -1158,6 +1209,8 @@ def _build_quick(run: _Run) -> None:
                 break
             run.info(f"film build with style {style} failed: {e.message}", level="warn")
         except Exception as e:  # noqa: BLE001
+            if disk_full(e):
+                raise                          # another style will not fit either: report the full disk
             last_err = StageError("film_build", f"{type(e).__name__}: {e}")
             run.info(f"film build with style {style} failed: {last_err.message}",
                      trace=traceback.format_exc()[-3000:])

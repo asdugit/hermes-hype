@@ -14,8 +14,10 @@ import os
 import re
 import secrets
 import shutil
+import sys
 import threading
 import time
+import types
 from pathlib import Path
 from typing import Any
 
@@ -73,7 +75,12 @@ def write_json_atomic(path: Path, data: Any, retries: int = 8) -> None:
     """Write JSON so readers see the old or the new file, never half of one."""
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(f".{path.name}.{os.getpid()}.{threading.get_ident()}.tmp")
-    tmp.write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":"), default=str), encoding="utf-8")
+    try:
+        tmp.write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":"), default=str), encoding="utf-8")
+    except BaseException:                # disk full / unwritable: never leave a half-written temp file behind
+        with contextlib.suppress(OSError):
+            tmp.unlink()
+        raise
     for attempt in range(retries):
         try:
             os.replace(tmp, path)
@@ -99,18 +106,76 @@ def read_json(path: Path, retries: int = 4) -> Any:
     return None
 
 
-def _pid_alive(pid: Any) -> bool:
+def process_started(pid: int | None = None) -> float | None:
+    """Start time of process ``pid`` (default: this one), or ``None`` when it cannot be read.
+
+    Stored next to ``job.pid``: after a crash or a reboot the OS hands the old pid to an unrelated process, and a
+    pid check alone kept such a job "running" (and every new ``/hype`` refused) for an hour.
+    """
+    try:
+        import psutil  # Hermes core dependency
+        return round(float(psutil.Process(os.getpid() if pid is None else int(pid)).create_time()), 3)
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _same_start(pid: int, started: Any) -> bool:
+    """False only when ``pid`` provably belongs to a process started at another time than ``started``."""
+    try:
+        want = float(started)
+    except (TypeError, ValueError):
+        return True                      # jobs written before pid_started existed: pid check only
+    now = process_started(pid)
+    return now is None or abs(now - want) <= 2.0
+
+
+def _pid_alive(pid: Any, started: Any = None) -> bool:
     try:
         pid = int(pid)
     except (TypeError, ValueError):
         return False
     if pid == os.getpid():
-        return True
+        return _same_start(pid, started)
     try:
         import psutil  # Hermes core dependency
-        return psutil.pid_exists(pid)
+        return psutil.pid_exists(pid) and _same_start(pid, started)
     except Exception:  # noqa: BLE001
         return False
+
+
+#: Job ids being run by ANY copy of this module in this process. Hermes loads ``showreel_core`` twice in the
+#: gateway process (the plugin package, and ``dashboard/plugin_api.py`` under a private name), each copy with its
+#: own pipeline registry, so the plugin's stale sweep took a running Desktop-pane film for an orphan. The set
+#: lives in ``sys.modules`` so both copies see one registry.
+_LIVE_KEY = "_hype_live_jobs"
+
+
+def _live() -> tuple[set[str], threading.Lock]:
+    holder = sys.modules.get(_LIVE_KEY)
+    if holder is None:
+        holder = sys.modules.setdefault(_LIVE_KEY, types.ModuleType(_LIVE_KEY))
+    ids = holder.__dict__.setdefault("ids", set())
+    guard = holder.__dict__.setdefault("guard", threading.Lock())
+    return ids, guard
+
+
+def mark_live(job_id: str) -> None:
+    """This process is running ``job_id`` now (see :data:`_LIVE_KEY`)."""
+    ids, guard = _live()
+    with guard:
+        ids.add(job_id)
+
+
+def mark_not_live(job_id: str) -> None:
+    ids, guard = _live()
+    with guard:
+        ids.discard(job_id)
+
+
+def live_ids() -> set[str]:
+    ids, guard = _live()
+    with guard:
+        return set(ids)
 
 
 _CREATED_LOCK = threading.Lock()
@@ -157,6 +222,7 @@ class JobStore:
         job = {
             "id": job_id, "session_id": session_id or "", "created": now, "updated": now, "finished": None,
             "kind": kind, "surface": surface, "parent": parent, "title": title, "pid": os.getpid(),
+            "pid_started": process_started(),
             "options": dict(options), "stage": "queued", "stage_pct": 0.0, "pct": 0.0, "eta_s": None,
             "note": "", "error": None, "warnings": [], "storyboard": None, "storyboard_source": "",
             "timeline_paths": {}, "outputs": {}, "delivered": {}, "contact_sheet": "", "thumbs": [],
@@ -261,20 +327,22 @@ class JobStore:
                    active_ids: set[str] | list[str] | None = None) -> list[str]:
         """Fail jobs whose runner is gone. Returns the ids marked ``failed``.
 
-        A job is stale when its owning process is dead, when it belongs to this process but is not in
-        ``active_ids`` (the plugin was reloaded), or when it has been silent for ``4 * max_idle_s``.
+        A job is stale when its owning process is dead (or its pid now belongs to another process: pid +
+        ``pid_started``), when it belongs to this process but no copy of the pipeline here runs it (``active_ids``
+        plus :func:`live_ids`; the plugin was reloaded), or when it has been silent for ``4 * max_idle_s``.
         Jobs younger than 30 s are left alone (they may be between ``create`` and their thread start).
         """
         now = time.time() if now is None else now
         marked = []
+        live = live_ids()
         for job in self.running():
             idle = now - float(job.get("updated") or 0)
             if idle < 30.0:
                 continue
             pid = job.get("pid")
-            mine = pid == os.getpid()
-            orphan = mine and active_ids is not None and job["id"] not in set(active_ids)
-            dead = not mine and not _pid_alive(pid)
+            mine = pid == os.getpid() and _same_start(os.getpid(), job.get("pid_started"))
+            orphan = mine and active_ids is not None and job["id"] not in set(active_ids) | live
+            dead = not mine and not _pid_alive(pid, job.get("pid_started"))
             if not (orphan or dead or idle >= 4 * max_idle_s):
                 continue
             self.update(job["id"], stage="failed", finished=now, error={"code": "interrupted",
