@@ -443,7 +443,7 @@ def is_fix_session(facts: "SessionFacts") -> bool:
 #: tool chatter in a run's output that is not the product: git's line-ending notes, uv's hardlink fallback, hints
 _NOISE_LINE_RE = re.compile(r"(?i)^\s*(?:warning: (?:in the working copy of|LF will be replaced|CRLF will be replaced|"
                             r"failed to hardlink)|hint: |\s*If the cache and target directories are on different|"
-                            r"(?:date|server|content-length|connection|keep-alive|transfer-encoding|"
+                            r"(?:date|server|content-length|content-type|connection|keep-alive|transfer-encoding|"
                             r"access-control-[\w-]+):\s)")
 
 

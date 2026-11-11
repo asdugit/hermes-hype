@@ -124,7 +124,7 @@ def test_process_housekeeping_and_http_headers_are_not_product_beats() -> None:
                                                   "server: uvicorn", "content-length: 64",
                                                   "content-type: application/json", '{"code":"aB3x9"}'])
     shown = _terminal(run, 8)["output"]
-    assert shown == ["HTTP/1.1 201 Created", "content-type: application/json", '{"code":"aB3x9"}']
+    assert shown == ["HTTP/1.1 201 Created", '{"code":"aB3x9"}']
 
 
 def test_escape_code_output_is_never_a_terminal_beat() -> None:
