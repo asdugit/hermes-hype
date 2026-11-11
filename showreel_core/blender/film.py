@@ -623,7 +623,11 @@ def browser_handoff(film: dict[str, Any], shot_id: str, t: float, res: tuple[int
                     *, assets: Mapping[str, Any] | None = None, scenes: Mapping[str, Any] | None = None,
                     gpu: bool = False) -> Path | None:
     """Capture the browser frame of ``shot_id`` at film time ``t`` (its end) as a PNG via the preview machinery
-    (one temporary job with only that shot; takes a render slot when SHOWREEL_RENDER_SLOT_DIR is set)."""
+    (one temporary job with only that shot; takes a render slot when SHOWREEL_RENDER_SLOT_DIR is set).
+
+    The mini film starts at the source shot: it is moved to t0 = 0 and the film lasts exactly the shot (shot-local
+    timings are unchanged). Keeping the film's ``dur`` and the shot's ``t0`` made ``build_job`` reject the mini film
+    ("no shot covers 0.000-6.400 s") whenever the source shot was not the first, and the reveal got no still."""
     import asyncio
 
     from ..film.page import build_job
@@ -635,13 +639,19 @@ def browser_handoff(film: dict[str, Any], shot_id: str, t: float, res: tuple[int
     refs = _strings(src.get("params") or {})
     mini = {k: v for k, v in film.items() if k not in ("shots", "transitions", "overlays", "captions", "cues",
                                                        "narration", "music")}
+    t0 = float(src.get("t0") or 0.0)
+    dur = max(1e-3, float(src.get("t1") or 0.0) - t0)
+    src["t0"], src["t1"] = 0.0, round(dur, 6)
+    mini["dur"] = round(dur, 6)
+    fps = float(film.get("fps") or 30.0)
+    t_local = min(max(0.0, float(t) - t0), dur - 0.5 / fps)
     mini["shots"] = [src]
     mini["assets"] = {n: a for n, a in (film.get("assets") or {}).items() if n in refs}
     specs = {n: s for n, s in (assets or {}).items() if n in mini["assets"]}
     job = out_png.parent / f"_job_{shot_id}"
     build_job(mini, job, assets=specs, scenes=scenes or {})
     with render_slot(os.environ.get("SHOWREEL_RENDER_SLOT_DIR")):
-        stills, _info = asyncio.run(capture_keyframes(job, [t], w=int(res[0]), h=int(res[1]), gpu=gpu))
+        stills, _info = asyncio.run(capture_keyframes(job, [t_local], w=int(res[0]), h=int(res[1]), gpu=gpu))
     if not stills:
         return None
     out_png.parent.mkdir(parents=True, exist_ok=True)

@@ -184,3 +184,35 @@ def test_runner_bench_frames_reused(tmp_path, media):
     first = [c for c in calls if c.startswith(bp.shots[0]["hash"])]
     assert len(first) == 2 and json.loads(first[0].split(" ", 1)[1]) == runner.bench_frames(42)
     assert 1 not in (json.loads(first[1].split(" ", 1)[1]) or [])           # resume skipped benchmark frames
+
+
+def test_browser_handoff_mini_film_starts_at_a_later_source_shot(tmp_path, monkeypatch):
+    """ISSUES (W5-customize/hero): the handoff mini film kept the film's dur and the source shot's t0, so build_job
+    rejected it ('no shot covers 0.000-...') whenever from_shot was not the first shot, and the reveal got no still.
+    The real build_job runs here; only the Chromium capture is faked."""
+    from types import SimpleNamespace
+
+    from showreel_core.film import preview
+    monkeypatch.delenv("SHOWREEL_RENDER_SLOT_DIR", raising=False)
+    seen = {}
+
+    async def fake_capture(job, times, *, w, h, gpu=False, **_kw):
+        seen["film"] = json.loads((Path(job) / "film.json").read_text(encoding="utf-8"))
+        seen["times"], seen["size"] = list(times), (w, h)
+        return [SimpleNamespace(t=times[0], png=b"\x89PNG fake", qa=[])], {"errors": []}
+
+    monkeypatch.setattr(preview, "capture_keyframes", fake_capture)
+    film = make_film(shots=[
+        {"id": "intro", "t0": 0.0, "t1": 1.2, "scene": "kit:base/TITLE", "params": {"title": "Hi"}},
+        {"id": "boss", "t0": 1.2, "t1": 2.4, "scene": "kit:base/TITLE", "params": {"title": "Boss"}},
+        {"id": "reveal", "t0": 2.4, "t1": 3.0, "scene": "blender:_test/hello", "params": {"from_shot": "boss"}},
+    ], transitions=[])
+    t = 2.4 - 0.5 / 30
+    out = bfilm.browser_handoff(film, "boss", t, (320, 180), tmp_path / "handoff" / "boss.png")
+    assert out is not None and out.read_bytes().startswith(b"\x89PNG")
+    mini = seen["film"]
+    assert [s["id"] for s in mini["shots"]] == ["boss"]
+    assert mini["shots"][0]["t0"] == 0.0 and mini["shots"][0]["t1"] == pytest.approx(1.2)
+    assert mini["dur"] == pytest.approx(1.2)
+    assert seen["times"] == [pytest.approx(1.2 - 0.5 / 30)] and seen["size"] == (320, 180)
+    assert film["shots"][1]["t0"] == 1.2                      # the caller's film is untouched
