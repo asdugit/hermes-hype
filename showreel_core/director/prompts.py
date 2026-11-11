@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from . import recipes, repair
+from . import moods, recipes, repair
 from .catalog import Catalog
 from .types import RUBRIC_KEYS, SCORE_BAR, Brief
 
@@ -213,6 +213,7 @@ HOW TO WORK
 
 Reply with one JSON object matching the schema."""
     parts = [_direction_block(brief), _product_text(brief), _film_frame(brief), blender_rule(brief),
+             moods.prompt_block(brief.direction),
              recipes.overview(physical=_physical(brief)), _recipe_hint(brief), catalog.overview(),
              catalog.recipes_text(budget=6000), _digest_block(brief)]
     return instructions, "\n\n".join(p for p in parts if p)
@@ -311,6 +312,7 @@ PLAN RULES
 
 Reply with one JSON object: {{"film": {{...}}, "plan": {{...}}}}."""
     parts = [_direction_block(brief), _product_text(brief), _film_frame(brief), blender_rule(brief),
+             moods.prompt_block(brief.direction),
              "## Approved treatment\n" + _json(treatment), recipe_block(brief, catalog, treatment),
              _bar_hint(catalog), catalog.full(), catalog.recipes_text(), "## Scene SDK reference\n" + catalog.sdk]
     return instructions, "\n\n".join(p for p in parts if p)

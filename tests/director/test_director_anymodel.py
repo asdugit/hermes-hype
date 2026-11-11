@@ -267,7 +267,9 @@ def test_mood_grade_changes_the_whole_look(tmp_path: Path) -> None:
     assert key["finish"]["grain"] <= 0.012
     pc = build_post("grade+grain_vignette", in_size=(320, 180), out_size=(320, 180), seed=1, work_dir=tmp_path,
                     params={"grade": g, "grain_vignette": {"grain": 10, "vignette": 0.5}})
-    assert "colorhold=color=0xc8102e" in pc.graph and "curves" in pc.graph and "overlay" in pc.graph
+    assert "lut2=" in pc.graph and "maskedmerge" in pc.graph and "curves" in pc.graph and "overlay" in pc.graph
+    rgb = build_post("grade", in_size=(320, 180), out_size=(320, 180), work_dir=tmp_path, params={"grade": {**g, "hold_mode": "rgb"}})
+    assert "colorhold=color=0xc8102e" in rgb.graph
     assert any("rain_" in x for x in pc.extra_inputs)
     vhs = build_post("grade", in_size=(320, 180), out_size=(320, 180), params={"grade": {"shift": 4, "wobble": 3,
                                                                                          "mono": 0.2}})
@@ -543,3 +545,98 @@ def test_blender_shot_that_keeps_failing_gets_a_kit_stand_in(tmp_path: Path) -> 
     assert not [s for s in film["shots"] if s["scene"] == "blender:meadow/oner"]
     assert any(s["scene"] == "kit:nature/flower-field" and s["params"].get("product") == "car"
                for s in film["shots"])
+
+
+# ------------------------------------------------------------------------------------ mood -> world rules
+
+
+def test_mood_picks_the_world_for_a_car(tmp_path: Path) -> None:
+    """The car noir was built from flower fields (4/10) and the anime opening ended in the documentary's pastel
+    meadow: the direction's mood now ranks its own world first and pushes forbidden worlds to the bottom."""
+    from showreel_core.director import moods
+    cat = build_catalog(capabilities=Capabilities(blender=True))
+    bps = compose.blueprints(catalog=cat, blender=True)
+
+    def top(direction: str) -> list[str]:
+        return [b.id for _, b in compose.rank(bps, direction, _car_brief(tmp_path, direction, blender=True))]
+    noir = top("a noir detective trailer")
+    assert noir[0] == "studio-noir"
+    assert noir.index("meadow-documentary") > noir.index("studio-reveal")
+    assert all(noir.index(b) > noir.index("studio-reveal") for b in ("boss-battle", "meadow-documentary", "anime-opening"))
+    assert top("an anime opening")[0] == "anime-opening"
+    assert top("a nature documentary narrated by a hushed voice")[0] == "meadow-documentary"
+    assert compose.default_pick(bps, _car_brief(tmp_path, "film noir, rain", blender=True))["blueprint"] == "studio-noir"
+    assert moods.dominant("a 1980s VHS infomercial") is None
+    assert "NEVER a meadow" in moods.prompt_block("a noir detective trailer")
+
+
+def test_mood_world_is_enforced_on_any_film(tmp_path: Path) -> None:
+    """Whatever the model wrote, noir on a car = the Blender studio at night with typewriter type, dips instead of
+    petal reveals and a dark bed; the documentary meadow is at dawn."""
+    from showreel_core.director import moods
+    film: dict[str, Any] = {
+        "shots": [{"id": "a", "t0": 0, "t1": 5, "scene": "kit:nature/flower-field", "params": {"product": "car"}},
+                  {"id": "b", "t0": 5, "t1": 10, "scene": "blender:meadow/oner", "params": {"t_offset": 3}},
+                  {"id": "c", "t0": 10, "t1": 15, "scene": "blender:studio/product_hero",
+                   "params": {"env": "sunset", "move": "orbit"}}],
+        "overlays": [{"id": "t", "t0": 1, "t1": 3, "scene": "kit:type/title", "params": {"text": "THE CITY"}}],
+        "transitions": [{"from": "b", "to": "c", "type": "blender:transitions/petal_reveal", "t": 9.5, "dur": 1,
+                         "params": {"under": "studio/product_hero"}}],
+        "music": [{"bed": "dream_a", "t0": 0, "t1": 15}]}
+    fixes = moods.enforce(film, "a noir detective trailer", model="car3d", paint="#b8221f")
+    assert fixes
+    assert [s["scene"] for s in film["shots"]] == ["blender:studio/product_hero"] * 3
+    assert all(s["params"]["env"] == "noir" for s in film["shots"])
+    assert film["shots"][0]["params"]["model"] == "car3d" and film["shots"][0]["params"]["paint"] == "#b8221f"
+    assert film["overlays"][0]["params"] == {"text": "THE CITY", "theme": "noir", "reveal": "type"}
+    assert film["transitions"][0]["type"] == "dip-black" and film["music"][0]["bed"] == "cinematic_a"
+    assert moods.enforce(film, "a noir detective trailer", model="car3d") == []          # idempotent
+    screen: dict[str, Any] = {"shots": [{"id": "a", "t0": 0, "t1": 5, "scene": "kit:nature/flower-field",
+                                         "params": {}}]}
+    moods.enforce(screen, "noir", model="")            # no 3D model: never swapped into Blender
+    assert screen["shots"][0]["scene"] == "kit:nature/flower-field"
+    doc: dict[str, Any] = {"shots": [{"id": "m", "t0": 0, "t1": 9, "scene": "blender:meadow/oner",
+                                      "params": {"time_of_day": "golden"}}]}
+    moods.enforce(doc, "a nature documentary narrated by a hushed voice")
+    assert doc["shots"][0]["params"]["time_of_day"] == "dawn"
+
+
+def test_composed_car_noir_is_a_night_studio_film(tmp_path: Path) -> None:
+    b = _car_brief(tmp_path, "a noir detective trailer", blender=True)
+    cat = build_catalog(assets=b.assets, capabilities=b.capabilities)
+    bp, pick, obj = compose.floor(b, compose.blueprints(catalog=cat, blender=True))
+    film = obj["film"]
+    assert bp.id == "studio-noir"
+    scenes = [s["scene"] for s in film["shots"]]
+    assert not [x for x in scenes if x.startswith(("kit:nature/", "blender:meadow/"))]
+    assert sum(x == "blender:studio/product_hero" for x in scenes) >= 3
+    assert all(s["params"]["env"] == "noir" for s in film["shots"] if s["scene"].startswith("blender:studio/"))
+    grade = film["render"]["post_params"]["grade"]
+    assert grade["mono"] == 1.0 and grade.get("hold") and grade["rain"] > 0
+    title = next(s for s in film["shots"] if s["scene"] == "kit:type/title")
+    assert title["params"]["theme"] == "noir" and title["params"]["reveal"] == "type"
+
+
+def test_hue_hold_keeps_only_the_product_red(tmp_path: Path) -> None:
+    """colorhold by RGB distance kept pink and yellow flowers next to a warm red; the hue hold keeps only reds."""
+    import colorsys
+    import io
+    import math
+
+    from showreel_core.render.post import hue_mask_expr
+    expr = hue_mask_expr("#b8221f")
+    assert "atan2" in expr and "hypot" in expr
+
+    def mask(hexc: str) -> float:                     # the lut2 expression, evaluated in Python
+        r, g, b = (int(hexc[i:i + 2], 16) for i in (1, 3, 5))
+        x = 128 + (-37.797 * r - 74.203 * g + 112.0 * b) / 255.0
+        y = 128 + (112.0 * r - 93.786 * g - 18.214 * b) / 255.0
+        a = math.atan2(66.12, -23.63)
+        d = abs(math.atan2(y - 128, x - 128) - a)
+        d = min(d, 2 * math.pi - d)
+        clip = lambda v: max(0.0, min(1.0, v))  # noqa: E731
+        return clip((math.radians(12) - d) / math.radians(6)) * clip((math.hypot(x - 128, y - 128) - 24) / 14)
+    assert mask("#b5121b") > 0.9 and mask("#e9605d") > 0.9 and mask("#8a1015") > 0.9
+    for other in ("#f4a6c0", "#e0559a", "#f2d04a", "#e87a2a", "#d9a07a", "#c0307a", "#808080"):
+        assert mask(other) == 0.0, other
+    _ = colorsys, io

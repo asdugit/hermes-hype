@@ -29,6 +29,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from . import moods
 from . import recipes as rc
 from . import repair
 from .repair import coerce, fit_words, is_hex, loads_lenient, snap
@@ -285,9 +286,94 @@ def _blender_blueprints() -> list[Blueprint]:
                    "params": {"title": "{name}", "tagline": "{tagline}", "cta": "{cta}", "scrim": 0.3}}),
         music=({"bed": "dream_a", "share": (0.0, 1.0)},), voice="narrated", finish={"grain": 0.02, "vignette": 0.14},
         recipe="nature-documentary", keywords=("nature", "documentary", "attenborough", "wildlife", "narrat",
-                                               "hushed", "meadow", "anime", "field", "dreamy", "calm"),
+                                               "hushed", "meadow", "field", "dreamy", "calm", "dawn"),
         seconds=(18.0, 25.4))
-    return [studio, device, meadow]
+    noir = Blueprint(
+        id="studio-noir", name="3D film noir at night (studio)", kind="physical", blender=True,
+        fits="'noir', 'detective', 'crime', 'mystery', 'thriller', 'hard-boiled', rain, night, black and white",
+        look="the real 3D product alone on a wet black stage at night: one hard spot key, smoke, venetian-blind "
+             "light across the wall and the body, rain; black and white except the product's own colour; "
+             "typewriter title cards; a hard-boiled narrator",
+        shots=(
+            {"id": "open", "share": (0.0, 0.11), "scene": "kit:type/title", "product": False,
+             "params": {"text": "<a 2-5 word hard-boiled opening line, typed on black (no product name)>", "sub": "",
+                        "theme": "noir", "reveal": "type", "scrim": 0.0},
+             "beat": "black frame, rain, a typewriter line: the case opens"},
+            {"id": "suspect", "share": (0.11, 0.40), "scene": "blender:studio/product_hero", "product": True,
+             "params": {"move": "orbit", "env": "noir", "reveal": True, "yaw": 145, "orbit_deg": 30, "fill": 0.74,
+                        "pitch": 7, "wheel_rps": 0.0, "paint": "{paint}"},
+             "beat": "the suspect steps out of the dark: rim first, then the hard key; blinds across the wall"},
+            {"id": "clues", "share": (0.40, 0.56), "scene": "blender:studio/product_hero", "product": True,
+             "params": {"move": "macro", "env": "noir", "reveal": False, "yaw": -30, "paint": "{paint}"},
+             "beat": "the clues, close: a slow macro pass along the body, light catching the edges"},
+            {"id": "tail", "share": (0.56, 0.80), "scene": "blender:studio/product_hero", "product": True,
+             "params": {"move": "dolly", "env": "noir", "reveal": False, "yaw": -40, "pitch": 3, "orbit_deg": 24,
+                        "fill": 0.8, "wheel_rps": 0.0, "paint": "{paint}"},
+             "beat": "a low dolly in on the wet floor: the reflection, the rain, the colour that will not go grey"},
+            {"id": "reveal", "share": (0.80, 0.91), "scene": "blender:studio/product_hero", "product": True,
+             "params": {"move": "turntable", "env": "noir", "reveal": False, "yaw": 160, "pitch": 8,
+                        "turn_deg": 35, "fill": 0.7, "paint": "{paint}"}, "beat": "the confession: front on"},
+            {"id": "end", "share": (0.91, 1.0), "scene": "kit:type/end-lockup", "product": False,
+             "params": {"title": "{name}", "tagline": "{tagline}", "cta": "{cta}", "scrim": 0.0, "theme": "noir"},
+             "beat": "the name on black, typewriter type"},
+        ),
+        transitions=({"from": "open", "to": "suspect", "type": "dip-black", "dur": 0.6},
+                     {"from": "suspect", "to": "clues", "type": "dip-black", "dur": 0.5},
+                     {"from": "tail", "to": "reveal", "type": "dip-black", "dur": 0.5},
+                     {"from": "reveal", "to": "end", "type": "dip-black", "dur": 0.6}),
+        overlays=({"id": "case", "share": (0.43, 0.54), "scene": "kit:type/lower-third",
+                   "params": {"title": "<a 2-4 word case-file heading, e.g. EXHIBIT A>",
+                              "sub": "<a 4-8 word hard-boiled line about the product, no numbers>", "theme": "noir"}},
+                  {"id": "line", "share": (0.62, 0.76), "scene": "kit:type/title",
+                   "params": {"text": "<a 3-6 word typed line: the detective's verdict>", "band": "bottom",
+                              "theme": "noir", "reveal": "type", "scrim": 0.3}}),
+        music=({"bed": "cinematic_a", "share": (0.0, 1.0)},), voice="narrated",
+        finish={"grain": 0.08, "vignette": 0.5}, recipe="launch-keynote",
+        keywords=("noir", "detective", "crime", "mystery", "thriller", "hard-boiled", "night", "rain", "gritty",
+                  "black and white", "private eye"), seconds=(18.0, 40.0))
+    anime = Blueprint(
+        id="anime-opening", name="3D anime TV opening (meadow, fast cuts)", kind="physical", blender=True,
+        fits="'anime', 'anime opening', 'shonen', 'manga', 'opening credits', high energy, J-pop, hype",
+        look="a 90s anime TV opening: hard cuts every 2-3 s between dynamic moments of the Blender meadow (crane "
+             "into a sky full of the product, low swoop, flight alongside, the hero pass) under huge kinetic title "
+             "cards; saturated sunset sky; an energetic bed",
+        shots=(
+            {"id": "sky", "share": (0.0, 0.14), "scene": "blender:meadow/oner", "product": True,
+             "params": {"time_of_day": "sunset", "t_offset": 2.4, "figure": True, "petals": 1.4, "crowd": 1.0},
+             "beat": "crane up: the sky full of the product"},
+            {"id": "swoop", "share": (0.14, 0.25), "scene": "blender:meadow/oner", "product": True,
+             "params": {"time_of_day": "sunset", "t_offset": 5.0, "figure": True, "petals": 1.4, "crowd": 1.0},
+             "beat": "swoop low under a pass"},
+            {"id": "wing", "share": (0.25, 0.42), "scene": "blender:meadow/oner", "product": True,
+             "params": {"time_of_day": "sunset", "t_offset": 8.2, "figure": True, "petals": 1.2, "crowd": 1.0},
+             "beat": "flying alongside the product"},
+            {"id": "wave", "share": (0.42, 0.56), "scene": "blender:meadow/oner", "product": True,
+             "params": {"time_of_day": "sunset", "t_offset": 14.6, "figure": True, "petals": 1.4, "crowd": 1.0},
+             "beat": "she waves; the product pulls up"},
+            {"id": "hero", "share": (0.56, 0.86), "scene": "blender:meadow/oner", "product": True,
+             "params": {"time_of_day": "sunset", "t_offset": 18.4, "figure": True, "petals": 1.6, "crowd": 1.0},
+             "beat": "the hero close-up, light sweeping the paint"},
+            {"id": "end", "share": (0.86, 1.0), "scene": "kit:type/end-lockup", "product": False,
+             "params": {"title": "{name}", "tagline": "{tagline}", "cta": "{cta}", "scrim": 0.45, "theme": "comic"},
+             "beat": "the title card"},
+        ),
+        transitions=({"from": "sky", "to": "swoop", "type": "cut", "dur": 0.2},
+                     {"from": "swoop", "to": "wing", "type": "cut", "dur": 0.2},
+                     {"from": "wing", "to": "wave", "type": "cut", "dur": 0.2},
+                     {"from": "wave", "to": "hero", "type": "cut", "dur": 0.2},
+                     {"from": "hero", "to": "end", "type": "crossfade", "dur": 0.4}),
+        overlays=({"id": "shout", "share": (0.02, 0.13), "scene": "kit:type/title",
+                   "params": {"text": "<a 1-3 word shout, like an anime opening's first card>", "theme": "comic",
+                              "scrim": 0.25}},
+                  {"id": "name", "share": (0.26, 0.40), "scene": "kit:type/title",
+                   "params": {"text": "{NAME}", "sub": "<a 2-5 word hype line>", "theme": "comic", "scrim": 0.3}},
+                  {"id": "cry", "share": (0.44, 0.55), "scene": "kit:type/title",
+                   "params": {"text": "<a 1-3 word battle cry>", "theme": "comic", "band": "bottom", "scrim": 0.2}}),
+        music=({"bed": "launch_b", "share": (0.0, 1.0)},), voice="sparse",
+        finish={"grain": 0.02, "vignette": 0.12, "bloom": 0.2}, recipe="boss-battle",
+        keywords=("anime", "opening", "shonen", "manga", "hype", "j-pop", "energetic", "op"),
+        seconds=(18.0, 32.0))
+    return [studio, device, meadow, noir, anime]
 
 
 def blueprints(*, kits_root: Path | None = None, catalog: Any = None, blender: bool = False) -> list[Blueprint]:
@@ -449,6 +535,7 @@ def rank(bps: list[Blueprint], direction: str, brief: Brief) -> list[tuple[float
             s += 0.6 if wants_blender else 0.2       # 3D looks best when the machine has Blender
         if b.exemplar:
             s += 0.3                                  # a proven film behind it
+        s += moods.rank_bonus(b, direction)           # the mood's own world first, forbidden worlds last
         scored.append((s, b))
     scored.sort(key=lambda x: -x[0])
     return scored
@@ -797,6 +884,7 @@ def assemble(brief: Brief, bp: Blueprint, pick: dict[str, Any], texts: dict[str,
             "overlays": overlays, "music": music, "cues": [], "finish": dict(bp.finish)}
     if bp.render:
         film["render"] = copy.deepcopy(bp.render)
+    moods.enforce(film, brief.direction, model=vals["model"], paint=vals["paint"], product=vals["product"])
     mood_look(film, brief.direction, hold=product_color(brief) if physical(brief) else "")
     repair.scrub_loopback(film, name=vals["name"], url=vals["url"])
     plan = {"shots": plan_shots, "custom_scenes": [], "voiceover": list(voiceover or []),
@@ -815,7 +903,9 @@ MOODS: tuple[tuple[tuple[str, ...], dict[str, Any], dict[str, Any], dict[str, An
       "contrast": 0.92, "min_scanline": 0.3}),
     (("noir", "detective", "thriller", "crime", "gritty", "mystery"), {"grain": 0.10, "vignette": 0.6}, {},
      {"mono": 1.0, "hold": "{product}", "contrast": 1.4, "rain": 0.9}),
-    (("dream", "anime", "soft", "nostalgic", "pastel", "fairy"), {"bloom": 0.22, "grain": 0.02, "vignette": 0.15}, {},
+    (("anime", "shonen", "shounen", "manga", "mecha"), {"bloom": 0.16, "grain": 0.015, "vignette": 0.12}, {},
+     {"saturation": 1.28, "contrast": 1.1}),
+    (("dream", "soft", "nostalgic", "pastel", "fairy"), {"bloom": 0.22, "grain": 0.02, "vignette": 0.15}, {},
      {}),
     (("documentary", "nature", "film stock", "35mm", "wildlife"), {"grain": 0.035, "vignette": 0.22}, {},
      {"tint": "#ffe0b0", "tint_amount": 0.10, "contrast": 1.05}),

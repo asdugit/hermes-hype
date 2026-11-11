@@ -32,7 +32,7 @@ from typing import Any
 
 from ..contracts import Product
 from ..story.schema import parse_json_text
-from . import compose, measured, prompts, repair, tiers
+from . import compose, measured, moods, prompts, repair, tiers
 from . import prominence as pm
 from .backend import Preview, Renderer, RuntimeRenderer, ShotError
 from .catalog import Catalog, build_catalog
@@ -659,7 +659,8 @@ def _hygiene(r: _Run, obj: dict[str, Any]) -> list[str]:
     p = r.brief.product
     name = (p.name if p and p.name else "") or str(obj["film"].get("title") or "")
     url = repair.public_url(p.urls if p else [])
-    fixes = repair.scrub_loopback(obj["film"], name=name, url=url)
+    fixes = _mood_world(r, obj["film"])
+    fixes += repair.scrub_loopback(obj["film"], name=name, url=url)
     fixes += repair.lockup_end(obj, r.catalog, [a.name for a in r.brief.assets if a.product], name=name,
                                tagline=repair.fit_words(p.one_liner, 8) if p and p.one_liner else "", url=url)
     return fixes
@@ -743,9 +744,21 @@ def _structured_patch(r: _Run, purpose: str, instr: str, text: str, base: Versio
     return None
 
 
+def _mood_world(r: _Run, film: dict[str, Any]) -> list[str]:
+    """The direction's mood owns the world (moods.enforce): forbidden worlds swapped, mood params forced."""
+    vals = compose.facts(r.brief)
+    fixes = moods.enforce(film, r.brief.direction, scenes=r.catalog.scenes(),
+                          model=vals["model"] if r.brief.capabilities.blender else "", paint=vals["paint"],
+                          product=vals["product"])
+    if fixes:
+        r.emit("mood", f"Mood world ({len(fixes)} change(s)): {'; '.join(fixes[:8])[:400]}")
+    return fixes
+
+
 def _static_bumps(r: _Run, v: Version) -> None:
     """Before any render: product flyers that would be specks in product shots are enlarged; screenshots flying
     in nature scenes are never chroma-keyed (the kit's auto-key eats light UI backgrounds -> a ghosted card)."""
+    _mood_world(r, v.film)                   # resumed scripts too (they skip the reply hygiene)
     if not r.product:
         return
     screens = {a.name for a in r.brief.assets if a.product and a.type == "image" and not a.cutout}
