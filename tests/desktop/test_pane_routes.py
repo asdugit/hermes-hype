@@ -257,3 +257,32 @@ def test_library_lists_saved_scenes_newest_first(api: dict[str, Any]) -> None:
 
 def test_library_is_empty_before_any_directed_film(api: dict[str, Any]) -> None:
     assert api["client"].get(f"{P}/library").json()["items"] == []
+
+
+# ------------------------------------------------------------------------------- preset customization (W5)
+
+
+def test_post_job_with_a_preset_customization(api: dict[str, Any]) -> None:
+    store, c = api["store"], api["client"]
+    r = c.post(f"{P}/jobs", json={"session_id": "s-cz", "options": {"style": "comic"},
+                                  "customize": {"text": "the villain is a swarm of bugs",
+                                                "knobs": {"accent": "cyan", "energy": "high"}}})
+    assert r.status_code == 200, r.text
+    job = store.load(r.json()["id"])
+    cz = job["options"]["hints"]["customize"]
+    assert job["kind"] == "quick" and job["options"]["direction"] == ""
+    assert cz["route"] == "customize" and cz["text"] == "the villain is a swarm of bugs"
+    assert cz["knobs"] == {"accent": "#00E5FF", "energy": "high"}
+    # a request the preset cannot make goes to the Director, starting from the preset
+    r = c.post(f"{P}/jobs", json={"session_id": "s-cz2", "options": {"style": "pixel"},
+                                  "customize": {"text": "transition into a different style mid way through"}})
+    assert r.status_code == 200 and store.load(r.json()["id"])["kind"] == "directed"
+    bad = c.post(f"{P}/jobs", json={"session_id": "s-cz3", "customize": {"knobs": {"colr": "red"}}})
+    assert bad.status_code == 400 and "Valid settings" in bad.text
+
+
+def test_customize_vocabulary(api: dict[str, Any]) -> None:
+    v = api["client"].get(f"{P}/customize").json()
+    assert "neon" in v["palettes"] and "Bangers" in v["fonts"] and v["energies"] == ["calm", "normal", "high"]
+    assert "whisper" in v["voices"] and "playful" in v["moods"] and any(b["id"] == "comic_b" for b in v["beds"])
+    assert {"accent", "music", "logo", "language"} <= set(v["knobs"])
