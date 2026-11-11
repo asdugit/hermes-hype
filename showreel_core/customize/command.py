@@ -198,7 +198,19 @@ def add_cli_args(parser: Any) -> None:
 def from_cli_args(opts: Any, args: Any) -> Any:
     raw: dict[str, Any] = {}
     for item in getattr(args, "knobs", None) or []:
-        ex = K.extract(str(item))
+        # One --set item is ONE knob: split at the first "=" and keep the whole value (spaces included),
+        # so `--set "title=TEMPO QUEST"` keeps both words. Several space-separated knobs in one item still work
+        # when the first value is a single word (`--set "accent=#f36 energy=high"`).
+        s = str(item).strip()
+        key, sep, value = s.partition("=")
+        can = K.canonical(key) if sep else ""
+        if sep and can and not K._TOKEN_RE.search(value):
+            raw[can] = K._unquote(value)
+            continue
+        ex = K.extract(s)
+        if not ex.knobs and not ex.unknown:
+            print(f"--set expects key=value, got {s!r}. " + K.unknown_message([s.split("=")[0] or s]))
+            continue
         raw.update(ex.knobs)
         for u in ex.unknown:
             print(K.unknown_message([u]))

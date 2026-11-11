@@ -164,6 +164,24 @@ def test_tool_cli_and_api_entry_points():
     assert status == 400 and "Valid settings" in msgs[0]
 
 
+def test_cli_set_keeps_spaces_in_one_value(capsys):
+    """`--set "title=TEMPO QUEST"` keeps both words (it used to be cut at the space, silently)."""
+    import argparse
+    ap = argparse.ArgumentParser()
+    C.add_cli_args(ap)
+    args = ap.parse_args(["--set", "title=TEMPO QUEST", "--set", "cta=Start focusing now",
+                          "--set", "accent=#ff00aa energy=high", "--set", "nonsense"])
+    o = C.from_cli_args(Options(style="pixel"), args)
+    knobs = o.hints["customize"]["knobs"]
+    assert knobs["title"] == "TEMPO QUEST"
+    assert knobs["cta"] == "Start focusing now"
+    assert knobs["accent"] == "#FF00AA" and knobs["energy"] == "high"   # several knobs in one item still work
+    assert "--set expects key=value" in capsys.readouterr().out       # a malformed item is reported, not dropped
+    # the slash form keeps quoted values whole too
+    ex = K.extract('pixel title="TEMPO QUEST" energy=high')
+    assert ex.knobs["title"] == "TEMPO QUEST" and ex.rest == "pixel"
+
+
 # ------------------------------------------------------------------------------------------- spec + weak models
 
 SHOTS = [{"id": "s00_hook", "type": "HOOK", "scene": "kit:pixel/HOOK", "t0": 0, "t1": 2},
