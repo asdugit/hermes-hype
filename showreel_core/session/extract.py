@@ -19,6 +19,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Callable
 
 from ..contracts import Event, EventKind
@@ -37,6 +38,11 @@ _DEMOTED_RE = re.compile(r"^\[(\w+) output demoted at compaction")
 _MEDIA_RE = re.compile(r"MEDIA:\s*(\S[^\n]*?)\s*$", re.M)
 _IMG_PATH_RE = re.compile(
     r"(?:[A-Za-z]:[\\/]{1,2}|/|~[\\/])[^\s\"'<>|*?`]*?\.(?:png|jpe?g|webp|gif)\b", re.I)
+_IMG_QUOTED_RE = re.compile(
+    r"[\"'`]((?:[A-Za-z]:[\\/]{1,2}|/|~[\\/])[^\"'`<>|*?\n]{0,400}?\.(?:png|jpe?g|webp|gif))[\"'`]", re.I)
+#: where an absolute path can begin (used to re-join a path that holds spaces)
+_PATH_START_RE = re.compile(r"(?:(?<![\w])[A-Za-z]:[\\/]|(?<![\w.~:/\\])~?/)")
+_IMG_END_RE = re.compile(r"\.(?:png|jpe?g|webp|gif)\b", re.I)
 _URL_NAV_RE = re.compile(r"\b(?:new_tab|goto_url|goto|navigate|open_url)\(\s*[\"'](https?://[^\"']+)[\"']")
 _URL_RE = re.compile(r"https?://[^\s\"'<>)\]]+")
 _EXIT_RE = re.compile(r"->\s*exit\s+(-?\d+)")
@@ -185,6 +191,27 @@ def _name_of(call: dict[str, Any]) -> str:
     return str(fn.get("name") or call.get("name") or "")
 
 
+def _widen_spaced(text: str, start: int, path: str) -> str:
+    """``path`` was matched at ``start`` by a pattern that stops at spaces (``path`` may be "" to ask "which path
+    ends here?"). When an earlier path start on the same line joined to it names an existing file
+    (``C:\\Users\\Alice Smith\\shot.png``), return that; else ``path``."""
+    line_start = text.rfind("\n", 0, start) + 1
+    if " " not in text[line_start:start]:
+        return path
+    for n, m in enumerate(_PATH_START_RE.finditer(text, line_start, start)):
+        if n >= 12:
+            break
+        cand = text[m.start():start] + path
+        if " " not in text[m.start():start]:
+            continue
+        try:
+            if Path(cand).expanduser().is_file():
+                return cand
+        except (OSError, ValueError):
+            continue
+    return path
+
+
 def _image_paths(text: str) -> list[str]:
     """Local image paths mentioned in text (JSON-escaped backslashes normalised), deduped."""
     out: list[str] = []
@@ -192,9 +219,21 @@ def _image_paths(text: str) -> list[str]:
         p = m.group(1).strip().strip("`'\"")
         if p.lower().endswith(IMAGE_EXTS) and p not in out:
             out.append(p)
-    for m in _IMG_PATH_RE.finditer((text or "").replace("\\\\", "\\")):
+    norm = (text or "").replace("\\\\", "\\")
+    for m in _IMG_QUOTED_RE.finditer(norm):          # a quoted path may hold spaces ("C:\Users\Alice Smith\...")
+        p = m.group(1)
+        if " " in p and p not in out:
+            out.append(p)
+    if " " in norm:                                   # an unquoted path with spaces: keep it only if the file exists
+        for k, m in enumerate(_IMG_END_RE.finditer(norm)):
+            if k >= 60:                               # bounded disk checks on huge outputs
+                break
+            p = _widen_spaced(norm, m.end(), "")
+            if p and p not in out and not any(p in q for q in out):
+                out.append(p)
+    for m in _IMG_PATH_RE.finditer(norm):
         p = m.group(0).rstrip(".,;:)")
-        if p.startswith("//") or p in out:
+        if p.startswith("//") or p in out or any(p in q and q != p for q in out):
             continue
         out.append(p)
     return out
@@ -230,6 +269,7 @@ def output_refs(text: str) -> dict[str, list[str]]:
             path = m.group(0).strip().strip("'\"`")
             if "://" in path or len(path) < 5:
                 continue
+            path = _widen_spaced(line, m.start(), path)
             if path not in saved:
                 saved.append(path)
     return {"urls": urls, "server_urls": server, "saved_paths": saved}
