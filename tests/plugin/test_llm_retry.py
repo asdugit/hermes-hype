@@ -126,6 +126,19 @@ def test_non_transient_errors_and_spent_timeouts_are_not_retried(slept: list[flo
     assert bad.calls == 1 and slow.calls == 1 and slept == []
 
 
+def test_a_job_never_waits_more_than_its_total_retry_budget(slept: list[float]) -> None:
+    """A provider that flaps between 429 and success: every call may retry, but the job's waits stay bounded."""
+    tally = CallTally()
+    gave_up = 0
+    for _ in range(60):                                           # 60 x 4 s would be 240 s without the cap
+        try:
+            call_with_retries(Flaky(1, RateLimitError()), tally=tally, sleep=_sleep(slept))
+        except RateLimitError:
+            gave_up += 1
+        tally.cooldown_until = 0.0
+    assert sum(slept) <= L.JOB_RETRY_BUDGET_S and gave_up > 0
+
+
 def test_cancel_ends_a_retry_wait_at_once(slept: list[float]) -> None:
     fn = Flaky(99, RateLimitError())
     with pytest.raises(RateLimitError):

@@ -36,6 +36,9 @@ Dispatch = Callable[..., str]
 RETRY_DELAYS_S: tuple[float, ...] = (4.0, 12.0, 30.0)
 #: Most time one call may spend waiting between its tries (a call never sleeps past this, so a job cannot hang).
 RETRY_BUDGET_S = 60.0
+#: Most retry waiting in one whole job (the Director makes up to ~70 calls; a provider that flaps between 429 and
+#: success must not turn each of them into a minute's wait).
+JOB_RETRY_BUDGET_S = 180.0
 #: After a call used up its retries on a transient error, later calls of the same job try once without waiting
 #: for this long (re-armed by each further failure): a provider that rate-limits every call (one key shared by
 #: parallel users, a per-model hourly cap) costs the job one minute, not one minute per call.
@@ -192,7 +195,7 @@ def call_with_retries(fn: Callable[[], Any], *, tally: CallTally | None = None, 
             after = retry_after_s(exc)
             if after is not None:
                 wait = max(wait, after + random.uniform(0.0, 1.0))
-            if slept + wait > budget:
+            if slept + wait > budget or tally.waited_s + wait > JOB_RETRY_BUDGET_S:
                 tally.record(False, kind)
                 with tally._lock:
                     tally.cooldown_until = time.monotonic() + COOLDOWN_S

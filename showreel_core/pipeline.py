@@ -877,7 +877,7 @@ BUILD_KINDS = frozenset({"file_write", "file_patch", "terminal", "browser_nav", 
 NOTHING_BUILT = ("This chat hasn't built anything yet (no files written, no commands run), so there's no product "
                  "to film: /hype makes a trailer of what a session builds.",
                  "To film this chat anyway, ask for the making-of (`/hype lore`) or give a direction "
-                 "(`/hype a noir teaser about cat names`); from a terminal, `hermes hype render --mode lore` or "
+                 "(`/hype a noir teaser of this chat`); from a terminal, `hermes hype render --mode lore` or "
                  "`--direction \"...\"`.")
 
 
