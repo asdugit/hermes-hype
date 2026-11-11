@@ -563,7 +563,10 @@ def _compose(r: _Run, *, use_model: bool) -> Version | None:
         value, errors, _w = _validate(r, compose.assemble(brief, bp, pick))
     if value is None:
         r.emit("compose", f"Blueprint {bp.id} did not validate: {'; '.join(errors)[:300]}", level="error")
-        alt = [b for _, b in compose.rank(bps, brief.direction, brief) if b.id != bp.id and not b.blender]
+        ranked = compose.rank(bps, brief.direction, brief)
+        top = ranked[0][0] if ranked else 0.0
+        # only alternatives that still match the direction (a documentary must not become a boss battle)
+        alt = [b for s, b in ranked if b.id != bp.id and not b.blender and (s >= 0.5 * top or top <= 0.6)]
         for b in alt[:2]:
             value, errors, _w = _validate(r, compose.assemble(brief, b, compose.default_pick([b], brief)))
             if value is not None:
@@ -924,7 +927,8 @@ def _dry_run(r: _Run, v: Version) -> bool:
     """Build the page and render probe frames for CHANGED shots only; repair scenes that throw, fall back when
     tries run out. Keyframes whose fingerprint is unchanged come from the cache (no re-render)."""
     v.frames = plan_keyframes(v.film, r.budget.keyframes_per_shot)
-    for loop in range(r.budget.scene_tries + 2):
+    stalls = 0
+    for loop in range(r.budget.scene_tries + 4):
         r.check_cancel()
         if hasattr(r.renderer, "blender_times"):
             r.renderer.blender_times = _blender_times(v)
@@ -971,6 +975,10 @@ def _dry_run(r: _Run, v: Version) -> bool:
             r.shot_ok.update(sfp.values())
             return True
         if not by_scene:
+            if stalls < 2 and re.search(r"timed out|stall|crash|disconnect|closed", pv.load_error or "", re.I):
+                stalls += 1             # an intermittent browser stall: retry with a fresh browser, not a new film
+                r.warn("dryrun", f"Browser stalled ({pv.load_error[:120]}); retrying with a fresh browser")
+                continue
             r.emit("dryrun", f"The page does not load and no custom scene is to blame: {pv.load_error[:300]}",
                    level="error")
             return False

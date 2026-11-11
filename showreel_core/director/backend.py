@@ -184,9 +184,13 @@ class RuntimeRenderer:
         t0 = time.monotonic()
         found = self.blender.get("path") if isinstance(self.blender, dict) else self.blender
         # frames are materialised under the page dir (manifest paths are relative to it); the cache survives
-        bp = render_film_shots(film, page_dir, blender=found, tier="preview", assets=full, times=times,
-                               lock=self.blender_lock, min_free_gb=self.blender_min_free_gb, scenes=sources,
-                               cache_dir=jd / "director" / "blender-cache")
+        for attempt in range(4):          # a busy machine is not a broken film: wait for memory, then retry
+            bp = render_film_shots(film, page_dir, blender=found, tier="preview", assets=full, times=times,
+                                   lock=self.blender_lock, min_free_gb=self.blender_min_free_gb, scenes=sources,
+                                   cache_dir=jd / "director" / "blender-cache")
+            if bp.ok or not any("free memory" in str(e) for e in (getattr(bp, "errors", None) or [])) or attempt == 3:
+                break
+            time.sleep(60)
         self.blender_log.append({"ok": bp.ok, "seconds": round(time.monotonic() - t0, 1), "times": len(times or []),
                                  "errors": list(getattr(bp, "errors", []) or [])[:4]})
         if not bp.ok:
