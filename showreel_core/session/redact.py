@@ -200,7 +200,8 @@ def _secret_assignment(name: str, val: str) -> bool:
 
 def _login_names(home: str, *, with_getpass: bool = True) -> list[str]:
     """The local login name(s): the home folder's name and (without an explicit home) ``getpass``."""
-    names = [os.path.basename(home.rstrip("\\/"))] if home else []
+    # split on both separators: os.path.basename keeps a Windows-style home ("C:\Users\alice") whole on POSIX
+    names = [re.split(r"[\\/]", home.rstrip("\\/"))[-1]] if home else []
     if with_getpass:
         try:
             import getpass
