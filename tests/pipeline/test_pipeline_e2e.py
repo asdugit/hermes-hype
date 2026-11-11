@@ -438,3 +438,48 @@ def test_directed_cue_sheet_narration_and_gpu_reach_the_back_half(env: dict[str,
     assert fits[-1]["last"] == pytest.approx(6.5)                        # last word 16.5 s, in the 2nd segment
     assert rec.calls["join_music"] == [{"parts": 2, "xfade": 0.6}]
     assert any("music cue sheet" in str(e.get("msg", "")) for e in final.get("log", []))
+
+
+def _stalling_layout(deps: Any, fatal: list[dict[str, Any]]) -> list[int]:
+    """Wrap deps.layout_qa: the first len(fatal) calls return those fatals, then the real fake answers."""
+    calls: list[int] = []
+    real = deps.layout_qa
+
+    def layout_qa(built: Any, times: list[float], thumbs_dir: Any) -> dict[str, Any]:
+        calls.append(1)
+        if len(calls) <= len(fatal):
+            return {"fatal": fatal[len(calls) - 1]}
+        return real(built, times, thumbs_dir)
+    deps.layout_qa = layout_qa
+    return calls
+
+
+STALL = {"code": "cdp_timeout", "message": "Page.captureScreenshot timed out after 60s"}
+
+
+def test_layout_qa_stall_is_retried_with_a_fresh_browser(env: dict[str, Any]) -> None:
+    store, rec = env["store"], Recorder()
+    deps = make_deps(rec)
+    calls = _stalling_layout(deps, [STALL])
+    final = run_job(_job(store, seconds=30)["id"], _host()[0], store=store, deps=deps)
+    assert final["stage"] == "done" and len(calls) == 2 and final["thumbs"]
+    assert not any("skipped" in w for w in final.get("warnings") or [])
+
+
+def test_layout_qa_stalling_twice_is_skipped_and_the_film_still_renders(env: dict[str, Any]) -> None:
+    """Real E2E (pixel 30 both, busy machine): one capture stall in layout QA failed the whole film."""
+    store, rec = env["store"], Recorder()
+    deps = make_deps(rec)
+    calls = _stalling_layout(deps, [STALL, STALL])
+    final = run_job(_job(store, seconds=30)["id"], _host()[0], store=store, deps=deps)
+    assert final["stage"] == "done", final.get("error")
+    assert len(calls) == 2 and rec.n("render") >= 1
+    assert any("layout QA 16:9 skipped" in w for w in final["warnings"])
+
+
+def test_a_page_that_cannot_load_still_fails(env: dict[str, Any]) -> None:
+    store, rec = env["store"], Recorder()
+    deps = make_deps(rec)
+    _stalling_layout(deps, [{"code": "page_load", "message": "ReferenceError: __sr is not defined"}])
+    final = run_job(_job(store, seconds=30)["id"], _host()[0], store=store, deps=deps)
+    assert final["stage"] == "failed" and final["error"]["code"] == "page_broken"

@@ -1280,10 +1280,7 @@ def _layout(run: _Run) -> None:
     thumbs: list[str] = []
     for k, b in enumerate(run.built):
         run.cancel.check()
-        res = run.deps.layout_qa(b, b.scene_times[:24], run.job_dir / "thumbs" if k == 0 else None)
-        if res.get("fatal"):
-            raise StageError("page_broken", f"the film page failed to load: {res['fatal'].get('message')}",
-                             res["fatal"].get("hint", ""))
+        res = _layout_qa(run, b, run.job_dir / "thumbs" if k == 0 else None)
         issues = res.get("issues") or []
         report[b.aspect] = {"issues": issues[:200], "errors": (res.get("errors") or [])[:50]}
         page_cues = [c for c in res.get("cues") or [] if isinstance(c, dict) and "t" in c and "sfx" in c]
@@ -1295,6 +1292,31 @@ def _layout(run: _Run) -> None:
         run.rep.progress((k + 1) / len(run.built))
     (run.job_dir / "layout_report.json").write_text(json.dumps(report, indent=1, default=str), encoding="utf-8")
     run.store.update(run.job_id, thumbs=thumbs)
+
+
+def _stalled(fatal: dict[str, Any]) -> bool:
+    """A capture stall/lost browser (worth a fresh browser), not a page that cannot load."""
+    return str(fatal.get("code", "")) in ("cdp_timeout", "cdp_closed") or "timed out" in str(fatal.get("message", ""))
+
+
+def _layout_qa(run: _Run, b: Built, thumbs_dir: Path | None) -> dict[str, Any]:
+    """Layout QA of one aspect. ``Page.captureScreenshot`` stalls are intermittent (busy machines): retry once with
+    a fresh browser, then skip QA with a warning and render anyway (the renderer restarts stalled workers itself).
+    A page that really cannot load still fails the build (-> the launch fallback)."""
+    msg = ""
+    for attempt in (1, 2):
+        res = run.deps.layout_qa(b, b.scene_times[:24], thumbs_dir)
+        fatal = res.get("fatal")
+        if not fatal:
+            return res
+        msg = str(fatal.get("message", ""))
+        if not _stalled(fatal):
+            raise StageError("page_broken", f"the film page failed to load: {msg}", fatal.get("hint", ""))
+        if attempt == 1:
+            run.info(f"layout QA {b.aspect}: {msg}; retrying with a fresh browser", level="warn")
+            run.cancel.check()
+    run.warn(f"layout QA {b.aspect} skipped: the page capture stalled twice ({msg}); rendering anyway")
+    return {}
 
 
 def _render_spec(run: _Run, b: Built, *, gpu: str, workers: int | None) -> Any:
