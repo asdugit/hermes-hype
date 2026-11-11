@@ -250,7 +250,8 @@ def test_mood_grade_changes_the_whole_look(tmp_path: Path) -> None:
     from showreel_core.render.post import build_post
     film: dict[str, Any] = {"render": {"post": "crt", "post_params": {"crt": {"glow": 0.4}}}, "finish": {}}
     assert compose.mood_look(film, "a 1980s VHS infomercial") == ["vhs"]
-    assert film["render"]["post"] == "crt+grade" and film["render"]["post_params"]["crt"] == {"glow": 0.4}
+    assert film["render"]["post"] == "crt+grade"
+    assert film["render"]["post_params"]["crt"] == {"glow": 0.4, "scanline": 0.3}     # kit glow kept, scanlines on
     assert film["render"]["post_params"]["grade"]["shift"] > 0 and film["render"]["post_params"]["grade"]["wobble"]
     noir: dict[str, Any] = {}
     compose.mood_look(noir, "a noir detective trailer", hold="#c8102e")
