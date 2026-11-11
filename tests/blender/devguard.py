@@ -22,7 +22,7 @@ def min_free_gb() -> float:
 
 
 @contextlib.contextmanager
-def blender_lock(who: str = "showreel-A", poll_s: float = 5.0, stale_s: float = 3 * 3600) -> Iterator[None]:
+def blender_lock(who: str = "showreel-A", poll_s: float = 0.5, stale_s: float = 3 * 3600) -> Iterator[None]:
     path = os.environ.get("SHOWREEL_DEV_BLENDER_LOCK")
     if not path:
         yield
