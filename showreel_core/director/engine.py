@@ -1259,6 +1259,43 @@ def _late(r: _Run, frac: float) -> str:
     return f"{spent / 60:.0f} of the {r.effort} effort's {dl / 60:.0f} min used" if dl and spent > frac * dl else ""
 
 
+def _graded_images(r: _Run, v: Version) -> list[bytes]:
+    """The keyframes as the viewer will see them: the direction's mood grade (black and white + the held colour
+    + rain for noir, tape for VHS...) applied to each still, so the critic judges the real look (noir films were
+    judged on colour frames). Never fatal: any problem returns the plain keyframes."""
+    try:
+        film = copy.deepcopy(v.film)
+        compose.mood_look(film, r.brief.direction,
+                          hold=compose.product_color(r.brief) if compose.physical(r.brief) else "")
+        gp = ((film.get("render") or {}).get("post_params") or {}).get("grade")
+        if not gp or not v.images:
+            return list(v.images)
+        import io
+        import subprocess
+
+        from PIL import Image
+
+        from ..render.ffmpeg import resolve_ffmpeg
+        from ..render.post import build_post
+        ff = resolve_ffmpeg().path
+        work = r.ddir / "gradework"
+        work.mkdir(parents=True, exist_ok=True)
+        out: list[bytes] = []
+        for i, img in enumerate(v.images):
+            w, h = Image.open(io.BytesIO(img)).size
+            pc = build_post("grade", in_size=(w, h), out_size=(w, h), seed=i, params={"grade": gp}, work_dir=work)
+            res = subprocess.run([ff, "-v", "error", "-f", "png_pipe", "-i", "-", *pc.extra_inputs, "-filter_complex",
+                                  pc.graph, "-map", "[vout]", "-frames:v", "1", "-f", "image2pipe", "-vcodec", "png",
+                                  "-"], input=img, capture_output=True, timeout=60, check=False)
+            if res.returncode or not res.stdout:
+                raise RuntimeError(res.stderr.decode("utf-8", "replace")[-300:])
+            out.append(res.stdout)
+        return out
+    except Exception as exc:  # noqa: BLE001 - the critic still gets the plain keyframes
+        r.emit("critic", f"Keyframes shown ungraded ({type(exc).__name__}: {str(exc)[:160]})", level="debug")
+        return list(v.images)
+
+
 def _critique(r: _Run, v: Version, rnd: int, *, measured_only: bool = False) -> RoundScore | None:
     """Contact sheet(s) -> vision critic -> rubric; stores the score on the version."""
     if not v.images:
@@ -1266,12 +1303,13 @@ def _critique(r: _Run, v: Version, rnd: int, *, measured_only: bool = False) -> 
     vdir = r.ddir / f"v{v.n}"
     kdir = vdir / "keyframes"
     kdir.mkdir(parents=True, exist_ok=True)
-    for f, img in zip(v.frames, v.images, strict=False):
+    shown = _graded_images(r, v)
+    for f, img in zip(v.frames, shown, strict=False):
         p = kdir / f"{f.cell:02d}-{f.shot}.png"
         p.write_bytes(img)
         f.path = str(p)
     _save_frames(r, v)
-    sheets = contact_sheets(v.images, v.frames, vdir, prefix="contact")
+    sheets = contact_sheets(shown, v.frames, vdir, prefix="contact")
     v.sheets = list(sheets)
     r.emit("critic", f"Critic round {rnd}: reviewing {len(v.frames)} keyframes on {len(sheets)} sheet(s)",
            sheets=[str(s) for s in sheets])

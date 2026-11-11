@@ -640,3 +640,37 @@ def test_hue_hold_keeps_only_the_product_red(tmp_path: Path) -> None:
     for other in ("#f4a6c0", "#e0559a", "#f2d04a", "#e87a2a", "#d9a07a", "#c0307a", "#808080"):
         assert mask(other) == 0.0, other
     _ = colorsys, io
+
+
+def test_critic_sees_the_graded_keyframes(tmp_path: Path) -> None:
+    """Noir films were critiqued on colour frames; the critic's keyframes now carry the mood grade."""
+    import io
+    from types import SimpleNamespace
+
+    import pytest
+    from PIL import Image
+
+    from showreel_core.director import engine
+    from showreel_core.render.errors import RenderError
+    from showreel_core.render.ffmpeg import resolve_ffmpeg
+    try:
+        resolve_ffmpeg()
+    except RenderError:
+        pytest.skip("no ffmpeg")
+    im = Image.new("RGB", (96, 54), (240, 210, 60))           # yellow field ...
+    im.paste((184, 34, 31), (30, 15, 66, 40))                   # ... with the red product in it
+    buf = io.BytesIO()
+    im.save(buf, "PNG")
+    b = _car_brief(tmp_path, "a noir detective trailer")
+    Image.new("RGB", (96, 54), (184, 34, 31)).save(b.assets[0].thumbnail)
+    r = SimpleNamespace(brief=b, ddir=tmp_path, emit=lambda *a, **k: None)
+    out = engine._graded_images(r, SimpleNamespace(film={"shots": []}, images=[buf.getvalue()]))
+    g = Image.open(io.BytesIO(out[0])).convert("RGB")
+    y = g.getpixel((5, 5))
+    red = g.getpixel((48, 27))
+    assert max(y) - min(y) < 20                                  # the yellow went grey
+    assert red[0] > red[1] + 60                                  # the product kept its red
+    plain = engine._graded_images(SimpleNamespace(brief=_car_brief(tmp_path, "a calm film"), ddir=tmp_path,
+                                                  emit=lambda *a, **k: None),
+                                  SimpleNamespace(film={"shots": []}, images=[buf.getvalue()]))
+    assert plain == [buf.getvalue()]
