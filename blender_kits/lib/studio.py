@@ -289,7 +289,14 @@ def setup_render(s: Shot, *, view: str = "standard", look: str = "None", exposur
     _try(ee, "use_motion_blur", tier["mblur"])
     vt = {"standard": "Standard", "agx": "AgX", "filmic": "Filmic"}.get(view, "Standard")
     scn.view_settings.view_transform = vt
-    _try(scn.view_settings, "look", look if vt != "Standard" else "None")
+    if vt == "Standard" or not look or look == "None":
+        _try(scn.view_settings, "look", "None")
+    elif look == "punchy":   # 'AgX - Punchy' (4.x) / 'Punchy' (5.x): keeps saturated paints saturated
+        for name in ("AgX - Punchy", "Punchy", "None"):
+            if _try(scn.view_settings, "look", name):
+                break
+    else:
+        _try(scn.view_settings, "look", look)
     scn.view_settings.exposure = exposure
     scn.view_settings.gamma = 1.0
     scn.display_settings.display_device = "sRGB"

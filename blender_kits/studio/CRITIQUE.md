@@ -10,3 +10,12 @@ purpose (boxy body, simple wheels) — judge the stage/camera/light, not the mod
   specular streak, not a flood → diffuse_factor 0.12 and ~700.
 - Same rear-rim floor blob as the device kit (bright white pool front-right); black void backdrop (cyc glow
   missing); tyres read grey under AgX (rubber ok up close).
+
+## W5 (2026-11-11, B1's test car `testmedia/car3d/car.glb`, preview + final)
+- The glb's body paint imports WHITE (the exporter drops a node-driven base colour) -> `paint` param (hex) recolours
+  the largest non-glass material, drops node-driven roughness (crisp candy coat). Default yaw showed the REAR: this
+  car faces +Y (glTF-conformant models face -Y) -> the sample passes `yaw: 118`.
+- Final at full light: the red washed to salmon, sweep blew the flank white (5/10) -> `exposure` -0.6 EV default,
+  AgX Punchy look, sweep 700 -> 420, reveal starts at 12 % (dim silhouette on frame 1, the film never opens black).
+  After: deep red, crisp highlights, no blown areas (7/10). Backdrop stays near-black (car floats a little; the
+  floor reflection is faint) - next: a brighter cyc glow for large products.

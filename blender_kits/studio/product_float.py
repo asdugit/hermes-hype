@@ -25,6 +25,8 @@ PARAMS = {
     "view": {"type": "enum", "values": ["agx", "standard", "filmic"], "default": "agx", "doc": "tone mapping"},
     "paint": {"type": "color", "default": None,
               "doc": "recolour the body paint (largest non-glass material), e.g. '#b5121b'; default keeps the model's"},
+    "exposure": {"type": "float", "default": -0.6, "min": -3.0, "max": 2.0,
+                 "doc": "exposure (EV); the default keeps saturated paints deep under AgX (at 0 a red washed to salmon)"},
     "clearcoat": {"type": "enum", "values": ["auto", "on", "off"], "default": "auto", "doc": "body paint clear coat"},
     "size_m": {"type": "float", "default": None, "doc": "force the largest dimension (m)"},
 }
@@ -36,7 +38,7 @@ DESCRIBE = ("The product hovers above a dark cyc pooled in its accent colour, tu
 def build(sc) -> None:
     s = studio.shot(sc, PARAMS)
     p = s.params
-    studio.setup_render(s, view=p["view"])
+    studio.setup_render(s, view=p["view"], look="punchy", exposure=float(p.get("exposure") or 0.0))
     sub = cm.load_subject(s)
     cm.upgrade_paint(sub, p["clearcoat"], p.get("paint"))
     H = sub.size[2]

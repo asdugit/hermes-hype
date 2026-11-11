@@ -33,6 +33,8 @@ PARAMS = {
                   "doc": "wheel spin (rev/s) when wheels are detected; 0 = parked"},
     "paint": {"type": "color", "default": None,
               "doc": "recolour the body paint (largest non-glass material), e.g. '#b5121b'; default keeps the model's"},
+    "exposure": {"type": "float", "default": -0.6, "min": -3.0, "max": 2.0,
+                 "doc": "exposure (EV); the default keeps saturated paints deep under AgX (at 0 a red washed to salmon)"},
     "clearcoat": {"type": "enum", "values": ["auto", "on", "off"], "default": "auto",
                   "doc": "add a clear coat to the body paint (auto: vehicles, i.e. wheels detected)"},
     "view": {"type": "enum", "values": ["agx", "standard", "filmic"], "default": "agx",
@@ -48,7 +50,7 @@ DESCRIBE = ("3D product hero in a premium studio: from darkness the rims draw th
 def build(sc) -> None:
     s = studio.shot(sc, PARAMS)
     p = s.params
-    studio.setup_render(s, view=p["view"], look="None")
+    studio.setup_render(s, view=p["view"], look="punchy", exposure=float(p.get("exposure") or 0.0))
     sub = cm.load_subject(s)
     cm.upgrade_paint(sub, p["clearcoat"], p.get("paint"))
     r = sub.radius
@@ -65,8 +67,8 @@ def build(sc) -> None:
                       floor=p["floor"], sweep=bool(p["reveal"]), key_side=-1.0 if p["yaw"] <= 0 else 1.0,
                       cam_dist=dist)
     if p["reveal"]:
-        studio.animate_reveal(s, st, t0=-0.1, t1=D * 0.55, from_level=0.03)
-        studio.animate_sweep(s, st, t0=D * 0.08, t1=D * 0.75, center=tuple(c), radius=r, energy=700.0,
+        studio.animate_reveal(s, st, t0=-0.1, t1=D * 0.55, from_level=0.12)  # dim silhouette at frame 1, never black
+        studio.animate_sweep(s, st, t0=D * 0.08, t1=D * 0.75, center=tuple(c), radius=r, energy=420.0,
                              height=0.9)
     yaw, pitch, arc = p["yaw"], p["pitch"], p["orbit_deg"]
     tgt = (c.x, c.y, c.z * 0.85)

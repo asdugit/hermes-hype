@@ -87,7 +87,7 @@ def build(sc) -> None:
     if s.vertical or space not in ("left", "right"):
         space = "none"
     if space != "none":
-        fill *= 0.8
+        fill *= 0.74
     dist = studio.fit_distance(w_fit, h_fit, lens1, s.aspect, fill)
     st = cm.setup(s, preset=p["env"], center=tuple(center), radius=radius, sweep=bool(p["reveal"]),
                   key_side=sgn, cam_dist=dist)
@@ -143,7 +143,7 @@ def build(sc) -> None:
         if space != "none":
             right = Vector((math.cos(math.radians(yaw)), math.sin(math.radians(yaw)), 0.0))
             half_w = dd * 18.0 / ln     # half frame width at the subject (36 mm sensor)
-            tg = tg + right * (half_w * 0.34 * (-1.0 if space == "left" else 1.0))
+            tg = tg + right * (half_w * 0.42 * (-1.0 if space == "left" else 1.0))
         pos = Vector(studio.look_from(tuple(tg), yaw, pitch, dd))
         beats.append(studio.Beat(t_b, tuple(pos), tuple(tg), ln))
     scr_c = _screen_centres(dev, s)
