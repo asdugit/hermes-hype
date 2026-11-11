@@ -489,3 +489,57 @@ def test_quick_effort_is_kit_first_and_time_boxed(tmp_path: Path) -> None:
     assert res.ok and res.tier["path"] == "compose", res.error
     assert not {"treatment", "film", "revise-film"} & set(llm.purposes())
     assert not any(p.startswith("scene") for p in llm.purposes()) and len(res.scores) == 1
+
+
+# ------------------------------------------------------------------------------------ Blender shots degrade per shot
+
+
+class _BlenderFailRenderer(FakeRenderer):
+    """Fake runtime whose Blender pass fails a `blender:meadow/oner` shot (like the real 'beat times must increase
+    strictly' when the model asks hero_at before the move's fixed beats) while ``bad(params)`` holds."""
+
+    def __init__(self, bad: Any, **kw: Any) -> None:
+        super().__init__(**kw)
+        self.bad = bad
+
+    def build(self, film: dict[str, Any], page_dir: Path, **kw: Any) -> list[str]:
+        errs = super().build(film, page_dir, **kw)
+        for s in film["shots"]:
+            if s["scene"] == "blender:meadow/oner" and self.bad(s.get("params") or {}):
+                return [f"Blender: shot {s['id']} (blender:meadow/oner): Blender scene failed: ValueError: beat "
+                        "times must increase strictly"]
+        return errs
+
+
+def _meadow_doc(tmp: Path, renderer: FakeRenderer) -> Any:
+    b = _car_brief(tmp, "a nature documentary narrated by a hushed voice", blender=True)
+    llm = FakeLlm({"pick": [{"blueprint": "meadow-documentary", "voice": "narrated", "tagline": "Rare.",
+                             "cta": "Look closer"}], "words": ["{}"], "critic": [critique(6.0)]})
+    return run(b, llm=llm, renderer=renderer, effort="quick", job_dir=tmp / "job", library_dir=tmp / "lib",
+               catalog=build_catalog(assets=b.assets, capabilities=b.capabilities),
+               tier=tiers.detect("claude-haiku-4-5"))
+
+
+def test_failing_blender_shot_retries_with_default_params(tmp_path: Path) -> None:
+    """doc-car2 (resumed car documentary) died with director_failed after 20 min: one Blender shot's params broke
+    its scene and the page build error ended the whole film. Now the shot's numeric params reset to the scene
+    defaults (t_offset kept) and the film goes on."""
+    rd = _BlenderFailRenderer(lambda p: "density" in p)
+    res = _meadow_doc(tmp_path, rd)
+    assert res.ok, res.error
+    film = json.loads(Path(res.film_path).read_text(encoding="utf-8"))
+    oner = [s for s in film["shots"] if s["scene"] == "blender:meadow/oner"]
+    assert oner and all("density" not in s["params"] and "t_offset" in s["params"] for s in oner)
+    assert oner[0]["params"].get("time_of_day") and oner[0]["params"].get("figure") is True
+    log = (tmp_path / "job" / "director" / "log.jsonl").read_text(encoding="utf-8")
+    assert "retrying with the scene's default" in log
+
+
+def test_blender_shot_that_keeps_failing_gets_a_kit_stand_in(tmp_path: Path) -> None:
+    rd = _BlenderFailRenderer(lambda p: True)
+    res = _meadow_doc(tmp_path, rd)
+    assert res.ok, res.error
+    film = json.loads(Path(res.film_path).read_text(encoding="utf-8"))
+    assert not [s for s in film["shots"] if s["scene"] == "blender:meadow/oner"]
+    assert any(s["scene"] == "kit:nature/flower-field" and s["params"].get("product") == "car"
+               for s in film["shots"])

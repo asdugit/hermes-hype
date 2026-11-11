@@ -974,6 +974,8 @@ def _dry_run(r: _Run, v: Version) -> bool:
                                 library_dir=r.library_dir)
         r.built_n = v.n
         if errs:
+            if _repair_blender_shots(r, v, errs):
+                continue                # a failing Blender shot degrades per shot: rebuild with its repair
             r.emit("dryrun", f"Page build failed: {'; '.join(errs)[:300]}", level="error")
             return False
         sfp = {s["id"]: shot_fingerprint(v, s) for s in v.film["shots"]}
@@ -1035,6 +1037,56 @@ def _dry_run(r: _Run, v: Version) -> bool:
                 return False
     r.emit("dryrun", "Dry run still failing after repairs", level="error")
     return False
+
+
+_BLENDER_SHOT_ERR = re.compile(r"^Blender: shot (\S+) \((blender:[^)\s]+)\): (.*)$", re.DOTALL)
+# kit scenes that stand in for a Blender shot whose scene keeps failing (the nearest kit world, with the product)
+BLENDER_STAND_INS = (("blender:meadow/", "kit:nature/flower-field"), ("blender:", "kit:nature/product-hero"))
+_KEEP_NUMERIC = ("t_offset",)        # continuity, not taste: a continuation shot keeps its place in the move
+
+
+def _repair_blender_shots(r: _Run, v: Version, errs: list[str]) -> bool:
+    """A `blender:` shot whose Blender scene fails degrades PER SHOT, never the whole film: first its numeric
+    params go back to the scene's defaults, then the shot becomes a kit stand-in. A resumed car documentary died
+    with director_failed after 20 min because one oner shot asked `hero_at: 15` (before the move's fixed 17.3 s
+    beat: "beat times must increase strictly"). True when the film changed (rebuild)."""
+    changed = False
+    scenes = r.catalog.scenes()
+    for e in errs:
+        m = _BLENDER_SHOT_ERR.match(str(e))
+        if not m:
+            continue
+        sid, scene, why = m.groups()
+        shot = next((s for s in v.film["shots"] if str(s.get("id")) == sid and s.get("scene") == scene), None)
+        if shot is None:
+            continue
+        key = f"blender:{sid}"
+        n = v.tries.get(key, 0)
+        v.tries[key] = n + 1
+        params = dict(shot.get("params") or {})
+        if n == 0:
+            keep = {k: p for k, p in params.items()
+                    if k in _KEEP_NUMERIC or isinstance(p, bool) or not isinstance(p, (int, float))}
+            if keep != params:
+                shot["params"] = keep
+                r.warn("dryrun", f"Blender shot {sid} ({scene}) failed: {why[:140]}; retrying with the scene's "
+                                 f"default {', '.join(sorted(set(params) - set(keep)))}")
+                changed = True
+                continue
+        target = next((k for pre, k in BLENDER_STAND_INS if scene.startswith(pre)), "")
+        if not target or target not in scenes:
+            continue
+        prod = compose.facts(r.brief).get("product") or ""
+        tod = str(params.get("time_of_day") or "golden")
+        shot["scene"] = target
+        shot["params"] = ({"product": prod, "time": tod if tod in ("dawn", "golden", "sunset") else "golden",
+                           "camera": "drift", "count": 3} if target.endswith("flower-field")
+                          else {"product": prod, "time": "golden"})
+        shot.pop("res", None)
+        v.fallbacks[key] = target
+        r.warn("dryrun", f"Blender shot {sid} ({scene}) keeps failing ({why[:140]}) -> kit stand-in {target}")
+        changed = True
+    return changed
 
 
 def _blender_shot_ids(film: dict[str, Any]) -> set[str]:
