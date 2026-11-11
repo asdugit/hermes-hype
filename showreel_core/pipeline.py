@@ -1549,9 +1549,12 @@ _NO_MODEL_FLAGS = ("model_unavailable", "no_model", "model_failed", "all_calls_f
 def _director_model_note(run: _Run, res: dict[str, Any], before: dict[str, Any]) -> None:
     """A Directed film whose model calls ALL failed (rate limit, outage) is the engine's default plan for the
     direction, not a film the model directed: say so in the reply, status and pane (``job.model_note``). Real E2E:
-    every call met HTTP 429, the film was delivered with no word about it, and the user would never retry."""
+    every call met HTTP 429, the film was delivered with no word about it, and the user would never retry.
+    The Director's own plain ``notes`` (result field) become job notes too; its no-model note is replaced by ours,
+    which names the cause without the provider's raw error text."""
     delta = run.host.calls.since(before)
     flagged = any(bool(res.get(k)) for k in _NO_MODEL_FLAGS)
+    dnotes = [str(n) for n in (res.get("notes") or []) if isinstance(n, str) and n.strip()]
     tier = res.get("tier") if isinstance(res.get("tier"), dict) else {}
     usage = res.get("usage") if isinstance(res.get("usage"), dict) else {}
     try:
@@ -1562,6 +1565,8 @@ def _director_model_note(run: _Run, res: dict[str, Any], before: dict[str, Any])
     tally_dead = delta["calls"] > 0 and delta["ok"] == 0
     from .llm import failure_reason
     if not (flagged or tally_dead or ledger_dead):
+        for n in dnotes[:3]:
+            run.warn(n)
         why = failure_reason(delta)
         if why and delta["failed"] * 2 >= delta["calls"] > 0:
             note = (f"{why[:1].upper()}{why[1:]} for {delta['failed']} of {delta['calls']} calls, so parts of this "
@@ -1569,10 +1574,18 @@ def _director_model_note(run: _Run, res: dict[str, Any], before: dict[str, Any])
             run.warn(note)
             run.store.update(run.job_id, model_note=note, model_calls=delta)
         return
-    why = failure_reason(delta) or "the model could not be reached"
-    note = (f"{why[:1].upper()}{why[1:]} for every call, so this film uses the engine's default plan for your "
-            "direction (not one the model wrote). Run it again later for a model-directed film.")
+    why = failure_reason(delta)
+    if why:
+        note = (f"{why[:1].upper()}{why[1:]} for every call, so this film uses the engine's default plan for your "
+                "direction (not one the model wrote). Run it again later for a model-directed film.")
+    elif res.get("no_model") and dnotes:
+        note = re.sub(r" \(.*?\)(?=, so this film)", "", dnotes[0], flags=re.S)    # no raw provider error
+    else:
+        note = ("The model could not be reached, so this film uses the engine's default plan for your direction "
+                "(not one the model wrote). Run it again later for a model-directed film.")
     run.warn(note)
+    for n in (dnotes[1:] if res.get("no_model") else dnotes)[:3]:
+        run.warn(n)
     run.store.update(run.job_id, model_note=note, model_calls=delta)
     run.info("director model calls", calls=delta, tier=tier.get("path") or tier.get("tier") or "")
 

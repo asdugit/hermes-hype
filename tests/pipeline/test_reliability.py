@@ -150,6 +150,31 @@ def test_a_director_flag_is_read_when_present(env: dict[str, Any]) -> None:
     assert final.get("model_note")
 
 
+def test_the_directors_own_notes_reach_the_user_without_raw_errors(env: dict[str, Any]) -> None:
+    store = env["store"]
+    raw = ("The model did not answer usably (RateLimitError: Error code: 429 - {'type': 'error', 'request_id': "
+           "'req_011C (x)'}), so this film was assembled by the engine from your direction's words and the product "
+           "facts, without the model's own words or choices.")
+
+    def director(*, job_dir: Path, **_: Any) -> dict[str, Any]:
+        return {"ok": True, "status": "done", "film": _directed_film(), "job_dir": str(job_dir), "no_model": True,
+                "notes": [raw]}
+
+    final = run_job(_job(store, seconds=15, direction="noir")["id"], _host(), store=store,
+                    deps=make_deps(Recorder(), director=director))
+    note = final["model_note"]
+    assert note.startswith("The model did not answer usably, so this film was assembled") and "req_" not in note
+    assert "{" not in done_text(final, media=False)
+
+    def director2(*, job_dir: Path, **_: Any) -> dict[str, Any]:
+        return {"ok": True, "status": "done", "film": _directed_film(), "job_dir": str(job_dir),
+                "notes": ["The model's free-form script failed, so the film was composed from a proven blueprint."]}
+
+    final2 = run_job(_job(store, "sess-2", seconds=15, direction="noir")["id"], _host(), store=store,
+                     deps=make_deps(Recorder(), director=director2))
+    assert any("proven blueprint" in w for w in final2["warnings"]) and not final2.get("model_note")
+
+
 def test_a_render_chunk_retry_that_worked_is_not_a_user_note(env: dict[str, Any]) -> None:
     store = env["store"]
 
