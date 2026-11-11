@@ -1,5 +1,12 @@
 """9:16 films show the phone capture of a page instead of its desktop capture (ISSUES #52)."""
-from showreel_core.contracts import Event, Product, SceneType, Stats, Storyboard, StoryScene
+from showreel_core.contracts import (
+    Event,
+    Product,
+    SceneType,
+    Stats,
+    Storyboard,
+    StoryScene,
+)
 from showreel_core.story.timing import solve_timeline
 
 T = SceneType

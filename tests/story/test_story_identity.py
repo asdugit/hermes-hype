@@ -14,9 +14,8 @@ from showreel_core.story.generate import LlmReply, generate_storyboard_report
 from showreel_core.story.heuristic import build_heuristic_storyboard
 from showreel_core.story.identity import replace_name, same_product, toolish_words
 from showreel_core.story.options import StoryOptions
-from showreel_core.story.schema import storyboard_to_json
+from showreel_core.story.schema import storyboard_from_json, storyboard_to_json
 from showreel_core.story.validate import validate_storyboard
-from showreel_core.story.schema import storyboard_from_json
 
 
 class FakeLlm:
@@ -109,14 +108,17 @@ def test_no_draft_keeps_the_model_name_with_a_warning():
 
 def test_pipeline_locks_strong_names_only():
     class B:
-        product = Product(name="Orbit Notes")
-        product_evidence = {"names": [{"name": "Orbit Notes", "source": "<title> of app/index.html", "score": 0.7}]}
-    assert product_name_locked(B())
-    B.product_evidence = {"names": [{"name": "Orbit Notes", "source": "project directory", "score": 0.45}]}
-    assert not product_name_locked(B())
-    assert product_name_locked(B(), {"name": "Orbit Notes"})          # the brief names it
-    B.product = Product(name="")
-    assert not product_name_locked(B(), {"name": "x"})
+        def __init__(self):
+            self.product = Product(name="Orbit Notes")
+            self.product_evidence = {"names": [{"name": "Orbit Notes", "source": "<title> of app/index.html",
+                                                "score": 0.7}]}
+    b = B()
+    assert product_name_locked(b)
+    b.product_evidence = {"names": [{"name": "Orbit Notes", "source": "project directory", "score": 0.45}]}
+    assert not product_name_locked(b)
+    assert product_name_locked(b, {"name": "Orbit Notes"})            # the brief names it
+    b.product = Product(name="")
+    assert not product_name_locked(b, {"name": "x"})
 
 
 def test_title_brand_part_names_the_product():

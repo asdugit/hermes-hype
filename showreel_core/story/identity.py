@@ -61,7 +61,7 @@ def name_pattern(name: str) -> re.Pattern[str] | None:
     if not toks:
         return None
     sep = r"(?:'s|\u2019s)?[\s_\-]+"
-    return re.compile(r"(?<![\w])" + sep.join(re.escape(t) for t in toks) + r"(?:'s|\u2019s)?(?![\w])", re.I)
+    return re.compile(r"(?<![\w])" + sep.join(re.escape(t) for t in toks) + r"(?:'s|\u2019s)?(?![\w])", re.IGNORECASE)
 
 
 def replace_name(text: str, wrong: str, right: str) -> str:
