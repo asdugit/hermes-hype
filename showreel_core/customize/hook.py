@@ -244,7 +244,10 @@ def _spec_for(run: Any, cz: dict[str, Any], tl: Any, orig_quick: Any, kw: dict[s
     record["knobs"] = cz["knobs"]
     try:
         path.write_text(json.dumps(record, ensure_ascii=False, indent=1, default=str), encoding="utf-8")
-        run.store.update(run.job_id, customize={"summary": S.describe(spec), "source": record.get("source"),
+        knob_bits = ", ".join(f"{k}={v}" for k, v in cz["knobs"].items())
+        summary = "; ".join(x for x in ((f"knobs {knob_bits}" if knob_bits else ""),
+                                        (S.describe(spec) if spec else "")) if x) or "no changes"
+        run.store.update(run.job_id, customize={"summary": summary, "source": record.get("source"),
                                                 "text": text, "knobs": cz["knobs"]})
     except Exception:  # noqa: BLE001
         pass
