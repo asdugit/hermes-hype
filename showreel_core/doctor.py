@@ -92,10 +92,21 @@ def _services(ctx: Any) -> list[dict[str, Any]]:
     try:
         from tools.registry import registry  # public, lazy
         tts = registry.get_entry("text_to_speech") is not None
+        if not tts:   # the bare `hermes showreel` CLI has no agent: discover the built-ins like `render` does
+            from tools.registry import discover_builtin_tools  # public, lazy
+            discover_builtin_tools()
+            tts = registry.get_entry("text_to_speech") is not None
     except Exception:  # noqa: BLE001
         tts = False
     out.append(_check("narration (text_to_speech)", tts, "registered" if tts else "not registered here",
                       "films get captions only; Edge TTS needs the edge-tts extra", False))
+    if tts:
+        from .llm import edge_tts_problem
+        problem = edge_tts_problem()
+        if problem:
+            out.append(_check("narration (edge-tts version)", False, problem.split(";")[0],
+                              "narration fails, films are captions-only until Hermes is updated "
+                              "(Showreel never changes packages in the Hermes environment)", False))
     return out
 
 

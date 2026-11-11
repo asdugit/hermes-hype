@@ -270,6 +270,11 @@ def _d_speed_check(speed: float) -> str | None:
     return tts_speed_conflict(speed)
 
 
+def _d_tts_problem() -> str | None:
+    from .llm import edge_tts_problem
+    return edge_tts_problem()
+
+
 def _d_pick_bed(style: str, seed: int, bed_id: str | None = None) -> Any:
     from .audio.music import pick_bed
     return pick_bed(style, seed, bed_id)
@@ -495,6 +500,7 @@ class Deps:
     storyboard: Callable[..., Any] = _d_storyboard
     tts: Callable[..., Any] = _d_tts
     speed_check: Callable[[float], str | None] | None = _d_speed_check
+    tts_problem: Callable[[], str | None] | None = _d_tts_problem     # known-broken provider (old edge-tts)
     pick_bed: Callable[..., Any] = _d_pick_bed
     solve: Callable[..., Any] = _d_solve
     quick_film: Callable[..., Any] = _d_quick_film
@@ -943,7 +949,14 @@ def _voice(run: _Run) -> None:
             run.rep.progress(done / len(lines), f"narration {done}/{len(lines)}")
     run.cancel.check()
     if failures == len(lines):
-        run.warn("narration failed for every line (TTS provider unavailable?); captions only")
+        why = None
+        if run.deps.tts_problem is not None:
+            try:
+                why = run.deps.tts_problem()
+            except Exception:  # noqa: BLE001
+                why = None
+        run.warn(f"narration failed for every line: {why}" if why else
+                 "narration failed for every line (TTS provider unavailable?); captions only")
     elif failures:
         run.warn(f"narration failed for {failures} of {len(lines)} lines; those scenes are captions only")
     if unpaced:

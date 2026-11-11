@@ -292,6 +292,13 @@ def discover_styles(root: Path | None = None) -> dict[str, StyleInfo]:
                                         str(meta.get("blurb") or _BLURBS.get(sid, "")), True,
                                         f"styles/{sdir.name}", _preview(sdir), _declared_speed(meta, sid)))
     for sid in BUILTIN_STYLES:
+        kit_dir = root / "kits" / sid
+        if sid not in found and (kit_dir / "kit.js").is_file():
+            # A kit named after a built-in style IS that style, even when its kit.json predates the
+            # ``style`` declaration (launch, pixel, cinematic): film/quick.py renders it by that name.
+            meta = _read_json(kit_dir / "kit.json")
+            found[sid] = StyleInfo(sid, sid.title(), _BLURBS.get(sid, "") or str(meta.get("describe") or ""), True,
+                                   f"kit:{sid}", _preview(kit_dir), STYLE_VOICE_SPEED.get(sid, 1.0))
         found.setdefault(sid, StyleInfo(sid, sid.title(), _BLURBS.get(sid, ""), False, "builtin",
                                         voice_speed=STYLE_VOICE_SPEED.get(sid, 1.0)))
     return found

@@ -1,7 +1,7 @@
 """Narration pace: the per-call TTS speed precedence check and the dev edge-tts route mapping."""
 from __future__ import annotations
 
-from showreel_core.llm import Host, tts_speed_conflict
+from showreel_core.llm import Host, edge_tts_problem, tts_provider, tts_speed_conflict
 
 
 def test_no_conflict_without_provider_speed() -> None:
@@ -28,3 +28,17 @@ def test_unreadable_config_reports_nothing() -> None:
 def test_host_without_services_has_no_story_route() -> None:
     assert Host().story_call() is None
     Host().emit("job.progress", {})          # no broadcaster: silently ignored
+
+
+def test_old_edge_tts_is_named_as_the_reason_for_captions_only() -> None:
+    msg = edge_tts_problem("edge", "7.2.7")
+    assert msg and "7.2.7" in msg and "403" in msg and "captions-only" in msg
+    assert edge_tts_problem("edge", "7.3.1") is None
+    assert edge_tts_problem("edge", "8.0") is None
+    assert edge_tts_problem("openai", "7.2.7") is None          # another provider: edge-tts is irrelevant
+    assert edge_tts_problem("edge", "weird") is None
+
+
+def test_tts_provider_reads_the_section() -> None:
+    assert tts_provider({}) == "edge" and tts_provider({"provider": "OpenAI"}) == "openai"
+    assert tts_provider("garbage") == "edge"  # type: ignore[arg-type]

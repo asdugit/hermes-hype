@@ -84,3 +84,24 @@ def test_voice_speed_per_style_and_override(tmp_path: Path) -> None:
     assert voice_speed("unknown-style", root=tmp_path) == 1.0
     assert voice_speed("cinematic", 0.9, root=tmp_path) == 0.9
     assert voice_speed("cinematic", "", root=tmp_path) == 1.13
+
+
+def test_kits_named_after_builtin_styles_are_ready_without_a_style_block(tmp_path: Path) -> None:
+    """launch/pixel/cinematic kits predate kit.json "style"; they still render, so they are listed as ready."""
+    for kit in ("launch", "pixel"):
+        (tmp_path / "kits" / kit).mkdir(parents=True)
+        (tmp_path / "kits" / kit / "kit.js").write_text("export default {}", encoding="utf-8")
+    (tmp_path / "kits" / "launch" / "kit.json").write_text(json.dumps({"name": "launch"}), encoding="utf-8")
+    (tmp_path / "kits" / "cinematic").mkdir(parents=True)          # no kit.js: not a renderable kit
+    styles = discover_styles(tmp_path)
+    assert styles["launch"].ready and styles["launch"].source == "kit:launch"
+    assert styles["pixel"].ready and styles["pixel"].source == "kit:pixel"
+    assert not styles["cinematic"].ready and styles["cinematic"].source == "builtin"
+    assert voice_speed("cinematic", root=tmp_path) == 1.13
+
+
+def test_repo_lists_every_shipped_style_as_ready() -> None:
+    styles = discover_styles()
+    for sid in ("launch", "pixel", "cinematic", "terminal", "blueprint", "comic", "ink"):
+        assert styles[sid].ready, sid
+    assert styles["cinematic"].voice_speed == 1.13 and styles["launch"].voice_speed == 1.0

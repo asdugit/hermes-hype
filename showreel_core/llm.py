@@ -143,6 +143,51 @@ def tts_speed_conflict(requested: float, tts_config: dict[str, Any] | None = Non
     return None
 
 
+#: First edge-tts release Microsoft's speech endpoint accepts again (7.2.x handshakes get HTTP 403).
+EDGE_TTS_MIN = (7, 3)
+
+
+def tts_provider(tts_config: dict[str, Any] | None = None) -> str:
+    """The configured Hermes TTS provider (``tts.provider``, default ``edge``); read-only."""
+    if tts_config is None:
+        try:
+            import yaml  # Hermes core dependency
+            from hermes_constants import get_hermes_home  # public, lazy
+            raw = yaml.safe_load((get_hermes_home() / "config.yaml").read_text(encoding="utf-8")) or {}
+            tts_config = raw.get("tts") or {}
+        except Exception:  # noqa: BLE001
+            tts_config = {}
+    if not isinstance(tts_config, dict):
+        tts_config = {}
+    return str(tts_config.get("provider") or "edge").strip().lower()
+
+
+def edge_tts_problem(provider: str | None = None, version: str | None = None) -> str | None:
+    """Why Hermes' Edge narration will fail on this install, or ``None``.
+
+    Microsoft's endpoint rejects edge-tts older than 7.3 with HTTP 403 (``WSServerHandshakeError``), so a
+    Hermes venv that still pins 7.2.x narrates nothing. Showreel never upgrades packages in the Hermes venv;
+    it says so and makes a captions-only film. ``version`` lets tests pass the installed version.
+    """
+    provider = provider or tts_provider()
+    if provider != "edge":
+        return None
+    if version is None:
+        try:
+            from importlib.metadata import version as _version
+            version = _version("edge-tts")
+        except Exception:  # noqa: BLE001 - not installed: Hermes reports that itself
+            return None
+    try:
+        parts = tuple(int(p) for p in str(version).split(".")[:2])
+    except ValueError:
+        return None
+    if parts >= EDGE_TTS_MIN:
+        return None
+    return (f"edge-tts {version} in the Hermes environment is older than 7.3; Microsoft's speech service refuses it "
+            "(HTTP 403), so Edge narration fails and films are captions-only. Updating Hermes brings edge-tts 7.3.1+.")
+
+
 # --------------------------------------------------------------------------- dev routes
 
 def edge_tts_dispatch(voice: str = "en-US-AndrewMultilingualNeural") -> Dispatch | None:
