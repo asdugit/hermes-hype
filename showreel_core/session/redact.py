@@ -130,7 +130,7 @@ _CRED_FILE_RE = re.compile(
     r"\.git-credentials|\.dockercfg|credentials(?:\.(?:json|ya?ml|toml|ini|txt))?|secrets?\.(?:json|ya?ml|toml|env|txt)|"
     r"service[_\-]?account[\w.\-]*\.json|id_(?:rsa|dsa|ecdsa|ed25519)|[\w.\-]+\.(?:pem|key|p12|pfx))(?=$|[\s\"'|;&>)])")
 _ENV_LINE_RE = re.compile(
-    r"(?m)^(\s*(?:export\s+|set\s+|setx\s+)?[\"']?[A-Za-z_][\w.\-]*[\"']?\s*[=:]\s*)(?=\S)(.*?)(\s*,?\s*)$")
+    r"(?m)^([+\-]?\s*(?:export\s+|set\s+|setx\s+)?[\"']?[A-Za-z_][\w.\-]*[\"']?\s*[=:]\s*)(?=\S)(.*?)(\s*,?\s*)$")
 _IPV4_RE = re.compile(r"(?<![\w.])(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)(?![\w.])")
 _PLACEHOLDER_HINTS = ("your", "xxx", "***", "...", "<", ">", "example", "changeme", "placeholder", "dummy",
                       "redacted", "‹", "$", "%", "{", "(", "os.environ", "process.env", "getenv", "env[", "none", "null",
