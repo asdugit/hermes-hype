@@ -71,6 +71,8 @@ export function normalizeFilm(raw) {
     captions: Array.isArray(raw.captions) ? raw.captions : [],
     captionStyle: raw.caption_style && typeof raw.caption_style === 'object' ? raw.caption_style : {},
     qa: raw.qa && typeof raw.qa === 'object' ? raw.qa : {},
+    // customization layer (showreel_core/customize/theme.py): {tokens, vars: {--css-var: value}, palette: {kit: {...}}}
+    theme: raw.theme && typeof raw.theme === 'object' ? raw.theme : {},
   };
   if (!(film.dur > 0)) throw new Error('film.json: dur must be > 0');
   film.aspect = aspectOf(film.w, film.h);

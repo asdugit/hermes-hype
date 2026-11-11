@@ -8,6 +8,24 @@ import { drawText, measureText } from './text.js';
 import { makePixel } from './pixel.js';
 import { AssetStore } from './assets.js';
 import { loadFonts } from './fonts.js';
+
+/**
+ * film.theme.vars -> one stylesheet that wins over every kit theme: the custom properties are set with
+ * !important on the stage and every element inside it (kit theme classes set them on their own roots, so plain
+ * inheritance would lose). Only `--name: value` pairs with safe characters pass.
+ */
+export function themeOverrideCss(theme) {
+  const vars = theme && typeof theme === 'object' ? theme.vars : null;
+  if (!vars || typeof vars !== 'object') return '';
+  const decl = [];
+  for (const [k, v] of Object.entries(vars)) {
+    if (!/^--[a-z0-9-]+$/i.test(k)) continue;
+    const val = String(v);
+    if (!val || /[;{}<>]/.test(val) || val.length > 300) continue;
+    decl.push(`${k}: ${val} !important;`);
+  }
+  return decl.length ? `#sr-stage, #sr-stage * { ${decl.join(' ')} }` : '';
+}
 import { clampTime, liveAt, normalizeFilm } from './film.js';
 import { createSurface, makeShader } from './surfaces.js';
 import { BUILTIN_TRANSITIONS } from './transitions.js';
@@ -261,6 +279,13 @@ export class Runtime {
     const style = document.createElement('style');
     style.textContent = STAGE_CSS;
     document.head.appendChild(style);
+    const themeCss = themeOverrideCss(F.theme);
+    if (themeCss) {
+      const st = document.createElement('style');
+      st.dataset.srTheme = 'film';
+      st.textContent = themeCss;
+      document.head.appendChild(st);
+    }
     let stage = document.getElementById('sr-stage');
     if (!stage) {
       stage = document.createElement('div');
@@ -409,7 +434,7 @@ export class Runtime {
     };
     const ctx = {
       w, h, dur: item.dur, id: item.id, seed, layer: def.layer, params: item.params,
-      film: { w: F.w, h: F.h, fps: F.fps, dur: F.dur, aspect: F.aspect, title: F.title, seed: F.seed, safe: { ...F.safe } },
+      film: { w: F.w, h: F.h, fps: F.fps, dur: F.dur, aspect: F.aspect, title: F.title, seed: F.seed, safe: { ...F.safe }, theme: F.theme },
       shot: { t0: item.t0, t1: item.t1, kind: item.kind },
       safe: { l: F.safe.l * kx, r: F.safe.r * kx, t: F.safe.t * ky, b: F.safe.b * ky },
       rng: (k = 0) => makeRng(mixSeed(seed, k)),
