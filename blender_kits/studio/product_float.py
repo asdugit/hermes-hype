@@ -56,7 +56,7 @@ def build(sc) -> None:
     dist = studio.fit_distance(w_fit, (H + lift) * 1.2, lens, s.aspect, p["fill"])
     studio.stage(s, preset=p["env"], center=tuple(c), radius=r, accent=str(p.get("accent") or "#ff4d2e"),
                  floor="matte", key_side=-1.0 if p["yaw"] <= 0 else 1.0, cam_dist=dist,
-                 haze=float(p.get("haze") or 0.0))
+                 haze=float(p.get("haze") or 0.0), view_yaw=float(p["yaw"]))
     for f in s.frames():
         t = s.t(f)
         u = studio.ease(t / D, "inout", 0.4)

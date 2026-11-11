@@ -67,7 +67,7 @@ def build(sc) -> None:
     dist = studio.fit_distance(w_fit, h_fit, lens, s.aspect, p["fill"])
     st = studio.stage(s, preset=p["env"], center=tuple(c), radius=r, accent=str(p.get("accent") or "#ff5a3c"),
                       floor=p["floor"], sweep=bool(p["reveal"]), key_side=-1.0 if p["yaw"] <= 0 else 1.0,
-                      cam_dist=dist, haze=float(p.get("haze") or 0.0))
+                      cam_dist=dist, haze=float(p.get("haze") or 0.0), view_yaw=float(p["yaw"]))
     if p["reveal"]:
         # starts ahead of the cut: frame 1 already shows the rim-lit silhouette (a film never opens on black)
         studio.animate_reveal(s, st, t0=-min(1.2, D * 0.15), t1=D * 0.55, from_level=0.12)

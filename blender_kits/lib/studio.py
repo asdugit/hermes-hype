@@ -544,7 +544,8 @@ def backdrop_material(name: str, base: str, glow: str, strength: float, *, rough
 
 def stage(s: Shot, *, preset: str = "studio", center: Vec3 = (0, 0, 0), radius: float = 0.3,
           accent: str = "#7c3aed", floor: str = "reflective", cyc: bool = True, key_side: float = -1.0,
-          sweep: bool = False, cam_dist: float | None = None, haze: float = 1.0) -> Stage:
+          sweep: bool = False, cam_dist: float | None = None, haze: float = 1.0,
+          view_yaw: float | None = None) -> Stage:
     """Build a product stage scaled to the subject (``radius`` = bounding radius in metres).
 
     - Cyc with an emissive radial GLOW behind the subject (preset colour / the product accent), glossy floor
@@ -612,7 +613,7 @@ def stage(s: Shot, *, preset: str = "studio", center: Vec3 = (0, 0, 0), radius: 
         exclude_receivers([lights["rim_l"], lights["rim_r"], lights["top"]] + ([sweep_ob] if sweep_ob else []),
                           [cyc_ob])
     if noir:
-        _noir(lights, world, cyc_ob, center=(cx, cy, cz), r=r, e2=e2, ks=ks, haze=haze)
+        _noir(lights, world, cyc_ob, center=(cx, cy, cz), r=r, e2=e2, ks=ks, haze=haze, view_yaw=view_yaw)
     energies = {k: ob.data.energy for k, ob in lights.items()}
     return Stage(lights=lights, energies=energies, world=world, world_strength=1.0, cyc=cyc_ob, sweep=sweep_ob)
 
@@ -637,7 +638,7 @@ def _spot(name: str, color: str, energy: float, loc: Vec3, target: Vec3, size_de
 
 
 def _noir(lights: dict, world: Any, cyc_ob: Any, *, center: Vec3, r: float, e2: float, ks: float,
-          haze: float = 1.0) -> None:
+          haze: float = 1.0, view_yaw: float | None = None) -> None:
     """Film-noir night: the soft key + top fill go; ONE hard spot key from high on the key side pools light on a
     wet floor; one cold rim from the far side; a narrow spot through venetian-blind slats throws striped light on
     the wall behind (and across the subject); a uniform haze makes the beams visible; the floor's roughness is
@@ -656,10 +657,20 @@ def _noir(lights: dict, world: Any, cyc_ob: Any, *, center: Vec3, r: float, e2: 
         _try(ob.data, "volume_factor", 0.0)         # strip scattering in it fogged the whole frame grey)
     lights["key"] = _spot("sr_key", "#f6f1e6", 1200 * e2, (cx + ks * r * 2.0, cy - r * 2.4, cz + r * 5.4),
                           (cx, cy + r * 0.25, cz), 36.0, 0.32, r * 0.02)
-    # venetian blinds: a narrow spot from the far side, high and ahead, aimed at the wall behind the subject
-    wall = (cx - ks * r * 0.8, cy + r * 10.6, cz + r * 3.4)
-    bl = (cx - ks * r * 5.5, cy - r * 3.2, cz + r * 6.8)
-    blinds = _spot("sr_blinds", "#e8e2d6", 2600 * e2, bl, wall, 22.0, 0.08, r * 0.003)
+    # venetian blinds: a narrow spot through slats. Camera on the front (-Y) side: aimed at the wall behind the
+    # subject. Camera on the open side (the wall is behind the lens): across the wet floor beyond the subject and
+    # the body itself, from high above the camera side - the stripes must land in the frame
+    a = math.radians(view_yaw or 0.0)
+    if view_yaw is None or math.cos(a) > 0.6:
+        wall = (cx - ks * r * 0.8, cy + r * 10.6, cz + r * 3.4)
+        bl = (cx - ks * r * 5.5, cy - r * 3.2, cz + r * 6.8)
+        e_bl = 2600 * e2
+    else:
+        bx, by = -math.sin(a), math.cos(a)                 # away from the camera
+        wall = (cx + bx * r * 2.0, cy + by * r * 2.0, 0.0)
+        bl = (cx - bx * r * 3.5 - by * ks * r * 1.5, cy - by * r * 3.5 + bx * ks * r * 1.5, cz + r * 7.5)
+        e_bl = 1500 * e2
+    blinds = _spot("sr_blinds", "#e8e2d6", e_bl, bl, wall, 22.0, 0.08, r * 0.003)
     lights["blinds"] = blinds
     piv = bpy.data.objects.new("sr_blinds_frame", None)
     bpy.context.scene.collection.objects.link(piv)
