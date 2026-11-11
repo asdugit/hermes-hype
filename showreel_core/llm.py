@@ -24,6 +24,35 @@ AUX_TASK = "showreel"
 Dispatch = Callable[..., str]
 
 
+class JsonModeLlm:
+    """``ctx.llm`` proxy that sends the storyboard schema as prompt text and asks for JSON mode.
+
+    Provider-native structured output rejects our storyboard schema on Anthropic models
+    (HTTP 400 "Schema is too complex", after ~3 minutes per attempt, so every film fell back to the
+    heuristic storyboard), and Hermes sends the schema with ``strict: false`` elsewhere, so it was never
+    enforced anyway. The schema still reaches the model verbatim in the prompt (Hermes appends
+    ``json_schema`` there too), and :mod:`showreel_core.story.validate` checks and repairs the reply.
+    """
+
+    def __init__(self, llm: Any) -> None:
+        self._llm = llm
+
+    def complete_structured(self, **kwargs: Any) -> Any:
+        schema = kwargs.pop("json_schema", None)
+        if schema is not None:
+            try:
+                text = json.dumps(schema, ensure_ascii=False, sort_keys=True)
+            except (TypeError, ValueError):
+                text = str(schema)
+            kwargs["instructions"] = (f"{kwargs.get('instructions', '').rstrip()}\n\n"
+                                      f"Reply with ONE JSON object that follows this JSON schema:\n{text}")
+            kwargs["json_mode"] = True
+        return self._llm.complete_structured(**kwargs)
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._llm, name)
+
+
 @dataclass
 class Host:
     """Hermes services available to one job (every field optional; missing ones degrade)."""
@@ -42,7 +71,7 @@ class Host:
         if self.llm is None:
             return None
         from .story import hermes_llm
-        return hermes_llm(self.llm, task=AUX_TASK)
+        return hermes_llm(JsonModeLlm(self.llm), task=AUX_TASK)
 
     def emit(self, event: str, payload: dict[str, Any]) -> None:
         """Broadcast a plugin event (never raises)."""

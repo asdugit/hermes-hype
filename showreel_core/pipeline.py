@@ -1108,7 +1108,8 @@ def _directed(run: _Run) -> list[Built] | None:
 
     import inspect
     offered = {"direction": run.opts.direction, "options": run.opts, "job_dir": run.job_dir, "job_id": run.job_id,
-               "host": run.host, "llm": run.host.llm, "dispatch": run.host.dispatch, "effort": run.opts.effort,
+               "host": run.host, "llm": director_llm(run.host), "dispatch": run.host.dispatch,
+               "effort": run.opts.effort,
                "progress": progress, "cancel": run.cancel, "store": run.store, "bundle": run.bundle,
                "session_id": run.job.get("session_id", ""), "digest": getattr(run.bundle, "digest", ""),
                "product": getattr(run.bundle, "product", None), "seconds": run.opts.seconds, "aspect": aspect,
@@ -1182,6 +1183,15 @@ def _directed(run: _Run) -> list[Built] | None:
                        scene_labels=[str(s.get("id", "")) for s in shots])]
     run.store.update(run.job_id, duration_s=dur)
     return run.built
+
+
+def director_llm(host: Host) -> Any:
+    """``host.llm`` for the Director, schema-as-prompt + JSON mode (Anthropic rejects native structured output
+    for big schemas with HTTP 400 "Schema is too complex"; see :class:`showreel_core.llm.JsonModeLlm`)."""
+    if host.llm is None:
+        return None
+    from .llm import JsonModeLlm
+    return host.llm if isinstance(host.llm, JsonModeLlm) else JsonModeLlm(host.llm)
 
 
 def blender_engine(run: _Run) -> Any:
