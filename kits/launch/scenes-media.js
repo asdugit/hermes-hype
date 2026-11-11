@@ -3,7 +3,7 @@
 import { launchScene, camTrack, fitRect, nodeIn, pushTrack, panelWires, productScale, handoff, blendCam, cornerLabel, featureCopy } from './stage.js';
 import { h, css, fitSize } from '../base/dom.js';
 import { clamp, lerp, seg, ease } from '../base/motion.js';
-import { browserBlock, cursorBlock, ringBlock, isCard, cardWidth, kenBurns } from '../base/media.js';
+import { browserBlock, cursorBlock, ringBlock, isCard, cardWidth, kenBurns, deviceBlock } from '../base/media.js';
 import { toolCard } from '../base/cards.js';
 import { kineticLine, riseIn } from '../base/type.js';
 import { contentBlock } from '../base/scenes-media.js';
@@ -98,6 +98,44 @@ function cardOnTable(ctx, p, F, W, R, hand = null) {
   };
 }
 
+/** A phone-width web capture (<= 600 px wide, tall): shown in a phone, never as a bare page bleeding off the frame. */
+function isPhone(img) {
+  const w = Number(img && img.w) || 0, hh = Number(img && img.h) || 0;
+  return !isCard(img) && w > 0 && w <= 600 && hh / w >= 1.5;
+}
+
+/**
+ * A phone capture standing on the table inside a device frame: the whole phone in the region, a slow drift, and a
+ * gentle scroll when the page is taller than the screen. Returns {render(t)}.
+ */
+function phoneOnTable(ctx, p, F, W, R) {
+  const dur = ctx.dur, img = p.image || {};
+  const sw = 470, sh = Math.round(sw * 2.05);
+  const dev = deviceBlock(sw + 32, sh + 32);
+  dev.el.style.position = 'relative';
+  const b = browserBlock(ctx, img, { width: sw, viewH: sh, chrome: false });
+  dev.screen.appendChild(b.el);
+  const n = W.node(dev.el, { x: 0, y: dev.h / 2, z: 40, w: dev.w, h: dev.h });
+  W.light(0, 0, dev.w * 1.6, dev.h * 1.3);
+  const c = W.nodePoint(n, dev.w / 2, dev.h / 2);
+  const d = fitRect(W, F, dev.w, dev.h, 8, 0.9 * R.w / F.W, 0.9 * R.h / F.H) / productScale(p);
+  const shift = [R.x + R.w / 2 - F.W / 2, R.y + R.h / 2 - F.H / 2];
+  const side = (Number(p.story_index) || 0) % 2 ? -1 : 1;
+  const cam = camTrack([
+    [-0.5, { target: [c[0], c[1] + 10, c[2]], dist: d * 1.04, yaw: -6 * side, pitch: 10, roll: -0.6 * side }],
+    [dur + 0.8, { target: [c[0], c[1] - 8, c[2]], dist: d * 0.98, yaw: 5 * side, pitch: 7, roll: 0.4 * side }],
+  ]);
+  const scrolls = b.natural > sh * 1.15;
+  return {
+    render(t) {
+      const u = nodeIn(t, -0.35, 0.7);
+      W.update(n, { z: lerp(80, 40, u), op: clamp(u * 1.6) });
+      if (scrolls) b.setScroll(seg(t, 0.9, Math.max(1.6, dur - 0.5), ease.inOutCubic) * 0.6);
+      W.camera(t, { ...cam(t), shift, lift: F.caps ? 40 : 0 }, { amp: 0.5, rollAmp: 0.3 });
+    },
+  };
+}
+
 /** Frame region for media beside a headline column / above a band. */
 function mediaRegion(F, withHead) {
   if (!withHead) return { x: F.safe.l - 40, y: F.safe.t - 20, w: F.W - F.safe.l - F.safe.r + 80, h: F.H - F.safe.t - F.safe.b + 40 };
@@ -160,6 +198,10 @@ launchScene('kit:launch/SCREEN', {
     const dur = ctx.dur, L = F.portrait;
     const img = p.image || {};
     const tag = cornerLabel(F, p.label);
+    if (isPhone(img)) {
+      const shot = phoneOnTable(ctx, p, F, W, mediaRegion(F, false));
+      return { cues: [{ t: 0.1, sfx: 'move', gain_db: -16 }], render(t) { shot.render(t); if (tag) tag.update(t); } };
+    }
     if (isCard(img)) {
       const shot = cardOnTable(ctx, p, F, W, mediaRegion(F, false));
       return { cues: [{ t: 0.1, sfx: 'move', gain_db: -16 }], render(t) { shot.render(t); if (tag) tag.update(t); } };
@@ -198,6 +240,14 @@ launchScene('kit:launch/FEATURE', {
     // the storyboard label is the benefit-led line ("Pomodoro countdown ring"); the feature name rides as eyebrow
     const { head: name, eyebrow } = featureCopy(p.feature, p.label);
     const hand = name ? handoff(F, dur) : null;
+    if (isPhone(img)) {
+      const shot = phoneOnTable(ctx, p, F, W, mediaRegion(F, !!name));
+      const head = name ? headline(F, name, { eyebrow }) : null;
+      return {
+        cues: [{ t: 0.1, sfx: 'move', gain_db: -16 }, ...(name ? [{ t: 0.4, sfx: 'appear', gain_db: -14 }] : [])],
+        render(t) { shot.render(t); if (head) head.update(t, 0.3); },
+      };
+    }
     if (isCard(img)) {
       const shot = cardOnTable(ctx, p, F, W, mediaRegion(F, !!name), hand);
       const head = name ? headline(F, name, { eyebrow, handoff: !!(hand && Number.isFinite(hand.t0)) }) : null;

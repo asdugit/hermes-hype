@@ -31,3 +31,10 @@ def test_launch_media_scenes_use_the_handoff_and_story_labels() -> None:
     assert media.count("handoff(F, dur") >= 2 and "featureCopy(p.feature, p.label)" in media
     assert media.count("cornerLabel(F, p.label") >= 2          # SCREEN + MONTAGE
     assert panels.count("cornerLabel(F, p.label") >= 3         # CODE, DIFF, TERMINAL
+
+
+def test_phone_captures_stand_in_a_phone() -> None:
+    """#6: a 390 px phone capture was a bare page bleeding off the frame; SCREEN/FEATURE put it in a device."""
+    media = (HERE.parents[1] / "kits" / "launch" / "scenes-media.js").read_text(encoding="utf-8")
+    assert "function isPhone(img)" in media and media.count("if (isPhone(img))") == 2
+    assert "deviceBlock(" in media and "chrome: false" in media
