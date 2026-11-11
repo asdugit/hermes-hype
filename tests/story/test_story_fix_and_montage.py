@@ -180,3 +180,14 @@ def test_a_curl_script_shows_its_first_request_not_its_banner_echo() -> None:
     script = ('cd "api"\necho "=== 1. POST /links (auto-generated code) ==="\n'
               "curl -s -i -X POST /links -d '{}'\necho\necho \"=== 2. GET ===\"\ncurl -s /x")
     assert main_command(script) == "curl -s -i -X POST /links -d '{}' \u2026"
+
+
+def test_a_one_liner_behind_cd_is_still_a_product_run() -> None:
+    from showreel_core.story.facts import is_demo_run, main_command
+    cmd = 'cd "D:/work/apps/cli" && python gitpulse.py ./sample-repo --top 5'
+    assert main_command(cmd) == "python gitpulse.py ./sample-repo --top 5"
+    assert main_command("cd x && ls -la") == "ls -la"
+    assert main_command("cd x") == "cd x"
+    assert is_demo_run(_run(1, 1.0, cmd, ["gitpulse - sample-repo", "alice ### 30"]))
+    assert not is_demo_run(_run(2, 2.0, "cd x && find . -type f | sort", ["./a.py", "./b.py"]))
+    assert not is_demo_run(_run(3, 3.0, "cd x && python -m pytest -q", ["3 passed in 0.1s"]))

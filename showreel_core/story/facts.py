@@ -38,7 +38,7 @@ _SETUP_CMD_RE = re.compile(r"^\s*(?:sudo\s+)?(?:pip3?|pipx|uv|npm|pnpm|yarn|bun|
                            r"winget|conda|poetry)\s+(?:install|add|i|sync|init|update|upgrade|pip install)\b"
                            r"|^\s*(?:git|mkdir|cd|ls|dir|cat|pwd|echo|which|where|type|head|tail|wc|touch|rm|cp|mv|"
                            r"chmod|clear|true|python3? -m venv|python3? --version|node --version|netstat|taskkill|tasklist|"
-                           r"kill|pkill|killall|ps|lsof|sleep|start-sleep)\b")
+                           r"kill|pkill|killall|ps|lsof|sleep|start-sleep|find|tree|du|stat)\b")
 _TEST_PASS_RE = re.compile(r"\b(\d+)\s+(passed|passing|tests? passed|ok)\b", re.IGNORECASE)
 _FAIL_COUNT_RE = re.compile(r"\b([1-9]\d*)\s+(failed|failing|errors?)\b", re.IGNORECASE)
 
@@ -493,11 +493,23 @@ _SETUP_LINE_RE = re.compile(r"^\s*(?:cd\b|pushd\b|export\b|set\b|source\b|\.\s|#
                             r"(?:\.?\S*/)?activate\b|echo\s*$|echo\s+(?:-+|=+|['\"]?(?:-{2,}|={2,}|#{2,}|\*{2,})))")
 
 
+_LEAD_SETUP_RE = re.compile(r"""^\s*(?:(?:cd|pushd)\s+(?:"[^"]*"|'[^']*'|[^\s;&|]+)|(?:source|\.)\s+[^\s;&|]+|"""
+                            r"""export\s+[^\s;&|]+|[A-Za-z_]\w*=[^\s;&|]*)\s*(?:&&|;)\s*""")
+
+
 def main_command(cmd: str) -> str:
     """A multi-line script's first real command (+ ' …' when more follow), skipping cd/export/venv/echo set-up."""
     text = str(cmd or "")
     if "\n" not in text.strip():
-        return text
+        # a one-liner's leading set-up ('cd "D:/…/cli" && python gitpulse.py ./repo'): the product run is the rest
+        # (the leading cd made every real gitpulse run look like housekeeping, so the film showed none)
+        rest = text
+        while True:
+            m = _LEAD_SETUP_RE.match(rest)
+            if not m or not rest[m.end():].strip():
+                break
+            rest = rest[m.end():]
+        return rest if rest is not text else text
     real = [ln.strip() for ln in text.splitlines() if ln.strip() and not _SETUP_LINE_RE.match(ln)]
     return (real[0] + (" \u2026" if len(real) > 1 else "")) if real else text
 
