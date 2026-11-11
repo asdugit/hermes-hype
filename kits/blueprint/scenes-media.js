@@ -3,7 +3,7 @@
 // then develops like a cyanotype exposure into the real colours; detail circles + detail zooms for focus regions.
 
 import { css } from '../base/dom.js';
-import { prettyUrl } from '../base/media.js';
+import { prettyUrl, isCard } from '../base/media.js';
 import { seg, ease, clamp, lerp } from '../base/motion.js';
 import { bpScene, listing, codeHtml } from './sheet.js';
 import { line, stroke, rectD, circleD, balloon, cloudD, delta, el, arrow, f1 } from './draw.js';
@@ -101,7 +101,8 @@ bpScene('kit:blueprint/HOOK', {
 function screenBuild(ctx, p, F, S, feature) {
   const dur = ctx.dur, L = S.L, bx = S.box, P = S.P;
   const img = p.image || {};
-  header(S, `View A \u00b7 ${fitS(String(img.page_title || 'screen'), 40)}`, prettyUrl(img.url || ''), bx.x, bx.y + 4, { size: 26, w: bx.w * 0.6 });
+  // a game/app picture (image.frame 'card') has no address: no file name or path in the header
+  header(S, `View A \u00b7 ${fitS(String(img.page_title || 'screen'), 40)}`, isCard(img) ? '' : prettyUrl(img.url || ''), bx.x, bx.y + 4, { size: 26, w: bx.w * 0.6 });
   const ps = clamp(Number(p.product_scale) || 1, 0.5, 3);
   const R0 = { x: bx.x + (L ? 0 : 40), y: bx.y + 110, w: bx.w - (L ? 0 : feature ? 560 : 280), h: bx.h - (L ? (feature ? 420 : 260) : 150) };
   const R = { x: R0.x + R0.w * (1 - ps) / 2, y: R0.y + R0.h * (1 - ps) / 2, w: R0.w * ps, h: R0.h * ps };

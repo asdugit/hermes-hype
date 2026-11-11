@@ -4,7 +4,7 @@
 
 import { h, css } from '../../base/dom.js';
 import { seg, ease, clamp } from '../../base/motion.js';
-import { mediaOf, addressText, browserBlock } from '../../base/media.js';
+import { mediaOf, addressText, browserBlock, isCard } from '../../base/media.js';
 import { contentBlock } from '../../base/scenes-media.js';
 import { flat, PENDING, svgEl, dotsPath } from './art.js';
 
@@ -103,7 +103,9 @@ export function printShot(ctx, img, w, hh, o = {}) {
 /** Comic browser frame around a printed shot: a yellow address caption on top. Returns {el, shot, chromeH, w, h}. */
 export function comicBrowser(ctx, img, w, viewH, o = {}) {
   const el = h('div', 'cx-abs');
-  const chromeH = o.chrome === false ? 0 : 64;
+  const meta = img && typeof img === 'object' ? { ...img, ...(img.meta || {}) } : {};
+  // a game/app picture or render (image.frame 'card') is a print, not a web page: no address caption over it
+  const chromeH = o.chrome === false || isCard(meta) ? 0 : 64;
   el.style.cssText = `width:${w}px;height:${viewH + chromeH}px;background:#FFFDF6;box-shadow:0 0 0 6px #14110F, 12px 12px 0 6px #14110F;`;
   if (chromeH) {
     const bar = h('div', 'srb-urlbar');
@@ -111,7 +113,6 @@ export function comicBrowser(ctx, img, w, viewH, o = {}) {
     const dots = h('div', 'srb-dots', null, [h('i'), h('i'), h('i')]);
     const url = h('div', 'srb-url');
     url.dataset.qa = 'off';           // browser chrome: cropped by the push-ins by design, not copy to QA
-    const meta = img && typeof img === 'object' ? { ...img, ...(img.meta || {}) } : {};
     // web URL without scheme, else page title, else a human file stem, else the film title (never a path)
     const addr = addressText(meta, Math.max(12, Math.floor((w - 160) / 16)), (ctx.film && ctx.film.title) || '');
     url.appendChild(h('b', '', { text: addr || ' ' }));

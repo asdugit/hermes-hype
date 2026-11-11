@@ -4,7 +4,7 @@
 import { comicScene, snapIn } from './lib/page.js';
 import { h, css } from '../base/dom.js';
 import { seg, ease, clamp, lerp } from '../base/motion.js';
-import { mediaOf, addressText } from '../base/media.js';
+import { mediaOf, addressText, isCard } from '../base/media.js';
 import { C, agentSvg, figure, burst, speedLines, CURSOR_SVG } from './lib/art.js';
 import { caption, sfx, slam, headline } from './lib/letter.js';
 import { printShot, comicBrowser, scrollBrowser, heroBlock } from './lib/print.js';
@@ -141,7 +141,8 @@ function featurePortrait(ctx, p, F, P) {
   p0.el.appendChild(head.el);
   const hero = figure(agentSvg({ pose: 'bust', rim: 'white' }), 740, 50, 250);
   p0.el.appendChild(hero);
-  const pg = closeUpPage(ctx, p, F, P, { top: 526, cap1: 'The app\u2026', cap2: 'Click!', maxH1: 540, bg2: 'cyan' });
+  const card = isCard(p.image);       // a game/app picture: no web cursor, click burst or speed lines
+  const pg = closeUpPage(ctx, p, F, P, { top: 526, cap1: 'The app\u2026', cap2: card ? 'Look closer!' : 'Click!', maxH1: 540, bg2: 'cyan' });
   const bb = p.bbox || [0.1, 0.1, 0.8, 0.8];
   const click = p.click || [bb[0] + bb[2] / 2, bb[1] + bb[3] / 2];
   const [qx, qy] = pg.cs.pt(click[0], click[1]);
@@ -159,6 +160,7 @@ function featurePortrait(ctx, p, F, P) {
   clk.el.style.top = `${clamp(pg.rr.y - 150, 70, pg.R2.h - 190)}px`;
   clk.el.style.zIndex = '34';
   pg.p2.el.appendChild(clk.el);
+  if (card) for (const e of [cur, sl, clk.el]) e.style.display = 'none';
   const tP1 = 0.3, tP2 = clamp(dur * 0.22, 1.0, 1.4);
   const sync = Number(p._sync && p._sync.click);
   const press = Number.isFinite(sync) && sync > tP2 + 1.0 && sync < dur - 0.6 ? sync : clamp(dur * 0.5, tP2 + 1.3, Math.max(tP2 + 1.3, dur - 1.3));
@@ -167,7 +169,7 @@ function featurePortrait(ctx, p, F, P) {
   const c1 = [W / 2, 900, 1.0], c2 = [W / 2, pg.R2.y + pg.R2.h / 2 - 80, 1.08];
   const cam = P.track([[0, c1], [tP2 - 0.1, c1], [tP2 + 0.7, c2], [dur + 1, [c2[0], c2[1] + 8, 1.1]]]);
   return {
-    cues: [{ t: 0.2, sfx: 'appear', gain_db: -12 }, { t: tP2, sfx: 'move', gain_db: -12 }, { t: press, sfx: 'click', gain_db: -4 }, { t: press + 0.05, sfx: 'hit', gain_db: -10 }],
+    cues: [{ t: 0.2, sfx: 'appear', gain_db: -12 }, { t: tP2, sfx: 'move', gain_db: -12 }, ...(card ? [] : [{ t: press, sfx: 'click', gain_db: -4 }]), { t: press + 0.05, sfx: 'hit', gain_db: -10 }],
     render(t) {
       P.spinRays(t);
       cap.update(t, 0.05);
@@ -346,6 +348,8 @@ comicScene('kit:comic/FEATURE', {
     const clk = burst(P.doc, { w: 250, h: 170, spikes: 13, fill: 'yellow', seed: 33, shadow: 8, text: 'CLICK!', size: 58 });
     clk.el.style.left = `${clamp(rr.x + rr.w - 30, 10, R2.w - 260)}px`; clk.el.style.top = `${clamp(rr.y - 140, 10, R2.h - 190)}px`;
     p2.el.appendChild(clk.el);
+    const card = isCard(img);         // a game/app picture: no web cursor, click burst or speed lines
+    if (card) for (const e of [cur, sl, clk.el]) e.style.display = 'none';
     const tPush = clamp(dur * 0.2, 0.9, 1.3);
     const sync = Number(p._sync && p._sync.click);
     const press = Number.isFinite(sync) && sync > tPush + 0.8 && sync < dur - 0.6 ? sync : clamp(dur * 0.45, tPush + 1.2, Math.max(tPush + 1.2, dur - 1.4));
@@ -356,7 +360,7 @@ comicScene('kit:comic/FEATURE', {
     const cam = P.track(L ? [[0, 'page'], [tPush, 'page'], [tPush + 0.75, focus], [dur + 1, { ...focus, x: focus.x + 8, y: focus.y + 6 }]]
       : [[0, R1], [0.6, R1], [tPush + 0.2, whole], [tPush + 0.95, focus], [dur + 1, { ...focus, y: focus.y + 6 }]], 30, L ? 2.0 : 1.6);
     return {
-      cues: [{ t: 0.2, sfx: 'appear', gain_db: -12 }, { t: tPush + 0.05, sfx: 'move', gain_db: -12 }, { t: press, sfx: 'click', gain_db: -4 }, { t: press + 0.05, sfx: 'hit', gain_db: -10 }],
+      cues: [{ t: 0.2, sfx: 'appear', gain_db: -12 }, { t: tPush + 0.05, sfx: 'move', gain_db: -12 }, ...(card ? [] : [{ t: press, sfx: 'click', gain_db: -4 }]), { t: press + 0.05, sfx: 'hit', gain_db: -10 }],
       render(t) {
         P.spinRays(t);
         cap.update(t, 0.1);

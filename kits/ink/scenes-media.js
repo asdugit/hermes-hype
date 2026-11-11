@@ -5,7 +5,7 @@
 import { inkScene } from './lib/page.js';
 import { h, css } from '../base/dom.js';
 import { seg, ease, clamp, lerp } from '../base/motion.js';
-import { mediaOf, prettyUrl } from '../base/media.js';
+import { mediaOf, prettyUrl, isCard } from '../base/media.js';
 import { C, form, stroke, arrow, loop, sparkle, tick, drawOn, popIn, place, gpose, settleIn, writeOn, svgBox } from './lib/ink.js';
 import { robot, setArm, blink, face } from './lib/cast.js';
 import { tapedShot, luggageTag, note, machine, legalPad, codeLine } from './lib/props.js';
@@ -129,7 +129,7 @@ function shotPage(ctx, P, img, o = {}) {
   P.content.appendChild(s.el);
   let tag = null;
   const u = prettyUrl((img && (img.url || img.page_title)) || '');
-  if (u && !/^file:/.test(String(img.url || ''))) {
+  if (u && !isCard(img) && !/^file:/.test(String(img.url || ''))) {     // a game/app picture: no URL tag
     tag = luggageTag(P.doc, clip(u, 40), { size: L ? 28 : 26, key: `${o.key || 'shot'}:tag` });
     tag.el.style.left = `${sx + (L ? 40 : 20) - tag.off}px`; tag.el.style.top = `${sy - tag.h - 26}px`;
     P.content.appendChild(tag.el);
@@ -210,6 +210,8 @@ inkScene('kit:ink/FEATURE', {
       `<g data-k="cur">${CURSOR}</g>`, 'top');
     if (nt) P.top.appendChild(nt.el);
     const cur = top.K.cur[0], rip = top.K.rip[0];
+    const card = isCard(p.image);     // a game/app picture: no web cursor or click ripple (loop + note stay)
+    if (card) { cur.style.display = 'none'; rip.style.display = 'none'; }
     const from = [cp[0] + (L ? 360 : 220), cp[1] + (L ? 260 : 300)];
     const U = nt ? { x: Math.min(fr.x, nx), y: Math.min(fr.y, ny), x1: Math.max(fr.x + fr.w, nx + nw), y1: Math.max(fr.y + fr.h, ny + nw) }
       : { x: fr.x, y: fr.y, x1: fr.x + fr.w, y1: fr.y + fr.h };
@@ -218,7 +220,7 @@ inkScene('kit:ink/FEATURE', {
     const cam = P.track([[0, [W / 2, H / 2 - 20, 1.0]], [tArr, [W / 2 + (cx - W / 2) * 0.3, H / 2 + (cy - H / 2) * 0.3, 1.05]], [D + 0.3, [cx, cy, zf]]]);
     const tLoop = tClick + T(0.2), tNote = tClick + T(0.45);
     return {
-      cues: [{ t: 0.04, sfx: 'move', gain_db: -12 }, { t: tClick, sfx: 'click', gain_db: -4 }, { t: tLoop, sfx: 'type', gain_db: -14 }, ...(nt ? [{ t: tNote, sfx: 'appear', gain_db: -10 }] : [])],
+      cues: [{ t: 0.04, sfx: 'move', gain_db: -12 }, ...(card ? [] : [{ t: tClick, sfx: 'click', gain_db: -4 }]), { t: tLoop, sfx: 'type', gain_db: -14 }, ...(nt ? [{ t: tNote, sfx: 'appear', gain_db: -10 }] : [])],
       render(t) {
         settleIn(sp.s.el, t, -0.15, { r: L ? -0.8 : -0.6, rise: 50, spin: -2, from: 1.04, settle: true, dur: 0.32 });
         if (sp.tag) { const u = seg(t, T(0.3), T(0.7), ease.outCubic); place(sp.tag.el, { r: -14 * (1 - u) * Math.cos((t - T(0.3)) * 9) - 3, op: u, origin: '0% 50%' }); }

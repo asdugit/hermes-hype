@@ -3,7 +3,7 @@
 // discrete steps (terminal zoom), the pointer is a pixel-art hardware sprite, the click is an inverse-video flash.
 
 import { h, css } from '../base/dom.js';
-import { prettyUrl } from '../base/media.js';
+import { prettyUrl, isCard } from '../base/media.js';
 import { seg, ease, clamp, lerp } from '../base/motion.js';
 import { tubeScene } from './tube.js';
 import { contentBox, paneFont, zoomSteps } from './scenes-panes.js';
@@ -37,7 +37,7 @@ export function mediaPane(ctx, F, T, img, o) {
   pre.style.cssText = `left:${Math.round(x)}px;top:${Math.round(y)}px;font-size:${fs}px;line-height:${lh}px;`;
   pre.dataset.qa = 'off';            // the picture's frame + page title/url: chrome the zoom crops by design
   const title = fit(String(meta.page_title || o.title || 'screen'), 40);
-  const url = prettyUrl(meta.url || '');
+  const url = isCard(meta) ? '' : prettyUrl(meta.url || '');     // a game/app picture has no address
   pre.innerHTML = box(title, inner, Array.from({ length: rows }, () => txt('', '')), { right: fit(url, Math.max(8, inner - len(title) - 8)) }).join('\n');
   wrapEl.appendChild(pre);
   const ax = Math.round(x + 2 * adv + (inner * adv - dw) / 2), ay = Math.round(y + lh + (rows * lh - dh) / 2);
@@ -76,7 +76,7 @@ function contentPane(ctx, F, T, c, o) {
     const fs = o.fs || 24;
     const mp = mediaPane(ctx, F, T, c, { fs, maxW: o.maxW, maxH: o.maxH, cx: o.cx, cy: o.cy, phosphor: o.phosphor, title: o.title });
     const st = o.st || { ascii: o.t0, dither: o.t0 + 0.3, real: o.t0 + 0.6, scan: 0.16 };
-    if (o.title) mp.pre.innerHTML = box(o.title, mp.inner, Array.from({ length: mp.rows }, () => txt('', '')), { right: fit(prettyUrl(c.url || ''), 30) }).join('\n');
+    if (o.title) mp.pre.innerHTML = box(o.title, mp.inner, Array.from({ length: mp.rows }, () => txt('', '')), { right: fit(isCard(c) ? '' : prettyUrl(c.url || ''), 30) }).join('\n');
     return { els: [mp.wrap], w: mp.w, h: mp.h, x: mp.x, y: mp.y, cues: [{ t: Math.max(0.02, st.ascii), sfx: 'appear', gain_db: -12 }], update: (t) => mp.update(t, st), mp, kind };
   }
   const maxCols = Math.floor(o.maxW / ((o.fs || 24) * ADV)) - 4;
@@ -155,19 +155,21 @@ function screenBuild(ctx, p, F, T, feature) {
     const tClick = Number.isFinite(syncClick) && syncClick > tz + 0.5 && syncClick < dur - 0.6 ? syncClick : Math.min(tz + 1.1, dur - 0.9);
     const ptr = pointer(F, P, L ? 5 : 6);
     T.scr.appendChild(ptr);
+    const card = isCard(img);         // a game/app picture: no web pointer or click flash (the ring + tag stay)
     const flash = h('div', '');
     flash.style.cssText = `position:absolute;left:${bx}px;top:${by}px;width:${bw}px;height:${bh}px;background:#fff;mix-blend-mode:difference;`;
     const ring = h('div', '');
     ring.style.cssText = `position:absolute;left:${bx - 8}px;top:${by - 8}px;width:${bw + 16}px;height:${bh + 16}px;border:3px solid ${P.hot};box-shadow:0 0 18px rgba(${P.rgb.join(',')},.6), inset 0 0 18px rgba(${P.rgb.join(',')},.25);`;
     mp.wrap.append(flash, ring);
+    if (card) { ptr.style.display = 'none'; flash.style.display = 'none'; }
     const name = String(p.feature || p.label || '').trim();
     const tagFs = L ? 30 : 34;
     const tag = T.pre(0, 0, tagFs);
     const tagTy = typing(name, tClick + 0.25, { cps: 30, maxDur: 0.8, seed: 8 });
-    cues.push({ t: tClick, sfx: 'click', gain_db: -4 });
+    if (!card) cues.push({ t: tClick, sfx: 'click', gain_db: -4 });
     feat = { qx, qy, tClick, ptr, flash, ring, tag, tagTy, tagFs, name };
   }
-  T.bar(feature ? 'feature' : 'screen', feature ? String(p.feature || '') : prettyUrl(img.url || ''));
+  T.bar(feature ? 'feature' : 'screen', feature ? String(p.feature || '') : isCard(img) ? '' : prettyUrl(img.url || ''));
   return {
     cues,
     render(t) {
