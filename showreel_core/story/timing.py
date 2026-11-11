@@ -75,8 +75,9 @@ CREDIT = "made with Hermes \u00b7 Hype"
 PAD_IN, PAD_OUT, HOOK_PAD_IN = 0.3, 0.4, 0.15
 #: Drop-priority bonuses when a film is too long (see rules.DROP_PRIORITY for the base order).
 PRODUCT_BEAT_BONUS, NARRATED_BONUS = 2.5, 1.0
-#: A film with too few scenes may hold its end card this many bars past END's max.
-END_HOLD_BARS = 2
+#: A film with too few scenes may hold its end card this many bars past END's max: none - a short film ends
+#: shorter instead of holding a 9-10 s end card (gauntlet: gitpulse/Shortly/patience END holds read as dead time)
+END_HOLD_BARS = 0
 #: ...and before that, let these hold-friendly scenes run up to STRETCH x their max (a longer push-in,
 #: scroll or montage reads better than a film that stops short).
 STRETCH = 1.3

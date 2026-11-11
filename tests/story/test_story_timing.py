@@ -73,7 +73,8 @@ def test_grid_ranges_and_fit(name, mode, seconds, bpm):
             cap = _cap(sc.type, hi, bar)
             assert sc.t1 - sc.t0 >= math.floor(cap / hb + EPS) * hb - EPS, (name, sc.type, sc.t1 - sc.t0)
     if name in RICH and seconds <= 60:
-        assert abs(tl.dur - seconds) <= bar + EPS, (tl.dur, seconds)
+        # rich material fills the film; the end card no longer pads it (a 10 s END hold read as dead time)
+        assert seconds - 2 * bar - EPS <= tl.dur <= seconds + bar + EPS, (tl.dur, seconds)
 
 
 def _cap(st, hi, bar):
