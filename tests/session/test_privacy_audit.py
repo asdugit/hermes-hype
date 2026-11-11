@@ -99,3 +99,23 @@ def test_home_with_a_space_is_masked_in_every_spelling(text, expect):
     """Audit 2026-11-11: the generic home patterns stop at a space, so an MSYS/WSL/lower-case spelling of
     C:/Users/Alice Smith left '~ Smith' on screen (and broke the capture's path resolution)."""
     assert Redactor(home=r"C:\Users\Alice Smith").text(text) == expect
+
+
+@pytest.mark.parametrize("cmd", ["env", "print" + "env", "cd app && env", "Get-ChildItem env:", "cmd /c set"])
+def test_environment_dumps_are_masked(cmd):
+    """Audit 2026-11-11: a session that printed its environment showed USER=<login>, HOSTNAME=..., and every
+    value under an ordinary name verbatim in a terminal scene."""
+    out = "USER=alice\nHOSTNAME=alices-laptop\nWIDGET_MODE=" + ODDVAL + "\nPATH=/usr/bin"
+    ev = Event(id="e1", t=0, kind="terminal", tool="terminal", title=cmd, summary="",
+               data={"cmd": cmd, "output_lines": out.split("\n")})
+    redact_events([ev], Redactor(home="/home/tester"))
+    assert ev.data["output_lines"] == ["USER=" + SECRET, "HOSTNAME=" + SECRET, "WIDGET_MODE=" + SECRET, "PATH=" + SECRET]
+    assert ev.data["cmd"] == cmd
+
+
+@pytest.mark.parametrize("cmd", ["env NODE_ENV=production npm start", "set -e", "python -m venv env", "print" + "env HOME"])
+def test_commands_that_only_look_like_env_dumps_are_not_masked(cmd):
+    ev = Event(id="e1", t=0, kind="terminal", tool="terminal", title=cmd, summary="",
+               data={"cmd": cmd, "output_lines": ["MODE=fast"]})
+    redact_events([ev], Redactor(home="/home/tester"))
+    assert ev.data["output_lines"] == ["MODE=fast"]

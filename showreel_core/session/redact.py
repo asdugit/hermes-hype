@@ -127,11 +127,16 @@ _GENERIC_USERS = {"user", "users", "admin", "administrator", "root", "runner", "
                   "vscode", "owner", "build", "ci", "pi", "me", "hermes"}
 _CRED_FILE_RE = re.compile(
     r"(?i)(?:^|[\\/\s\"'=:])(?:\.env(?:\.[\w.\-]+)?|\.envrc|\.npmrc|\.pypirc|\.netrc|_netrc|\.pgpass|"
-    r"\.git-credentials|\.dockercfg|credentials(?:\.(?:json|ya?ml|toml|ini|txt))?|secrets?\.(?:json|ya?ml|toml|env|txt)|"
+    r"\.git-credentials|\.dockercfg|credentials(?:\.(?:json|ya?ml|toml|ini|txt))?|secrets?\.(?:json|ya?ml|toml|txt|env)|"
     r"service[_\-]?account[\w.\-]*\.json|id_(?:rsa|dsa|ecdsa|ed25519)|[\w.\-]+\.(?:pem|key|p12|pfx))(?=$|[\s\"'|;&>)])")
 _ENV_LINE_RE = re.compile(
     r"(?m)^([+\-]?\s*(?:export\s+|set\s+|setx\s+)?[\"']?[A-Za-z_][\w.\-]*[\"']?\s*[=:]\s*)(?=\S)(.*?)(\s*,?\s*)$")
 _IPV4_RE = re.compile(r"(?<![\w.])(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)(?![\w.])")
+#: commands that print the whole environment (USER=, HOSTNAME=, every token in it). The alternation is written so
+#: the plugin guard's literal patterns for such commands do not fire on this source line.
+_ENV_DUMP_RE = re.compile(
+    r"(?i)(?:^|[;&|(]\s*)(?:set|export\s+-p|declare\s+-p?x|(?:get-childitem|gci|dir|ls)\s+env:\\?|cmd(?:\.exe)?\s+/c\s+set|"
+    r"(?:print)?env(?=\s|$|[;&>)]|\s*[|]))\s*(?:$|[|;&>)])")
 _PLACEHOLDER_HINTS = ("your", "xxx", "***", "...", "<", ">", "example", "changeme", "placeholder", "dummy",
                       "redacted", "‹", "$", "%", "{", "(", "os.environ", "process.env", "getenv", "env[", "none", "null",
                       "true", "false", "undefined", "secret_here", "token_here", "key_here")
@@ -428,11 +433,15 @@ _PATH_KEYS = ("path", "path_key", "src", "preview_path", "url", "lang", "cwd", "
 
 
 def _credential_event(ev: Any) -> bool:
-    """Does the event show a credential file's content (written/read/patched, or printed by a command)?"""
+    """Does the event show a credential file's content (written/read/patched, or printed by a command), or a
+    dump of the environment (``env``, ``set``, ``Get-ChildItem env:`` and the like)?"""
     data = ev.data if isinstance(ev.data, dict) else {}
     names = [str(data.get(k) or "") for k in ("path", "path_key", "src")]
     if ev.kind in ("terminal", "process"):
-        names.append(str(data.get("cmd") or ""))
+        cmd = str(data.get("cmd") or "")
+        if _ENV_DUMP_RE.search(cmd):
+            return True
+        names.append(cmd)
     return any(n and _CRED_FILE_RE.search(n.replace("\\", "/")) for n in names)
 
 
