@@ -382,6 +382,9 @@ def count_frames(ffmpeg: str, path: Path, *, decode: bool = True, timeout: float
     """Number of video frames (decoded, or packets with ``decode=False``) in ``path``."""
     p = run(null_pass_cmd(ffmpeg, path, decode=decode), timeout=timeout, what="frame count")
     frame = parse_progress(p.stdout).get("frame")
+    if (frame is None or not frame.isdigit()) and not decode:
+        # ffmpeg < 7 (e.g. Ubuntu 24.04's 6.1) reports frame=N/A for a stream copy: count decoded frames instead
+        return count_frames(ffmpeg, path, decode=True, timeout=timeout)
     if frame is None or not frame.isdigit():
         raise RenderError("ffmpeg", f"no frame count reported for {path}")
     return int(frame)
