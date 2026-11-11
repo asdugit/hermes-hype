@@ -349,7 +349,7 @@ check(listeners.has('plugin.hype.job.progress'), '1 listens to plugin.hype.job.p
   const sent = calls('POST', '/jobs')[0].body
   check(sent.session_id === 's-make', '3 the film is made of the focused chat')
   const o = sent.options
-  check(o.mode === 'speedrun' && o.style === 'pixel' && o.seconds === 30 && JSON.stringify(o.aspects) === '["16:9","9:16"]' && o.voice === false && o.effort === 'quick' && o.direction.startsWith('pixel but transition'), `3 options sent as picked: ${JSON.stringify(o)}`)
+  check(o.mode === 'speedrun' && o.style === 'pixel' && o.seconds === 30 && JSON.stringify(o.aspects) === '["16:9","9:16"]' && o.voice === true && o.effort === 'quick' && o.direction.startsWith('pixel but transition'), `3 options sent as picked: ${JSON.stringify(o)}`)
   await waitFor(() => tabSelected(v.div, 'Live'), '3 the studio moves to Live')
   check(JSON.parse(JSON.stringify(kept.get('make'))).style === 'pixel', '3 choices are remembered (ctx.storage)')
   check(!('customize' in sent), '3 a Free roam film sends no customization')

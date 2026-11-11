@@ -518,7 +518,7 @@ function StyleCard({ style, selected, onSelect }) {
 }
 
 // ── Make ───────────────────────────────────────────────────────────────────────────────────────────
-const DEFAULT_PREFS = { mode: 'product', style: 'launch', seconds: '60', aspect: '16:9', voice: true, effort: 'standard', route: 'preset' }
+const DEFAULT_PREFS = { mode: 'product', style: 'launch', seconds: '60', aspect: '16:9', voice: false, effort: 'standard', route: 'preset' }
 
 function loadPrefs() {
   const p = storageGet('make', null)
@@ -690,7 +690,7 @@ function MakeView({ sid, jobs, backendDown, onStarted }) {
   }
   const chosen = styles.find(s => s.id === prefs.style) || styles[0]
   const summary = [modeLabel(prefs.mode), chosen ? chosen.name : prefs.style, `${prefs.seconds} s`,
-    prefs.aspect === 'both' ? '16:9 + 9:16' : prefs.aspect, prefs.voice ? 'narrated' : 'captions only'].concat(customize ? ['customized'] : [], engine3d === 'blender' ? ['Blender 3D'] : []).join(' · ')
+    prefs.aspect === 'both' ? '16:9 + 9:16' : prefs.aspect, prefs.voice ? 'narrated' : 'music only'].concat(customize ? ['customized'] : [], engine3d === 'blender' ? ['Blender 3D'] : []).join(' · ')
   let blocker = ''
   if (backendDown) blocker = 'The Hype backend is off.'
   else if (!sid) blocker = 'Open a chat first: Hype films the chat you are looking at.'
@@ -862,7 +862,7 @@ function LiveView({ job, sid, now, onTab }) {
         children: [
           jsxs('div', { className: 'srl-jobhead', children: [
             jsx('div', { className: 'srl-jobtitle', children: job.title || (isDirected(job) ? 'Directed film' : 'Hype') }),
-            jsx('div', { className: 'srl-jobmeta', children: [isDirected(job) ? 'Directed' : modeLabel(opts.mode), opts.style, opts.seconds ? `${opts.seconds} s` : '', (opts.aspects || []).join(' + '), opts.voice === false ? 'captions only' : 'narrated'].filter(Boolean).join(' · ') })
+            jsx('div', { className: 'srl-jobmeta', children: [isDirected(job) ? 'Directed' : modeLabel(opts.mode), opts.style, opts.seconds ? `${opts.seconds} s` : '', (opts.aspects || []).join(' + '), opts.voice ? 'narrated' : 'music only'].filter(Boolean).join(' · ') })
           ] }),
           jsxs('div', { className: 'srl-progress-block', 'data-st': job.stage, children: [
             jsxs('div', { className: 'srl-progress-top', children: [
