@@ -466,6 +466,8 @@ def display_path(path: str, root: str = "", parts: int = 2) -> str:
             return r.rsplit("/", 1)[-1]
         if p.lower().startswith(r.lower() + "/"):
             return p[len(r) + 1:]
+    if p.startswith("/") and not re.match(r"(?i)/(?:home|users|mnt/[a-z]/users)/", p):
+        return p                    # a system path (/usr/bin/bash, /tmp/x) says nothing about this machine
     if p.startswith(("~/", "/")) or re.match(r"[A-Za-z]:/", p):
         comps = [c for c in p.split("/") if c and c != "~" and not re.fullmatch(r"[A-Za-z]:", c)]
         if len(comps) > parts:
@@ -495,17 +497,36 @@ def ellipsize(text: str, limit: int) -> str:
     return cut.rstrip(" ,;&|") + ELLIPSIS
 
 
+_LEAD_NOISE_RES = (
+    re.compile(r"^(?:cd|pushd)\s+(?:/d\s+)?(?:\"[^\"]+\"|'[^']+'|\S+)\s*(?:&&|;)\s*"),
+    re.compile(r"^(?:export\s+|set\s+)?[A-Za-z_][A-Za-z0-9_]*=(?:\"[^\"]*\"|'[^']*'|[^\s;&|]*)\s*(?:&&|;)\s*"),
+    re.compile(r"^(?:source\s+|\.\s+)?\S*activate(?:\.bat|\.ps1|\.fish)?\s*(?:&&|;)\s*"),
+)
+_INTERP_PATH_RE = re.compile(r"(?<![\w\-])(?:\"[^\"\s]*[\\/]|'[^'\s]*[\\/]|[^\s\"';&|]*[\\/])"
+                             r"(python3?(?:\.\d+)?|pythonw|py|node|deno|bun|ruby|php)(?:\.exe)?[\"']?(?=\s|$)",
+                             re.IGNORECASE)
+
+
 def display_cmd(cmd: str, root: str = "", limit: int = 0) -> str:
-    """A session command as a film shows it: first line only, without ``cd X &&`` / env-var / venv-activation
-    noise, interpreter paths as their names, paths project-relative, a loopback origin elided, ellipsized at a
-    word boundary to ``limit`` characters (0 = no limit). The command keeps its real meaning."""
-    raw = str(cmd or "")
-    lines = raw.strip().splitlines()
-    first = lines[0].strip() if lines else ""
+    """A session command as a film shows it: first line only; the leading shell set-up (``cd X &&``, ``VAR=...``,
+    venv activation, ``timeout N``) dropped; interpreter paths as their names; home/drive/project paths
+    project-relative; a loopback origin elided; ellipsized at a word boundary to ``limit`` characters (0 = no
+    limit). Everything else stays verbatim (pipes, ``;``, quoting), so the command keeps its real meaning."""
+    lines = str(cmd or "").strip().splitlines()
+    s = lines[0].strip() if lines else ""
     more = len(lines) > 1
-    segs = _segments(first) or [first.strip()]
-    out = " && ".join(display_text_paths(s, root) for s in segs if s)
-    out = scrub_cmd(out)
-    if more and not out.endswith(ELLIPSIS):
-        out = out.rstrip() + " " + ELLIPSIS
-    return ellipsize(out, limit) if limit else out
+    for _ in range(8):
+        before = s
+        for rx in _LEAD_NOISE_RES:
+            s = rx.sub("", s, count=1)
+        s = _ENV_PREFIX_RE.sub("", _WRAPPER_RE.sub("", s)).strip()
+        if s == before:
+            break
+    s = s or (lines[0].strip() if lines else "")
+    s = _INTERP_PATH_RE.sub(lambda m: m.group(1).lower().replace("pythonw", "python"), s)
+    s = scrub_cmd(display_text_paths(s, root))
+    if limit:
+        s = ellipsize(s, limit - (2 if more else 0))
+    if more and not s.endswith(ELLIPSIS):
+        s = s.rstrip() + " " + ELLIPSIS
+    return s

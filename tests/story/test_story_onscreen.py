@@ -167,6 +167,15 @@ def test_project_root_and_display_forms():
     assert shown.startswith("python -m pytest tests/test_main.py -q")
     assert len(shown) <= 64 and shown.endswith("\u2026") and "~" not in shown and "SHOWREEL" not in shown
     assert display_cmd("curl -s http://127.0.0.1:8765/api/stats", root) == "curl -s \u2026/api/stats"
+    # the rest of the command stays verbatim (';' and pipes keep their meaning); one ellipsis, even for a script
+    long = ("cd /d/work/app && node --test < /dev/null 2>&1 | grep -E '^# (tests|pass)'; echo \"--- curl\"; "
+            "curl -sI http://127.0.0.1:8765/ | tr -d '\\r'")
+    shown = display_cmd(long, "/d/work/app", 64)
+    assert shown.startswith("node --test < /dev/null 2>&1 | grep -E") and " && " not in shown
+    assert shown.count("\u2026") == 1 and len(shown) <= 64
+    script = display_cmd("cd ~/work/hermes-app && ~/.venv/Scripts/python.exe - <<'EOF'\nfrom x import y\nEOF", root, 64)
+    assert script == "python - <<'EOF' \u2026"
+    assert display_path("/usr/bin/bash", root) == "/usr/bin/bash"          # system paths are not machine-specific
 
 
 def test_terminal_and_montage_show_project_relative_paths():
