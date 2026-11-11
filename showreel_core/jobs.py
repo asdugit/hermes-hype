@@ -385,8 +385,8 @@ class JobStore:
             for p in d.rglob(pattern):
                 with contextlib.suppress(OSError):
                     p.unlink()
-        # The silent ``video_<tag>.mp4`` is as big as the film (~300 MB a minute at 1080p) and nothing reads it
-        # after ``hype_<tag>.mp4`` is muxed: keeping it doubled every job's footprint.
+        # The silent ``video_<tag>.mp4`` is as big as the film itself (tens of MB for a Quick film, 300 MB for a
+        # 30 s Directed one in a real E2E run) and nothing reads it after ``hype_<tag>.mp4`` is muxed.
         for p in [*d.glob("video_*.mp4"), *d.glob("mix_*/*.wav")]:
             if p.suffix == ".mp4" and not (d / ("hype_" + p.name[len("video_"):])).is_file():
                 continue
