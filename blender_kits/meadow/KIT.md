@@ -17,8 +17,15 @@ every depth, never uniform:
   high, hovers with wheels spinning, settles into the close-up spot turning slowly);
 - **formations that break apart** (`g0`..`g4`, 5 cars each: loose V, lag, wobble, then peel apart — they only ever
   drift forward/sideways, never fall back);
-- **bird-like streams** (`RINGS`, 6 rings of 7-10 cars circling the meadow at 34-108 m, random spacing, wobble,
-  scale 0.9-1.1, phased so 2+ streams cross every view direction of the move).
+- **murmuration streams** (`RINGS`, 8 flocks of 7-11 cars circling the meadow at 34-155 m): every car has its own
+  radius, altitude, angular speed and orbital phase (`flyers.murmur`), so spacing opens and closes and no flock
+  is a level row (altitudes stagger 8-16 m per flock); the six mid-sky crossers `w0..w6` (`flyers.sway`, bowed
+  left-to-right paths in their own directions) and each car's `yaw_off` ±10-55° with slow yaw/pitch/roll wander
+  mean the flock turns across the view instead of showing identical side profiles (measured: bearings 2-175°,
+  sd 42°, only 18 % flat side-on) — 3/4 front and rear views appear naturally.
+- car materials get `_car_haze`: an aerial-perspective mix toward the sunset haze by camera distance (from 26 m,
+  0.6 at 200 m), so distant cars fade into the air instead of reading as dark maroon; a shadowless camera-side fill
+  and a high lavender sky fill keep the paint red with highlights at every depth.
 Camera (one C2 spline through beats; smoothness checked): low behind her (big, backlit) -> sweeping crane up and back
 (the sky full of cars) -> swoop down into the flowers, low angle under the `over` car -> flight alongside `wing`
 around her (she is in the middle) -> settle at her front-left 3/4, `cross1`/`cross2` cross the lens, rack focus to
