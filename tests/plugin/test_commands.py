@@ -59,6 +59,39 @@ def test_out_of_range_numbers_are_text() -> None:
     assert cmd.directed and cmd.options.seconds == 60
 
 
+@pytest.mark.parametrize(("raw", "secs"), [
+    ("--seconds 5", 15), ("--seconds=999", 180), ("seconds=5", 15), ("pixel 10s vertical", 15), ("500 seconds", 180),
+    ("4m", 180), ("--length 0", 15),
+])
+def test_explicit_lengths_out_of_range_are_clamped_with_a_note(raw: str, secs: int) -> None:
+    """An explicit length (flag, key=, unit) outside 15-180 s is clamped and said, never a Directed film whose
+    direction is the flag itself."""
+    cmd = p(raw)
+    assert not cmd.directed and cmd.options.seconds == secs
+    assert any("15-180" in m for m in cmd.messages)
+
+
+@pytest.mark.parametrize("raw", ["--seconds", "--seconds abc", "seconds=abc", "--style", "--style=", "pixel --style",
+                                 "mode=xyz", "--effort ultra", "engine=gpu"])
+def test_option_words_with_bad_values_are_ignored_with_a_note(raw: str) -> None:
+    cmd = p(raw)
+    assert cmd.action == "render" and not cmd.directed and cmd.options.direction == ""
+    assert any("ignored" in m for m in cmd.messages)
+
+
+def test_out_of_range_length_inside_prose_is_not_a_hint() -> None:
+    o = p("in 5 seconds it builds, make it pop").options
+    assert o.directed and o.seconds == 60
+
+
+@pytest.mark.parametrize("raw", ['""', "...", "\u200b", "\ufeff \u2060"])
+def test_quotes_punctuation_or_invisible_characters_alone_are_the_default_film(raw: str) -> None:
+    cmd = p(raw)
+    assert not cmd.directed and cmd.options.direction == ""
+    assert p("\u200bpixel").options.style == "pixel"
+    assert p("\U0001F468\u200d\U0001F4BB hacker vibe").options.direction == "\U0001F468\u200d\U0001F4BB hacker vibe"
+
+
 @pytest.mark.parametrize(("raw", "aspects"), [
     ("vertical", ["9:16"]), ("9:16", ["9:16"]), ("both", ["16:9", "9:16"]), ("--both", ["16:9", "9:16"]),
     ("--vertical", ["9:16"]), ("square", ["1:1"]), ("landscape", ["16:9"]), ("16:9 vertical", ["16:9", "9:16"]),

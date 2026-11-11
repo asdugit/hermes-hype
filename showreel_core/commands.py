@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from .blender.trigger import blender_requested
-from .config import EFFORTS, MAX_SECONDS, MIN_SECONDS, Options, norm_aspects, norm_engine
+from .config import EFFORTS, MAX_SECONDS, MIN_SECONDS, MODES, Options, norm_aspects, norm_engine, norm_mode
 from .contracts import MODE_ALIASES
 
 ACTIONS = {"styles": "styles", "status": "status", "cancel": "cancel", "revise": "revise",
@@ -62,6 +62,9 @@ _STYLE_NOUNS = {"style", "look", "vibe", "vibes", "aesthetic", "theme", "feel", 
 _LEN_RE = re.compile(r"^(\d{1,3})(s|sec|secs|seconds?)?$")
 _MIN_RE = re.compile(r"^(\d)(m|min|mins|minutes?)$")
 _STRIP = ",.;!?\"'()[]{}"
+#: zero-width space / word joiner / BOM, which ``str.split`` keeps (a pasted "\u200b" made a Directed film); ZWJ and
+#: ZWNJ stay (emoji sequences, Persian and Indic text)
+_INVISIBLE = dict.fromkeys(map(ord, "\u200b\u2060\ufeff"), " ")
 _VALUE_FLAGS = {"--seconds": "seconds", "--length": "seconds", "--duration": "seconds", "--style": "style",
                 "--mode": "mode", "--effort": "effort", "--aspect": "aspect", "--engine": "engine_3d"}
 
@@ -94,27 +97,39 @@ class Command:
 class _Tok:
     raw: str
     kind: str = "text"                # text | mode | style | seconds | aspect | voice | effort | preview | final | flag
-    #                                   | engine_3d
+    #                                   | engine_3d | bad (an option with a missing/invalid value: noted, ignored)
     value: Any = None
     strong: bool = True               # counts inside free text (as a hint)
     pref: bool = False                # a style followed by "style"/"look": preferred hint
+    note: str = ""                    # told to the user when this token is applied
 
 
-def _length(tok: str) -> int | None:
+def _length(tok: str, *, explicit: bool = False) -> int | None:
+    """Seconds from ``60``/``45s``/``2m``. A bare number outside 15..180 is not a length (``/hype top 5``), but
+    an explicit one (unit, ``--seconds``, ``seconds=``) is clamped into range by the caller."""
     m = _LEN_RE.match(tok)
     if m:
         n = int(m.group(1))
+        if explicit or m.group(2):
+            return n
         return n if MIN_SECONDS <= n <= MAX_SECONDS else None
     m = _MIN_RE.match(tok)
-    if m and 1 <= int(m.group(1)) <= 3:
-        return min(MAX_SECONDS, 60 * int(m.group(1)))
+    if m:
+        return 60 * int(m.group(1))
     return None
+
+
+def _seconds_tok(raw: str, n: int, *, strong: bool) -> _Tok:
+    """A length token, clamped to MIN..MAX seconds with a note when it was outside."""
+    s = max(MIN_SECONDS, min(MAX_SECONDS, n))
+    note = "" if s == n else f"Films are {MIN_SECONDS}-{MAX_SECONDS} s long: using {s} s (asked for {n} s)."
+    return _Tok(raw, "seconds", s, strong=strong, note=note)
 
 
 def _classify(raw: str, styles: set[str]) -> _Tok:
     tok = raw.strip(_STRIP).lower()
     if not tok:
-        return _Tok(raw)
+        return _Tok(raw, "noise", strong=False)      # bare quotes/punctuation: not a direction on their own
     if tok.startswith("--") and "=" in tok:
         key, _, val = tok.partition("=")
         if key in _VALUE_FLAGS:
@@ -146,23 +161,38 @@ def _classify(raw: str, styles: set[str]) -> _Tok:
     n = _length(tok)
     if n is not None:
         # "45s" / "60" are lengths at the edges; inside text only "<n> seconds" counts (see _merge)
-        return _Tok(raw, "seconds", n, strong=False)
+        return _seconds_tok(raw, n, strong=False)
     return _Tok(raw)
+
+
+_VALUE_HELP = {"seconds": f"a number of seconds ({MIN_SECONDS}-{MAX_SECONDS})", "style": "a style name",
+               "mode": "product, lore or speedrun", "effort": "quick, standard or max",
+               "engine_3d": "browser, blender or auto", "aspect": "16:9, 9:16, both or 1:1"}
+
+
+def _bad(raw: str, kind: str) -> _Tok:
+    """An option word whose value is missing or invalid: noted and ignored (never free text, which would make
+    the film Directed with the flag as its direction)."""
+    return _Tok(raw, "bad", strong=False,
+                note=f"'{raw.strip()}' needs {_VALUE_HELP.get(kind, 'a value')}; ignored.")
 
 
 def _value(raw: str, kind: str, val: str, styles: set[str]) -> _Tok:
     val = val.strip(_STRIP).lower()
+    if not val:
+        return _bad(raw, kind)
     if kind == "seconds":
-        n = _length(val)
-        return _Tok(raw, "seconds", n) if n else _Tok(raw)
+        n = _length(val, explicit=True)
+        return _seconds_tok(raw, n, strong=True) if n is not None else _bad(raw, kind)
     if kind == "style":
-        return _Tok(raw, "style", val) if val else _Tok(raw)
+        return _Tok(raw, "style", val)
     if kind == "mode":
-        return _Tok(raw, "mode", MODE_ALIASES.get(val, "product"))
+        return _Tok(raw, "mode", norm_mode(val)) if val in MODE_ALIASES or val in MODES else _bad(raw, kind)
     if kind == "effort":
-        return _Tok(raw, "effort", val if val in EFFORTS else "standard")
+        return _Tok(raw, "effort", val) if val in EFFORTS else _bad(raw, kind)
     if kind == "engine_3d":
-        return _Tok(raw, "engine_3d", norm_engine(val))
+        return _Tok(raw, "engine_3d", norm_engine(val)) if norm_engine(val) == val or val in (
+            "three", "threejs", "three.js", "chromium") else _bad(raw, kind)
     return _Tok(raw, "aspect", norm_aspects(val))
 
 
@@ -187,24 +217,32 @@ def _merge(toks: list[_Tok], styles: set[str]) -> list[_Tok]:
                 i += 2
                 continue
         if nxt is not None and nxt.raw.strip(_STRIP).lower() in _UNITS:
-            n = _length(t.raw.strip(_STRIP).lower())
+            n = _length(t.raw.strip(_STRIP).lower(), explicit=True)
             if n is not None:
-                out.append(_Tok(f"{t.raw} {nxt.raw}", "seconds", n, strong=True))
+                # out of range only counts at the edges ("/hype 5 seconds"), not as a hint inside prose
+                out.append(_seconds_tok(f"{t.raw} {nxt.raw}", n, strong=MIN_SECONDS <= n <= MAX_SECONDS))
                 i += 2
                 continue
-        out.append(_Tok(t.raw) if t.kind == "flag" else t)
+        out.append(_bad(t.raw, t.value) if t.kind == "flag" else t)
         i += 1
     return out
 
 
 def _apply(opts: Options, t: _Tok, messages: list[str]) -> None:
     """Set one explicit option (the first value of a kind wins; repeats are noted)."""
+    if t.kind == "bad":
+        messages.append(t.note)
+        return
+    if t.kind == "noise":
+        return
     name = {"aspect": "aspects", "preview": "preview", "final": "preview"}.get(t.kind, t.kind)
     if name in opts.explicit and t.kind not in ("aspect",):
         if t.kind == "style" and t.value != opts.style:
             opts.hints.setdefault("styles", []).append(t.value)
             messages.append(f"Using style '{opts.style}' ('{t.value}' kept as a hint).")
         return
+    if t.note:
+        messages.append(t.note)
     if t.kind == "aspect":
         merged = [a for a in opts.aspects if "aspects" in opts.explicit] + [a for a in t.value]
         opts.aspects = list(dict.fromkeys(merged))
@@ -244,7 +282,7 @@ def parse(raw: str | None, *, styles: Iterable[str] = (), base: Options | None =
     ``styles`` are the accepted style ids (``config.style_ids()``); ``base`` carries the user's
     settings defaults. Any free text makes the film Directed (``options.direction`` = the full text).
     """
-    text = " ".join(str(raw or "").split())
+    text = " ".join(str(raw or "").translate(_INVISIBLE).split())
     # "with narration" / "without narration" are one option each, not free text that makes the film Directed
     text = re.sub(r"(?i)\b(?:with|add)\s+(?:a\s+|an\s+)?(?:narration|narrator|voice[- ]?over)\b", "narrated", text)
     text = re.sub(r"(?i)\b(?:no|without)\s+(?:narration|narrator|voice[- ]?over)\b", "no-narration", text)
