@@ -155,6 +155,34 @@ def test_strip_captures_never_carry_the_hero(tmp_path: Path) -> None:
     assert quote["params"]["who"] != "user"                   # kits print 'user' as 'You asked'
 
 
+def test_narration_retries_transient_tts_failures(tmp_path: Path) -> None:
+    """Edge TTS answers 'NoAudioReceived' now and then: a line is retried (a documentary lost 2 of 7 lines),
+    but when TTS is simply down (nothing has spoken) each line gets one try, so the film is not delayed."""
+    from showreel_core.director import voice
+
+    class Clip:
+        def __init__(self, path: Path) -> None:
+            self.path, self.duration = path, 1.5
+    tries: dict[str, int] = {}
+
+    def flaky(_d: Any, text: str, out: Path, speed: Any = None) -> Any:
+        tries[text] = tries.get(text, 0) + 1
+        if text == "Two." and tries[text] < 3:
+            raise RuntimeError("NoAudioReceived: No audio was received.")
+        return Clip(out)
+    slept: list[float] = []
+    lines = [{"t": 1.0, "text": "One."}, {"t": 5.0, "text": "Two."}, {"t": 9.0, "text": "Three."}]
+    out, warns = voice.synthesize(lines, dispatch=None, out_dir=tmp_path / "vo", dur=20.0, pace=lambda t: 1.0,
+                                  tts=flaky, sleep=slept.append)
+    assert [o["text"] for o in out] == ["One.", "Two.", "Three."] and tries["Two."] == 3 and slept == [1.5, 4.0]
+    assert any("try 3" in w for w in warns)
+    tries.clear()
+    slept.clear()
+    out, warns = voice.synthesize(lines, dispatch=None, out_dir=tmp_path / "vo2", dur=20.0, pace=lambda t: 1.0,
+                                  tts=lambda *a, **k: None, sleep=slept.append)
+    assert out == [] and len(slept) == 2 and len([w for w in warns if "could not be spoken" in w]) == 3
+
+
 def test_pick_repairs_malformed_and_hallucinated(tmp_path: Path) -> None:
     b = _screen_brief(tmp_path, "a 1980s VHS infomercial")
     bps = compose.blueprints(catalog=build_catalog(assets=b.assets))

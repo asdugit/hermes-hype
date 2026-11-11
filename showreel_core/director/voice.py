@@ -10,11 +10,14 @@ music). Lines are never cut or time-stretched: a clip that cannot fit before the
 from __future__ import annotations
 
 import re
+import time
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
 GAP_S = 0.25            # minimum silence between two narration clips
+RETRY_S = (1.5, 4.0)    # waits before a 2nd/3rd try: Edge's "NoAudioReceived" is transient (a real hushed-narrator
+                        # documentary lost 2 of its 7 lines to it); no retries once TTS looks down (nothing spoke yet)
 TAIL_S = 0.15           # clips end at least this long before the film ends
 _STYLE_WORDS = ("cinematic", "pixel", "terminal", "blueprint", "comic", "ink", "launch")
 
@@ -41,7 +44,7 @@ def speed_for(treatment: dict[str, Any], t: float, override: Any = None) -> floa
     try:
         from ..config import voice_speed
         return float(voice_speed(act_style_at(treatment, t), override))
-    except Exception:
+    except Exception:  # noqa: BLE001 - config is optional here; the locked default pace is 1.0
         return 1.0
 
 
@@ -61,13 +64,13 @@ def film_pace(treatment: dict[str, Any], lines: list[dict[str, Any]], override: 
     try:
         from ..config import voice_speed
         return float(voice_speed(style, override))
-    except Exception:
+    except Exception:  # noqa: BLE001 - config is optional here; the locked default pace is 1.0
         return 1.0
 
 
 def synthesize(lines: list[dict[str, Any]], *, dispatch: Any, out_dir: Path, dur: float,
-               pace: Callable[[float], float], tts: Callable[..., Any] | None = None
-               ) -> tuple[list[dict[str, Any]], list[str]]:
+               pace: Callable[[float], float], tts: Callable[..., Any] | None = None,
+               sleep: Callable[[float], None] = time.sleep) -> tuple[list[dict[str, Any]], list[str]]:
     """Speak and place every line. Returns (narration entries, warnings). Never raises."""
     if tts is None:
         from ..audio.tts import synthesize as tts_synth
@@ -78,16 +81,29 @@ def synthesize(lines: list[dict[str, Any]], *, dispatch: Any, out_dir: Path, dur
     out: list[dict[str, Any]] = []
     warnings: list[str] = []
     end_prev = 0.0
+    spoke = failed = 0
     out_dir.mkdir(parents=True, exist_ok=True)
     for i, line in enumerate(sorted(lines, key=lambda v: float(v.get("t", 0)))):
         text = str(line.get("text") or "").strip()
         if not text:
             continue
         speed = pace(float(line.get("t", 0)))
-        try:
-            clip = tts(dispatch, text, out_dir / f"vo_{i:02d}.wav", None if abs(speed - 1.0) < 1e-6 else speed)
-        except Exception as exc:
-            clip, warnings = None, [*warnings, f"narration line {i + 1} failed: {exc}"]
+        clip, err = None, ""
+        waits = (0.0, *RETRY_S) if spoke or not failed else (0.0,)
+        for k, wait in enumerate(waits):
+            if wait:
+                sleep(wait)
+            try:
+                clip = tts(dispatch, text, out_dir / f"vo_{i:02d}.wav", None if abs(speed - 1.0) < 1e-6 else speed)
+            except Exception as exc:  # noqa: BLE001 - a TTS backend error is a warning, never fatal
+                clip, err = None, str(exc)
+            if clip is not None:
+                if k:
+                    warnings.append(f"narration line {i + 1} spoke on try {k + 1}")
+                break
+        if clip is None and err:
+            warnings.append(f"narration line {i + 1} failed: {err}")
+        spoke, failed = spoke + (clip is not None), failed + (clip is None)
         if clip is None:
             warnings.append(f"narration line {i + 1} could not be spoken (TTS unavailable)")
             continue
