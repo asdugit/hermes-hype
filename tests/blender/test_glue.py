@@ -309,3 +309,39 @@ def test_quick_table_names_real_scenes():
         assert typ in quick.BLENDER_TYPES
         for kind, entry in row.items():
             assert kind in ("model", "screen") and SCENE_RE.match(entry["scene"])
+
+
+def test_quick_916_uses_the_phone_capture_and_keeps_the_top_band_for_words(tmp_path, monkeypatch):
+    """research/w5-device.md: 9:16 Quick x Blender films had laptops (no phone capture reached the device scenes) and
+    the HOOK/TITLE words sat ON the laptop (space was ignored in 9:16)."""
+    from PIL import Image
+
+    from showreel_core.film import quick
+    monkeypatch.delenv("SHOWREEL_BLENDER_PLACEHOLDER", raising=False)
+    wide, tall = tmp_path / "desk.png", tmp_path / "mobile_390x844.png"
+    Image.new("RGB", (64, 36), (20, 30, 200)).save(wide)
+    Image.new("RGB", (39, 84), (200, 30, 20)).save(tall)
+    tl = _timeline(wide)
+    tl["w"], tl["h"] = 360, 640
+    tl["scenes"][2] = {"type": "SCREEN", "t0": 4, "t1": 6, "data": {"image": {"path": str(tall), "w": 390, "h": 844}}}
+    film = quick.film_from_timeline(tl, job_dir=tmp_path, blender=True)["film"]
+    shots = {s["id"]: s for s in film["shots"]}
+    mob = next(n for n in film["assets"] if n != shots["s00_hook"]["params"].get("media"))
+    for sid in ("s00_hook", "s01_title", "s03_end"):
+        p = shots[sid]["params"]
+        assert shots[sid]["scene"].startswith("blender:device/") and p["mobile"] == mob, (sid, p)
+    assert shots["s00_hook"]["params"]["space"] == "top" and shots["s01_title"]["params"]["space"] == "top"
+    ovs = {o["id"]: o for o in film["overlays"]}
+    assert ovs["blx_s00_hook"]["params"]["band"] == "top" and ovs["blx_s01_title"]["params"]["band"] == "top"
+    assert "align" not in ovs["blx_s01_title"]["params"]
+    # 16:9 keeps the left-third layout and no phone
+    film2 = quick.film_from_timeline(_timeline(wide), job_dir=tmp_path, blender=True)["film"]
+    h2 = next(s for s in film2["shots"] if s["id"] == "s00_hook")["params"]
+    assert h2["space"] == "left" and "mobile" not in h2
+    assert next(o for o in film2["overlays"] if o["id"] == "blx_s01_title")["params"]["align"] == "left"
+
+
+def test_device_hero_accepts_top_space_for_vertical():
+    src = (Path(__file__).resolve().parents[2] / "blender_kits" / "device" / "device_hero.py").read_text(encoding="utf-8")
+    assert '"values": ["none", "left", "right", "top", "bottom"]' in src
+    assert 'space = "top"' in src

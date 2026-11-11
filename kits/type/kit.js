@@ -28,6 +28,7 @@ function scrimLayer(F, amount, shape = 'center') {
   const c = (x) => `rgb(var(--sr-scrim-rgb) / ${x})`;
   const g = shape === 'left' ? `linear-gradient(90deg, ${c(a)} 0%, ${c(a)} 40%, ${c(0)} 78%)`
     : shape === 'bottom' ? `linear-gradient(180deg, ${c(0)} 40%, ${c(a)} 78%)`
+    : shape === 'top' ? `linear-gradient(180deg, ${c(a)} 0%, ${c(a)} 22%, ${c(0)} 52%)`
     : `radial-gradient(${F.portrait ? '90% 42%' : '62% 56%'} at 50% 50%, ${c(a)}, ${c(b)})`;
   el.style.cssText = `left:0;top:0;width:${F.W}px;height:${F.H}px;background:${g};`;
   F.el.insertBefore(el, F.cam);
@@ -44,6 +45,7 @@ defineDomScene('kit:type/title', {
     sub: { type: 'string', default: '', doc: 'secondary line (<= 10 words)' },
     eyebrow: { type: 'string', default: '', doc: 'small mono caps line above' },
     align: { type: 'string', default: 'center', doc: 'center | left' },
+    band: { type: 'string', default: '', doc: "'' = centred | top | bottom: the text sits in that band (the picture keeps the rest)" },
     emphasis: { type: 'any', default: 'auto', doc: "'auto' (last long word), word index, or -1 for none" },
     size: { type: 'int', default: 0, doc: 'font px at 1080p (0 = fit)' },
     ...SCRIM,
@@ -52,8 +54,13 @@ defineDomScene('kit:type/title', {
     overlay(F);
     const dur = ctx.dur, L = F.portrait;
     const left = p.align === 'left' && !L;
-    const sc = scrimLayer(F, p.scrim, left ? 'left' : 'center');
+    const band = p.band === 'top' || p.band === 'bottom' ? p.band : '';
+    const sc = scrimLayer(F, p.scrim, band || (left ? 'left' : 'center'));
     const box = centerBox(F, 0);
+    if (band) {     // e.g. 9:16 Blender HOOK/TITLE: the device sits low, the words high (never on the device)
+      const bh = Math.round(F.H * (L ? 0.3 : 0.34));
+      css(box, { height: `${bh}px`, top: band === 'top' ? `${F.safe.t}px` : `${F.H - F.safe.b - bh}px` });
+    }
     if (left) { box.style.alignItems = 'flex-start'; box.style.textAlign = 'left'; box.style.paddingLeft = `${F.safe.l}px`; }
     const maxW = L ? 840 : left ? 1100 : 1500;
     const fs = p.size || fitSize(p.text, maxW, 2, L ? 120 : 150, 64, 0.5);

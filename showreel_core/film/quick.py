@@ -307,11 +307,14 @@ def _fill(x: Any, subs: Mapping[str, Any]) -> Any:
     return x
 
 
-def _type_overlay(typ: str, data: Mapping[str, Any], theme: str) -> tuple[str, dict[str, Any]] | None:
-    """The words a browser type scene would have shown, as a kit:type overlay above the Blender picture."""
-    if typ == "TITLE" and data.get("title"):     # left: Blender scenes keep the left third clean ("space": "left")
+def _type_overlay(typ: str, data: Mapping[str, Any], theme: str,
+                  vertical: bool = False) -> tuple[str, dict[str, Any]] | None:
+    """The words a browser type scene would have shown, as a kit:type overlay above the Blender picture.
+    16:9: left (Blender scenes keep the left third clean, ``space: left``); 9:16: the top band (``space: top``)."""
+    place = {"band": "top"} if vertical else {"align": "left"}
+    if typ == "TITLE" and data.get("title"):
         return "kit:type/title", {"text": str(data["title"]), "sub": str(data.get("tagline") or ""), "theme": theme,
-                                  "align": "left"}
+                                  **place}
     if typ == "END":
         return "kit:type/end-lockup", {"title": str(data.get("title") or ""), "cta": str(data.get("cta") or ""),
                                        "url": str(data.get("url") or ""), "credit": str(data.get("credit") or ""),
@@ -319,7 +322,7 @@ def _type_overlay(typ: str, data: Mapping[str, Any], theme: str) -> tuple[str, d
     if typ == "FEATURE" and data.get("feature"):
         return "kit:type/lower-third", {"title": str(data["feature"]), "theme": theme}
     if typ == "HOOK" and data.get("label"):
-        return "kit:type/title", {"text": str(data["label"]), "theme": theme, "align": "left"}
+        return "kit:type/title", {"text": str(data["label"]), "theme": theme, **place}
     return None
 
 
@@ -336,6 +339,12 @@ def apply_blender(film: dict[str, Any], datas: list[tuple[str, dict[str, Any]]],
         assets[PRODUCT3D_ASSET] = {"src": product_model, "type": "model"}
         film["assets"][PRODUCT3D_ASSET] = {"type": "model"}
     kind = "model" if product_model else "screen"
+    w, h = (list(film.get("size") or [1920, 1080]) + [1080])[:2]
+    vertical = float(h) > float(w)
+    # 9:16: the phone capture (a tall image anywhere in the film) goes to every device scene, so they build a phone
+    # instead of a laptop; the real 9:16 run had laptops because only the shot's own (desktop) capture reached them
+    tall = next((d["asset"] for _t, dd in datas for d in _image_dicts(dd)
+                 if float(d.get("h") or 0) > 1.4 * float(d.get("w") or 1e9)), None) if vertical else None
     fallback: dict[str, Any] = {}
     done: list[str] = []
     for shot, (typ, data) in zip(film["shots"], datas):
@@ -351,9 +360,14 @@ def apply_blender(film: dict[str, Any], datas: list[tuple[str, dict[str, Any]]],
         shot["scene"] = str(entry["scene"])
         params = _fill(dict(entry.get("params") or {}), subs)
         params = {k: v for k, v in params.items() if v is not None and not (isinstance(v, str) and v.startswith("{"))}
+        if vertical and str(entry["scene"]).startswith("blender:device/"):
+            if tall:
+                params["mobile"] = tall
+            if params.get("space") in ("left", "right"):
+                params["space"] = "top"      # device low, the overlay words in the top band (never on the device)
         shot["params"] = {**params, "product": str(product)}
         shot.pop("res", None)
-        ov = _type_overlay(typ, data, theme)
+        ov = _type_overlay(typ, data, theme, vertical)
         if ov:
             film["overlays"].append({"id": f"blx_{shot['id']}"[:48], "t0": shot["t0"], "t1": shot["t1"],
                                      "scene": ov[0], "params": ov[1]})

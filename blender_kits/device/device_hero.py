@@ -33,9 +33,9 @@ PARAMS = {
              "doc": "device size in frame at the end (fraction of frame width; 9:16 uses height for phones)"},
     "side": {"type": "enum", "values": ["left", "right"], "default": "left",
              "doc": "camera travels from this side toward the front"},
-    "space": {"type": "enum", "values": ["none", "left", "right"], "default": "none",
+    "space": {"type": "enum", "values": ["none", "left", "right", "top", "bottom"], "default": "none",
               "doc": "keep this side of the frame clean for overlay text (the device sits on the other side, a bit "
-                     "smaller); none = device centred"},
+                     "smaller); none = device centred. 9:16 uses top/bottom (left/right mean top there)"},
 }
 DESCRIBE = ("Device hero for TITLE/HOOK: out of darkness a slim aluminium laptop opens (or a phone rises and turns) "
             "and its screen lights up with the product's real UI, exact colours; rims light first, a strip light "
@@ -84,10 +84,14 @@ def build(sc) -> None:
     if s.vertical and kind == "laptop":
         fill = min(0.95, fill + 0.28)
     space = p.get("space") or "none"
-    if s.vertical or space not in ("left", "right"):
+    if s.vertical and space in ("left", "right"):
+        space = "top"           # a tall frame has no side to spare: the words go in the top band
+    if space not in ("left", "right", "top", "bottom"):
         space = "none"
-    if space != "none":
+    if space in ("left", "right"):
         fill *= 0.74
+    elif space != "none":
+        fill *= 0.8
     dist = studio.fit_distance(w_fit, h_fit, lens1, s.aspect, fill)
     st = cm.setup(s, preset=p["env"], center=tuple(center), radius=radius, sweep=bool(p["reveal"]),
                   key_side=sgn, cam_dist=dist)
@@ -140,10 +144,13 @@ def build(sc) -> None:
             (D, tgt1, -sgn * orbit * 0.2, pitch1, dist, lens1)]
     beats = []
     for t_b, tg, yaw, pitch, dd, ln in plan:
-        if space != "none":
+        if space in ("left", "right"):
             right = Vector((math.cos(math.radians(yaw)), math.sin(math.radians(yaw)), 0.0))
             half_w = dd * 18.0 / ln     # half frame width at the subject (36 mm sensor)
             tg = tg + right * (half_w * 0.42 * (-1.0 if space == "left" else 1.0))
+        elif space != "none":       # aim above (below) the device: it lands low (high), the top (bottom) band is clean
+            half_h = dd * math.tan(studio.fov(ln) / 2) / s.aspect
+            tg = tg + Vector((0.0, 0.0, half_h * 0.3 * (1.0 if space == "top" else -1.0)))
         pos = Vector(studio.look_from(tuple(tg), yaw, pitch, dd))
         beats.append(studio.Beat(t_b, tuple(pos), tuple(tg), ln))
     scr_c = _screen_centres(dev, s)
