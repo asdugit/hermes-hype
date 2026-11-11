@@ -77,8 +77,21 @@ function resolveParams(doc, given) {
   return Object.assign(p, given || {});
 }
 
-/** Asset names a shot uses: params typed 'asset' plus any string param that names a manifest asset. */
+/** The asset name inside a media record ({asset: 'x', frame: 'card'} / {id} / {name} / {src}): models copy the
+ * image objects of kits that take them into kits whose param is a plain asset name. null when it names none. */
+function assetNameOf(v, store) {
+  const names = ['asset', 'id', 'name', 'src', 'path'].map((k) => v[k]).filter((s) => typeof s === 'string' && s);
+  return names.find((s) => store.has(s)) || names[0] || null;
+}
+
+/** Asset names a shot uses: params typed 'asset' plus any string param that names a manifest asset. A param typed
+ * 'asset'/'media' that holds a media record is read as the record's asset name (dropped when it names none). */
 function assetRefs(doc, p, store) {
+  for (const [k, d] of Object.entries(doc || {})) {
+    if (d && (d.type === 'asset' || d.type === 'media') && p[k] && typeof p[k] === 'object' && !Array.isArray(p[k])) {
+      p[k] = assetNameOf(p[k], store);
+    }
+  }
   const out = new Set();
   const walk = (v) => {
     if (typeof v === 'string') { if (store.has(v)) out.add(v); }
@@ -88,7 +101,8 @@ function assetRefs(doc, p, store) {
   walk(p);
   for (const [k, d] of Object.entries(doc || {})) {
     if (d && (d.type === 'asset' || d.type === 'media') && p[k] != null && !store.has(p[k])) {
-      throw new Error(`param '${k}' names asset '${p[k]}', which is not in assets/manifest.json (have: ${store.names().join(', ') || 'none'})`);
+      const shown = typeof p[k] === 'string' ? p[k] : JSON.stringify(p[k]);
+      throw new Error(`param '${k}' names asset '${shown}', which is not in assets/manifest.json (have: ${store.names().join(', ') || 'none'})`);
     }
   }
   return [...out];

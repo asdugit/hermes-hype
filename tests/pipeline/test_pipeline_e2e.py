@@ -513,6 +513,75 @@ def test_a_page_that_cannot_load_still_fails(env: dict[str, Any]) -> None:
     assert final["stage"] == "failed" and final["error"]["code"] == "page_broken"
 
 
+def _broken(sid: str, scene: str = "kit:pixel/FEATURE") -> dict[str, str]:
+    """The strict page's load error for one shot whose setup() throws (FAILURES #31, verbatim shape)."""
+    return {"code": "page_load", "message": f"page script failed: Error: shot '{sid}' ({scene}): setup() threw: "
+                                            "param 'image' names asset 'nope', which is not in assets/manifest.json "
+                                            "(have: shot_a, mobile_390x844) (at runtime/core/runtime.js:91:13)"}
+
+
+def _directed_page(job_dir: Path, *, kits: tuple[str, ...] = ("base", "pixel")) -> dict[str, Any]:
+    """A Director result whose own built page (stage.html + film.json + kits + manifest) the pipeline renders."""
+    page = job_dir / "page"
+    for k in kits:
+        (page / "kits" / k).mkdir(parents=True, exist_ok=True)
+        (page / "kits" / k / "kit.js").write_text("// kit", encoding="utf-8")
+    (page / "assets").mkdir(parents=True, exist_ok=True)
+    (page / "assets" / "manifest.json").write_text(json.dumps({
+        "mobile_390x844": {"type": "image", "path": "assets/m.jpg"}, "shot_a": {"type": "image", "path": "assets/a.jpg"}}),
+        encoding="utf-8")
+    film = {"version": 1, "fps": 30, "size": [1920, 1080], "dur": 15.0, "title": "Brickfall",
+            "shots": [{"id": "open", "t0": 0, "t1": 5, "scene": "kit:pixel/title-screen"},
+                      {"id": "feat", "t0": 5, "t1": 10, "scene": "kit:pixel/FEATURE", "res": [1920, 1080],
+                       "params": {"image": "nope", "feature": "WIDE PADDLE"}},
+                      {"id": "end", "t0": 10, "t1": 15, "scene": "kit:pixel/END"}],
+            "transitions": [{"from": "feat", "to": "end", "type": "crossfade", "t": 9.8, "dur": 0.4}]}
+    (page / "stage.html").write_text("<!doctype html>", encoding="utf-8")
+    (page / "film.json").write_text(json.dumps(film), encoding="utf-8")
+    return {"ok": True, "status": "done", "film": film, "job_dir": str(job_dir), "page_dir": str(page)}
+
+
+def test_one_broken_shot_never_fails_a_directed_film(env: dict[str, Any]) -> None:
+    """FAILURES #31: one kit shot whose setup() threw on the strict page failed a 32 min Directed job outright."""
+    store, rec = env["store"], Recorder()
+    deps = make_deps(rec, director=lambda *, job_dir, **_: _directed_page(job_dir))
+    calls = _stalling_layout(deps, [_broken("feat")])
+    final = run_job(_job(store, seconds=30, direction="a retro arcade attract-mode trailer")["id"], _host()[0],
+                    store=store, deps=deps)
+    assert final["stage"] == "done", final.get("error")
+    assert len(calls) == 2 and rec.n("render") >= 1
+    page = json.loads((Path(final["director"]["page_dir"]) / "film.json").read_text(encoding="utf-8"))
+    feat = next(s for s in page["shots"] if s["id"] == "feat")
+    assert feat["scene"] == "kit:base/SCREEN" and (feat["t0"], feat["t1"]) == (5, 10)
+    assert feat["params"]["image"] == {"asset": "shot_a", "frame": "card"}     # a desktop picture, not the phone
+    assert any("shot feat could not be drawn" in w and "plain card" in w for w in final["warnings"])
+
+
+def test_a_broken_shot_without_a_card_kit_is_left_out(env: dict[str, Any]) -> None:
+    store, rec = env["store"], Recorder()
+    deps = make_deps(rec, director=lambda *, job_dir, **_: _directed_page(job_dir, kits=("pixel",)))
+    _stalling_layout(deps, [_broken("feat")])
+    final = run_job(_job(store, seconds=30, direction="a retro arcade attract-mode trailer")["id"], _host()[0],
+                    store=store, deps=deps)
+    assert final["stage"] == "done", final.get("error")
+    page = json.loads((Path(final["director"]["page_dir"]) / "film.json").read_text(encoding="utf-8"))
+    assert [(s["id"], s["t1"]) for s in page["shots"]] == [("open", 10.0), ("end", 15)]
+    assert page["transitions"] == [{"from": "open", "to": "end", "type": "crossfade", "t": 9.8, "dur": 0.4}]
+    assert any("shot feat could not be drawn" in w and "left it out" in w for w in final["warnings"])
+
+
+def test_a_page_whose_shots_keep_breaking_still_fails(env: dict[str, Any]) -> None:
+    """Real QA stays: the same shot breaking as its stand-in is dropped, and a page past MAX_STAND_INS fails."""
+    from showreel_core.pipeline import MAX_STAND_INS
+    store, rec = env["store"], Recorder()
+    deps = make_deps(rec, director=lambda *, job_dir, **_: _directed_page(job_dir))
+    _stalling_layout(deps, [_broken("feat"), _broken("feat", "kit:base/SCREEN"), _broken("open"), _broken("end")]
+                     [:MAX_STAND_INS + 1])
+    final = run_job(_job(store, seconds=30, direction="a retro arcade attract-mode trailer")["id"], _host()[0],
+                    store=store, deps=deps)
+    assert final["stage"] == "failed" and final["error"]["code"] == "page_broken"
+
+
 def test_initial_eta_reflects_length_aspects_and_the_director() -> None:
     """Real E2E: a Directed film said '~2 min left' while the Director still had ~14 min to go."""
     from showreel_core.pipeline import DIRECTOR_ESTIMATE_S, FIXED_STAGE_S, initial_estimates

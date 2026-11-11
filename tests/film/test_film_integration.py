@@ -64,6 +64,31 @@ def test_strict_load_rejects_ready_with_a_clear_message(tmp_path: Path, demo, re
     assert "shot 'nosetup' (kit:demo/setup-throws): setup() threw: setup exploded (at kits/demo/kit.js:" in r.ready_error
 
 
+def _pixel_feature_job(tmp_path: Path, demo, image) -> Path:
+    """A real kit:pixel/FEATURE shot (its ``image`` param takes an asset NAME) on the strict final page."""
+    _, assets, _ = demo
+    film = {"version": 1, "fps": 30, "size": [1280, 720], "dur": 3.0, "seed": 5, "assets": {"logo": {"type": "image"}},
+            "shots": [{"id": "feat-paddle", "t0": 0, "t1": 3, "scene": "kit:pixel/FEATURE",
+                       "params": {"image": image, "feature": "WIDE PADDLE"}}]}
+    return build_job(film, tmp_path / "job", assets={"logo": assets["logo"]})
+
+
+def test_strict_page_reads_a_media_record_as_its_asset_name(tmp_path: Path, demo, render_slot):
+    """FAILURES #31: `image: {asset: ...}` on kit:pixel/FEATURE threw "names asset '[object Object]'" in setup()
+    and the strict final page refused to load (a 32 min Directed film failed)."""
+    job = _pixel_feature_job(tmp_path, demo, {"asset": "logo", "frame": "card"})
+    r = dryrun(job, times=[0.5, 2.0], lenient=False, determinism=False)
+    assert r.ready_error == "" and r.error is None, r.summary()
+    assert r.scene_errors == [], r.summary()
+
+
+def test_strict_page_names_a_missing_asset_plainly(tmp_path: Path, demo, render_slot):
+    job = _pixel_feature_job(tmp_path, demo, {"asset": "nope"})
+    r = dryrun(job, lenient=False, determinism=False)
+    assert "shot 'feat-paddle' (kit:pixel/FEATURE): setup() threw: param 'image' names asset 'nope'" in r.ready_error
+    assert "[object Object]" not in r.ready_error
+
+
 def test_unknown_scene_lists_what_is_available(tmp_path: Path, demo, render_slot):
     job = _job(tmp_path, demo, [{"id": "x", "t0": 0, "t1": 1, "scene": "kit:demo/nope"}])
     r = dryrun(job, lenient=False, determinism=False)

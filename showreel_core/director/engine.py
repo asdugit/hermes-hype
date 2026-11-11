@@ -31,6 +31,7 @@ from pathlib import Path
 from typing import Any
 
 from ..contracts import Product
+from ..film import standin
 from ..story.schema import parse_json_text
 from . import compose, lookguard, measured, moods, prompts, repair, shotfix, tiers
 from . import prominence as pm
@@ -1050,6 +1051,8 @@ def _dry_run(r: _Run, v: Version) -> bool:
                                                   "errors": [str(e) for e in pv.errors[:60]], "qa": pv.qa[:80]})
         by_scene = _errors_by_scene(v, pv)
         kit_errors = by_scene.pop("", [])
+        if pv.ok and _stand_in_kit_shots(r, v, pv):
+            continue                    # a kit shot whose setup() throws would fail the strict final page
         if pv.ok and not by_scene:
             if kit_errors:
                 r.warn("dryrun", f"{len(kit_errors)} runtime error(s) in kit shots: {kit_errors[0][:160]}")
@@ -1088,6 +1091,46 @@ def _dry_run(r: _Run, v: Version) -> bool:
                 return False
     r.emit("dryrun", "Dry run still failing after repairs", level="error")
     return False
+
+
+def _stand_in_kit_shots(r: _Run, v: Version, pv: Preview) -> bool:
+    """Kit shots whose ``setup()`` threw in the lenient dry run draw nothing there and make the STRICT final page
+    refuse to load (``page_broken`` after a 32 min Directed game film, FAILURES #31: the model passed a media
+    record where ``kit:pixel/FEATURE`` takes an asset name). Each becomes the engine's stand-in card (the product
+    picture whole on ``kit:base``, else a title card); a stand-in that fails too is dropped (its neighbour holds).
+    True when the film changed (rebuild)."""
+    by_id = {str(s.get("id")): s for s in v.film.get("shots") or []}
+    broken: list[str] = []
+    for e in pv.errors:
+        s = by_id.get(str(e.shot or ""))
+        if (s is not None and not str(s.get("scene", "")).startswith("custom:") and "setup()" in str(e.msg)
+                and e.shot not in broken):
+            broken.append(str(e.shot))
+    if not broken:
+        return False
+    assets = v.film.get("assets") or {}
+    pictures = sorted((n for n, a in assets.items() if isinstance(a, dict) and a.get("type") == "image"),
+                      key=lambda n: (n not in r.product, n.startswith("mobile_")))
+    kits = {k.name for k in r.catalog.kits if k.scenes}
+    title = (r.brief.product.name if r.brief.product and r.brief.product.name else "") or str(v.film.get("title", ""))
+    changed = False
+    for sid in broken:
+        key = f"kit-shot:{sid}"
+        shot = by_id[sid]
+        why = next((str(e.msg) for e in pv.errors if str(e.shot) == sid), "setup() threw")
+        new = None if key in v.fallbacks else standin.stand_in(shot, pictures=pictures, kits=kits, title=title)
+        if new is not None:
+            v.film["shots"] = [new if s is shot else s for s in v.film["shots"]]
+            v.fallbacks[key] = new["scene"]
+            r.warn("dryrun", f"Kit shot {sid} ({shot.get('scene')}) cannot set up ({why[:160]}) -> stand-in "
+                             f"{new['scene']}")
+            changed = True
+        elif standin.drop_shot(v.film, sid):
+            v.fallbacks[key] = ""
+            r.warn("dryrun", f"Kit shot {sid} ({shot.get('scene')}) cannot set up even as a stand-in "
+                             f"({why[:160]}) -> left out")
+            changed = True
+    return changed
 
 
 _BLENDER_SHOT_ERR = re.compile(r"^Blender: shot (\S+) \((blender:[^)\s]+)\): (.*)$", re.DOTALL)

@@ -1706,21 +1706,89 @@ def _stalled(fatal: dict[str, Any]) -> bool:
 def _layout_qa(run: _Run, b: Built, thumbs_dir: Path | None) -> dict[str, Any]:
     """Layout QA of one aspect. ``Page.captureScreenshot`` stalls are intermittent (busy machines): retry once with
     a fresh browser, then skip QA with a warning and render anyway (the renderer restarts stalled workers itself).
-    A page that really cannot load still fails the build (-> the launch fallback)."""
+    A page that really cannot load still fails the build (-> the launch fallback); a page that fails because ONE
+    shot's scene throws gets that shot swapped for a stand-in (``film.standin``) and loads again (FAILURES #31)."""
     msg = ""
-    for attempt in (1, 2):
+    stalls = 0
+    tried: list[str] = []                 # one entry per swap/drop on this page
+    while True:
         res = run.deps.layout_qa(b, b.scene_times[:24], thumbs_dir)
         fatal = res.get("fatal")
         if not fatal:
             return res
         msg = str(fatal.get("message", ""))
         if not _stalled(fatal):
+            if len(tried) < MAX_STAND_INS and _stand_in_broken(run, b, msg, tried):
+                run.cancel.check()
+                continue
             raise StageError("page_broken", f"the film page failed to load: {msg}", fatal.get("hint", ""))
-        if attempt == 1:
-            run.info(f"layout QA {b.aspect}: {msg}; retrying with a fresh browser", level="warn")
-            run.cancel.check()
+        stalls += 1
+        if stalls >= 2:
+            break
+        run.info(f"layout QA {b.aspect}: {msg}; retrying with a fresh browser", level="warn")
+        run.cancel.check()
     run.warn(f"layout QA {b.aspect} skipped: the page capture stalled twice ({msg}); rendering anyway")
     return {}
+
+
+#: Stand-in swaps/drops one page may take before it counts as broken (real QA, not a patch-over).
+MAX_STAND_INS = 3
+
+
+def _stand_in_broken(run: _Run, b: Built, message: str, tried: list[str]) -> bool:
+    """The strict page named one shot whose scene throws (``shot 'x' (kit:...): setup() threw: ...``): swap that
+    shot for a safe card (the product picture whole on ``kit:base``, else a title card), or drop it when the card
+    fails too, in the page's film.json and in ``b.film``. False when the message names no shot of this film."""
+    from .film.standin import broken_item, drop_shot, stand_in
+    hit = broken_item(message)
+    fp = b.page_dir / "film.json"
+    if hit is None or not fp.is_file():
+        return False
+    kind, sid, scene, why = hit
+    try:
+        disk = json.loads(fp.read_text(encoding="utf-8"))
+        mf = b.page_dir / "assets" / "manifest.json"
+        manifest = json.loads(mf.read_text(encoding="utf-8")) if mf.is_file() else {}
+    except (OSError, ValueError):
+        return False
+    kdir = b.page_dir / "kits"
+    kits = {d.name for d in kdir.iterdir() if (d / "kit.js").is_file()} if kdir.is_dir() else set()
+    meta = disk.get("meta") if isinstance(disk.get("meta"), dict) else {}
+    pictures = [n for n, a in manifest.items() if isinstance(a, dict) and a.get("type") == "image"]
+    pictures.sort(key=lambda n: (n != meta.get("product_asset"), n.startswith("mobile_")))
+    title = run.title or str(disk.get("title") or "")
+    key = f"{kind}:{sid}"
+
+    def apply(film: dict[str, Any]) -> str:
+        if kind == "overlay":
+            n = len(film.get("overlays") or [])
+            film["overlays"] = [o for o in film.get("overlays") or [] if str((o or {}).get("id")) != sid]
+            return "left it out" if len(film["overlays"]) < n else ""
+        shots = film.get("shots") or []
+        k = next((i for i, s in enumerate(shots) if isinstance(s, dict) and str(s.get("id")) == sid), None)
+        if k is None:
+            return ""
+        new = None if key in tried else stand_in(shots[k], pictures=pictures, kits=kits, title=title)
+        if new is not None:
+            shots[k] = new
+            return ("showed the product on a plain card there" if new["scene"].startswith("kit:base/")
+                    else "put a title card there")
+        return "left it out" if drop_shot(film, sid) else ""
+
+    done = apply(disk)
+    if not done:
+        return False
+    if isinstance(b.film, dict) and b.film is not disk:
+        apply(b.film)
+    tried.append(key)
+    fp.write_text(json.dumps(disk, indent=1, ensure_ascii=False), encoding="utf-8")
+    if done == "left it out" and kind == "shot":
+        shots = [s for s in (b.film or disk).get("shots") or [] if isinstance(s, dict)]
+        b.scene_times = [round((float(s.get("t0", 0)) + float(s.get("t1", 0))) / 2, 3) for s in shots]
+        b.scene_labels = [str(s.get("id", "")) for s in shots]
+    run.info(f"layout: {kind} {sid} ({scene}) failed on the final page: {why[:400]}")
+    run.warn(f"{kind} {sid} could not be drawn, so Hype {done}")
+    return True
 
 
 def _render_spec(run: _Run, b: Built, *, gpu: str, workers: int | None) -> Any:

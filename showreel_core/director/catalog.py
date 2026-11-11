@@ -50,6 +50,7 @@ class KitInfo:
     recipes: str = ""                # RECIPES.md text (proven param recipes from the kit owner)
     scenes: list[SceneInfo] = field(default_factory=list)
     transitions: list[str] = field(default_factory=list)
+    asset_params: list[str] = field(default_factory=list)   # params the kit types 'asset'/'media': an asset NAME
 
 
 @dataclass
@@ -126,6 +127,15 @@ class Catalog:
 
     def kit(self, name: str) -> KitInfo | None:
         return next((k for k in self.kits if k.name == name), None)
+
+    def asset_params(self, scene_id: str) -> list[str]:
+        """Params of ``scene_id`` that take an asset NAME (a string), not a media record: the kit's params typed
+        'asset'/'media' (``kit:pixel/FEATURE`` ``image``), a library scene's params typed so."""
+        if scene_id.startswith("kit:"):
+            k = self.kit(scene_id[4:].split("/", 1)[0])
+            return list(k.asset_params) if k else []
+        e = next((x for x in self.library if x.id == scene_id), None)
+        return [n for n, d in (e.params if e else {}).items() if isinstance(d, dict) and d.get("type") in ("asset", "media")]
 
     @property
     def has_kits(self) -> bool:
@@ -338,7 +348,24 @@ def parse_kit(d: Path) -> KitInfo:
             s.describe = _describe_from_doc(doc, s.id)
     info.scenes = list(scenes.values())
     info.transitions = transitions
+    info.asset_params = _asset_params(d)
     return info
+
+
+_TYPED_PARAM_RE = re.compile(r"""\b([A-Za-z_$][\w$]*)\s*:\s*\{\s*type\s*:\s*['"`]([a-z]+)['"`]""")
+
+
+def _asset_params(d: Path) -> list[str]:
+    """Param names a kit's scenes declare as ``type: 'asset'|'media'`` (an asset name) and never as another type
+    (``kit:base`` ``image`` is a media record, ``kit:pixel`` ``image`` an asset name)."""
+    named: set[str] = set()
+    other: set[str] = set()
+    for js in sorted(d.rglob("*.js")):
+        if any(part in ("vendor", "node_modules", "tests") for part in js.relative_to(d).parts):
+            continue
+        for m in _TYPED_PARAM_RE.finditer(_read(js)):
+            (named if m.group(2) in ("asset", "media") else other).add(m.group(1))
+    return sorted(named - other)
 
 
 def load_library(library_dir: Path) -> list[LibraryEntry]:

@@ -449,10 +449,46 @@ def snap_film_ids(obj: Any, catalog: Any, asset_names: Iterable[str] = (), *,
                 fixes.append(f"sfx {c['sfx']!r} -> {hit!r}")
                 c["sfx"] = hit
     names = [a for a in asset_names if a]
+    typed = getattr(catalog, "asset_params", None)
+    for key in ("shots", "overlays"):
+        for s in film.get(key) or []:
+            if callable(typed) and isinstance(s, dict) and isinstance(s.get("params"), dict):
+                fixes += asset_name_params(s["params"], typed(str(s.get("scene") or "")), names,
+                                           f"{key[:-1]} {s.get('id')}")
     if names:
         for s in film.get("shots") or []:
             if isinstance(s, dict) and isinstance(s.get("params"), dict):
                 fixes += _snap_assets(s["params"], names, f"shot {s.get('id')}")
+    return fixes
+
+
+_REF_KEYS = ("asset", "id", "name", "src", "path")
+
+
+def asset_name_params(params: dict[str, Any], keys: Iterable[str], names: Iterable[str], where: str) -> list[str]:
+    """Params a scene types 'asset'/'media' take an asset NAME. A media record there (``{"asset": "x", "frame":
+    "card"}``, copied from the base kit's image params) becomes the asset it names, snapped to the job's assets;
+    a record that names none is dropped (the scene's default). The runtime printed such a record as
+    ``'[object Object]'`` and the strict final page refused to load (FAILURES #31). IN PLACE; returns the fixes."""
+    pool = [n for n in names if n]
+    fixes: list[str] = []
+    for k in keys:
+        v = params.get(k)
+        if not isinstance(v, dict):
+            continue
+        cands = [str(v[c]).strip() for c in _REF_KEYS if isinstance(v.get(c), str) and str(v[c]).strip()]
+        cands += [re.split(r"[\\/]", c)[-1].rsplit(".", 1)[0] for c in cands if re.search(r"[\\/.]", c)]
+        hit = next((c for c in cands if c in pool), None)
+        if hit is None and pool:
+            hit = next((h for h in (snap(c, pool, cutoff=0.6) for c in cands) if h), None)
+        if hit is None and not pool and cands:
+            hit = cands[0]
+        if hit:
+            params[k] = hit
+            fixes.append(f"{where}: `{k}` takes an asset name, not a record -> {hit!r}")
+        else:
+            params.pop(k)
+            fixes.append(f"{where}: `{k}` named no asset ({json.dumps(v, default=str)[:80]}) -> dropped")
     return fixes
 
 
