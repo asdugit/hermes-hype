@@ -110,3 +110,22 @@ def test_template_slots_and_filler_never_reach_a_directed_film(env: dict[str, An
     texts = [c["text"] for c in res.film["captions"]]
     assert texts == ["A red car.", "Meet Red Car."]                  # filler-only captions are dropped, not blank
     assert res.film["overlays"][0]["params"]["text"] == "RED CAR"
+
+
+def test_user_revise_keeps_the_parent_runs_model_tier(tmp_path: Path) -> None:
+    """``/hype revise`` re-ran setup without a tier: a text-only weak model got the strong path again (vision critic
+    with contact sheets, a full critique/revision budget)."""
+    from director_fakes import FakeLlm
+
+    from showreel_core.director.engine import revise
+    b = _screen_brief(tmp_path, "noir detective trailer")
+    cat = build_catalog(assets=b.assets, capabilities=b.capabilities)
+    first = FakeLlm({"pick": [{"blueprint": "screen-cinematic", "voice": "none"}], "words": [{"text": {}}]})
+    res1 = run(b, llm=first, renderer=FakeRenderer(), effort="quick", budget=FREE_QUICK, job_dir=tmp_path / "job",
+               library_dir=tmp_path / "lib", catalog=cat, tier=tiers.detect("deepseek-v4.1-flash"))
+    assert res1.ok and not res1.tier["vision"]
+    second = FakeLlm({"revise-notes": [{"changes": ["warmer"], "shots": []}]})
+    res2 = revise(tmp_path / "job", "warmer light", llm=second, renderer=FakeRenderer(), job_dir=tmp_path / "job2",
+                  library_dir=tmp_path / "lib", catalog=cat, budget=FREE_QUICK)
+    assert res2.tier["name"] == "weak" and not res2.tier["vision"], res2.tier
+    assert not [c for c in second.calls if c["purpose"].startswith("critic")]   # measured review, no picture critic

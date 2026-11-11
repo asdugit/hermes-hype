@@ -278,7 +278,10 @@ def revise(parent_job_dir: str | Path, notes: str, *, llm: Any = None, renderer:
         state = json.loads((parent / "director" / "state.json").read_text(encoding="utf-8"))
         brief = brief_from_dict(state["brief"])
         brief.notes = notes
-        r = _setup(brief, llm, renderer, effort, progress, cancel, jd, library_dir, catalog, budget)
+        st = state.get("tier") if isinstance(state.get("tier"), dict) else {}
+        tier = tiers.Tier(**{k: v for k, v in st.items() if k in tiers.Tier.__dataclass_fields__}) \
+            if st.get("name") in tiers.TIERS else None      # the parent's model tier (vision, custom code, path)
+        r = _setup(brief, llm, renderer, effort, progress, cancel, jd, library_dir, catalog, budget, tier=tier)
         r.dispatch, r.voice_speed = dispatch, voice_speed
         r.treatment = state.get("treatment") or {}
         best_n = int(state.get("best") or 0)
