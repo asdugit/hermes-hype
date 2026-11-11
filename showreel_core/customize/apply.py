@@ -6,6 +6,7 @@ Timeline *before* the film is built, so narration, captions, cues, splits and th
 from __future__ import annotations
 
 import copy
+import math
 from pathlib import Path
 from typing import Any
 
@@ -217,6 +218,40 @@ def _text_targets(params: dict[str, Any], wrapped: bool) -> dict[str, Any]:
     return params["data"] if wrapped and isinstance(params.get("data"), dict) else params
 
 
+def _jtype(v: Any) -> str:
+    if isinstance(v, bool):
+        return "bool"
+    if isinstance(v, (int, float)):
+        return "number"
+    return "string" if isinstance(v, str) else "array" if isinstance(v, (list, tuple)) else \
+        "object" if isinstance(v, dict) else "null" if v is None else "other"
+
+
+def _finite(v: Any) -> bool:
+    """No NaN/Infinity anywhere (Python's json accepts them in a model reply; the page's JSON.parse does not)."""
+    if isinstance(v, float):
+        return math.isfinite(v)
+    if isinstance(v, (list, tuple)):
+        return all(_finite(x) for x in v)
+    if isinstance(v, dict):
+        return all(_finite(x) for x in v.values())
+    return True
+
+
+def _typed_params(new: dict[str, Any], current: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
+    """A model's shot params that keep the preset value's JSON type (a ``bbox`` list stays a list: the string
+    ``"the toggle"`` would turn the kit's camera maths into NaN) and hold only finite numbers."""
+    ok: dict[str, Any] = {}
+    bad: list[str] = []
+    for k, v in (new or {}).items():
+        cur = current.get(k) if isinstance(current, dict) else None
+        if not _finite(v) or (cur is not None and v is not None and _jtype(cur) != _jtype(v)):
+            bad.append(str(k))
+        else:
+            ok[k] = v
+    return ok, bad
+
+
 def _replace_words(x: Any, old: str, new: str) -> Any:
     if isinstance(x, str):
         return x.replace(old, new) if old and old in x else x
@@ -395,11 +430,15 @@ def apply_film(film: dict[str, Any], assets: dict[str, Any], *, style: str, knob
         p = s.setdefault("params", {})
         if e.get("params"):
             from ..director.patches import deep_merge
+            ok_params, bad = _typed_params(e["params"], p)
+            if bad:
+                notes.append(f"{s['id']}: dropped params {bad} (wrong type or not a finite number)")
             if wrapped and str(s.get("scene", "")).startswith(f"kit:{style}/"):
-                p.update(deep_merge({k: p.get(k) for k in e["params"] if k in p}, e["params"]))
+                p.update(deep_merge({k: p.get(k) for k in ok_params if k in p}, ok_params))
             else:
-                s["params"] = deep_merge(p, e["params"])
-            notes.append(f"{s['id']}: params {sorted(e['params'])}")
+                s["params"] = deep_merge(p, ok_params)
+            if ok_params:
+                notes.append(f"{s['id']}: params {sorted(ok_params)}")
         for k, v in (e.get("text") or {}).items():
             if k == "cta" and not knobs.get("cta") and not _cta_ok(str(v), end_cta):
                 notes.append(f"{s['id']}: cta {v!r} is not the product's own command; kept")

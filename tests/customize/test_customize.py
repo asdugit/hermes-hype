@@ -534,3 +534,26 @@ def test_playful_springs_the_type_and_brings_the_candy_palette():
     assert "motion" not in (S.keywords("calm and premium", None).get("theme") or {})
     src = (ROOT / "kits" / "base" / "motion.js").read_text(encoding="utf-8")
     assert "MOTION.bouncy" in src and "setMotion" in (ROOT / "kits" / "base" / "scene.js").read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize("style", ["launch", "pixel", "comic"])
+def test_model_params_with_wrong_types_or_nan_never_reach_the_film(style):
+    """Audit 2026-11-11: a reply such as {"bbox": "the toggle", "click": NaN} passed validation (Python's json reads
+    NaN) and reached film.json: the page's JSON.parse rejects NaN and a string bbox turns the kit camera into NaN."""
+    pre = film_from_timeline(_tl(style=style), style=style, media_map=_media())["film"]
+    feat = next(s for s in pre["shots"] if s["id"].endswith("_feature"))
+    reply = ('{"shots": [{"id": "%s", "params": {"bbox": "the dark mode toggle", "click": NaN, '
+             '"feature": "Neon mode"}}]}' % feat["id"])
+    res = customize_spec("zoom into the toggle", pre, style=style, llm_call=_fake(reply), wrapped=style == "pixel")
+    tl = _tl(style=style)
+    _n, idmap = A.apply_timeline(tl, res["spec"])
+    spec = A.remap(res["spec"], idmap)
+    made = film_from_timeline(tl, style=style, media_map=_media())
+    film = made["film"]
+    notes = A.apply_film(film, made["assets"], style=style, knobs={}, spec=spec, wrapped=style == "pixel", kit={})
+    json.dumps(film, allow_nan=False)                              # strict JSON: no NaN/Infinity anywhere
+    assert errors_of(validate_film(film)) == []
+    shot = next(s for s in film["shots"] if s["id"] == feat["id"])
+    bbox = shot["params"].get("bbox")
+    assert bbox is None or isinstance(bbox, list)
+    assert any("dropped params" in n for n in notes) or "bbox" not in json.dumps(res["spec"])
