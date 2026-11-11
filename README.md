@@ -3,12 +3,11 @@
 **An engine inside a Hermes plugin: type `/showreel` and the session you just worked in becomes a narrated
 launch trailer for the thing you built.**
 
-<!-- HERO_V2: when the v2 hero film lands, replace docs/media/hero_v1.webp below with docs/media/hero_v2.webp
-     (640x360 animated WebP, <= 2 MB, loops) and update the caption. Keep the poster docs/media/banner.jpg in sync. -->
-![Showreel: a pixel-art boss battle where the product, a red car, is the boss; the party picks BUY and the pixels burst into petals](docs/media/hero_v1.webp)
+![Showreel: the product, a red car, flies alongside the camera over a pink meadow while dozens of red cars stream across the sky and a lone figure watches from the flowers](docs/media/hero_v2.webp)
 
-*9 seconds from a hand-directed Showreel film (pixel style, then a style switch). Rendered by Showreel's own
-pipeline: HTML scenes in headless Chromium, original music and SFX, ffmpeg.*
+*8 seconds from Showreel's hand-directed hero film: one continuous Blender shot (`blender_kits/meadow/oner.py`)
+through the opt-in Blender engine, after a pixel-art boss battle. Rendered by Showreel's own pipeline: Blender
+for the 3D, HTML scenes in headless Chromium, original music and SFX, ffmpeg.*
 
 [![CI](https://github.com/asdugit/hermes-showreel/actions/workflows/ci.yml/badge.svg)](https://github.com/asdugit/hermes-showreel/actions/workflows/ci.yml)
 License: AGPL-3.0-or-later · Hermes Agent >= 0.22.5 · Windows, macOS, Linux
