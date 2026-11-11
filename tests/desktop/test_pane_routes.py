@@ -138,23 +138,6 @@ def test_revise_of_a_directed_film_stays_directed(api: dict[str, Any]) -> None:
     assert child["options"]["notes"] == "bigger car" and child["options"]["aspects"] == ["9:16"]
 
 
-@pytest.mark.parametrize(("notes", "start", "aspects"), [
-    ("make a 9:16 version", ["16:9"], ["9:16"]), ("a vertical cut for reels", ["16:9"], ["9:16"]),
-    ("now 16x9 please", ["9:16"], ["16:9"]), ("bigger car in act two", ["16:9"], ["16:9"]),
-    ("both 16:9 and 9:16", ["16:9"], ["16:9"]),
-])
-def test_revise_notes_can_ask_for_the_other_aspect(api: dict[str, Any], notes: str, start: list[str],
-                                                   aspects: list[str]) -> None:
-    """A Directed film renders one aspect per run; the pane says 'use Revise: make a 9:16 version', so the notes
-    must change the aspect (else the revision re-made the 16:9 film)."""
-    store, c = api["store"], api["client"]
-    job = store.create("s-asp", {"direction": "a noir trailer", "aspects": start}, kind="directed")
-    store.update(job["id"], stage="done")
-    r = c.post(f"{P}/jobs/{job['id']}/revise", json={"notes": notes})
-    assert r.status_code == 200, r.text
-    assert store.load(r.json()["id"])["options"]["aspects"] == aspects
-
-
 def test_rerender_of_a_directed_film_explains_itself(api: dict[str, Any]) -> None:
     store, c = api["store"], api["client"]
     job = store.create("s1", {"direction": "make it epic"}, kind="directed")

@@ -40,7 +40,6 @@ from __future__ import annotations
 
 import importlib.util
 import json
-import re
 import sys
 import time
 from pathlib import Path
@@ -359,8 +358,9 @@ async def rerender(job_id: str, request: Request) -> Any:
         sb = store.storyboard_edit(job_id) or job.get("storyboard")
         if not sb:
             if _directed(job):
-                return 409, {"error": "a Directed film has no storyboard to re-render: use Revise (for example "
-                                      "'make a 9:16 version') to direct it again", "directed": True}
+                return 409, {"error": "a Directed film has no storyboard to re-render, and it renders one aspect "
+                                      "per run (Revise keeps this one's): for the other aspect, direct it again "
+                                      "from Make with that aspect", "directed": True}
             return 409, {"error": "this job has no storyboard to re-render (it never got that far)"}
         opts = dict(job.get("options") or {})
         if isinstance(body.get("options"), dict):
@@ -370,18 +370,6 @@ async def rerender(job_id: str, request: Request) -> Any:
         opts["direction"] = ""          # re-render the storyboard as is: Quick back half, no model call
         return _start(job.get("session_id") or "", opts, parent=job_id, reuse=sb)
     return _reply(await run_in_threadpool(go))
-
-
-def _aspects_from_notes(notes: str) -> list[str] | None:
-    """``['9:16']`` / ``['16:9']`` when revision notes ask for exactly one other shape ("make a 9:16 version",
-    "vertical"); None otherwise. A Directed film renders ``aspects[0]`` only, so without this the pane's
-    advice ("use Revise: make a 9:16 version") re-made the same 16:9 film."""
-    hits = [a for a, rx in _ASPECT_NOTES if rx.search(notes)]
-    return [hits[0]] if len(hits) == 1 else None
-
-
-_ASPECT_NOTES = (("9:16", re.compile(r"\b9\s*[:x/]\s*16\b|\b(?:vertical|portrait)\b", re.I)),
-                 ("16:9", re.compile(r"\b16\s*[:x/]\s*9\b|\b(?:horizontal|landscape|widescreen)\b", re.I)))
 
 
 @router.post("/jobs/{job_id}/revise")
@@ -402,9 +390,6 @@ async def revise(job_id: str, request: Request) -> Any:
         if job.get("stage") != "done":
             return 409, {"error": "only a finished film can be revised"}
         opts = dict(job.get("options") or {})
-        asked = _aspects_from_notes(notes)
-        if asked:
-            opts["aspects"] = asked
         if isinstance(body.get("options"), dict):
             opts.update({k: v for k, v in body["options"].items() if k not in ("direction", "notes")})
         opts["notes"] = notes

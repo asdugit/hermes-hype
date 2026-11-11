@@ -757,7 +757,7 @@ function MakeView({ sid, jobs, backendDown, onStarted }) {
             children: jsxs('div', { className: 'srl-form', children: [
               jsxs('div', { className: 'srl-row', children: [jsx('span', { children: 'Length' }), jsx(Seg, { label: 'Length', options: LENGTHS, value: String(prefs.seconds), onChange: seconds => set({ seconds }) })] }),
               jsxs('div', { className: 'srl-row', children: [jsx('span', { children: 'Aspect' }), jsx(Seg, { label: 'Aspect', options: ASPECTS, value: prefs.aspect, onChange: aspect => set({ aspect }) })] }),
-              directed && prefs.aspect === 'both' ? jsx('div', { className: 'srl-hint', children: 'A Directed film renders one aspect per run: this one is 16:9. Ask for a 9:16 version with Revise.' }) : null,
+              directed && prefs.aspect === 'both' ? jsx('div', { className: 'srl-hint', children: 'A Directed film renders one aspect per run: this one is 16:9. For a vertical film, pick 9:16.' }) : null,
               jsxs('div', { className: 'srl-row', children: [jsx('span', { children: 'Narration' }), jsx(Toggle, { label: 'Narration', checked: Boolean(prefs.voice), onChange: voice => set({ voice }) })] }),
               jsxs('div', { className: 'srl-row', children: [jsx('span', { children: '3D engine' }), jsx(Seg, { label: '3D engine', options: ENGINES, value: engine3d || 'browser', onChange: v => set({ engine3d: v }) })] }),
               engine3d === 'blender' ? jsx(BlenderOffer, {}) : null,
@@ -1402,7 +1402,7 @@ function ResultView({ job, sid, onTab }) {
           jsx(Btn, { variant: 'secondary', icon: 'folder-opened', onClick: () => reveal(current.path), children: 'Reveal file' }),
           other ? jsx(Btn, {
             variant: 'secondary', icon: other === '9:16' ? 'device-mobile' : 'screen-full', busy: busy === 'aspect', disabled: directed, onClick: renderOther,
-            tip: directed ? 'A Directed film renders one aspect per run: ask for it with Revise ("make a 9:16 version").' : 'Same storyboard, no model call',
+            tip: directed ? 'A Directed film renders one aspect per run (Revise keeps it): for the other one, direct it again from Make with that aspect.' : 'Same storyboard, no model call',
             children: `Render ${other}`
           }) : null,
           jsx(Btn, { variant: 'secondary', icon: 'copy', disabled: !postQ.data, onClick: copyPost, children: 'Copy post text' })
