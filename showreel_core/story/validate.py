@@ -642,9 +642,20 @@ def _check_before_after(scene: StoryScene, path: str, ctx: _Ctx) -> bool:
     if problems:
         ctx.issue("before_after_invalid", f"{path}.extra", "; ".join(problems), fix="scene dropped")
         return False
+    if ctx.mode == "product" and _ENV_ERROR_RE.search(SessionFacts.text_of(facts.by_id[before])):
+        # 'No module named pandas' -> the same run with another python is an environment hiccup, not the product
+        # getting better (#18: sold as 'From crash to clean run' in the penguins film)
+        ctx.issue("before_after_env", f"{path}.extra", f"{before} fails on the environment, not the product",
+                  "warning", fix="scene dropped")
+        return False
     scene.extra.update(before_ref=before, after_ref=after)
     scene.refs = [before, after] + [r for r in scene.refs if r not in (before, after)]
     return True
+
+
+#: a failing run whose cause is the machine, not the code (a missing package or command)
+_ENV_ERROR_RE = re.compile(r"(?i)ModuleNotFoundError|No module named|command not found|is not recognized as an internal|"
+                           r"cannot find module '|externally-managed-environment")
 
 
 def _check_callout(scene: StoryScene, path: str, ctx: _Ctx) -> bool:

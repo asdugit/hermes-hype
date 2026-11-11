@@ -209,3 +209,26 @@ def test_a_swapped_run_drops_the_words_about_the_old_one() -> None:
     res = validate_storyboard(sb, facts, 30, "product")
     term = [s for s in res.storyboard.scenes if s.type == T.TERMINAL and s.refs[:1] == ["e3"]]
     assert term and term[0].label == "" and term[0].vo == ""
+
+
+def test_an_environment_hiccup_is_not_a_before_after() -> None:
+    bad = _run(2, 2.0, "python analyze.py", ["Traceback (most recent call last):",
+                                              "ModuleNotFoundError: No module named 'pandas'"], ok=False)
+    good = _run(3, 3.0, "python analyze.py", ["species  count", "Adelie  151", "Gentoo  123"])
+    evs = [Event("e0", 0.0, "user_prompt", "", "data", "", {"text": "Analyse the penguins"}),
+           Event("e1", 1.0, "file_write", "write_file", "analyze.py", "", {"path": "analyze.py", "lines": ["x"]}),
+           bad, good]
+    facts = SessionFacts(evs, Stats(duration_s=60, files_created=1))
+    sb = Storyboard(title="Penguins", tagline="Charts", cta="", mode="product", product=Product(name="Penguins"),
+                    scenes=[StoryScene(T.TITLE, [], "", "Penguins"),
+                            StoryScene(T.BEFORE_AFTER, ["e2", "e3"], "", "From crash to clean run",
+                                       {"before_ref": "e2", "after_ref": "e3"}),
+                            StoryScene(T.END, [], "", "")])
+    assert T.BEFORE_AFTER not in [s.type for s in validate_storyboard(sb, facts, 30, "product").storyboard.scenes]
+    fix = _fix_facts()          # a real failing test (AssertionError) stays a before/after
+    sb2 = Storyboard(title="invoicely", tagline="Fixed", cta="", mode="product", product=Product(name="invoicely"),
+                     scenes=[StoryScene(T.TITLE, [], "", "invoicely"),
+                             StoryScene(T.BEFORE_AFTER, ["e1", "e4"], "", "Seven for seven",
+                                        {"before_ref": "e1", "after_ref": "e4"}),
+                             StoryScene(T.END, [], "", "")])
+    assert T.BEFORE_AFTER in [s.type for s in validate_storyboard(sb2, fix, 30, "product").storyboard.scenes]
