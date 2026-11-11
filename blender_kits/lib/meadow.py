@@ -18,12 +18,13 @@ from .nodes import NodeGraph, hex_rgb
 
 FLOWERS = {
     # name: (petal colour, centre colour, petal count, petal length, stem height range, head tilt)
-    "daisy": ("#FBF7EF", "#F2C94C", 10, 0.032, (0.18, 0.42)),
-    "cosmos": ("#F2A3C0", "#F6D36B", 8, 0.045, (0.30, 0.62)),
-    "pink": ("#F7BFD2", "#F7E3A0", 6, 0.028, (0.15, 0.38)),
-    "butter": ("#F6D55C", "#E9A93A", 5, 0.022, (0.15, 0.35)),
-    "lilac": ("#A487DE", "#E8DDF8", 0, 0.0, (0.28, 0.55)),        # lupine spike (petals=0)
-    "white": ("#FFFFFF", "#F3E9B5", 5, 0.016, (0.10, 0.28)),
+    "daisy": ("#FBF7EF", "#F2C94C", 10, 0.055, (0.18, 0.42)),
+    "cosmos": ("#F49AC0", "#F6D36B", 8, 0.075, (0.30, 0.62)),
+    "pink": ("#F7B3CC", "#F7E3A0", 6, 0.052, (0.15, 0.38)),
+    "butter": ("#F6D55C", "#E9A93A", 5, 0.040, (0.15, 0.35)),
+    "lilac": ("#B08BE6", "#E8DDF8", 0, 0.0, (0.28, 0.55)),        # lupine spike (petals=0)
+    "white": ("#FFFFFF", "#F3E9B5", 5, 0.034, (0.10, 0.28)),
+    "rose": ("#E9799F", "#F6D36B", 7, 0.058, (0.20, 0.46)),
 }
 
 
@@ -109,19 +110,19 @@ def ground_material(palette: str = "sunset"):
     pos = geo.outputs["Position"]
     big = g.node("ShaderNodeTexNoise", {"Vector": pos, "Scale": 0.035, "Detail": 3.0})
     mid = g.node("ShaderNodeTexNoise", {"Vector": pos, "Scale": 0.18, "Detail": 2.0})
-    base = g.ramp(big.outputs["Factor"], [(0.3, hex_rgb("#6E9A4E")), (0.55, hex_rgb("#93B95E")),
-                                          (0.75, hex_rgb("#B7C873"))])
-    drift = g.ramp(mid.outputs["Factor"], [(0.42, (0, 0, 0)), (0.62, (1, 1, 1))])
+    base = g.ramp(big.outputs["Factor"], [(0.3, hex_rgb("#7FA457")), (0.55, hex_rgb("#A3C266")),
+                                          (0.75, hex_rgb("#C4CF7E"))])
+    drift = g.ramp(mid.outputs["Factor"], [(0.34, (0, 0, 0)), (0.52, (1, 1, 1))])
     drift_c = g.ramp(big.outputs["Factor"], [(0.35, hex_rgb("#F2B6CB")), (0.5, hex_rgb("#F6EFE2")),
                                              (0.65, hex_rgb("#C7AEE8")), (0.8, hex_rgb("#F3DB7A"))],
                      interp="CONSTANT")
-    c = g.mix_rgb(g.math("MULTIPLY", drift, 0.55), base, drift_c)
+    c = g.mix_rgb(g.math("MULTIPLY", drift, 0.78), base, drift_c)
     vor = g.node("ShaderNodeTexVoronoi", {"Vector": pos, "Scale": 9.0})
     speck = g.map_range(vor.outputs["Distance"], 0.08, 0.16, 1.0, 0.0)
     sc_c = g.ramp(g.math("FRACT", g.math("MULTIPLY", vor.outputs["Color"], 1.0)),
                   [(0.0, hex_rgb("#FFFFFF")), (0.3, hex_rgb("#F7BFD2")), (0.55, hex_rgb("#F6D55C")),
                    (0.8, hex_rgb("#B79BE6"))], interp="CONSTANT")
-    c = g.mix_rgb(g.math("MULTIPLY", speck, 0.7), c, sc_c)
+    c = g.mix_rgb(g.math("MULTIPLY", speck, 0.85), c, sc_c)
     grp = g.node("ShaderNodeGroup")
     grp.node_tree = toon_group()
     g.link(c, grp.inputs["Color"])
@@ -186,7 +187,7 @@ def _flower(rng: random.Random, kind: str):
         for k in range(rings):
             u = k / (rings - 1)
             z = H * (0.55 + 0.45 * u)
-            rad = 0.03 * (1 - 0.75 * u) + 0.006
+            rad = 0.045 * (1 - 0.7 * u) + 0.008
             g = bmesh.ops.create_icosphere(bm, subdivisions=1, radius=rad)
             bmesh.ops.translate(bm, verts=g["verts"], vec=(0, 0, z))
             for f in {f for v in g["verts"] for f in v.link_faces}:
@@ -236,10 +237,10 @@ def instance_collection(seed: int = 7, scale: float = 1.0):
         ob = bpy.data.objects.new(f"clump{k}", me)
         coll.objects.link(ob)
         objs.append(ob)
-        weights.append(3.2)
+        weights.append(1.3)
     mats = {}
-    for kind, w, nvar in (("daisy", 2.6, 3), ("cosmos", 1.4, 3), ("pink", 2.2, 2), ("butter", 1.5, 2),
-                          ("lilac", 0.55, 2), ("white", 3.2, 2)):
+    for kind, w, nvar in (("daisy", 3.0, 3), ("cosmos", 2.6, 3), ("pink", 3.4, 2), ("butter", 1.2, 2),
+                          ("lilac", 1.5, 2), ("white", 3.4, 2), ("rose", 1.8, 2)):
         pc, cc = FLOWERS[kind][0], FLOWERS[kind][1]
         if kind not in mats:
             pm, _, _ = toon_material(f"petal_{kind}", pc, rim=0.35, translucent=0.5, soft=0.2)
@@ -393,7 +394,7 @@ def foreground(hf: Terrain, points: list[tuple[float, float]], seed: int = 7, sc
     from .world import toon_material  # noqa: PLC0415
     stem_m, _, _ = toon_material("fg_stem", "#7FA552", "#466340", soft=0.2)
     objs, weights = [], []
-    for kind in ("cosmos", "daisy", "lilac", "pink", "cosmos"):
+    for kind in ("cosmos", "daisy", "lilac", "pink", "rose", "white"):
         pm, _, _ = toon_material(f"fg_petal_{kind}", FLOWERS[kind][0], rim=0.4, translucent=0.6, soft=0.2)
         cm, _, _ = toon_material(f"fg_centre_{kind}", FLOWERS[kind][1], soft=0.2)
         me = _flower(rng, kind)

@@ -334,6 +334,47 @@ def smoothness(pos: Sequence[Sequence[float]], fwd: Sequence[Sequence[float]] | 
     return rep
 
 
+# ---------------------------------------------------------------------------------------------- screen framing
+def project(s: Sample, p: Sequence[float], aspect: float, sensor: float = 36.0) -> tuple[float, float, float]:
+    """NDC (x, y in -1..1 inside the frame) and view depth of world point ``p`` for camera sample ``s``.
+
+    Matches Blender's ``sensor_fit='AUTO'``: the sensor width spans the longer image side (``aspect`` = w / h).
+    Depth <= 0 means behind the camera.
+    """
+    fwd = s.fwd
+    right = _norm((fwd[1], -fwd[0], 0.0)) if abs(fwd[2]) < 0.999 else (1.0, 0.0, 0.0)
+    up = (right[1] * fwd[2] - right[2] * fwd[1], right[2] * fwd[0] - right[0] * fwd[2],
+          right[0] * fwd[1] - right[1] * fwd[0])
+    if s.roll:
+        r = math.radians(s.roll)
+        c, si = math.cos(r), math.sin(r)
+        right, up = _add(_mul(right, c), _mul(up, si)), _add(_mul(up, c), _mul(right, -si))
+    d = _sub(p, s.pos)
+    z = sum(d[k] * fwd[k] for k in range(3))
+    if z <= 1e-6:
+        return (0.0, 0.0, z)
+    half = sensor / 2.0 / s.lens                     # tan(half fov) along the longer side
+    th, tv = (half, half / aspect) if aspect >= 1 else (half * aspect, half)
+    return (sum(d[k] * right[k] for k in range(3)) / z / th, sum(d[k] * up[k] for k in range(3)) / z / tv, z)
+
+
+def screen_box(s: Sample, corners: Sequence[Sequence[float]], aspect: float) -> dict | None:
+    """Screen-space box of a set of world points: {x0, x1, y0, y1 (NDC), w, h (visible fraction of the frame),
+    cut (partly outside), inside (fully inside), depth}. None if any point is behind the camera."""
+    pts = [project(s, c, aspect) for c in corners]
+    if any(p[2] <= 0.3 for p in pts):
+        return None
+    xs, ys = [p[0] for p in pts], [p[1] for p in pts]
+    x0, x1, y0, y1 = min(xs), max(xs), min(ys), max(ys)
+    vx0, vx1, vy0, vy1 = max(-1.0, x0), min(1.0, x1), max(-1.0, y0), min(1.0, y1)
+    vis = vx1 > vx0 and vy1 > vy0
+    return {"x0": x0, "x1": x1, "y0": y0, "y1": y1, "w": (vx1 - vx0) / 2 if vis else 0.0,
+            "h": (vy1 - vy0) / 2 if vis else 0.0, "visible": vis,
+            "inside": x0 >= -1 and x1 <= 1 and y0 >= -1 and y1 <= 1,
+            "cut": vis and not (x0 >= -1 and x1 <= 1 and y0 >= -1 and y1 <= 1),
+            "depth": min(p[2] for p in pts)}
+
+
 # ------------------------------------------------------------------------------------------------- Blender side
 def look_quat(pos: Vec, target: Vec, roll_deg: float = 0.0):
     """Camera orientation (mathutils.Quaternion) looking from pos at target, world-up Z, plus roll."""

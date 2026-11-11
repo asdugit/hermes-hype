@@ -137,7 +137,7 @@ def test_oner_layout(aspect):
         assert dmin > 2.8, (f.name, dmin)                   # nothing flies through the lens
         assert min(math.dist(p.pos, L.head) for p in ps) > 4.0   # nothing flies through her
     # the camera never dips into the ground
-    assert min(s.pos[2] - L.hf(s.pos[0], s.pos[1]) for s in S) > 0.6
+    assert min(s.pos[2] - L.hf(s.pos[0], s.pos[1]) for s in S) > 0.45      # low angle among the flowers
 
 
 def test_oner_continuation_matches():
@@ -147,3 +147,32 @@ def test_oner_continuation_matches():
     a = mv.eval(1.8 + 3.0)
     b = mv.sample(FPS, 200, t_offset=1.8)[90]
     assert a.pos == pytest.approx(b.pos) and a.focus == pytest.approx(b.focus)
+
+
+@pytest.mark.parametrize("aspect", ["16:9", "9:16"])
+def test_oner_framing_busy_and_readable(aspect):
+    """A car is readable (>= 12 % of the frame width, inside the frame or a fast pass-by) almost all the time once
+    the petals clear, the sky is busy (dozens of cars), and the figure is big in the opener (16:9)."""
+    L = oner.Layout(aspect, reveal=True)
+    rows = L.framing(FPS, 0.0, L.length, step=3, occlusion=False)
+    after = [r for r in rows if r["t"] >= 1.5]
+    share = sum(1 for r in after if r["readable"]) / len(after)
+    assert share > 0.88, share
+    counts = sorted(len(r["cars"]) for r in rows)
+    assert counts[len(counts) // 2] >= 12, counts
+    assert len(L.flights) >= 60
+    if aspect == "16:9":
+        assert rows[0]["fig"]["h"] > 0.4
+
+
+def test_oner_windows_toggle_offscreen():
+    """Cars appear/vanish only on frames where they are off-screen; far streams are always there."""
+    L = oner.Layout("16:9", reveal=True)
+    n = 200
+    wins = L.windows(FPS, n, 3.0)
+    rows = L.framing(FPS, 3.0, 3.0 + (n - 1) / FPS, occlusion=False)
+    for f, (a, b) in zip(L.flights, wins):
+        if a > 0:
+            assert f.name not in rows[a]["cars"], f.name
+        if b < n - 1:
+            assert f.name not in rows[b]["cars"], f.name

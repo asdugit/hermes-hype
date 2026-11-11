@@ -23,6 +23,7 @@ PARAMS = {
     "petals": {"type": "float", "default": 1.0, "doc": "ambient drifting petals amount"},
     "hero_at": {"type": "float", "default": 19.5, "doc": "when the camera arrives at the hero close-up (s)"},
     "length": {"type": "float", "default": 25.4, "doc": "designed length of the whole move (s)"},
+    "crowd": {"type": "float", "default": 1.0, "doc": "how many cars fill the sky (1 = ~60 cars; 0.3 = a few)"},
     "reveal": {"type": "bool", "default": False,
                "doc": "open focused on an image plane 1 m from the lens (set by transitions/petal_reveal)"},
 }
@@ -32,6 +33,14 @@ DESCRIBE = ("Anime sunset flower meadow; a lone figure in a white dress watches 
 
 SUN = (15.0, 7.5)          # azimuth (deg from +Y toward +X), elevation
 WIND = (1.0, 0.35)
+# terrain: her knoll, the crest the "drive" car comes down (front-right), the hill the "climb" car rises behind
+# (front-left), far rolling hills
+HILLS = [(0.0, 0.0, 1.0, 16.0), (22.0, 30.0, 3.2, 9.0), (-26.0, 34.0, 2.6, 10.0), (-70.0, 95.0, 5.0, 30.0),
+         (60.0, 80.0, 4.0, 24.0), (20.0, -60.0, 1.6, 22.0)]
+# far bird-like streams circling the meadow: (radius, height, start az, deg/s, members, undulation, phase)
+RINGS = [(62.0, 6.0, 282.0, 13.0, 10, 5.0, 0.0), (86.0, 12.0, 40.0, -11.0, 10, 6.0, 1.7),
+         (108.0, 8.0, 264.0, 8.5, 9, 6.5, 3.1), (46.0, 9.0, 325.0, -15.0, 8, 4.0, 4.4),
+         (74.0, 17.0, 240.0, 10.0, 8, 6.0, 5.2), (34.0, 5.0, 14.0, 18.0, 7, 2.5, 2.3)]
 
 
 def _p(sc, k):
@@ -40,16 +49,25 @@ def _p(sc, k):
 
 
 class Layout:
-    """All world-space choreography for one aspect (16:9 or 9:16). Pure Python (testable without Blender)."""
+    """All world-space choreography for one aspect (16:9 or 9:16). Pure Python (testable without Blender).
+
+    Named flights near her and the lens are *screen-anchored*: each key says where the car is in the frame at a
+    moment of the move (NDC x/y + depth, or camera-local metres for flights from behind the lens), so the cars stay
+    big and framed in both aspects; positions between keys are a C2 spline in time (smooth, no stalls). Loose
+    groups follow a leader and break apart; far streams circle the meadow like birds (dozens of cars).
+    """
 
     def __init__(self, aspect: str = "16:9", seed: int = 7, hero_at: float = 19.5, length: float = 25.4,
-                 reveal: bool = False):
+                 reveal: bool = False, crowd: float = 1.0):
         from blender_kits.lib import camera as C
         from blender_kits.lib import flyers as Fl
         from blender_kits.lib import meadow as M
         self.C, self.Fl = C, Fl
         self.v = aspect == "9:16"
-        self.hf = M.Terrain(seed=seed)
+        self.aspect = 9 / 16 if self.v else 16 / 9
+        self.seed = seed
+        self.crowd = crowd
+        self.hf = M.Terrain(seed=seed, hills=[tuple(h) for h in HILLS])
         hf = self.hf
         self.F = (0.0, 0.0, hf(0.0, 0.0))
         F = self.F
@@ -58,96 +76,217 @@ class Layout:
         self.length = length
         self.reveal = reveal
 
-        def P(az, r, h, look_h=None):
+        def P(az, r, h):
             a = math.radians(az)
             x, y = F[0] + r * math.sin(a), F[1] + r * math.cos(a)
             return (x, y, hf(x, y) + h)
+        self.P = P
+        T = self.T
         v = self.v
-        # hero hover spot (in front-left of her, a little above head height)
-        self.H = (F[0] + 2.6, F[1] + 11.2, F[2] + 2.3)
+        self.H = (F[0] + 5.6, F[1] - 9.6, F[2] + 2.3)        # hero hover spot behind her (sun-lit side)
         H = self.H
         rk = 1.12 if v else 1.0                     # portrait: a touch further back
         lz = 0.8 if v else 1.0                      # portrait: wider lens (sensor fits the height)
-        sky_t = (F[0] + 6, F[1] + 22, F[2] + 4.2)   # look past her toward the sun
-        mid_t = (F[0] - 2.0, F[1] + 4.0, F[2] + 2.6)
-        # hero close-up: 3/4 front of the car from ~9 m (whole car in frame), then a slow push to ~7.5 m;
-        # the camera sits between her and the car looking toward the warm side of the sky
-        cd = (-0.52, -0.855)                      # unit ground direction from the car toward the camera
-        d0, d1 = (9.6, 8.0) if not v else (10.5, 9.0)
-        hero_cam = (H[0] + cd[0] * d0, H[1] + cd[1] * d0, H[2] + (0.9 if not v else 1.5))
-        hero_tgt = (H[0], H[1], H[2] + (0.75 if not v else 1.6))
-        side = (-cd[1], cd[0])                    # orbit a little while pushing
-        hero_cam2 = (H[0] + cd[0] * d1 + side[0] * 1.6, H[1] + cd[1] * d1 + side[1] * 1.6, H[2] + (0.8 if not v else 1.4))
+        # hero close-up: 3/4 front of the whole car, slow push + orbit; the camera sits between her and the car
+        cd = (-0.848, 0.53)                         # unit ground direction from the car toward the camera
+        d0, d1 = (12.2, 10.8) if not v else (13.2, 11.8)
+        hero_cam = (H[0] + cd[0] * d0, H[1] + cd[1] * d0, H[2] + (0.9 if not v else 1.4))
+        hero_tgt = (H[0], H[1], H[2] + (0.7 if not v else 1.5))
+        side = (-cd[1], cd[0])
+        hero_cam2 = (H[0] + cd[0] * d1 + side[0] * 1.6, H[1] + cd[1] * d1 + side[1] * 1.6,
+                     H[2] + (0.8 if not v else 1.3))
         self.hero_heading = math.degrees(math.atan2(cd[0], cd[1])) + 38.0
         B = C.Beat
-        self.beats = [
-            B(0.0, P(196, 8.6 * rk, 1.3), (F[0] + 0.6, F[1] + 6, F[2] + 2.2), 35 * lz, 4.0),
-            B(4.6, P(204, 7.0 * rk, 1.55), sky_t, 32 * lz, 4.0),
-            B(9.0, P(232, 9.6 * rk, 2.7), mid_t, 30 * lz, 3.5),
-            B(13.4, P(272, 8.6 * rk, 2.1), (F[0] - 1.5, F[1] + 2.5, F[2] + 2.3), 32 * lz, 3.2),
-            B(16.6, P(318, 8.6 * rk, 1.8), (F[0] + 0.4, F[1] + 3.0, F[2] + 2.0), 35 * lz, 3.0),
-            B(hero_at, hero_cam, hero_tgt, 50 * (1.0 if not v else 0.75), 2.8),
-            B(length, hero_cam2, hero_tgt, 55 * (1.0 if not v else 0.75), 2.8),
+        beats = [
+            # behind her, low: she is big and backlit; the camera is already moving as the petals clear
+            B(0.0, P(197, 6.4 * rk, 1.2), T(1.4, 9, 1.9), 35 * lz, 2.8),
+            # sweeping crane up and back: the sky full of red cars above the meadow
+            B(3.8, P(188, 9.2 * rk, 4.3), T(0.4, 14, 3.3), 30 * lz, 5.6),
+            # swoop down into the flowers: low hero angle under a car flying overhead
+            B(6.4, P(206, 8.0 * rk, 0.7), T(-1.0, 8, 6.0), 26 * lz, 4.0),
         ]
-        # the camera is already moving when the petals clear (no start from rest); coasts out at the end
-        self.move = C.Move(self.beats, v0=(0.08, 0.7, 0.05))
+        # flight alongside: the "wing" car circles her while the camera flies with it on a wider circle
+        self.wing_az = lambda t: 215.0 + 25.0 * (t - 8.4)      # noqa: E731
+        for t in (8.4, 9.55, 10.7, 11.85, 13.0):
+            w = self._wing_pt(t)
+            cam = P(self.wing_az(t) - 13.0, 19.0 * rk, 0.0)
+            cam = (cam[0], cam[1], max(cam[2] + 1.5, w[2] + 1.3))
+            tgt = C._lerp(C._add(w, (0, 0, 0.6)), (F[0], F[1], F[2] + 1.2), 0.36)
+            beats.append(B(t, cam, tgt, 28 * lz, 4.0))
+        beats += [
+            # settle at her front-left three-quarter: cars cross close in front, focus racks through them to her
+            B(15.0, P(332, 9.5 * rk, 1.45), T(0.6, -1.0, 1.3), 40 * lz, 2.0),
+            B(17.3, P(282, 5.8 * rk, 1.7), C._lerp(T(0.0, 0.0, 1.4), H, 0.55), 44 * lz, 2.4),
+            # final push into the hero close-up (light sweep, rims spinning)
+            B(hero_at, hero_cam, hero_tgt, 46 * (1.0 if not v else 0.8), 2.8),
+            B(length, hero_cam2, hero_tgt, 50 * (1.0 if not v else 0.8), 2.8),
+        ]
+        self.beats = beats
+        self.move = C.Move(self.beats, v0=(0.10, 0.55, 0.15))
+        self.base = C.Move(self.beats, v0=(0.10, 0.55, 0.15))   # aim-free copy: screen anchors
         self.flights = self._flights()
         self.poses_cache: dict = {}
 
-    def _flights(self):
-        Fl, hf, F, H = self.Fl, self.hf, self.F, self.H
-        g = lambda x, y, dz: (x, y, hf(x, y) + dz)      # noqa: E731
-        fl = []
-        # 1 dive in from the upper left, bank across in front of her (against the sun), exit up-right
-        fl.append(Fl.Flight("dive", [(-72, 70, 46), (-30, 34, 16), (-8, 16, 5.0), (14, 18, 6.5), (40, 26, 17),
-                                     (70, 30, 34)], 0.6, 7.2, bank=1.3, meta={"ratio": (1.0, 1.25)}))
-        # 2 climbs out from behind the right hill and away
-        fl.append(Fl.Flight("climb", [g(34, 48, 3.0), g(42, 58, 7), (50, 74, 26), (56, 104, 62)], 3.6, 10.8,
-                            bank=0.7, meta={"ratio": (0.65, 1.4)}))
-        # 3 drives over the crest toward camera-left, lifts off and flies over the camera
-        fl.append(Fl.Flight("drive", [g(-40, 64, 0), g(-30, 41, 0), g(-23, 25, 0), g(-18, 13, 0.3), (-15, 0, 8.0),
-                                      (-10, -16, 15.0), (-2, -36, 22.0)], 3.4, 12.6, mode="drive",
-                            drive_until=4.6, lift=1.6, bank=0.8, meta={"ratio": (0.8, 1.35)}))
-        # 4 the hero: floats in, hovers with wheels spinning, settles into the close-up spot turning slowly
-        fl.append(Fl.Flight("hero", [(-26, 30, F[2] + 10.0), (-5, 18, F[2] + 4.6), (H[0], H[1], H[2])], 7.8,
-                            self.hero_at - 0.6, mode="hover", bob=0.09, yaw_rate=4.0,
-                            yaw0=self.hero_heading - 4.0 * (self.hero_at + 1.5 - 7.8),
-                            spin_rps=1.15, meta={"ratio": (0.9, 0.12)}))
-        # 5 passes close to the lens, out over the meadow past her
-        fl.append(Fl.Flight("pass", [(-34, -9, F[2] + 3.6), (-17, -3.6, F[2] + 3.7), (-8.5, 3.4, F[2] + 3.6),
-                                     (6, 9, F[2] + 4.6), (30, 18, F[2] + 9), (60, 26, F[2] + 18)], 10.6, 15.6,
-                            bank=1.1, meta={"ratio": (1.0, 1.1)}))
-        # 6 a far arc across the sky behind the close-up (out of focus, colour and life)
-        fl.append(Fl.Flight("arc", [(-120, 40, 22), (-70, 95, 40), (0, 120, 44), (70, 100, 34), (120, 50, 20)],
-                            13.0, 26.0, bank=1.2, meta={"ratio": (0.95, 1.05)}))
-        if self.v:
-            fl = [self._squeeze(f) for f in fl]
-        return fl
+    def T(self, dx, dy, dz):
+        F = self.F
+        return (F[0] + dx, F[1] + dy, F[2] + dz)
 
-    def _squeeze(self, f):
-        """Portrait: pull each control point toward the camera's view axis (x0.62) and stretch it up (x1.12)."""
+    def _wing_pt(self, t: float):
+        """The tracked car: spirals in from high on the right, circles her at 11 m, climbs away after 13 s."""
+        a = math.radians(self.wing_az(t))
+        r = 11.0 + 2.6 * max(0.0, 8.4 - t) + 2.4 * max(0.0, t - 13.0) ** 1.5
+        h = 3.0 + 2.8 * max(0.0, 8.4 - t) + 1.6 * max(0.0, t - 13.0) ** 2
+        x, y = self.F[0] + r * math.sin(a), self.F[1] + r * math.cos(a)
+        return (x, y, max(self.hf(x, y) + 2.2, self.F[2] + h))
+
+    # ------------------------------------------------------------------------------------------- anchors
+    def _basis(self, t: float):
         C = self.C
-        n = len(f.points)
-        pts = []
-        for i, p in enumerate(f.points):
-            t = f.t0 + (f.t1 - f.t0) * i / max(1, n - 1)
-            s = self.move.eval(min(max(t, 0.0), self.length))
-            fwd = s.fwd
-            right = C._norm((fwd[1], -fwd[0], 0.0))
-            up = (0.0, 0.0, 1.0)
-            d = C._sub(p, s.pos)
-            r = sum(d[k] * right[k] for k in range(3))
-            u = d[2]
-            q = C._add(s.pos, C._add(C._mul(right, r * 0.62), C._mul(up, u * 1.12)))
-            q = C._add(q, C._mul((fwd[0], fwd[1], 0.0), sum(d[k] * fwd[k] for k in (0, 1))))
-            alt = p[2] - self.hf(p[0], p[1])
-            if f.mode == "drive" and alt < 0.5:
-                q = (q[0], q[1], self.hf(q[0], q[1]))
-            else:
-                q = (q[0], q[1], max(q[2], self.hf(q[0], q[1]) + max(2.0, alt * 0.8)))
-            pts.append(q)
-        f.points = pts
-        return f
+        s = self.base.eval(t)
+        fwd = s.fwd
+        right = C._norm((fwd[1], -fwd[0], 0.0))
+        up = (right[1] * fwd[2] - right[2] * fwd[1], right[2] * fwd[0] - right[0] * fwd[2],
+              right[0] * fwd[1] - right[1] * fwd[0])
+        half = 18.0 / s.lens
+        th, tv = (half, half / self.aspect) if self.aspect >= 1 else (half * self.aspect, half)
+        return s, fwd, right, up, th, tv
+
+    def S(self, t: float, sx: float, sy: float | None, d: float, alt: float = 1.0):
+        """World point that the camera (aim-free move) sees at NDC (sx, sy) and depth d at move time t.
+        ``sy=None`` puts it on the ground; flying points keep >= ``alt`` m above the terrain."""
+        C = self.C
+        s, fwd, right, up, th, tv = self._basis(t)
+        p = C._add(C._add(s.pos, C._mul(fwd, d)), C._mul(right, sx * th * d))
+        if sy is None:
+            return (p[0], p[1], self.hf(p[0], p[1]))
+        p = C._add(p, C._mul(up, sy * tv * d))
+        return (p[0], p[1], max(p[2], self.hf(p[0], p[1]) + alt))
+
+    def K(self, t: float, rx: float, uy: float, fz: float):
+        """World point in camera-local metres (right, up, forward) at move time t (keys behind the lens)."""
+        C = self.C
+        s, fwd, right, up, _, _ = self._basis(t)
+        return C._add(C._add(C._add(s.pos, C._mul(right, rx)), C._mul(up, uy)), C._mul(fwd, fz))
+
+    def _fl(self, name: str, keys, **kw):
+        times = [k[0] for k in keys]
+        pts = [k[1] for k in keys]
+        return self.Fl.Flight(name, pts, times[0], times[-1], times=times, **kw)
+
+    def _fla(self, name: str, anchors, even: float = 0.65, **kw):
+        """Flight through screen anchors [(t, ("S", sx, sy, d[, alt]) | ("K", rx, uy, fz))]; key times are pulled
+        toward constant speed (chord-length timing, ``even`` 0..1) and the anchors re-evaluated at the new times."""
+        ts = [a[0] for a in anchors]
+
+        def pts_at(times):
+            out = []
+            for t, (_, a) in zip(times, anchors):
+                out.append(self.S(t, *a[1:]) if a[0] == "S" else self.K(t, *a[1:]) if a[0] == "K"
+                           else self.T(*a[1:]))
+            return out
+        t0, t1 = ts[0], ts[-1]
+        times = list(ts)
+        for _ in range(3):
+            pts = pts_at(times)
+            ch = [0.0]
+            for i in range(1, len(pts)):
+                ch.append(ch[-1] + math.dist(pts[i], pts[i - 1]))
+            times = [t0 + (t1 - t0) * ((1 - even) * (ts[i] - t0) / (t1 - t0) + even * ch[i] / ch[-1])
+                     for i in range(len(ts))]
+        return self.Fl.Flight(name, pts_at(times), t0, t1, times=times, **kw)
+
+    def _flights(self):
+        S, K, H, T = self.S, self.K, self.H, self.T
+        Fl = self.Fl
+        fl = []
+        # 1 "coming down": dives in from the upper left as the petals clear, banks across in front of her
+        fl.append(self._fla("dive", [(0.5, ("S", -1.4, 0.95, 34)), (1.9, ("S", -0.65, 0.5, 23)),
+                                     (3.3, ("S", -0.15, 0.10, 20)), (4.6, ("S", 0.38, 0.02, 19)),
+                                     (5.9, ("S", 0.95, 0.30, 23)), (7.1, ("S", 1.5, 0.7, 32))], bank=1.3))
+        # 2 "driving down": over the front-right crest, down the slope, lifts off to the left
+        fl.append(self._fla("drive", [(1.2, ("S", 1.4, None, 36)), (2.6, ("S", 0.85, None, 31)),
+                                      (4.0, ("S", 0.35, None, 27)), (5.4, ("S", -0.1, None, 24)),
+                                      (6.6, ("S", -0.5, 0.05, 23, 0.6)), (7.8, ("S", -0.95, 0.35, 27)),
+                                      (9.0, ("S", -1.5, 0.7, 35))],
+                           mode="drive", drive_until=5.0, lift=1.3, bank=0.8))
+        # 3 "going up": rises from behind the front-left hill and climbs across the sun
+        fl.append(self._fla("climb", [(3.0, ("S", -1.4, 0.1, 33, 3.0)), (4.4, ("S", -0.8, 0.12, 29)),
+                                      (5.8, ("S", -0.3, 0.45, 28)), (7.2, ("S", 0.2, 0.85, 30)),
+                                      (8.6, ("S", 0.65, 1.3, 36))], bank=0.9))
+        # 4 flies over the low camera from behind and climbs away into the frame
+        fl.append(self._fla("over", [(5.0, ("K", 0.6, 3.6, -16.0)), (5.9, ("K", 0.2, 3.9, -3.5)),
+                                     (6.6, ("S", -0.3, 0.55, 8.5)), (7.4, ("S", -0.5, 0.6, 17)),
+                                     (8.3, ("S", -0.75, 0.7, 29))], bank=1.0))
+        # 5 the tracked "wing" car: the camera flies alongside it around her
+        wk = [(t, self._wing_pt(t)) for t in [6.4 + 0.5 * k for k in range(18)]]
+        fl.append(self._fl("wing", wk, bank=1.1))
+        # 6/7 cross close in front of the lens (out of focus) while the focus racks through them to her
+        cx, cy = (1.0, 1.0) if not self.v else (1.8, 0.55)     # portrait: wider sweep in NDC, flatter
+        fl.append(self._fla("cross1", [(12.4, ("S", -1.9 * cx, -0.5 * cy, 5.4)), (13.3, ("S", -0.1, -0.55 * cy, 5.0)),
+                                       (14.2, ("S", 1.7 * cx, -0.5 * cy, 5.4)), (15.1, ("S", 3.0 * cx, -0.3, 6.8))],
+                            bank=1.0, even=0.9))
+        fl.append(self._fla("cross2", [(13.4, ("S", 2.4 * cx, -0.3 * cy, 5.8)), (14.1, ("S", 1.0 * cx, -0.5 * cy, 4.8)),
+                                       (14.8, ("S", -0.6 * cx, -0.55 * cy, 4.6)), (15.5, ("S", -2.2 * cx, -0.4 * cy, 5.2))],
+                            bank=1.0, even=0.9))
+        # 8 the hero, "just floating": drifts in high on the left, hovers with wheels spinning, settles at H
+        t_h = self.hero_at - 0.6
+        fl.append(self._fl("hero", [(9.0, T(-20, -27, 10.0)), (11.5, T(-9, -24, 7.0)), (14.0, T(1.5, -16.5, 4.6)),
+                                    (16.5, T(4.6, -11.6, 3.0)), (t_h, H),
+                                    (self.length + 2.0, (H[0] + 0.5, H[1] + 0.2, H[2] + 0.1))],
+                           mode="hover", bob=0.09, yaw_rate=4.0,
+                           yaw0=self.hero_heading - 4.0 * (self.hero_at + 1.5 - 9.0), spin_rps=1.15))
+        # loose groups that fly in formation and break apart (mid distance)
+        groups = [
+            ("g0", 2.6, [(0.0, ("S", 1.7, 0.75, 44)), (1.6, ("S", 0.7, 0.62, 38)), (3.2, ("S", -0.3, 0.6, 36)),
+                         (4.8, ("S", -1.3, 0.75, 40)), (6.0, ("S", -2.0, 0.9, 46))]),
+            ("g1", 5.0, [(1.6, ("W", 34, 34, 12)), (3.6, ("W", 12, 41, 10)), (5.6, ("W", -10, 41, 11)),
+                         (7.6, ("W", -30, 33, 13)), (9.4, ("W", -45, 21, 15))]),
+            ("g2", 11.6, [(9.0, ("S", -1.6, 0.45, 40)), (11.0, ("S", -0.5, 0.35, 37)),
+                          (13.0, ("S", 0.5, 0.45, 37)), (15.0, ("S", 1.6, 0.7, 42))]),
+            ("g4", 16.0, [(13.4, ("W", 40, -28, 12)), (15.0, ("W", 18, -36, 10)), (16.6, ("W", -4, -38, 11)),
+                          (18.2, ("W", -24, -32, 13)), (19.4, ("W", -38, -20, 15))]),
+            ("g3", 21.0, [(17.0, ("S", -1.7, 0.55, 48)), (19.5, ("S", -0.7, 0.5, 42)),
+                          (22.0, ("S", 0.3, 0.55, 42)), (24.5, ("S", 1.3, 0.65, 46)),
+                          (26.5, ("S", 2.0, 0.8, 52))]),
+        ]
+        slots = [(0.0, 0.0, 0.0), (-3.2, 0.8, 3.5), (3.4, -0.4, 4.0), (-6.2, 1.3, 7.5), (6.6, 0.4, 8.0)]
+        import random as _r
+        rng = _r.Random(self.seed * 31 + 5)
+        for gname, t_break, keys in groups:
+            lead = self._fla(gname, keys, even=0.9)
+            for i, sl in enumerate(slots[: max(2, int(round(len(slots) * min(1.0, self.crowd))))]):
+                peel = (rng.uniform(-1, 1), rng.uniform(-0.6, 1.0), rng.uniform(-0.6, 0.0))   # never falls back
+                k = rng.uniform(1.2, 2.4)
+                ph = rng.uniform(0, 6.28)
+
+                def off(t, sl=sl, peel=peel, k=k, ph=ph, tb=t_break):
+                    u = max(0.0, t - tb)
+                    q = u * min(u, 2.0) * 0.8                 # peel-off: eases in, then a steady drift apart
+                    s = 1.0 + 0.15 * u
+                    w = 0.35 * math.sin(1.3 * t + ph)
+                    return (sl[0] * s + peel[0] * k * q + w, sl[1] * s + peel[1] * k * q * 0.6 + w * 0.5,
+                            sl[2] + peel[2] * k * q)
+                fl.append(Fl.follow(lead, f"{gname}_{i}", lag=0.12 * i, offset=off, t0=keys[0][0] - 1.0,
+                                    t1=keys[-1][0] + 1.0, step=0.5, ground=self.hf, alt=3.0,
+                                    bank=rng.uniform(0.9, 1.4), scale=rng.uniform(0.92, 1.08),
+                                    meta={"group": gname}))
+        # far streams circling the meadow like flocks of birds
+        for ri, (R, h, a0, om, n, und, ph) in enumerate(RINGS):
+            lead = Fl.ring(f"ring{ri}", self.F, R, h, a0, om, -4.0, self.length + 4.0, undulate=und, phase=ph)
+            n = max(2, int(round(n * self.crowd)))
+            lag = 0.0
+            for i in range(n):
+                p1, p2 = rng.uniform(0, 6.28), rng.uniform(0, 6.28)
+                lat, ver = rng.uniform(-7.0, 7.0), rng.uniform(-3.5, 3.5)
+                f1, f2 = rng.uniform(0.35, 0.8), rng.uniform(0.5, 1.1)
+
+                def off(t, p1=p1, p2=p2, lat=lat, ver=ver, f1=f1, f2=f2):
+                    return (lat + 2.6 * math.sin(f1 * t + p1), ver + 1.6 * math.sin(f2 * t + p2), 0.0)
+                fl.append(Fl.follow(lead, f"s{ri}_{i}", lag=lag, offset=off,
+                                    t0=-3.0, t1=self.length + 3.0, step=0.8, ground=self.hf, alt=4.0,
+                                    bank=rng.uniform(0.8, 1.6), scale=rng.uniform(0.9, 1.1), meta={"stream": ri}))
+                lag += rng.uniform(0.22, 0.75)
+        return fl
 
     def poses(self, fps: float, frames: int, t_offset: float):
         key = (fps, frames, t_offset)
@@ -156,36 +295,107 @@ class Layout:
         return self.poses_cache[key]
 
     def pos_fn(self, name: str):
-        """Smooth position function of a flyer (for aim / focus / head-follow)."""
+        """Smooth position function of a flyer (for aim / focus / head-follow): car centre."""
         f = [x for x in self.flights if x.name == name][0]
-        path = self.Fl._Path(f.points)
-        Fl = self.Fl
+        sp = self.Fl.timed_spline(f)
 
         def fn(t: float):
-            s, _ = Fl._distance(f, path.length, t)
-            p, _ = path.at(s)
+            p = sp(t)
             return (p[0], p[1], p[2] + 0.6)
-        if "ratio" in f.meta:
-            T = f.t1 - f.t0
-            f.v0, f.v1 = f.meta["ratio"][0] * path.length / T, f.meta["ratio"][1] * path.length / T
         return fn
 
+    def named(self):
+        return [f for f in self.flights if not ({"group", "stream"} & set(f.meta))]
+
+    def framing(self, fps: float = 30.0, t0: float = 0.0, t1: float | None = None, step: int = 1,
+                occlusion: bool = True) -> list[dict]:
+        """Per-frame screen framing (pure Python): each car's visible box (fraction of the frame width/height,
+        cut by the frame edge, hidden behind the terrain), the figure's box, the readable cars (>= 12 % wide,
+        fully inside the frame or a fast pass-by) — the QA the oner's choreography is tuned against."""
+        C, Fl = self.C, self.Fl
+        t1 = self.length if t1 is None else t1
+        aspect = 9 / 16 if self.v else 16 / 9
+        mv = self.rig()
+        frames = int(round((t1 - t0) * fps)) + 1
+        poses = self.poses(fps, frames, t0)
+        hw, hl, _, top = Fl.CAR_HALF
+        out = []
+        prev_x: dict = {}
+        for i in range(0, frames, step):
+            t = t0 + i / fps
+            s = mv.eval(t)
+            row = {"t": round(t, 3), "cars": {}, "readable": []}
+            F = self.F
+            fig = C.screen_box(s, [(F[0] + dx, F[1] + dy, F[2] + dz) for dx in (-0.3, 0.3) for dy in (-0.3, 0.3)
+                                   for dz in (0.0, 1.78)], aspect)
+            row["fig"] = fig
+            for f, ps in zip(self.flights, poses):
+                p = ps[i]
+                right = C._norm(Fl._cross(p.fwd, p.up))
+                cs = [C._add(C._add(C._add(p.pos, C._mul(right, sx * hw)), C._mul(p.fwd, sy * hl)), C._mul(p.up, z))
+                      for sx in (-1, 1) for sy in (-1, 1) for z in (0.0, top)]
+                b = C.screen_box(s, cs, aspect)
+                if b is None or not b["visible"]:
+                    prev_x.pop(f.name, None)
+                    continue
+                cx = (b["x0"] + b["x1"]) / 2
+                b["vx"] = abs(cx - prev_x[f.name]) * fps / step if f.name in prev_x else 0.0   # NDC/s
+                prev_x[f.name] = cx
+                b["hidden"] = occlusion and self._occluded(s.pos, C._add(p.pos, C._mul(p.up, 0.6)))
+                row["cars"][f.name] = b
+                fast = b["vx"] > 1.2
+                if b["w"] >= 0.12 and not b["hidden"] and (b["inside"] or fast or b["w"] > 0.5):
+                    row["readable"].append(f.name)
+            out.append(row)
+        return out
+
+    def _occluded(self, a, b, n: int = 16) -> bool:
+        for k in range(1, n):
+            u = k / n
+            x, y, z = a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u, a[2] + (b[2] - a[2]) * u
+            if self.hf(x, y) + 0.25 > z:
+                return True
+        return False
+
+    def windows(self, fps: float, frames: int, t_offset: float) -> list[tuple[int, int]]:
+        """Per flight, the rendered-frame index range [a, b] in which the car exists: it appears / vanishes only
+        on a frame where it is off-screen (named cars and groups); far streams are always there."""
+        rows = self.framing(fps, t_offset, t_offset + (frames - 1) / fps, occlusion=False)
+        out = []
+        for f in self.flights:
+            if "stream" in f.meta:
+                out.append((0, frames - 1))
+                continue
+            on = [f.name in r["cars"] for r in rows]
+            i0 = max(0, min(frames - 1, int(round((f.t0 - t_offset) * fps))))
+            i1 = max(0, min(frames - 1, int(round((f.t1 - t_offset) * fps))))
+            a = i0
+            while a > 0 and on[a]:
+                a -= 1
+            b = i1
+            while b < frames - 1 and on[b]:
+                b += 1
+            out.append((a, b))
+        return out
+
     def rig(self):
-        """Camera move with aim windows and rack focus."""
+        """Camera move with aim windows (partial follow of the car in play) and rack focus."""
         mv = self.move
         mv._aims.clear()
-        w = 0.6 if self.v else 0.32
-        mv.aim(4.0, 5.6, 8.2, 9.6, self.pos_fn("drive"), w * 0.8)
-        mv.aim(11.6, 12.4, 13.0, 14.2, self.pos_fn("pass"), w)
-        mv.aim(14.6, 16.0, 30.0, 31.0, self.pos_fn("hero"), 0.55 if not self.v else 0.7)
+        w = 0.45 if self.v else 0.28
+        mv.aim(1.6, 2.8, 4.4, 5.8, self.pos_fn("dive"), w)
+        mv.aim(5.6, 6.3, 6.9, 7.8, self.pos_fn("over"), w * 0.6)
+        mv.aim(16.0, 17.6, 30.0, 31.0, self.pos_fn("hero"), 0.6 if not self.v else 0.7)
         first = [(0.0, 1.0), (0.45, self.head)] if self.reveal else [(0.0, self.head)]
-        mv.focus_on([*first, (5.4, self.pos_fn("drive")), (9.0, self.head),
-                     (12.1, self.pos_fn("pass")), (13.5, self.head), (16.2, self.pos_fn("hero"))], dur=0.85)
+        mv.focus_on([*first, (2.4, self.pos_fn("dive")), (4.6, self.head), (6.0, self.pos_fn("over")),
+                     (7.6, self.pos_fn("wing")), (12.6, self.pos_fn("cross1")), (13.7, self.head),
+                     (14.6, self.pos_fn("cross2")), (15.6, self.head), (16.8, self.pos_fn("hero"))], dur=0.8)
         return mv
 
 
 def _layout(sc) -> "Layout":
-    return Layout(sc.aspect, sc.seed, float(_p(sc, "hero_at")), float(_p(sc, "length")), bool(_p(sc, "reveal")))
+    return Layout(sc.aspect, sc.seed, float(_p(sc, "hero_at")), float(_p(sc, "length")), bool(_p(sc, "reveal")),
+                  crowd=float(_p(sc, "crowd")))
 
 
 def _t0(sc) -> float:
@@ -222,14 +432,14 @@ def build(sc) -> None:
     meadow.terrain_object(L.hf, palette=pal)
     dens = float(_p(sc, "density")) * (0.55 if sc.tier == "preview" else 1.0)
     cw = meadow.instance_collection(sc.seed)
-    meadow.scatter(L.hf, center=(-3, 2), radius=30, density=16.0 * dens, seed=sc.seed, coll_weights=cw,
-                   t_offset=t_off, falloff=14)
+    meadow.scatter(L.hf, center=(0, 2), radius=36, density=17.0 * dens, seed=sc.seed, coll_weights=cw,
+                   t_offset=t_off, falloff=16)
     # tall foreground blossoms along the camera path (ground points 1.2-3 m beside it)
     mv = L.rig()
     pts = []
     rng = sc.rng
-    for i in range(0, 220):
-        tt = L.length * i / 220
+    for i in range(0, 300):
+        tt = L.length * i / 300
         s = mv.eval(tt)
         side = 1 if rng.random() < 0.5 else -1
         nx, ny = s.fwd[1] * side, -s.fwd[0] * side
@@ -241,8 +451,9 @@ def build(sc) -> None:
     meadow.foreground(L.hf, pts, seed=sc.seed, t_offset=t_off)
     if _p(sc, "figure"):
         fig = Fig.build(location=L.F, facing_deg=SUN[0] - 8, wind=WIND, t_offset=t_off)
-        Fig.look_at(fig, [(0.0, 3.5, L.pos_fn("dive")), (11.2, 15.2, L.pos_fn("pass")),
-                          (16.5, 40.0, L.pos_fn("hero"))], sc.fps, sc.frames, t_offset=t_off)
+        Fig.look_at(fig, [(0.6, 4.8, L.pos_fn("dive")), (5.4, 7.8, L.pos_fn("over")),
+                          (8.6, 12.8, L.pos_fn("wing")), (16.4, 40.0, L.pos_fn("hero"))], sc.fps, sc.frames,
+                    t_offset=t_off)
     amt = float(_p(sc, "petals"))
     if amt > 0:
         cam_pts = [mv.eval(L.length * i / 12).pos for i in range(13)]
@@ -255,9 +466,11 @@ def build(sc) -> None:
         raise RuntimeError("meadow/oner needs a 3D product model asset (kind=model)")
     src = Fl.load_car(model)
     poses = L.poses(sc.fps, sc.frames, t_off)
-    for f, ps in zip(L.flights, poses):
+    wins = L.windows(sc.fps, sc.frames, t_off)
+    for f, ps, (a, b) in zip(L.flights, poses, wins):
         root, wheels = Fl.instance_car(src, f"car_{f.name}")
-        Fl.apply(root, wheels, ps)
+        Fl.apply(root, wheels, ps, scale=f.scale, visible=[a <= i <= b for i in range(len(ps))],
+                 spin=not ("stream" in f.meta))
     # camera
     cam = C.make_camera("cam")
     samples = mv.sample(sc.fps, sc.frames, t_off)
@@ -281,17 +494,33 @@ def _light_sweep(L, sc, t_off: float) -> None:
     ld.color = (1.0, 0.93, 0.86)
     ob = bpy.data.objects.new("sweep", ld)
     bpy.context.scene.collection.objects.link(ob)
+    from mathutils import Vector
     t0, t1 = L.hero_at - 1.5, L.hero_at + 3.8
+    cam = L.move.eval(L.hero_at).pos
+    vd = Vector((H[0] - cam[0], H[1] - cam[1], 0.0)).normalized()
+    side = Vector((vd.y, -vd.x, 0.0))
+    ob.rotation_mode = "QUATERNION"
     for f in range(1, sc.frames + 1):
         t = t_off + (f - 1) / sc.fps
         u = smootherstep((t - t0) / (t1 - t0))
-        ob.location = (H[0] - 5.0 + 9.0 * u, H[1] - 1.5 + 2.0 * u, H[2] + 3.4)
-        ob.rotation_euler = (math.radians(-22), 0, math.radians(-60))
+        pos = Vector(H) + side * (-5.0 + 9.0 * u) - vd * 1.0 + Vector((0, 0, 3.4))
+        ob.location = pos
+        ob.rotation_quaternion = (Vector(H) - pos).to_track_quat("-Z", "Y")
+        ob.keyframe_insert("rotation_quaternion", frame=f)
         ld.energy = 900.0 * math.sin(math.pi * u) ** 2 if 0 < u < 1 else 0.0
         ob.keyframe_insert("location", frame=f)
         ld.keyframe_insert("energy", frame=f)
     linearize(ob)
     linearize(ld)
+    # a long soft strip above the hover spot: clean highlights along the shoulder and roof (camera-invisible)
+    st = bpy.data.lights.new("strip", "AREA")
+    st.shape, st.size, st.size_y, st.energy = "RECTANGLE", 9.0, 1.1, 420.0
+    st.color = (1.0, 0.95, 0.92)
+    so = bpy.data.objects.new("strip", st)
+    bpy.context.scene.collection.objects.link(so)
+    so.location = Vector(H) + Vector((0, 0, 4.2)) - vd * 0.8
+    so.rotation_mode = "QUATERNION"
+    so.rotation_quaternion = (Vector(H) - so.location).to_track_quat("-Z", "Y")
 
 
 def cues(sc) -> list[dict]:
@@ -304,7 +533,7 @@ def cues(sc) -> list[dict]:
     poses = L.poses(sc.fps, sc.frames, t_off)
     cams = [mv.eval(t_off + (f - 1) / sc.fps).pos for f in range(1, sc.frames + 1)]
     for f, ps in zip(L.flights, poses):
-        if f.mode == "hover":
+        if f.mode == "hover" or {"stream", "group"} & set(f.meta):
             continue
         best = min(range(len(ps)), key=lambda i: sum((ps[i].pos[k] - cams[i][k]) ** 2 for k in range(3)))
         d = math.sqrt(sum((ps[best].pos[k] - cams[best][k]) ** 2 for k in range(3)))

@@ -46,7 +46,54 @@ class Flight:
     lift: float = 1.2               # seconds over which the lift-off blends from ground-locked to free flight
     phase: float = 0.0
     scale: float = 1.0
+    times: list | None = None       # timed flight: ``points[i]`` is reached at ``times[i]`` (C2 spline in time)
     meta: dict = field(default_factory=dict)
+
+
+def timed_spline(fl: "Flight") -> Spline3D:
+    """Position spline in time for a timed flight (natural ends -> straight extrapolation at the end speed)."""
+    return Spline3D(list(fl.times or []), list(fl.points))
+
+
+def follow(leader: "Flight", name: str, *, lag: float, offset: Callable[[float], tuple], t0: float, t1: float,
+           step: float = 0.4, ground: "Ground | None" = None, alt: float = 2.0, **kw) -> "Flight":
+    """A follower of a timed ``leader``: the leader's path ``lag`` s later plus an offset (right, up, back metres
+    in the leader's frame) that varies smoothly with time — formations that loosen and break apart, bird-like
+    streams with wobble. Returns a timed Flight (sampled every ``step`` s; C2 between samples)."""
+    sp = timed_spline(leader)
+    n = max(2, int(math.ceil((t1 - t0) / step)) + 1)
+    times, pts = [], []
+    for k in range(n):
+        t = t0 + (t1 - t0) * k / (n - 1)
+        tau = t - lag
+        p = sp(tau)
+        d = _norm(sp.d(tau))
+        right = _norm(_cross(d, (0.0, 0.0, 1.0))) if abs(d[2]) < 0.98 else (1.0, 0.0, 0.0)
+        up = _cross(right, d)
+        o = offset(t)
+        q = _add(_add(_add(p, _mul(right, o[0])), _mul(up, o[1])), _mul(d, -o[2]))
+        if ground is not None:
+            q = (q[0], q[1], max(q[2], ground(q[0], q[1]) + alt))
+        times.append(t)
+        pts.append(q)
+    return Flight(name, pts, t0, t1, times=times, **kw)
+
+
+def ring(name: str, center: Vec, radius: float, height: float, a0: float, omega: float, t0: float, t1: float, *,
+         undulate: float = 3.0, und_hz: float = 0.07, phase: float = 0.0, rwave: float = 0.12,
+         step: float = 0.8, **kw) -> "Flight":
+    """A timed flight circling ``center`` (deg a0 at t0, ``omega`` deg/s; + = counter-clockwise seen from above)
+    with a slow vertical undulation and a breathing radius — a leader for far bird-like streams."""
+    n = max(3, int(math.ceil((t1 - t0) / step)) + 1)
+    times, pts = [], []
+    for k in range(n):
+        t = t0 + (t1 - t0) * k / (n - 1)
+        a = math.radians(a0 + omega * (t - t0))
+        r = radius * (1.0 + rwave * math.sin(2 * math.pi * und_hz * 0.6 * t + phase * 1.3))
+        z = center[2] + height + undulate * math.sin(2 * math.pi * und_hz * t + phase)
+        times.append(t)
+        pts.append((center[0] + r * math.sin(a), center[1] + r * math.cos(a), z))
+    return Flight(name, pts, t0, t1, times=times, **kw)
 
 
 @dataclass
@@ -156,13 +203,24 @@ def plan(fl: Flight, fps: float, frames: int, t_offset: float = 0.0, ground: Gro
     """
     path = _Path(fl.points)
     L = path.length
-    if "ratio" in fl.meta:
+    if "ratio" in fl.meta and not fl.times:
         T = max(1e-3, fl.t1 - fl.t0)
         fl.v0, fl.v1 = fl.meta["ratio"][0] * L / T, fl.meta["ratio"][1] * L / T
     dt = 1.0 / fps
     # pass 1: raw positions/tangents/speeds at frame times plus half-frame neighbours for curvature
     raw = []
-    for f in range(frames):
+    if fl.times:
+        sp = timed_spline(fl)
+        fl.v0, fl.v1 = _len(sp.d(fl.times[0])), _len(sp.d(fl.times[-1]))
+        s_acc, prev_p = 0.0, None
+        for f in range(frames):
+            t = t_offset + f * dt
+            p, dv = sp(t), sp.d(t)
+            if prev_p is not None:
+                s_acc += _len(_sub(p, prev_p))
+            prev_p = p
+            raw.append((t, s_acc, _len(dv), p, _norm(dv)))
+    for f in range(0 if not fl.times else frames, frames):
         t = t_offset + f * dt
         s, v = _distance(fl, L, t)
         p, d = path.at(s)
@@ -368,8 +426,10 @@ def instance_car(src_root, name: str, coll=None):
     return root, wheels
 
 
-def apply(root, wheels: Sequence, poses: Sequence[Pose], frame_start: int = 1, scale: float = 1.0) -> None:
-    """Key the root (location + quaternion from fwd/up) and wheel spin every frame (LINEAR)."""
+def apply(root, wheels: Sequence, poses: Sequence[Pose], frame_start: int = 1, scale: float = 1.0,
+          visible: Sequence[bool] | None = None, spin: bool = True) -> None:
+    """Key the root (location + quaternion from fwd/up) and wheel spin every frame (LINEAR). ``visible`` (per pose)
+    keys the root scale to ~0 outside the car's on-screen window (children vanish with it)."""
     from mathutils import Matrix, Vector  # noqa: PLC0415
 
     from .camera import linearize  # noqa: PLC0415
@@ -379,6 +439,10 @@ def apply(root, wheels: Sequence, poses: Sequence[Pose], frame_start: int = 1, s
     base = {w.name: w.rotation_euler.copy() for w in wheels}
     for i, p in enumerate(poses):
         f = frame_start + i
+        if visible is not None:
+            k = scale if visible[i] else 1e-4
+            root.scale = (k, k, k)
+            root.keyframe_insert("scale", frame=f)       # every frame: LINEAR extrapolation can't run away
         fwd = Vector(p.fwd)
         up = Vector(p.up)
         right = fwd.cross(up).normalized()
@@ -392,9 +456,9 @@ def apply(root, wheels: Sequence, poses: Sequence[Pose], frame_start: int = 1, s
         root.rotation_quaternion = q
         root.keyframe_insert("location", frame=f)
         root.keyframe_insert("rotation_quaternion", frame=f)
-        for w in wheels:
+        for w in wheels if spin else ():
             w.rotation_euler = (base[w.name].x + p.wheel, base[w.name].y, base[w.name].z)
             w.keyframe_insert("rotation_euler", index=0, frame=f)
     linearize(root)
-    for w in wheels:
+    for w in wheels if spin else ():
         linearize(w)
