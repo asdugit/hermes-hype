@@ -1,6 +1,6 @@
 // Hype kit "launch" — product media scenes on the table: HOOK, SCREEN, FEATURE, SCROLL, BEFORE_AFTER, MONTAGE.
 
-import { launchScene, camTrack, fitRect, nodeIn, pushTrack, panelWires, productScale } from './stage.js';
+import { launchScene, camTrack, fitRect, nodeIn, pushTrack, panelWires, productScale, handoff, blendCam, cornerLabel, featureCopy } from './stage.js';
 import { h, css, fitSize } from '../base/dom.js';
 import { clamp, lerp, seg, ease } from '../base/motion.js';
 import { browserBlock, cursorBlock, ringBlock, isCard, cardWidth, kenBurns } from '../base/media.js';
@@ -16,7 +16,11 @@ function bw(img, maxW, maxH) {
   return Math.round(Math.min(maxW, ((maxH - 66) * w) / hh));
 }
 
-/** Headline column (landscape, left) or band (portrait, bottom) in screen space. Returns {update(t)}. */
+/**
+ * Headline column (landscape, left) or band (portrait, bottom) in screen space. Returns {update(t, t0, hu)}.
+ * o.handoff: landscape headline that later settles small in the top-left corner (hu = handoff progress 0..1) while
+ * the product swells to fill the frame.
+ */
 function headline(F, text, o = {}) {
   const L = F.portrait;
   const box = h('div', 'srb-abs');
@@ -26,16 +30,37 @@ function headline(F, text, o = {}) {
   line.el.style.cssText = `font-size:${fs}px;margin-top:${eyebrow ? 26 : 0}px;max-width:${L ? 840 : o.colW || 620}px;`;
   if (eyebrow) box.appendChild(eyebrow);
   box.appendChild(line.el);
+  let scrimEl = null;
   if (o.scrim !== false) {
     const scrim = h('div', 'slw-scrim');
+    scrimEl = scrim;
     scrim.style.cssText = L ? `left:0;right:0;bottom:0;height:${F.H - (o.top ?? F.H - F.safe.b - 320) + 140}px;background:linear-gradient(180deg,rgba(10,11,13,0),rgba(10,11,13,.86) 34%,rgba(10,11,13,.94));`
       : 'left:0;top:0;bottom:0;width:980px;background:linear-gradient(90deg,rgba(10,11,13,.95) 0%,rgba(10,11,13,.9) 52%,rgba(10,11,13,0) 100%);';
     F.ov.appendChild(scrim);
   }
   box.style.cssText = L ? `left:${F.safe.l}px;top:${o.top ?? F.H - F.safe.b - 320}px;`
-    : `left:${F.safe.l}px;top:0;height:${F.H}px;display:flex;flex-direction:column;justify-content:center;`;
+    : `left:${F.safe.l}px;top:0;height:${F.H}px;display:flex;flex-direction:column;justify-content:center;transform-origin:0 0;`;
+  const hand = !L && o.handoff;
+  let corner = null, ch = null;
+  if (hand) {
+    corner = h('div', 'slw-scrim');
+    corner.style.cssText = 'left:0;top:0;width:1200px;height:560px;opacity:0;background:radial-gradient(100% 100% at 0% 0%,rgba(10,11,13,.92) 0%,rgba(10,11,13,.7) 42%,rgba(10,11,13,0) 78%);';
+    F.ov.appendChild(corner);
+  }
   F.ov.appendChild(box);
-  return { update(t, t0 = 0.3) { if (eyebrow) riseIn(eyebrow, t, t0 - 0.1); line.update(t, t0, { stagger: 0.08 }); } };
+  return {
+    update(t, t0 = 0.3, hu = 0) {
+      if (eyebrow) riseIn(eyebrow, t, t0 - 0.1);
+      line.update(t, t0, { stagger: 0.08 });
+      if (!hand) return;
+      if (!ch) ch = (eyebrow ? eyebrow.offsetHeight + 26 : 0) + line.el.offsetHeight || null;
+      const s = lerp(1, o.handoffScale || 0.56, hu);
+      const top0 = (F.H - (ch || 240)) / 2, top = lerp(top0, F.safe.t, hu);
+      css(box, { transform: hu > 0 ? `translate(0px, ${(top - s * top0).toFixed(1)}px) scale(${s.toFixed(4)})` : 'none' });
+      if (scrimEl) css(scrimEl, { opacity: (1 - hu).toFixed(3) });
+      css(corner, { opacity: hu.toFixed(3) });
+    },
+  };
 }
 
 /**
@@ -43,19 +68,23 @@ function headline(F, text, o = {}) {
  * on a large borderless card seen almost face-on, a slow Ken-Burns push/pan inside it for the whole shot and
  * a slow camera drift; no browser chrome, cursor, ring or wires. Returns {render(t)}.
  */
-function cardOnTable(ctx, p, F, W, R) {
+function cardOnTable(ctx, p, F, W, R, hand = null) {
   const dur = ctx.dur, img = p.image || {};
   const b = browserBlock(ctx, img, { width: cardWidth(img, 1800, 1500) });
   const n = W.node(b.el, { x: 0, y: b.h / 2, z: 40, w: b.w, h: b.h });
   W.light(0, 0, b.w * 1.2, b.h * 1.5);
   const c = W.nodePoint(n, b.w / 2, b.h / 2);
-  const d = fitRect(W, F, b.w, b.h, 8, 0.97 * R.w / F.W, 0.95 * R.h / F.H) / productScale(p);
-  const shift = [R.x + R.w / 2 - F.W / 2, R.y + R.h / 2 - F.H / 2];
   const side = (Number(p.story_index) || 0) % 2 ? -1 : 1;
-  const cam = camTrack([
-    [-0.5, { target: [c[0], c[1] + 10, c[2]], dist: d * 1.035, yaw: -3 * side, pitch: 9, roll: -0.5 * side }],
-    [dur + 0.8, { target: [c[0], c[1] - 6, c[2]], dist: d * 0.995, yaw: 2.5 * side, pitch: 6, roll: 0.3 * side }],
-  ]);
+  const track = (RR) => {
+    const d = fitRect(W, F, b.w, b.h, 8, 0.97 * RR.w / F.W, 0.95 * RR.h / F.H) / productScale(p);
+    const shift = [RR.x + RR.w / 2 - F.W / 2, RR.y + RR.h / 2 - F.H / 2];
+    const tr = camTrack([
+      [-0.5, { target: [c[0], c[1] + 10, c[2]], dist: d * 1.035, yaw: -3 * side, pitch: 9, roll: -0.5 * side }],
+      [dur + 0.8, { target: [c[0], c[1] - 6, c[2]], dist: d * 0.995, yaw: 2.5 * side, pitch: 6, roll: 0.3 * side }],
+    ]);
+    return (t) => ({ ...tr(t), shift });
+  };
+  const camA = track(R), camB = hand && Number.isFinite(hand.t0) ? track(mediaRegion(F, false)) : null;
   const kb = kenBurns(b, p.bbox, dur, Number(p.story_index) || 0);
   return {
     render(t) {
@@ -63,7 +92,8 @@ function cardOnTable(ctx, p, F, W, R) {
       W.update(n, { z: lerp(70, 40, u), op: clamp(u * 1.6) });
       const [kx, ky, kz] = kb(t);
       b.setView(kx, ky, kz);
-      W.camera(t, { ...cam(t), shift, lift: F.caps ? 40 : 0 }, { amp: 0.5, rollAmp: 0.3 });
+      const cam = camB ? blendCam(camA(t), camB(t), hand.u(t)) : camA(t);
+      W.camera(t, { ...cam, lift: F.caps ? 40 : 0 }, { amp: 0.5, rollAmp: 0.3 });
     },
   };
 }
@@ -91,14 +121,21 @@ launchScene('kit:launch/HOOK', {
     const R = mediaRegion(F, !!label);
     const c = W.nodePoint(n, b.w / 2, b.h / 2);
     const wide = hero.kind === 'image' || (!hero.kind && (hero.asset || hero.path));
-    const d = fitRect(W, F, b.w, b.h, 12, (L && wide ? 1.45 : 0.98) * R.w / F.W, 0.92 * R.h / F.H) / productScale(p);
-    const shift = [R.x + R.w / 2 - F.W / 2, R.y + R.h / 2 - F.H / 2];
-    const cam = camTrack([
-      [0, { target: [c[0], c[1] + 40, c[2] - 30], dist: d * 1.14, yaw: -9, pitch: 40, roll: -2 }],
-      [1.0, { target: c, dist: d * 1.0, yaw: -4, pitch: 46, roll: -1 }],
-      [dur + 0.5, { target: [c[0] + 10, c[1], c[2] + 10], dist: d * 0.94, yaw: -1, pitch: 47, roll: -0.5 }],
-    ]);
-    const head = label ? headline(F, label) : null;
+    const track = (RR) => {
+      const d = fitRect(W, F, b.w, b.h, 12, (L && wide ? 1.45 : 0.98) * RR.w / F.W, 0.92 * RR.h / F.H) / productScale(p);
+      const shift = [RR.x + RR.w / 2 - F.W / 2, RR.y + RR.h / 2 - F.H / 2];
+      const tr = camTrack([
+        [0, { target: [c[0], c[1] + 40, c[2] - 30], dist: d * 1.14, yaw: -9, pitch: 40, roll: -2 }],
+        [1.0, { target: c, dist: d * 1.0, yaw: -4, pitch: 46, roll: -1 }],
+        [dur + 0.5, { target: [c[0] + 10, c[1], c[2] + 10], dist: d * 0.94, yaw: -1, pitch: 47, roll: -0.5 }],
+      ]);
+      return (t) => ({ ...tr(t), shift });
+    };
+    // the hook names the thing big, then the product takes the frame (the label settles top-left)
+    const hand = label ? handoff(F, dur, true) : null;
+    const camA = track(R), camB = hand && Number.isFinite(hand.t0) ? track(mediaRegion(F, false)) : null;
+    const cam = (t) => (camB ? blendCam(camA(t), camB(t), hand.u(t)) : camA(t));
+    const head = label ? headline(F, label, { handoff: !!camB }) : null;
     return {
       cues: [...(b.cues || []), { t: 0.05, sfx: 'move', gain_db: -14 }, ...(label ? [{ t: 0.35, sfx: 'appear', gain_db: -12 }] : [])],
       render(t) {
@@ -108,8 +145,8 @@ launchScene('kit:launch/HOOK', {
         const blur = (1 - seg(t, -0.3, 0.55, ease.outCubic)) * 10;
         css(b.el, { filter: blur > 0.05 ? `blur(${blur.toFixed(2)}px)` : 'none' });
         for (const w of wires) w.set(t);
-        W.camera(t, { ...cam(t), shift });
-        if (head) head.update(t, 0.15);
+        W.camera(t, cam(t));
+        if (head) head.update(t, 0.15, camB ? hand.u(t) : 0);
       },
     };
   },
@@ -122,9 +159,10 @@ launchScene('kit:launch/SCREEN', {
   build(ctx, p, F, W) {
     const dur = ctx.dur, L = F.portrait;
     const img = p.image || {};
+    const tag = cornerLabel(F, p.label);
     if (isCard(img)) {
       const shot = cardOnTable(ctx, p, F, W, mediaRegion(F, false));
-      return { cues: [{ t: 0.1, sfx: 'move', gain_db: -16 }], render(t) { shot.render(t); } };
+      return { cues: [{ t: 0.1, sfx: 'move', gain_db: -16 }], render(t) { shot.render(t); if (tag) tag.update(t); } };
     }
     const b = browserBlock(ctx, img, { width: bw(img, L ? 980 : 1600, L ? 1300 : 1000), maxViewH: L ? 1240 : 940 });
     const n = W.node(b.el, { x: 0, y: b.h / 2, z: 40, w: b.w, h: b.h });
@@ -140,6 +178,7 @@ launchScene('kit:launch/SCREEN', {
         W.update(n, { z: lerp(150, 40, u), op: clamp(u * 2) });
         for (const w of wires) w.set(t);
         W.camera(t, { ...cam(t), lift: F.caps ? 50 : 0 });
+        if (tag) tag.update(t);
       },
     };
   },
@@ -156,13 +195,15 @@ launchScene('kit:launch/FEATURE', {
   build(ctx, p, F, W) {
     const dur = ctx.dur, L = F.portrait;
     const img = p.image || {};
-    const name = String(p.feature || p.label || '').trim();
+    // the storyboard label is the benefit-led line ("Pomodoro countdown ring"); the feature name rides as eyebrow
+    const { head: name, eyebrow } = featureCopy(p.feature, p.label);
+    const hand = name ? handoff(F, dur) : null;
     if (isCard(img)) {
-      const shot = cardOnTable(ctx, p, F, W, mediaRegion(F, !!name));
-      const head = name ? headline(F, name, { eyebrow: 'Feature' }) : null;
+      const shot = cardOnTable(ctx, p, F, W, mediaRegion(F, !!name), hand);
+      const head = name ? headline(F, name, { eyebrow, handoff: !!(hand && Number.isFinite(hand.t0)) }) : null;
       return {
         cues: [{ t: 0.1, sfx: 'move', gain_db: -16 }, ...(name ? [{ t: 0.4, sfx: 'appear', gain_db: -14 }] : [])],
-        render(t) { shot.render(t); if (head) head.update(t, 0.3); },
+        render(t) { shot.render(t); if (head) head.update(t, 0.3, hand ? hand.u(t) : 0); },
       };
     }
     const b = browserBlock(ctx, img, { width: bw(img, L ? 980 : 1500, L ? 1200 : 960), maxViewH: L ? 1140 : 900 });
@@ -174,8 +215,11 @@ launchScene('kit:launch/FEATURE', {
     const sync = Number(p._sync && p._sync.click);
     const press = Number.isFinite(sync) && sync > tPush + 0.8 && sync < dur - 0.6 ? sync : clamp(dur * 0.45, tPush + 1.2, Math.max(tPush + 1.2, dur - 1.4));
     const R = mediaRegion(F, !!name);
-    const cam = pushTrack(W, F, n, b, b.rect(bbox), { tPush, dur, yaw0: 8, pitchWide: 26, pitchPush: 14, region: R, pushFillH: 0.8,
-      pushFillW: L ? 1.35 : 0.9, keepLeft: false, maxPush: L ? 2.8 : 2.4, scale: productScale(p) });
+    const pushO = { tPush, dur, yaw0: 8, pitchWide: 26, pitchPush: 14, pushFillH: 0.8,
+      pushFillW: L ? 1.35 : 0.9, keepLeft: false, maxPush: L ? 2.8 : 2.4, scale: productScale(p) };
+    const camA = pushTrack(W, F, n, b, b.rect(bbox), { ...pushO, region: R });
+    const camB = name && hand && Number.isFinite(hand.t0) ? pushTrack(W, F, n, b, b.rect(bbox), { ...pushO, pushFillH: 0.72 }) : null;
+    const cam = (t) => (camB ? blendCam(camA(t), camB(t), hand.u(t)) : camA(t));
     const ring = ringBlock();
     const [px, py] = b.pt(click[0], click[1]);
     const cur = cursorBlock({ from: [px + b.w * 0.2, py + b.h * 0.24], to: [px, py], arrive: press - 0.62, press, travel: 0.75, size: 1.5 });
@@ -184,7 +228,7 @@ launchScene('kit:launch/FEATURE', {
     const rr = b.rect(bbox);
     rr.y -= b.chromeH;
     const wires = panelWires(W, n, b, b.h * 0.3, { outAt: press + 0.1 });
-    const head = name ? headline(F, name, { eyebrow: 'Feature' }) : null;
+    const head = name ? headline(F, name, { eyebrow, handoff: !!camB }) : null;
     return {
       cues: [{ t: tPush + 0.05, sfx: 'move', gain_db: -12 }, ...cur.cues],
       render(t) {
@@ -194,7 +238,7 @@ launchScene('kit:launch/FEATURE', {
         ring.update(t, rr, press + 0.12);
         for (const w of wires) w.set(t);
         W.camera(t, cam(t));
-        if (head) head.update(t, 0.3);
+        if (head) head.update(t, 0.3, camB ? hand.u(t) : 0);
       },
     };
   },
@@ -324,9 +368,11 @@ launchScene('kit:launch/MONTAGE', {
     keys.sort((a, b) => a[0] - b[0]);
     const cam = camTrack(keys);
     const cues = nodes.map((q, i) => ({ t: i * step + 0.02, sfx: 'appear', gain_db: -16 }));
+    const tag = cornerLabel(F, p.label, { at: 0.25 });
     return {
       cues,
       render(t) {
+        if (tag) tag.update(t);
         const cur = clamp(Math.floor((t + 0.05) / step), 0, n - 1);
         nodes.forEach((q, i) => {
           const arrive = seg(t, i * step - 0.12, i * step + 0.3, ease.outQuint);

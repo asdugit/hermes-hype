@@ -1,6 +1,6 @@
 // Hype kit "launch" — panel scenes on the table: PROBLEM, PLAN, CODE, DIFF, TERMINAL.
 
-import { launchScene, camTrack, fitRect, nodeIn, pushTrack, panelWires, backdropPanel } from './stage.js';
+import { launchScene, camTrack, fitRect, nodeIn, pushTrack, panelWires, backdropPanel, cornerLabel } from './stage.js';
 import { codeBlock, diffBlock } from '../base/code.js';
 import { termBlock, termFont, termWidth } from '../base/term.js';
 import { chatBlock, planBlock } from '../base/cards.js';
@@ -23,6 +23,7 @@ launchScene('kit:launch/CODE', {
     const fr = b.focusRect();
     const wires = panelWires(W, n, b, fr.y + fr.h / 2, { outAt: reveal[1] + 0.4 });
     const cam = pushTrack(W, F, n, b, fr, { tPush: reveal[1] + 0.15, dur, yaw0: 6, pitchWide: 20 });
+    const tag = cornerLabel(F, p.label, { at: Math.min(0.5, dur * 0.2) });
     return {
       cues: [...b.cues, { t: reveal[1] + 0.2, sfx: 'move', gain_db: -12 }],
       render(t) {
@@ -31,6 +32,7 @@ launchScene('kit:launch/CODE', {
         W.update(n, { z: lerp(160, 36, u), op: clamp(u * 2) });
         for (const w of wires) w.set(t);
         W.camera(t, { ...cam(t), lift: F.caps ? 50 : 0 });
+        if (tag) tag.update(t);
       },
     };
   },
@@ -54,6 +56,7 @@ launchScene('kit:launch/DIFF', {
     const cr = b.changedRect(L ? 12 : 9);
     const wires = panelWires(W, n, b, cr.y + cr.h / 2, { outAt: reveal[1] + 0.3 });
     const cam = pushTrack(W, F, n, b, cr, { tPush: reveal[1] + 0.2, dur, yaw0: -6, pitchWide: 18 });
+    const tag = cornerLabel(F, p.label, { at: Math.min(0.5, dur * 0.2) });
     return {
       cues: [...b.cues, { t: reveal[1] + 0.25, sfx: 'move', gain_db: -12 }],
       render(t) {
@@ -62,6 +65,7 @@ launchScene('kit:launch/DIFF', {
         W.update(n, { z: lerp(160, 36, u), op: clamp(u * 2) });
         for (const w of wires) w.set(t);
         W.camera(t, { ...cam(t), lift: F.caps ? 50 : 0 });
+        if (tag) tag.update(t);
       },
     };
   },
@@ -97,6 +101,7 @@ launchScene('kit:launch/TERMINAL', {
       [0, { target: [c[0], c[1], c[2]], dist: d * 1.12, yaw: -7, pitch: 58, roll: -1.2 }],
       [dur + 0.5, { target: [c[0], c[1] + 30, c[2] - 20], dist: d * 0.95, yaw: 5, pitch: 50, roll: 0.6 }],
     ]);
+    const tag = cornerLabel(F, p.label, { at: Math.min(0.5, dur * 0.2) });
     return {
       cues: b.cues,
       render(t) {
@@ -105,6 +110,7 @@ launchScene('kit:launch/TERMINAL', {
         W.update(n, { tilt: lerp(8, 40, u), z: lerp(120, 50, u), op: clamp(u * 2) });
         wire.set(t);
         W.camera(t, { ...cam(t), lift: F.caps ? 50 : 0 });
+        if (tag) tag.update(t);
       },
     };
   },

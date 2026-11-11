@@ -2,12 +2,14 @@
 // table world, shot by a PCHIP look-at camera, with screen-space kinetic type on top.
 
 import { defineDomScene } from '../base/scene.js';
-import { h, css } from '../base/dom.js';
+import { h, css, fitSize } from '../base/dom.js';
+import { kineticLine } from '../base/type.js';
 import { pchip, clamp, seg, ease } from '../base/motion.js';
 import { COMMON } from '../base/scenes-panels.js';
 import { makeWorld } from './world.js';
 import { LAUNCH_CSS } from './css.js';
 import { contentBlock } from '../base/scenes-media.js';
+export { handoff, blendCam, featureCopy } from './handoff.js';
 
 export const LCOMMON = {
   ...COMMON, theme: { type: 'string', default: 'launch', doc: 'theme tokens (launch by default)' },
@@ -142,6 +144,36 @@ export function hubWires(W, x, y, nWires = 4, o = {}) {
       reverse: true, port: o.ports ?? true, draw: o.draw }));
   });
   return out;
+}
+
+/**
+ * The scene's story label as a small kinetic headline in the top-left corner over a soft corner scrim, for shots
+ * where the product fills the frame (SCREEN, TERMINAL, MONTAGE, ...): music-only films tell the story in type.
+ * Returns {update(t)} or null when there is no label.
+ */
+export function cornerLabel(F, text, o = {}) {
+  const s = String(text || '').trim();
+  if (!s) return null;
+  const L = F.portrait;
+  const scrim = h('div', 'slw-scrim');
+  scrim.style.cssText = L ? `left:0;right:0;top:0;height:520px;background:linear-gradient(180deg,rgba(10,11,13,.9),rgba(10,11,13,.55) 55%,rgba(10,11,13,0));`
+    : 'left:0;top:0;width:1200px;height:560px;background:radial-gradient(100% 100% at 0% 0%,rgba(10,11,13,.92) 0%,rgba(10,11,13,.7) 42%,rgba(10,11,13,0) 78%);';
+  F.ov.appendChild(scrim);
+  const box = h('div', 'srb-abs');
+  const line = kineticLine(s, { className: 'srb-h1', emphasis: 'auto' });
+  const maxW = L ? 900 : 760;
+  const fs = fitSize(s, maxW, 2, L ? 76 : 64, 44, 0.5);
+  line.el.style.cssText = `font-size:${fs}px;max-width:${maxW}px;`;
+  box.appendChild(line.el);
+  box.style.cssText = `left:${F.safe.l}px;top:${(L ? F.safe.t + 30 : F.safe.t) + (o.dy || 0)}px;`;
+  F.ov.appendChild(box);
+  const at = o.at ?? 0.35;
+  return {
+    update(t) {
+      css(scrim, { opacity: seg(t, at - 0.3, at + 0.3).toFixed(3) });
+      line.update(t, at, { stagger: 0.07 });
+    },
+  };
 }
 
 /** Screen-space kinetic headline helpers are reused from kits/base; re-export for scene files. */
