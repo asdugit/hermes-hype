@@ -1,0 +1,138 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    env:
+      PYTHONUTF8: "1"
+      PYTHONDONTWRITEBYTECODE: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      # ffmpeg is what Hermes' package manager provides on a user's machine; on CI we take the OS one.
+      # Tests that need it skip cleanly when it is missing, so a failed install does not fail the job.
+      - name: ffmpeg (Linux)
+        if: runner.os == 'Linux'
+        continue-on-error: true
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+      - name: ffmpeg (macOS)
+        if: runner.os == 'macOS'
+        continue-on-error: true
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
+          HOMEBREW_NO_INSTALL_CLEANUP: "1"
+        run: brew install ffmpeg
+      - name: ffmpeg (Windows)
+        if: runner.os == 'Windows'
+        continue-on-error: true
+        run: choco install ffmpeg -y --no-progress
+
+      - name: Python test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "pytest>=8,<10" "pyyaml>=6,<7" "pillow>=10,<13" "psutil>=5.9,<8" "websockets>=13,<16" "fastapi>=0.110,<1" "httpx>=0.27,<0.29"
+
+      - name: Desktop render-check dependencies (jsdom, React)
+        working-directory: tests/desktop
+        run: npm ci --no-audit --no-fund
+
+      - name: What this runner has
+        shell: bash
+        run: |
+          python --version
+          node --version
+          (ffmpeg -hide_banner -version | head -1) || echo "ffmpeg: not installed (ffmpeg tests will skip)"
+          python -c "from showreel_core.render.chromium import resolve_chromium as r; print('chromium:', r().path)" || echo "chromium: not found (browser tests will skip)"
+
+      # Fast suite. Real-Chromium renders and real-Blender runs are marked slow (opt in with --runslow);
+      # Blender tests skip when Blender is absent, which it is on these runners.
+      - name: pytest
+        run: python -m pytest -q -p no:cacheprovider -rs --durations=10
+
+      - name: Kit modules parse (node --check)
+        shell: bash
+        run: |
+          set -euo pipefail
+          n=0
+          while IFS= read -r -d '' f; do
+            node --input-type=module --check < "$f"
+            n=$((n+1))
+          done < <(find kits runtime desktop -name node_modules -prune -o \( -name '*.js' -o -name '*.mjs' \) -print0)
+          echo "parsed $n modules"
+
+  hermes-validate:
+    name: hermes plugins validate (Hermes v0.23.1)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      # NousResearch/hermes-agent tag v0.23.1
+      HERMES_SHA: 3b421578588243f920886e6fe79a6faa87ea026e
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: plugin
+
+      - uses: actions/checkout@v4
+        with:
+          repository: NousResearch/hermes-agent
+          ref: ${{ env.HERMES_SHA }}
+          path: hermes-agent
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Install Hermes
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install ./hermes-agent
+          hermes --version
+
+      - name: hermes plugins validate --install-deps
+        env:
+          HERMES_HOME: ${{ runner.temp }}/hermes-home
+        run: hermes plugins validate "$GITHUB_WORKSPACE/plugin" --install-deps
+
+      - name: hermes plugins doctor --ci
+        env:
+          HERMES_HOME: ${{ runner.temp }}/hermes-home
+        run: hermes plugins doctor --ci "$GITHUB_WORKSPACE/plugin"
+
+      - name: Catalog payload gate (rule 17) and self-updater grep (rule 3)
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/export"
+          git -C plugin archive HEAD | tar -x -C "$RUNNER_TEMP/export"
+          python hermes-agent/scripts/scan_plugin_payloads.py "$RUNNER_TEMP/export"
+          if grep -rlE 'releases/latest|releases/download|raw\.githubusercontent\.com|codeload\.github\.com' \
+               --include='*.js' --include='*.mjs' --include='*.cjs' --include='*.ts' "$RUNNER_TEMP/export"; then
+            echo "::error::a script references a GitHub download URL (catalog self-updater gate)"; exit 1
+          fi
+          echo "payload scan and self-updater grep: clean"
