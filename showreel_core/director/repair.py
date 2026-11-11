@@ -485,13 +485,39 @@ _CONJ = re.compile(r"\s+(?:and|but|or|so|while|because|then|with|as)\s+", re.IGN
 
 def fit_words(text: Any, max_words: int) -> str:
     """Trim to ``max_words`` without cutting a phrase: whole sentences first, then before a comma, then before a
-    conjunction; otherwise '' (a line is never cut mid-phrase - the caller keeps its default)."""
+    conjunction; otherwise '' (a line is never cut mid-phrase - the caller keeps its default). The words must also
+    fit ``max_words`` slots in width (~9 columns each, CJK counted double): a 300-character run without spaces (a
+    Chinese or Japanese line, a URL) counts as one word."""
+    # nothing past ~40 characters a word can survive the fit: a degenerate reply (a weak model repeating a
+    # token up to max_tokens) is cut first, so the sentence regexes never scan it (they backtrack quadratically)
+    out = _fit_word_count(str(text or "")[: max(0, max_words) * 40 + 40], max_words)
+    room = max_words * 9 + 10
+    if _width(out) <= room:
+        return out
+    for pattern in (r".+?(?:[.!?](?=\s|$)|[\u3002\uff01\uff1f])", r"[^,;\uff0c\u3001\uff1b]+[,;\uff0c\u3001\uff1b]?"):
+        acc = ""
+        for part in re.findall(pattern, out):
+            if _width(acc + part) > room:
+                break
+            acc += part
+        acc = acc.strip().rstrip(",;\uff0c\u3001\uff1b")
+        if acc and any(ch.isalnum() for ch in acc):
+            return acc
+    return ""
+
+
+def _width(s: str) -> int:
+    import unicodedata
+    return sum(2 if unicodedata.east_asian_width(c) in "WF" else 1 for c in s)
+
+
+def _fit_word_count(text: Any, max_words: int) -> str:
     s = re.sub(r"\s+", " ", str(text or "")).strip().strip('"').strip()
     if not s or max_words <= 0:
         return ""
     if len(s.split()) <= max_words:
         return s
-    sentences = re.findall(r"[^.!?]+[.!?]+", s)
+    sentences = re.findall(r".+?[.!?]+(?=\s|$)", s)        # 'orbit.app' is not a sentence end
     acc = ""
     for sen in sentences:
         cand = (acc + " " + sen.strip()).strip()

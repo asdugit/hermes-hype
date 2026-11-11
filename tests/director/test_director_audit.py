@@ -144,3 +144,20 @@ def test_call_budget_spent_on_the_free_path_still_gives_the_floor_film(tmp_path:
               tier=tiers.detect("claude-opus-5-5"), budget=dataclasses.replace(FREE_QUICK, max_calls=1))
     assert res.ok, res.error
     assert llm.purposes() == ["treatment"] and res.tier["path"] == "floor"
+
+
+def test_fit_words_bounds_width_and_time() -> None:
+    """Word limits alone let a CJK line or a run without spaces (one 'word') overflow its slot; a degenerate reply
+    (one token repeated up to max_tokens) made the sentence regex backtrack for seconds; 'orbit.app' was split."""
+    import time
+
+    from showreel_core.director.repair import fit_words
+    cjk = "预算工具，读取您的银行导出并自动分类每一笔交易。然后生成漂亮的月度报告给你的家人看。"
+    assert fit_words(cjk, 8) == "预算工具，读取您的银行导出并自动分类每一笔交易。"
+    assert fit_words("A" * 100_000, 8) == "" and fit_words("https://example.com/" + "x" * 200, 5) == ""
+    t0 = time.monotonic()
+    assert fit_words("word " * 40_000, 8) == ""
+    assert time.monotonic() - t0 < 0.5
+    assert fit_words("Visit orbit.app today. It is fast.", 4) == "Visit orbit.app today."
+    assert fit_words("Orbit Notes", 4) == "Orbit Notes"
+    assert fit_words("Die schnellsten Offline-Notizen mit Synchronisierung für alle Geräte", 8).startswith("Die")
