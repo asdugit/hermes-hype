@@ -880,6 +880,7 @@ def _check_terminal(scene: StoryScene, path: str, ctx: _Ctx) -> bool:
         ctx.issue("garbled_terminal", f"{path}.refs[0]", f"{ev.id} prints escape codes, not text", "warning",
                   f"swapped for {clean}")
         scene.refs = [clean]
+        scene.label, scene.vo = "", ""          # the words were about the other run
         ev = ctx.facts.get(clean)
         cmd = main_command(str((ev.data or {}).get("cmd") or "")) if ev is not None else ""
     if ctx.mode == "product" and ev is not None and ev.kind == "terminal" and shows_error(ev) \
@@ -889,6 +890,7 @@ def _check_terminal(scene: StoryScene, path: str, ctx: _Ctx) -> bool:
             ctx.issue("error_terminal", f"{path}.refs[0]", f"{ev.id} shows an error", "warning",
                       f"swapped for {clean}")
             scene.refs = [clean]
+            scene.label, scene.vo = "", ""      # 'Point it at a bad path, it fails fast' over a clean run lies
             ev = ctx.facts.get(clean)
             cmd = main_command(str((ev.data or {}).get("cmd") or "")) if ev is not None else ""
     if ctx.mode == "product" and ev is not None and ev.kind == "terminal" and (is_server_cmd(cmd) or is_setup_cmd(cmd)):

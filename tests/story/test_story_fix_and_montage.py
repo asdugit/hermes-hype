@@ -191,3 +191,20 @@ def test_a_one_liner_behind_cd_is_still_a_product_run() -> None:
     assert is_demo_run(_run(1, 1.0, cmd, ["gitpulse - sample-repo", "alice ### 30"]))
     assert not is_demo_run(_run(2, 2.0, "cd x && find . -type f | sort", ["./a.py", "./b.py"]))
     assert not is_demo_run(_run(3, 3.0, "cd x && python -m pytest -q", ["3 passed in 0.1s"]))
+
+
+def test_a_swapped_run_drops_the_words_about_the_old_one() -> None:
+    bad = _run(2, 2.0, "python gitpulse.py /nope", ["error: /nope is not a git repository"])
+    good = _run(3, 3.0, "python gitpulse.py ./sample-repo", ["gitpulse - sample-repo", "alice ### 30", "bob ## 20"])
+    evs = [Event("e0", 0.0, "user_prompt", "", "cli", "", {"text": "Build gitpulse, a git history CLI"}),
+           Event("e1", 1.0, "file_write", "write_file", "gitpulse.py", "", {"path": "gitpulse.py", "lines": ["x"]}),
+           bad, good]
+    facts = SessionFacts(evs, Stats(duration_s=60, files_created=1))
+    sb = Storyboard(title="gitpulse", tagline="History", cta="", mode="product",
+                    product=Product(name="gitpulse", kind="cli"),
+                    scenes=[StoryScene(T.TITLE, [], "", "gitpulse"),
+                            StoryScene(T.TERMINAL, ["e2"], "Point it at a bad path and it fails fast.", "Clear errors"),
+                            StoryScene(T.END, [], "", "")])
+    res = validate_storyboard(sb, facts, 30, "product")
+    term = [s for s in res.storyboard.scenes if s.type == T.TERMINAL and s.refs[:1] == ["e3"]]
+    assert term and term[0].label == "" and term[0].vo == ""
