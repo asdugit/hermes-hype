@@ -1,5 +1,6 @@
 // Burned-in captions (film.captions) and the cheap in-page finish (grain, vignette, bloom).
 import { mixSeed, mulberry32 } from './rand.js';
+import { typeset } from './typeset.js';
 
 const FADE = 0.14;      // s, caption fade in/out
 const JOIN = 0.3;       // s, gaps shorter than this keep the plate up (one plate per run of phrases)
@@ -16,7 +17,7 @@ export class Captions {
     this.film = film;
     this.list = [...film.captions]
       .filter((c) => c && Number.isFinite(Number(c.t0)) && Number.isFinite(Number(c.t1)) && c.text)
-      .map((c) => ({ t0: Number(c.t0), t1: Number(c.t1), text: String(c.text) }))
+      .map((c) => ({ t0: Number(c.t0), t1: Number(c.t1), text: typeset(String(c.text)) }))
       .sort((a, b) => a.t0 - b.t0);
     const st = film.captionStyle || {};
     const k = Math.min(film.w, film.h) / 1080;

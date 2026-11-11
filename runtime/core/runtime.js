@@ -31,6 +31,9 @@ import { createSurface, makeShader } from './surfaces.js';
 import { BUILTIN_TRANSITIONS } from './transitions.js';
 import { Captions, Finish } from './layers.js';
 import { checkBoxes, domTextBoxes } from './qa.js';
+import { planFit, applyFit, clearFit } from './fit.js';
+import { isCodeScene, typesetParams } from './typeset.js';
+import { fixContrast } from './contrast.js';
 
 const SCENE_ID = /^(kit:[a-z0-9_-]+\/[a-z0-9_.-]+|lib:[a-z0-9_.-]+|custom:[a-z0-9_.-]+)$/i;
 const LAYERS = new Set(['2d', 'three', 'webgl', 'dom']);
@@ -380,7 +383,7 @@ export class Runtime {
     if (inst.broken) return inst;
     const t0 = realNow();
     try {
-      inst.p = resolveParams(def.params, item.params);
+      inst.p = typesetParams(item.scene, resolveParams(def.params, item.params));
       inst.ctx.params = inst.p;
       inst.assetRefs = assetRefs(def.params, inst.p, this.assets);
       inst.ctx._phase = 'setup';
@@ -399,7 +402,51 @@ export class Runtime {
       inst.stats.setupMs = Math.max(inst.stats.setupMs, realNow() - t0);
       inst.stats.setups += 1;
     }
+    if (!inst.broken && def.layer === 'dom') this._planFit(inst);
     return inst;
+  }
+
+  /** Fit pass (fit.js): sample the shot, find text the frame edge keeps cutting, plan a camera/card correction. */
+  _planFit(inst) {
+    const F = this.film;
+    const { item, def, ctx } = inst;
+    if (F.qa && F.qa.fit === false) return;
+    if (inst.p && inst.p._fit === false) return;
+    const el = inst.surf.el;
+    const prev = el.style.display;
+    el.style.display = 'block';
+    try {
+      inst.fit = planFit({
+        root: inst.surf.root, stage: this.stage, W: F.w, H: F.h, safe: F.safe, dur: item.dur,
+        renderAt: (lt) => {
+          enterScene(F.seed, item.id, Math.round((item.t0 + lt) * F.fps), item.t0 + lt);
+          try { def.render(ctx, lt, inst.p); } finally { leaveScene(); }
+        },
+      });
+    } catch (e) {
+      inst.fit = null;
+      this.warnings.push(`${item.kind} ${item.id}: fit pass skipped (${errText(e)})`);
+    }
+    // contrast pass (contrast.js): headline/body text vs the pixels behind it, at fixed times (deterministic)
+    if (!(F.qa && F.qa.contrast === false) && !isCodeScene(item.scene)) {
+      try {
+        const k = Math.min(F.w, F.h) / 1080;
+        const minSize = 40 * k;      // headline/body display type (small labels are styled dim on purpose)
+        const base = /^#[0-9a-f]{6}$/i.test(String(F.background || '')) ? [1, 3, 5].map((i) => parseInt(F.background.slice(i, i + 2), 16)) : [0, 0, 0];
+        inst.halos = [];
+        for (const f of [0.5, 0.75, 0.95]) {
+          const lt = item.dur * f;
+          enterScene(F.seed, item.id, Math.round((item.t0 + lt) * F.fps), item.t0 + lt);
+          try { def.render(ctx, lt, inst.p); } finally { leaveScene(); }
+          applyFit(inst.fit, lt);
+          inst.halos.push(...fixContrast(inst.surf.root, this.stage, { W: F.w, H: F.h, minSize, base, scope: el }).map((b) => `${b.text} ${b.ratio.toFixed(2)}`));
+        }
+      } catch (e) {
+        this.warnings.push(`${item.kind} ${item.id}: contrast pass skipped (${errText(e)})`);
+      }
+    }
+    clearFit(inst.fit);
+    el.style.display = prev;
   }
 
   _cue(t, sfx, o, item) {
@@ -559,6 +606,7 @@ export class Runtime {
       } else {
         def.render(ctx, lt, inst.p);
         if (def.layer === 'three' && !ctx.three.manual) ctx.three.render();
+        if (inst.fit) applyFit(inst.fit, lt);
       }
     } catch (e) {
       this.recordError(`${item.kind} ${item.id}`, t, e, item.id);
@@ -706,6 +754,7 @@ export class Runtime {
         setup_ms: st ? +st.setupMs.toFixed(2) : null, setups: st ? st.setups : 0, renders: st ? st.renders : 0,
         render_ms_avg: st && st.renders ? +(st.totalMs / st.renders).toFixed(2) : null,
         render_ms_max: st ? +st.maxMs.toFixed(2) : null,
+        fit: inst && inst.fit ? inst.fit.targets.length : 0, halos: inst && inst.halos ? [...new Set(inst.halos)].slice(0, 20) : [],
       };
     });
   }
