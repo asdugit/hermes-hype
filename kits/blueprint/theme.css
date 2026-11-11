@@ -70,12 +70,12 @@
 
 /* ── lettering (HTML) ──────────────────────────────────────────── */
 .sr-theme-blueprint .bp-t { position: absolute; white-space: pre; color: var(--line); font-family: var(--bp-f); font-synthesis: none; }
-.sr-theme-blueprint .bp-kick { font: 500 20px/1 var(--bp-m); letter-spacing: .16em; color: var(--cyan); text-transform: uppercase; }
+.sr-theme-blueprint .bp-kick { font: 500 22px/1 var(--bp-m); letter-spacing: .16em; color: var(--cyan); text-transform: uppercase; }
 .sr-theme-blueprint .bp-title { font-weight: 600; letter-spacing: .01em; line-height: .9; text-transform: uppercase; }
 .sr-theme-blueprint .bp-sub { font-weight: 400; color: var(--line-2); letter-spacing: -.005em; line-height: 1.2; white-space: normal; }
 .sr-theme-blueprint .bp-sub b { font-weight: 500; color: var(--line); }
 .sr-theme-blueprint .bp-part { font: 600 28px/1 var(--bp-f); letter-spacing: .06em; text-transform: uppercase; }
-.sr-theme-blueprint .bp-lbl { font: 500 20px/1.2 var(--bp-m); letter-spacing: .06em; color: var(--cyan); }
+.sr-theme-blueprint .bp-lbl { font: 500 22px/1.2 var(--bp-m); letter-spacing: .06em; color: var(--cyan); }
 .sr-theme-blueprint .bp-cap { font: 500 22px/1 var(--bp-m); letter-spacing: .16em; color: var(--line-2); text-transform: uppercase; }
 .sr-theme-blueprint .bp-note { font: 500 26px/1.25 var(--bp-f); color: var(--line); white-space: normal; }
 .sr-theme-blueprint .bp-note .tag { display: block; font: 500 16px/1 var(--bp-m); letter-spacing: .16em; color: var(--cyan); margin-bottom: 9px; text-transform: uppercase; }

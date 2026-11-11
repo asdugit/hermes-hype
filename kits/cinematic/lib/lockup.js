@@ -41,11 +41,28 @@ export function drawLockup(ctx, t, p) {
   let size = (V ? 156 : 210) * s;
   const track = 0.32;
   g.save(); g.font = `600 ${size}px "${SERIF}"`;
-  const widthOf = (sz) => { g.font = `600 ${sz}px "${SERIF}"`; g.letterSpacing = `${(track * sz).toFixed(1)}px`; return g.measureText(title).width; };
+  const widthOf = (sz, str = title) => { g.font = `600 ${sz}px "${SERIF}"`; g.letterSpacing = `${(track * sz).toFixed(1)}px`; return g.measureText(str).width; };
   const maxW = W - (ctx.safe ? ctx.safe.l + ctx.safe.r : 200 * s) - 40 * s;
-  while (title && widthOf(size) > maxW && size > 60 * s) size *= 0.94;
+  // one line down to a display floor, then two balanced lines, then shrink further (never off the frame)
+  let lines = title ? [title] : [];
+  const fits = (sz) => lines.every((l) => widthOf(sz, l) <= maxW);
+  while (title && !fits(size) && size > 60 * s) size *= 0.94;
+  if (title && !fits(size) && /\s/.test(title.trim())) {
+    const words = title.trim().split(/\s+/);
+    let best = null;
+    for (let k = 1; k < words.length; k++) {
+      const a = words.slice(0, k).join(' '), b = words.slice(k).join(' ');
+      const m = Math.max(widthOf(100, a), widthOf(100, b));
+      if (!best || m < best.m) best = { m, a, b };
+    }
+    lines = [best.a, best.b];
+    size = (V ? 156 : 210) * s;
+    while (!fits(size) && size > 40 * s) size *= 0.94;
+  }
+  while (title && !fits(size) && size > 12 * s) size *= 0.94;
   g.restore();
-  let y = cy;
+  const lh = size * 1.08;
+  let y = cy - ((lines.length - 1) * lh) / 2;
   // eyebrow
   if (p.eyebrow) {
     const a = ramp(t, 0.1, 0.6) * out;
@@ -53,22 +70,26 @@ export function drawLockup(ctx, t, p) {
       letterSpacing: 12 * s, alpha: a, shadow: { color: 'rgba(60,20,60,0.55)', blur: 14 * s, x: 0, y: 2 * s } });
   }
   // title: letters rise + fade in, staggered; a light sweep passes across at ~1.3 s
-  if (title) {
-    const total = widthOf(size);
+  let li = 0;
+  lines.forEach((line, ln) => {
+    const total = widthOf(size, line);
     g.save(); g.font = `600 ${size}px "${SERIF}"`; g.letterSpacing = '0px';
     let x = cx - total / 2 + (track * size) / 2;
+    const ly = y + ln * lh;
     const sweep = clamp((t - 1.2) / 0.9);
-    [...title].forEach((ch, i) => {
+    [...line].forEach((ch) => {
+      const i = li++;
       const u = ramp(t, 0.15 + i * 0.06, 0.8), w = g.measureText(ch).width;
       const rel = (x + w / 2 - (cx - total / 2)) / Math.max(total, 1);
       const shine = sweep > 0 && sweep < 1 ? Math.exp(-Math.pow((rel - sweep * 1.3 + 0.15) / 0.08, 2)) : 0;
       const col = shine > 0.02 ? mixHex('#FFF6EE', '#FFFFFF', shine) : '#FFF6EE';
-      ctx.text(g, ch, { x, y: y + (1 - u) * 26 * s, font: SERIF, size, weight: 600, color: col, align: 'left', baseline: 'middle', alpha: u * out,
+      ctx.text(g, ch, { x, y: ly + (1 - u) * 26 * s, font: SERIF, size, weight: 600, color: col, align: 'left', baseline: 'middle', alpha: u * out,
         shadow: { color: `rgba(90, 30, 70, ${(0.55 - 0.2 * shine).toFixed(2)})`, blur: (22 + 30 * shine) * s, x: 0, y: 3 * s }, qa: ch.trim() ? undefined : false });
       x += w + track * size;
     });
     g.restore();
-  }
+  });
+  y += (lines.length - 1) * lh;
   y += size * 0.62;
   // hairline in the accent colour, growing from the centre
   const hl = ramp(t, 0.9, 0.7) * (V ? 0.5 : 0.26) * W;
