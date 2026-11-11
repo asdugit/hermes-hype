@@ -167,6 +167,17 @@ def test_new_jobs_record_their_process_start(tmp_path: Path) -> None:
     assert job["pid"] == os.getpid() and job["pid_started"] == process_started()
 
 
+def test_a_crashed_job_marked_stale_frees_its_render_chunks(tmp_path: Path) -> None:
+    store = JobStore(tmp_path)
+    job = store.create("s", {})
+    store.update(job["id"], stage="render", pid=2 ** 30)              # its process is gone
+    chunks = store.job_dir(job["id"]) / "video_16x9.chunks"
+    chunks.mkdir()
+    (chunks / "chunk_0000.mp4").write_bytes(b"x" * 1024)
+    assert store.mark_stale(now=time.time() + 60) == [job["id"]]
+    assert not chunks.exists() and store.load(job["id"])["error"]["code"] == "interrupted"
+
+
 # ------------------------------------------------------------------- two copies of showreel_core in one process
 
 def _second_copy() -> Any:

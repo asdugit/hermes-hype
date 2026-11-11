@@ -353,6 +353,8 @@ class JobStore:
                 continue
             self.update(job["id"], stage="failed", finished=now, error={"code": "interrupted",
                         "message": "The render stopped unexpectedly (Hermes restarted or the plugin unloaded)."})
+            with contextlib.suppress(Exception):
+                self.prune_work(job["id"])       # a crash left its render chunks/frames behind: free the disk
             marked.append(job["id"])
         return marked
 
@@ -373,7 +375,8 @@ class JobStore:
         return removed
 
     def prune_work(self, job_id: str) -> None:
-        """Drop bulky intermediates of a finished job (render chunks, extracted frames, stems)."""
+        """Drop bulky intermediates of a finished job (render chunks, extracted frames, stems, the silent render
+        once its muxed master exists, and the mix WAVs)."""
         d = self.job_dir(job_id)
         for pattern in ("chunks_*", "*.chunks", "frames_*"):
             for p in d.glob(pattern):
@@ -382,6 +385,13 @@ class JobStore:
             for p in d.rglob(pattern):
                 with contextlib.suppress(OSError):
                     p.unlink()
+        # The silent ``video_<tag>.mp4`` is as big as the film (~300 MB a minute at 1080p) and nothing reads it
+        # after ``hype_<tag>.mp4`` is muxed: keeping it doubled every job's footprint.
+        for p in [*d.glob("video_*.mp4"), *d.glob("mix_*/*.wav")]:
+            if p.suffix == ".mp4" and not (d / ("hype_" + p.name[len("video_"):])).is_file():
+                continue
+            with contextlib.suppress(OSError):
+                p.unlink()
 
 
 def public_view(job: dict[str, Any], log_tail: int = 30) -> dict[str, Any]:

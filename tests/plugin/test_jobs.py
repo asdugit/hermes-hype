@@ -144,6 +144,19 @@ def test_prune_work(store: JobStore) -> None:
     assert (d / "hype_16x9.mp4").exists()
 
 
+def test_prune_work_drops_the_silent_render_and_mix_wavs_once_the_master_exists(store: JobStore) -> None:
+    """A finished job kept its silent video_<tag>.mp4 (as big as the film) next to hype_<tag>.mp4."""
+    job = store.create("s", {})
+    d = store.job_dir(job["id"])
+    (d / "mix_16x9").mkdir()
+    for name in ("video_16x9.mp4", "hype_16x9.mp4", "video_9x16.mp4", "mix_16x9/mix.wav", "mix_16x9/music.wav"):
+        (d / name).write_bytes(b"x")
+    store.prune_work(job["id"])
+    assert (d / "hype_16x9.mp4").exists() and not (d / "video_16x9.mp4").exists()
+    assert (d / "video_9x16.mp4").exists()              # no muxed master for this aspect: keep the only copy
+    assert not list((d / "mix_16x9").glob("*.wav"))
+
+
 def test_concurrent_logs_and_reads_never_corrupt(store: JobStore) -> None:
     job = store.create("s", {})
     errors: list[BaseException] = []
