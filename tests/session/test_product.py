@@ -106,3 +106,23 @@ def test_deployed_url_and_digest_section(tmp_path):
     assert "Tide Clock" in b.digest
     web = next(e for e in b.events if e.kind == "artifact" and e.data["kind"] == "web")
     assert "tide-clock" in web.data["path"] and web.data["path"].count(str(tmp_path)) <= 1
+
+
+def test_template_default_names_never_name_the_product():
+    """Audit 2026-11-11: create-next-app's package name "my-app" (score 0.85) beat the project folder, so the film
+    was titled "my-app"; template names stay only as a last resort and still count as product evidence."""
+    t = Transcript()
+    t.user("build a little shop")
+    t.call("write_file", {"path": "/home/bob/shop/app/layout.tsx",
+                          "content": 'export const metadata = { title: "Create Next App" }'}, {"bytes_written": 50})
+    t.call("write_file", {"path": "/home/bob/shop/package.json",
+                          "content": json.dumps({"name": "my-app", "scripts": {"dev": "next dev"}})}, {"bytes_written": 60})
+    t.call("write_file", {"path": "/home/bob/shop/index.html",
+                          "content": "<html><head><title>Vite + React + TS</title></head></html>"}, {"bytes_written": 60})
+    t.say("Done.")
+    rep = infer_product(extract_events(t.rows).events, {})
+    assert rep.product.name == "shop" and rep.detected
+    t2 = Transcript()
+    t2.call("write_file", {"path": "/home/bob/x/package.json", "content": json.dumps({"name": "vite-project"})},
+            {"bytes_written": 30})
+    assert infer_product(extract_events(t2.rows).events, {}).product.name in ("x", "vite-project")

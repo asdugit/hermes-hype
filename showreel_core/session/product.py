@@ -48,6 +48,11 @@ ENTRY_NAMES = {"index.html", "main.py", "app.py", "server.py", "cli.py", "__main
                "game.js", "main.lua", "plugin.yaml", "manifest.json", "readme.md", "streamlit_app.py", "gradio_app.py"}
 _SKIP_DIRS = re.compile(r"(?i)(?:^|/)(?:node_modules|\.git|__pycache__|\.venv|venv|site-packages|dist-packages|"
                         r"\.cache|\.pytest_cache)(?:/|$)")
+#: names a project template ships with (package names, <title>s, Next metadata) - never the product's own name
+_SCAFFOLD_NAME_RE = re.compile(
+    r"(?i)^(?:vite(?:[-_ ]project|[-_ ]app)?|vite\s*\+\s*[\w.+\s]+|react[-_ ]?app|my[-_ ]?(?:react|vue|svelte|next|"
+    r"solid|preact|lit|qwik|vite)?[-_ ]?app|my[-_ ]project|create[-_ ]next[-_ ]app|next(?:js)?[-_ ]app|svelte[-_ ]?app|"
+    r"vue[-_ ]?project|welcome to (?:react|vite|next\.js|nginx!?)|expo[-_ ]app|tauri[-_ ]app|electron[-_ ]app)$")
 _LOCAL_URL_RE = re.compile(r"https?://(?:localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\]|[\w\-]+\.local)(?::\d{2,5})?(?:/[^\s\"'<>)\]]*)?", re.I)
 _DEPLOY_URL_RE = re.compile(
     r"https://[\w.\-]+\.(?:vercel\.app|netlify\.app|pages\.dev|github\.io|fly\.dev|onrender\.com|herokuapp\.com|"
@@ -189,6 +194,7 @@ def _manifest_bits(name: str, lines: list[str]) -> dict[str, Any]:
 class _Evidence:
     def __init__(self) -> None:
         self.names: list[tuple[float, str, str, str]] = []        # (score, name, source, event id)
+        self.scaffold_strong = False
         self.one_liners: list[tuple[float, str, str, str]] = []
         self.urls: "OrderedDict[str, dict[str, Any]]" = OrderedDict()
         self.ports: Counter[int] = Counter()
@@ -199,6 +205,9 @@ class _Evidence:
     def name(self, score: float, value: Any, source: str, eid: str) -> None:
         v = clip(str(value or "").strip().strip("\"'"), 60)
         if v and len(v) >= 2 and not v.lower().startswith(("untitled", "document", "readme", "index")):
+            if _SCAFFOLD_NAME_RE.match(v):
+                self.scaffold_strong = self.scaffold_strong or score >= 0.5   # still evidence of a product
+                score = min(score, 0.15)      # a template's default ("my-app", "Vite + React + TS"): last resort
             self.names.append((score, v, source, eid))
 
     def url(self, url: str, source: str, eid: str, score: float) -> None:
@@ -465,7 +474,7 @@ def _infer(events: list[Event], meta: dict[str, Any]) -> ProductReport:
     visual = any(e.kind == "artifact" and e.data.get("exists") and e.data.get("kind") in ("web", "image", "video", "audio", "pdf",
                                                                                          "model")
                  for e in events)
-    strong_name = bool(name_list) and name_list[0]["score"] >= 0.5
+    strong_name = (bool(name_list) and name_list[0]["score"] >= 0.5) or ev_.scaffold_strong
     conf = 0.0
     conf += 0.3 if strong_name else (0.1 if name_list else 0.0)
     conf += 0.25 if product.urls else 0.0
