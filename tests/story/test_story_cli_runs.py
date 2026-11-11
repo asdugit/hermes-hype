@@ -144,3 +144,25 @@ def test_overlong_strings_are_trimmed_not_rejected() -> None:
     done = trim_overlong(obj)
     assert len(done) == 2 and not [e for e in validate_schema(obj) if "characters" in e.message]
     assert len(obj["cta"]) <= 40 and not obj["cta"].endswith(" ")
+
+
+def test_readme_code_beats_show_only_a_code_block() -> None:
+    """#14: `# Shortly`, `## Features` and backticks were shown as a CODE beat."""
+    from showreel_core.story.timing import _code_window
+    prose = Event("e1", 1.0, "file_write", "write_file", "README.md", "",
+                  {"path": "README.md", "lines": ["# Shortly", "", "## Features", "- short links", "- stats"]})
+    usage = Event("e2", 2.0, "file_write", "write_file", "docs/USAGE.md", "",
+                  {"path": "docs/USAGE.md", "lines": ["# Usage", "", "```python", "from shortly import shorten",
+                                                      "print(shorten('https://example.com'))", "```", "", "More text."]})
+    evs = [Event("e0", 0.0, "user_prompt", "", "x", "", {"text": "Build Shortly"}), prose, usage]
+    facts = SessionFacts(evs, Stats(duration_s=60))
+    sb = Storyboard(title="Shortly", tagline="Links", cta="", mode="product", product=Product(name="Shortly", kind="api"),
+                    scenes=[StoryScene(T.TITLE, [], "", "Shortly"), StoryScene(T.CODE, ["e1"], "", "Docs"),
+                            StoryScene(T.CODE, ["e2"], "", "Usage", {"focus_lines": [1, 2]}),
+                            StoryScene(T.END, [], "", "")])
+    res = validate_storyboard(sb, facts, 30, "product")
+    codes = [s for s in res.storyboard.scenes if s.type == T.CODE]
+    assert [c.refs for c in codes] == [["e2"]] and codes[0].extra["focus_lines"] == [4, 5]
+    win = _code_window(usage, [4, 5], 12)
+    assert win["lines"] == ["from shortly import shorten", "print(shorten('https://example.com'))"]
+    assert win["lang"] == "python" and win["start"] == 4

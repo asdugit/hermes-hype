@@ -540,6 +540,21 @@ def _check_code(scene: StoryScene, path: str, ctx: _Ctx) -> bool:
     if not _check_primary(scene, path, ctx):
         return False
     ev = ctx.facts.by_id[scene.refs[0]]
+    path_name = str((ev.data or {}).get("path") or "").lower()
+    if SceneType(scene.type) == T.CODE and path_name.endswith((".md", ".markdown", ".rst")):
+        # raw markdown (`# Shortly`, `## Features`, backticks) is not code: show the doc's usage block or nothing
+        blocks = fenced_blocks(code_lines(ev))
+        if not blocks:
+            ctx.issue("markdown_code", f"{path}.refs[0]", "a README without a code block is not a CODE beat",
+                      "warning", fix="scene dropped")
+            return False
+        focus = scene.extra.get("focus_lines")
+        try:
+            inside = next(blk for blk in blocks if blk[0] <= int(focus[0]) <= blk[1])
+        except (TypeError, ValueError, IndexError, StopIteration):
+            inside = blocks[0]
+        scene.extra["focus_lines"] = [inside[0], inside[1]]
+        return True
     n = len(code_lines(ev)) if ev.kind == "file_write" else len(diff_rows(ev))
     focus = scene.extra.get("focus_lines")
     if focus is None:
@@ -1125,6 +1140,24 @@ def _enrich_runs(kept: list[tuple[int, StoryScene]], ctx: _Ctx, target_seconds: 
 
 
 _FENCE_RE = re.compile(r"^\s*```\s*([\w+-]*)\s*$")
+
+
+def fenced_blocks(lines: list[str], skip_shell: bool = False) -> list[tuple[int, int]]:
+    """1-based (first, last) body lines of the fenced code blocks in a markdown file."""
+    out: list[tuple[int, int]] = []
+    k = 0
+    while k < len(lines):
+        m = _FENCE_RE.match(lines[k])
+        if not m:
+            k += 1
+            continue
+        end = next((j for j in range(k + 1, len(lines)) if _FENCE_RE.match(lines[j])), None)
+        if end is None:
+            break
+        if end - k - 1 >= 1 and not (skip_shell and m.group(1).lower() in ("bash", "sh", "shell", "console", "text")):
+            out.append((k + 2, end))
+        k = end + 1
+    return out
 
 
 def readme_usage(facts: SessionFacts) -> tuple[str, int, int] | None:

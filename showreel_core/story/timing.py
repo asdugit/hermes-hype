@@ -541,6 +541,10 @@ def _code_window(ev: Event, focus: Any, size: int) -> dict[str, Any] | None:
         # a usage block inside a README: highlight it in the fence's language, not as markdown
         fence = next((ln.strip()[3:].strip() for ln in reversed(lines[:a]) if ln.strip().startswith("```")), "")
         lang = fence or lang
+        if fence or (a >= 2 and lines[a - 2].strip().startswith("```")):
+            # only the block's own lines: no markdown prose or fences around the code
+            close = next((j for j in range(a, n) if lines[j].strip().startswith("```")), n)   # 0-based fence row
+            start, end = a, min(close, a + size - 1)
     return {"path": str(data_get(ev, "path", ev.title)), "lang": lang,
             "lines": lines[start - 1:end], "start": start, "focus": [a, min(b, end)], "total_lines": n,
             "new_file": bool(data_get(ev, "new_file", True))}
