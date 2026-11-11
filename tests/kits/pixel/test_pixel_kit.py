@@ -4,6 +4,7 @@ safe area, valid cues) plus boss-battle schedule invariants. Node is optional: t
 from __future__ import annotations
 
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -133,6 +134,11 @@ def test_boss_schedule_walks_the_cursor_to_the_pick(node_report):
 
 
 def test_frame_budget(node_report):
-    """Scenes must stay cheap (Node, no GPU): <= 60 ms average per frame at game resolution."""
-    slow = {k: v for k, v in node_report["ms"].items() if v > 60}
+    """Scenes must stay cheap (Node, no GPU): <= 60 ms average per frame at game resolution.
+
+    Shared CI runners are 2-5x slower and noisy (a windows-latest run measured 150 ms for a 40 ms scene), so on
+    CI the budget only catches pathological regressions.
+    """
+    budget = 60 * (5 if os.environ.get("CI") else 1)
+    slow = {k: v for k, v in node_report["ms"].items() if v > budget}
     assert not slow, slow
