@@ -12,6 +12,7 @@ import asyncio
 import base64
 import contextlib
 import re
+import threading
 import time
 from pathlib import Path
 from typing import Any
@@ -220,6 +221,37 @@ class CapturePage:
             await conn.send("Target.disposeBrowserContext", {"browserContextId": self.context_id}, timeout=5)
 
 
+async def _launch_cancel_safe(cands: list[BrowserCandidate], *, profile_root: Path | None,
+                              extra_flags: list[str]) -> LaunchedBrowser:
+    """``launch_any`` in a worker thread. A cancel (user cancel, the stage's hard deadline) that lands while
+    Chromium is still starting does not orphan it: whichever side finishes second kills the browser."""
+    lock = threading.Lock()
+    state: dict[str, Any] = {"cancelled": False, "browser": None}
+
+    def work() -> LaunchedBrowser | None:
+        lb = launch_any(cands, gpu=False, window_size=(1440, 900), profile_root=profile_root, extra_flags=extra_flags)
+        with lock:
+            orphan = state["cancelled"]
+            if not orphan:
+                state["browser"] = lb
+        if orphan:
+            lb.kill(1.0)
+            return None
+        return lb
+
+    try:
+        lb = await asyncio.to_thread(work)
+    except BaseException:
+        with lock:
+            state["cancelled"] = True
+            lb = state["browser"]
+        if lb is not None:
+            lb.kill(0.5)
+        raise
+    assert lb is not None
+    return lb
+
+
 class CaptureBrowser:
     """A headless Chromium owned by one capture run. Use ``async with``; always killed on exit."""
 
@@ -243,8 +275,7 @@ class CaptureBrowser:
         if not cands:
             raise RenderError("no_browser", "no Chromium-based browser found", hint=NO_BROWSER_HINT)
         flags = [f"--host-resolver-rules={resolver_rules(self.allowed_hosts, open_dns=self.open_dns)}"]
-        self.launched = await asyncio.to_thread(launch_any, cands, gpu=False, window_size=(1440, 900),
-                                                profile_root=self.profile_root, extra_flags=flags)
+        self.launched = await _launch_cancel_safe(cands, profile_root=self.profile_root, extra_flags=flags)
         try:
             self.conn = await CDPConnection.connect(self.launched.ws_url, default_timeout=self.timeout_s)
             ver = await self.conn.send("Browser.getVersion")
@@ -263,14 +294,23 @@ class CaptureBrowser:
         await self._shutdown()
 
     async def _shutdown(self) -> None:
-        if self.conn is not None:
-            with contextlib.suppress(RenderError):
-                await self.conn.send("Browser.close", timeout=3)
-            await self.conn.close()
-            self.conn = None
-        if self.launched is not None:
-            await asyncio.to_thread(self.launched.kill, 1.0)
-            self.launched = None
+        # the kill runs even when this task is cancelled mid-shutdown (a stalled Browser.close at the hard deadline)
+        launched, self.launched = self.launched, None
+        conn, self.conn = self.conn, None
+        try:
+            if conn is not None:
+                try:
+                    with contextlib.suppress(RenderError):
+                        await conn.send("Browser.close", timeout=3)
+                finally:
+                    await conn.close()
+        finally:
+            if launched is not None:
+                try:
+                    await asyncio.to_thread(launched.kill, 1.0)
+                except BaseException:
+                    launched.kill(0.0)
+                    raise
 
     async def _on_target(self, msg: dict[str, Any]) -> None:
         info = msg.get("params", {}).get("targetInfo", {})
