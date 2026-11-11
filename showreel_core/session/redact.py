@@ -121,6 +121,7 @@ _GIT_NAME_RE = re.compile(
 _GIT_CONFIG_NAME_RE = re.compile(r"(user\.name\s*[= ]\s*)(?:([\"'])[^\"'\n]{1,80}\2|(?![\"'])\S+)")
 _PROMPT_RE = re.compile(r"(?<![\w.\-@/])[A-Za-z][\w.\-]{0,31}@[A-Za-z0-9][\w.\-]{0,62}"
                         r"(?=:[~/]|\s+[^\s@]{1,64}\s*[$#%](?:\s|$))")
+_MAC_PROMPT_RE = re.compile(r"(?m)^[ \t]*[A-Za-z0-9][\w\-]{0,62}:(?:~|[^\s/:$]{1,64}) [A-Za-z][\w.\-]{0,31}\$(?=\s|$)")
 #: login names too generic to identify anyone (never masked on their own)
 _GENERIC_USERS = {"user", "users", "admin", "administrator", "root", "runner", "ubuntu", "dev", "test", "home",
                   "guest", "public", "default", "vagrant", "app", "node", "docker", "ec2-user", "codespace",
@@ -340,6 +341,8 @@ class Redactor:
                 s = self._sub(rx, "~", s, "home")
         if "@" in s:
             s = self._sub(_PROMPT_RE, USER, s, "user")
+        if "$" in s and ":" in s:                        # macOS bash default prompt "Janes-MacBook:tempo jane$"
+            s = self._sub(_MAC_PROMPT_RE, USER + "$", s, "user")
         if self._login_re is not None:
             s = self._sub(self._login_re, lambda m: m.group(0)[:len(m.group(0)) - len(m.group(0).lstrip())] + USER,
                           s, "user")

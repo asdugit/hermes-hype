@@ -119,3 +119,10 @@ def test_commands_that_only_look_like_env_dumps_are_not_masked(cmd):
                data={"cmd": cmd, "output_lines": ["MODE=fast"]})
     redact_events([ev], Redactor(home="/home/tester"))
     assert ev.data["output_lines"] == ["MODE=fast"]
+
+
+def test_macos_bash_prompt_is_masked():
+    r = Redactor(home="/Users/tester")
+    assert r.text("Janes-MacBook-Pro:tempo jane$ npm test") == f"{USER}$ npm test"
+    assert r.text("Janes-MacBook-Pro:~ jane$") == f"{USER}$"
+    assert r.text("http://x.y:8080 a$") == "http://x.y:8080 a$" and r.text("echo $HOME:$PATH") == "echo $HOME:$PATH"
