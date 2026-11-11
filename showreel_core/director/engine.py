@@ -1665,6 +1665,10 @@ def _finish(r: _Run, best: Version | None, save_library: bool, t0: float) -> Dir
     film = dict(best.film)
     if narration:
         film["narration"] = narration
+    look = style_render(film)
+    if look and not (film.get("render") or {}).get("post"):
+        film["render"] = look                 # e.g. terminal's CRT: Quick films get it from kit.json, so do these
+        r.emit("final", f"Style post chain from the film's main kit: {look.get('post')}")
     film_path = r.job_dir / "film.json"
     film_path.write_text(json.dumps(film, indent=1, ensure_ascii=False), encoding="utf-8")
     saved = _save_library(r, best) if save_library and r.library_dir else []
@@ -1686,6 +1690,28 @@ def _finish(r: _Run, best: Version | None, save_library: bool, t0: float) -> Dir
                          tier={**r.tier.to_dict(), "path": r.path})
     r.save("result.json", {k: v for k, v in res.to_dict().items() if k != "log"})
     return res
+
+
+def style_render(film: dict[str, Any], kits_root: Path | None = None) -> dict[str, Any]:
+    """The `render` block (post chain) of the kit that fills most of the film's runtime, if that kit has one."""
+    root = kits_root or Path(__file__).resolve().parents[2] / "kits"
+    secs: dict[str, float] = {}
+    for s in film.get("shots") or []:
+        sc = str(s.get("scene", ""))
+        if sc.startswith("kit:"):
+            k = sc.split(":", 1)[1].split("/")[0]
+            secs[k] = secs.get(k, 0.0) + float(s["t1"]) - float(s["t0"])
+    if not secs:
+        return {}
+    kit, t = max(secs.items(), key=lambda x: x[1])
+    if t < 0.6 * float(film.get("dur") or 1.0):
+        return {}
+    try:
+        kj = json.loads((root / kit / "kit.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    rend = kj.get("render") if isinstance(kj.get("render"), dict) else {}
+    return copy.deepcopy(rend) if rend.get("post") else {}
 
 
 def _save_state(r: _Run, best: Version) -> None:
