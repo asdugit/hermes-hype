@@ -1,0 +1,32 @@
+/* Starter theme "anime" (CSS only): TV-opening title cards - heavy white display type, italic slant, a dark
+   outline and a hard red drop, yellow emphasis; the Director's anime mood puts every kit:type card in it. */
+.sr-theme-anime {
+  --sr-stage: #0b1430;
+  --sr-stage-bg: radial-gradient(110% 90% at 50% 45%, #1b2a5c 0%, #0f1a3d 60%, #070d22 100%);
+  --sr-grid: rgba(255,255,255,0);
+  --sr-fg: #FFFFFF; --sr-fg-2: #FFF3C4; --sr-fg-3: #C9D6FF;
+  --sr-accent: #FF2E4D; --sr-accent-ink: #FFFFFF; --sr-accent-hl: rgba(255,214,0,.35); --sr-accent-glow: rgba(255,46,77,.35);
+  --sr-paper: #101a3a; --sr-paper-2: #16224a; --sr-rule: rgba(255,255,255,.3);
+  --sr-ink: #FFFFFF; --sr-ink-2: #FFF3C4; --sr-ink-3: #C9D6FF; --sr-tone: #FFD600;
+  --sr-term: #0b1430; --sr-term-2: #101a3a; --sr-term-rule: rgba(255,255,255,.2); --sr-term-ink: #FFFFFF; --sr-term-dim: #C9D6FF;
+  --sr-del-hl: rgba(255,46,77,.2); --sr-fail: #FF2E4D;
+  --sr-plate: rgba(11,20,48,.85); --sr-plate-ink: #FFFFFF;
+  --sr-scrim-rgb: 8 12 40;
+  --sr-f-display: "Geist", sans-serif; --sr-w-display: 900; --sr-track-display: -0.02em; --sr-lead-display: .9;
+  --sr-case-display: uppercase;
+  --sr-w-h1: 900; --sr-track-h1: -0.02em;
+  --sr-em-style: italic; --sr-em-weight: 900; --sr-em-scale: 1.08; --sr-em-track: -0.02em;
+  --sr-r-panel: 0px; --sr-r-card: 0px; --sr-r-pill: 0px;
+  --sr-panel-edge: 0 0 0 3px #0b1430;
+  --sr-panel-shadow: 8px 8px 0 #FF2E4D;
+  --sr-term-edge: 0 0 0 3px #0b1430;
+  --sr-sheen: none;
+  --sr-vignette: radial-gradient(ellipse 85% 80% at 50% 46%, transparent 60%, rgba(8,12,40,.45) 100%);
+}
+.sr-theme-anime .srb-h1, .sr-theme-anime .srb-display {
+  font-style: italic; text-transform: uppercase; font-weight: 900;
+  -webkit-text-stroke: 3px #0b1430; paint-order: stroke fill;
+  text-shadow: 7px 7px 0 #FF2E4D, 12px 12px 0 rgba(11,20,48,.55) !important;
+}
+.sr-theme-anime .srb-em { color: #FFD600; }
+.sr-theme-anime .srb-soft { color: #FFF3C4; font-style: italic; }

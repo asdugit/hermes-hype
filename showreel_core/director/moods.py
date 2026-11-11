@@ -58,12 +58,12 @@ WORLDS: tuple[MoodWorld, ...] = (
         world=("an anime TV OPENING, not a documentary: high-energy hard cuts every 1-3 s between dynamic camera "
                "moments (in the Blender meadow: several short `blender:meadow/oner` shots at different `t_offset`s "
                "- the crane, the swoop, the flight alongside, the hero pass - hard-cut, never one slow take), "
-               "bold kinetic title cards in big display type (`kit:type/title`, one or two words, theme `comic`), "
+               "bold kinetic title cards in big display type (`kit:type/title`, one or two words, theme `anime`), "
                "a saturated sunset sky, an energetic bed; never the slow pastel golden-hour drift, never the "
                "dark glass room."),
         prefer=("anime-opening",),
         avoid=("kit:cinematic/", "kit:terminal/", "kit:blueprint/"),
-        params={"blender:meadow/": {"time_of_day": "sunset"}, "kit:type/": {"theme": "comic"},
+        params={"blender:meadow/": {"time_of_day": "sunset"}, "kit:type/": {"theme": "anime"},
                 "kit:nature/": {"time": "sunset"}},
         beds=("launch_", "pixel_boss", "comic_", "dream_b"), bed="launch_b"),
     MoodWorld(

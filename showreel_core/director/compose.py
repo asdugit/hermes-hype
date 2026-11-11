@@ -41,6 +41,7 @@ EVIDENCE = re.compile(r"\breal (hunks|file|session|test|plan|code|diff|stats)|ve
 TIMES = ("dawn", "golden", "sunset", "night", "pastel")
 VOICES = ("none", "sparse", "narrated")
 STYLE_KITS = ("launch", "cinematic", "comic", "ink", "terminal", "blueprint", "pixel")
+ONER_LENGTH = 25.4                                # blender:meadow/oner's designed move (its `length` default)
 
 
 @dataclass(frozen=True)
@@ -304,8 +305,9 @@ def _blender_blueprints() -> list[Blueprint]:
                         "pitch": 7, "wheel_rps": 0.0, "paint": "{paint}"},
              "beat": "the suspect steps out of the dark: rim first, then the hard key; blinds across the wall"},
             {"id": "clues", "share": (0.40, 0.56), "scene": "blender:studio/product_hero", "product": True,
-             "params": {"move": "macro", "env": "noir", "reveal": False, "yaw": -30, "paint": "{paint}"},
-             "beat": "the clues, close: a slow macro pass along the body, light catching the edges"},
+             "params": {"move": "orbit", "env": "noir", "reveal": False, "yaw": 70, "pitch": 2, "orbit_deg": 22,
+                        "fill": 0.95, "paint": "{paint}"},
+             "beat": "the clues, close: a low side profile sliding past, light catching the edges"},
             {"id": "tail", "share": (0.56, 0.80), "scene": "blender:studio/product_hero", "product": True,
              "params": {"move": "dolly", "env": "noir", "reveal": False, "yaw": -40, "pitch": 3, "orbit_deg": 24,
                         "fill": 0.8, "wheel_rps": 0.0, "paint": "{paint}"},
@@ -338,23 +340,23 @@ def _blender_blueprints() -> list[Blueprint]:
              "into a sky full of the product, low swoop, flight alongside, the hero pass) under huge kinetic title "
              "cards; saturated sunset sky; an energetic bed",
         shots=(
-            {"id": "sky", "share": (0.0, 0.14), "scene": "blender:meadow/oner", "product": True,
-             "params": {"time_of_day": "sunset", "t_offset": 2.4, "figure": True, "petals": 1.4, "crowd": 1.0},
+            {"id": "sky", "share": (0.0, 0.15), "scene": "blender:meadow/oner", "product": True,
+             "params": {"time_of_day": "sunset", "t_offset": 1.6, "figure": True, "petals": 1.4, "crowd": 1.0},
              "beat": "crane up: the sky full of the product"},
-            {"id": "swoop", "share": (0.14, 0.25), "scene": "blender:meadow/oner", "product": True,
-             "params": {"time_of_day": "sunset", "t_offset": 5.0, "figure": True, "petals": 1.4, "crowd": 1.0},
+            {"id": "swoop", "share": (0.15, 0.27), "scene": "blender:meadow/oner", "product": True,
+             "params": {"time_of_day": "sunset", "t_offset": 6.0, "figure": True, "petals": 1.4, "crowd": 1.0},
              "beat": "swoop low under a pass"},
-            {"id": "wing", "share": (0.25, 0.42), "scene": "blender:meadow/oner", "product": True,
-             "params": {"time_of_day": "sunset", "t_offset": 8.2, "figure": True, "petals": 1.2, "crowd": 1.0},
+            {"id": "wing", "share": (0.27, 0.44), "scene": "blender:meadow/oner", "product": True,
+             "params": {"time_of_day": "sunset", "t_offset": 9.6, "figure": True, "petals": 1.2, "crowd": 1.0},
              "beat": "flying alongside the product"},
-            {"id": "wave", "share": (0.42, 0.56), "scene": "blender:meadow/oner", "product": True,
+            {"id": "wave", "share": (0.44, 0.58), "scene": "blender:meadow/oner", "product": True,
              "params": {"time_of_day": "sunset", "t_offset": 14.6, "figure": True, "petals": 1.4, "crowd": 1.0},
              "beat": "she waves; the product pulls up"},
-            {"id": "hero", "share": (0.56, 0.86), "scene": "blender:meadow/oner", "product": True,
-             "params": {"time_of_day": "sunset", "t_offset": 18.4, "figure": True, "petals": 1.6, "crowd": 1.0},
+            {"id": "hero", "share": (0.58, 0.86), "scene": "blender:meadow/oner", "product": True,
+             "params": {"time_of_day": "sunset", "t_offset": 18.6, "figure": True, "petals": 1.6, "crowd": 1.0},
              "beat": "the hero close-up, light sweeping the paint"},
             {"id": "end", "share": (0.86, 1.0), "scene": "kit:type/end-lockup", "product": False,
-             "params": {"title": "{name}", "tagline": "{tagline}", "cta": "{cta}", "scrim": 0.45, "theme": "comic"},
+             "params": {"title": "{name}", "tagline": "{tagline}", "cta": "{cta}", "scrim": 0.45, "theme": "anime"},
              "beat": "the title card"},
         ),
         transitions=({"from": "sky", "to": "swoop", "type": "cut", "dur": 0.2},
@@ -363,12 +365,12 @@ def _blender_blueprints() -> list[Blueprint]:
                      {"from": "wave", "to": "hero", "type": "cut", "dur": 0.2},
                      {"from": "hero", "to": "end", "type": "crossfade", "dur": 0.4}),
         overlays=({"id": "shout", "share": (0.02, 0.13), "scene": "kit:type/title",
-                   "params": {"text": "<a 1-3 word shout, like an anime opening's first card>", "theme": "comic",
+                   "params": {"text": "<a 1-3 word shout, like an anime opening's first card>", "theme": "anime",
                               "scrim": 0.25}},
                   {"id": "name", "share": (0.26, 0.40), "scene": "kit:type/title",
-                   "params": {"text": "{NAME}", "sub": "<a 2-5 word hype line>", "theme": "comic", "scrim": 0.3}},
+                   "params": {"text": "{NAME}", "sub": "<a 2-5 word hype line>", "theme": "anime", "scrim": 0.3}},
                   {"id": "cry", "share": (0.44, 0.55), "scene": "kit:type/title",
-                   "params": {"text": "<a 1-3 word battle cry>", "theme": "comic", "band": "bottom", "scrim": 0.2}}),
+                   "params": {"text": "<a 1-3 word battle cry>", "theme": "anime", "band": "bottom", "scrim": 0.2}}),
         music=({"bed": "launch_b", "share": (0.0, 1.0)},), voice="sparse",
         finish={"grain": 0.02, "vignette": 0.12, "bloom": 0.2}, recipe="boss-battle",
         keywords=("anime", "opening", "shonen", "manga", "hype", "j-pop", "energetic", "op"),
@@ -852,6 +854,9 @@ def assemble(brief: Brief, bp: Blueprint, pick: dict[str, Any], texts: dict[str,
             params.setdefault("model", vals["model"])
         if s["scene"] == "blender:meadow/oner":
             params["time_of_day"] = vals["time"] if vals["time"] in ("sunset", "golden", "dawn") else "golden"
+            dur = float(s["t1"]) - float(s["t0"])          # never run past the designed move (the camera spline
+            ln = float(params.get("length") or ONER_LENGTH)  # extrapolates beyond it)
+            params["t_offset"] = round(max(0.0, min(float(params.get("t_offset") or 0.0), ln - dur)), 2)
         shot = {"id": s["id"], "t0": s["t0"], "t1": s["t1"], "scene": s["scene"], "res": s.get("res"),
                 "params": params}
         shots.append(shot)

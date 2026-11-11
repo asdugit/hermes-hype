@@ -4,7 +4,7 @@
   "entry": "kit.js",
   "describe": "Style-neutral DOM scenes for all 15 storyboard scene types, re-skinnable with theme tokens.",
   "requires": [],
-  "themes": ["base", "terminal", "blueprint", "comic", "ink", "noir"],
+  "themes": ["base", "terminal", "blueprint", "comic", "ink", "noir", "anime"],
   "scenes": ["HOOK", "TITLE", "PROBLEM", "PLAN", "CODE", "DIFF", "TERMINAL", "MONTAGE", "SCREEN", "STATS",
              "BEFORE_AFTER", "CALLOUT", "END", "FEATURE", "SCROLL"],
   "fonts": [
