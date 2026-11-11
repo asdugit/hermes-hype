@@ -175,3 +175,10 @@ def test_parses_as_an_es_module(tmp_path: Path) -> None:
     copy.write_bytes(JS.read_bytes())
     r = subprocess.run([node, "--check", str(copy)], capture_output=True, text=True, timeout=60)
     assert r.returncode == 0, r.stderr
+
+
+def test_energy_knob_takes_a_whole_row():
+    """W5-ship2: the 4-option Energy control clipped "High" in a 150 px knob column (pane 360-480 px, page 1280)."""
+    src = (ROOT / "desktop" / "plugin.js").read_text(encoding="utf-8")
+    assert "className: 'srl-knob srl-knob-wide', children: [jsx('span', { children: 'Energy' })" in src
+    assert ".srl-knob-wide{grid-column:1/-1}" in src and "grid-auto-flow:row dense" in src

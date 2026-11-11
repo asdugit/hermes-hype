@@ -359,6 +359,9 @@ check(listeners.has('plugin.showreel.job.progress'), '1 listens to plugin.showre
   typeInto($(v.div, 'input[type=color][aria-label="Accent colour"]'), '#ff4fa3')
   await waitFor(() => byText(v.div, 'button', 'Make customized showreel'), '3b the button says "Make customized showreel"')
   check(v.div.textContent.includes('customized'), '3b the summary says customized')
+  check($(v.div, '.srl-knob-wide [data-seg-opt=high]') !== null, '3b Energy takes a whole knobs row (4 segments never clip at 360-480 px)')
+  snap('make-customize', v)
+  if (SNAP) { const pg = await mount(pageRoute().render()); await openTab(pg, 'Make'); await sleep(200); snap('make-customize', pg, 'page'); await pg.unmount() }
   const before = calls('POST', '/jobs').length
   click(byText(v.div, 'button', 'Make customized showreel'))
   await waitFor(() => calls('POST', '/jobs').length === before + 1, '3b POST /jobs')

@@ -399,7 +399,7 @@ function KnobRow({ knobs, setKnob, vocab }) {
       jsx('input', { type: 'color', 'aria-label': 'Accent colour', value: knobs.accent || '#7f7f7f', onChange: e => setKnob('accent', e.target.value) }),
       knobs.accent ? jsx('button', { type: 'button', className: 'srl-link', 'aria-label': 'Clear accent', onClick: () => setKnob('accent', ''), children: 'auto' }) : null
     ] })] }),
-    jsxs('div', { className: 'srl-knob', children: [jsx('span', { children: 'Energy' }), jsx(Seg, { label: 'Energy', options: ENERGY_OPTS, value: knobs.energy || '', onChange: v => setKnob('energy', v) })] }),
+    jsxs('div', { className: 'srl-knob srl-knob-wide', children: [jsx('span', { children: 'Energy' }), jsx(Seg, { label: 'Energy', options: ENERGY_OPTS, value: knobs.energy || '', onChange: v => setKnob('energy', v) })] }),
     jsxs('label', { className: 'srl-knob', children: [jsx('span', { children: 'Music' }), jsx(Pick, { label: 'Music', value: knobs.music, options: opts(vocab.moods || FALLBACK_VOCAB.moods), onChange: v => setKnob('music', v) })] }),
     jsxs('label', { className: 'srl-knob', children: [jsx('span', { children: 'Font' }), jsx(Pick, { label: 'Font', value: knobs.font, options: opts(vocab.fonts || FALLBACK_VOCAB.fonts), onChange: v => setKnob('font', v) })] }),
     jsxs('label', { className: 'srl-knob', children: [jsx('span', { children: 'Voice' }), jsx(Pick, { label: 'Narration voice', value: knobs.voice, options: opts(vocab.voices || FALLBACK_VOCAB.voices), onChange: v => setKnob('voice', v) })] })
@@ -1621,7 +1621,10 @@ button.srl-card:hover{transform:translateY(-1px);box-shadow:inset 0 0 0 1px var(
 .srl-row>span:first-child{color:var(--ui-text-secondary);flex:none}
 .srl-row.is-dim{opacity:.55}
 .srl-examples{display:flex;flex-direction:column;gap:4px}
-.srl-knobs{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px 12px}
+.srl-knobs{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));grid-auto-flow:row dense;gap:8px 12px}
+.srl-knob-wide{grid-column:1/-1}
+.srl-knob .srl-seg{display:flex;flex-wrap:wrap;max-width:100%;align-self:flex-start}
+.srl-knob .srl-seg-opt{flex:1 0 auto;padding:3px 10px}
 .srl-knob{display:flex;flex-direction:column;gap:3px;font-size:11px;color:var(--ui-text-tertiary);min-width:0}
 .srl-knob-colour{display:flex;align-items:center;gap:8px}
 .srl-knob-colour input[type=color]{width:34px;height:24px;padding:0;border:0;border-radius:4px;background:transparent;cursor:pointer}

@@ -152,7 +152,7 @@ command-palette entries ("Showreel: make a trailer of this chat", lore, speedrun
 chip with live progress, and a Showreel card around the video player when the agent's `showreel_render` tool
 returns a film.
 
-![The Make page: kind of film, the seven styles with their preview loops, length, aspect, narration, effort and a free-text direction](docs/screenshots/studio-make.png)
+![The Make page: kind of film, the seven styles with their preview loops, length, aspect, narration, and "Customize this preset" (free text plus accent, energy, music, font and voice knobs) or Free roam for the Director](docs/screenshots/studio-make.png)
 
 ![Watching the Director work: treatment, scenes being coded, the critic's round-1 scores against the 8/10 bar and the keyframes it saw](docs/screenshots/studio-director.png)
 

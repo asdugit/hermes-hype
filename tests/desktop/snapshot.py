@@ -35,7 +35,7 @@ THEMES = {
               "--ui-bg-card": "#ffffff", "--ui-bg-quaternary": "#f0f1f3", "--ui-red": "#d84a4a", "--ui-green": "#2e9e5e",
               "--ui-yellow": "#c99a1c"},
 }
-SIZES = {"pane": (400, 1100), "page": (1280, 1000), "bar": (420, 40), "card": (660, 460)}
+SIZES = {"pane": (int(os.environ.get("SR_PANE_WIDTH") or 400), 1100), "page": (1280, 1000), "bar": (420, 40), "card": (660, 460)}
 STUB_CSS = """
 html,body{margin:0;background:var(--dt-background);color:var(--ui-text-primary);font:13px/1.45 system-ui,-apple-system,'Segoe UI',sans-serif}
 .frame{box-sizing:border-box;height:100vh;overflow:hidden}
